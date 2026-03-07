@@ -1,0 +1,10 @@
+seller_id: seller_001
+seller_name: "Sergey WB"
+timezone: "Europe/Moscow"
+tax_rate: 0.06
+
+email_reports_to:
+  - "owner@example.com"
+
+wb:
+  token_ref: "WB_TOKEN_SELLER_001"

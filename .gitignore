@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+ENV/
+.env
+
+# OS/editor
+.DS_Store
+.vscode/
+
+# Outputs
+out/
+audit/artifacts/
+
+# v3 multi-cabinet local secrets & raw data
+cabinets/**/secrets.env
+cabinets/**/data/raw/
+cabinets/**/reports/
+
+# local artifacts
+*.log

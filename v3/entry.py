@@ -1,0 +1,1135 @@
+﻿from __future__ import annotations
+import argparse
+import os
+import re
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List
+
+from .analysis.decision_engine import build_decisions
+from .analytics.abc_analysis import compute_abc
+from .analytics.profit_contribution import build_profit_contribution, save_profit_contribution
+from .analytics.sku_health import compute_sku_health
+from .analytics.territorial_distribution import build_territorial_distribution, save_territorial_distribution
+from .config import load_seller_config
+from .history.history_store import save_daily_history_snapshot
+from .history.trend_anomalies import build_trend_anomalies, save_trend_anomalies
+from .history.weekly_intelligence import build_weekly_intelligence, save_weekly_intelligence
+from .memory.decision_logger import log_decisions
+from .memory.decision_outcomes import evaluate_decision_outcomes, save_outcomes
+from .orchestrator import run_audit
+from .paths import artifacts_dir, cabinet_root, input_dir, reports_dir
+from .pdf_render import write_text_pdf
+from .quality_gate import compute_data_confidence
+from .sources.wb_reports_loader import (
+    build_facts_from_reports,
+    build_metrics_from_reports,
+    load_local_reports,
+)
+from .storage import write_json
+
+
+def _default_date() -> str:
+    return date.today().isoformat()
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _list_sellers(repo_root: str) -> List[str]:
+    cabinets = os.path.join(repo_root, "cabinets")
+    if not os.path.isdir(cabinets):
+        return []
+    return sorted(
+        name
+        for name in os.listdir(cabinets)
+        if not name.startswith("_") and os.path.isdir(os.path.join(cabinets, name))
+    )
+
+
+def _extract_sku_metrics(metrics: Any) -> List[Dict[str, Any]]:
+    if isinstance(metrics, list):
+        return [item for item in metrics if isinstance(item, dict)]
+    if not isinstance(metrics, dict):
+        return []
+
+    for key in ("sku_metrics", "items", "skus"):
+        value = metrics.get(key)
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+
+    by_sku = metrics.get("metrics_by_sku")
+    if isinstance(by_sku, dict):
+        rows: List[Dict[str, Any]] = []
+        for sku, payload in by_sku.items():
+            if isinstance(payload, dict):
+                row = dict(payload)
+                row.setdefault("sku", str(sku))
+                rows.append(row)
+        return rows
+    return []
+
+
+def _safe_float(value: Any) -> float:
+    try:
+        if value is None:
+            return 0.0
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _format_int(value: Any) -> str:
+    number = int(round(_safe_float(value)))
+    return f"{number:,}".replace(",", " ")
+
+
+def _format_money(value: Any) -> str:
+    amount = _safe_float(value)
+    rounded = int(round(amount))
+    return f"{rounded:,}".replace(",", " ") + " ₽"
+
+
+def _format_pct(value: Any) -> str:
+    return f"{_safe_float(value):.1f} %"
+
+
+def _format_ktr(value: Any) -> str:
+    return f"{_safe_float(value):.2f}"
+
+
+def _confidence_ru(value: str) -> str:
+    mapping = {
+        "high": "высокая",
+        "medium": "средняя",
+        "low": "низкая",
+    }
+    return mapping.get(str(value or "").strip().lower(), str(value or "низкая"))
+
+
+def _compact_sku_list(items: List[str], limit: int = 8) -> str:
+    clean = [str(x).strip() for x in items if str(x).strip()]
+    if not clean:
+        return "—"
+    if len(clean) <= limit:
+        return ", ".join(clean)
+    return ", ".join(clean[:limit]) + f" (+{len(clean) - limit})"
+
+
+def _top_profit_rows(
+    profit_contribution: Dict[str, Any],
+    sku_metrics: List[Dict[str, Any]],
+    abc_rows: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    abc_map = {str(row.get("sku") or ""): str(row.get("abc_class") or "") for row in abc_rows if isinstance(row, dict)}
+    pclass_map: Dict[str, str] = {}
+    for key, label in (("p1", "P1"), ("p2", "P2"), ("p3", "P3")):
+        rows = profit_contribution.get(key, [])
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if isinstance(row, dict):
+                sku = str(row.get("sku") or "").strip()
+                if sku:
+                    pclass_map[sku] = label
+
+    metrics_map = {
+        str(row.get("sku") or "").strip(): row
+        for row in sku_metrics
+        if isinstance(row, dict) and str(row.get("sku") or "").strip()
+    }
+    top = profit_contribution.get("top_profit_skus", [])
+    out: List[Dict[str, Any]] = []
+    if isinstance(top, list):
+        for row in top[:5]:
+            if not isinstance(row, dict):
+                continue
+            sku = str(row.get("sku") or "").strip()
+            if not sku:
+                continue
+            metrics_row = metrics_map.get(sku, {})
+            out.append(
+                {
+                    "sku": sku,
+                    "profit": _safe_float(metrics_row.get("profit", row.get("profit", 0.0))),
+                    "margin_pct": _safe_float(metrics_row.get("margin_pct", 0.0)),
+                    "profit_class": pclass_map.get(sku, ""),
+                    "abc_class": abc_map.get(sku, ""),
+                }
+            )
+
+    if out:
+        return out
+
+    fallback = sorted(
+        [row for row in sku_metrics if isinstance(row, dict)],
+        key=lambda x: _safe_float(x.get("profit", 0.0)),
+        reverse=True,
+    )[:5]
+    for row in fallback:
+        sku = str(row.get("sku") or "").strip()
+        if not sku:
+            continue
+        out.append(
+            {
+                "sku": sku,
+                "profit": _safe_float(row.get("profit", 0.0)),
+                "margin_pct": _safe_float(row.get("margin_pct", 0.0)),
+                "profit_class": pclass_map.get(sku, ""),
+                "abc_class": abc_map.get(sku, ""),
+            }
+        )
+    return out
+
+
+def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    keep_codes = {
+        "invalid_sku_filtered",
+        "unassigned_costs_detected",
+        "decision_memory_updated",
+        "decision_outcomes_evaluated",
+        "no_decisions_ready_for_outcome",
+        "sales_report_missing",
+        "ads_report_missing",
+        "stocks_report_missing",
+        "input_files_missing",
+        "low_total_profit",
+        "profit_concentration_high",
+        "wb_token_missing",
+        "territorial_distribution_built",
+        "insufficient_warehouse_data",
+        "high_ktr_detected",
+    }
+    seen: set[str] = set()
+    out: List[Dict[str, str]] = []
+    for item in warnings:
+        if not isinstance(item, dict):
+            continue
+        code = str(item.get("code") or "").strip()
+        if code not in keep_codes or code in seen:
+            continue
+        seen.add(code)
+        out.append({"code": code, "message": str(item.get("message") or "")})
+        if len(out) >= 7:
+            break
+    return out
+
+
+def _warning_message_ru(code: str, message: str) -> str:
+    text = str(message or "").strip()
+    number_match = re.search(r"(-?\d+)", text)
+    number = number_match.group(1) if number_match else None
+    mapping = {
+        "invalid_sku_filtered": (
+            f"Отфильтрованы невалидные SKU-строки: {number}."
+            if number is not None
+            else "Невалидные SKU-строки отфильтрованы."
+        ),
+        "unassigned_costs_detected": "Часть расходов не привязана к SKU и учтена отдельно.",
+        "decision_memory_updated": (
+            f"Память решений AI обновлена: добавлено {number} записей."
+            if number is not None
+            else "Память решений AI обновлена."
+        ),
+        "decision_outcomes_evaluated": (
+            f"Выполнена оценка результатов решений: {number}."
+            if number is not None
+            else "Выполнена оценка результатов прошлых решений."
+        ),
+        "no_decisions_ready_for_outcome": "Пока нет решений, готовых к оценке результата.",
+        "sales_report_missing": "Не найден валидный отчет продаж.",
+        "ads_report_missing": "Не найден валидный рекламный отчет.",
+        "stocks_report_missing": "Не найден валидный отчет остатков.",
+        "input_files_missing": "Во входной папке нет локальных отчетов.",
+        "low_total_profit": "Суммарная прибыль по SKU неположительная.",
+        "profit_concentration_high": "Концентрация прибыли в одном SKU слишком высокая.",
+        "wb_token_missing": "Отсутствует WB токен для внешнего источника.",
+        "territorial_distribution_built": (
+            f"Рассчитано территориальное распределение для {number} SKU."
+            if number is not None
+            else "Рассчитано территориальное распределение SKU."
+        ),
+        "insufficient_warehouse_data": "Недостаточно данных по складам для полного территориального анализа.",
+        "high_ktr_detected": (
+            f"Обнаружен высокий KTR у {number} SKU."
+            if number is not None
+            else "Обнаружены SKU с высоким KTR."
+        ),
+    }
+    base = mapping.get(code, text or "Предупреждение системы.")
+    if code == "profit_concentration_high" and text:
+        return text
+    return base
+
+
+def _build_key_insights(
+    facts: Dict[str, Any],
+    health_summary: Dict[str, Any],
+    outcomes_payload: Dict[str, Any],
+    decision_rows_added: int,
+) -> List[str]:
+    insights: List[str] = []
+    profit_summary = facts.get("profit_contribution_summary", {}) if isinstance(facts, dict) else {}
+    p1_count = int((profit_summary or {}).get("p1_count", 0) or 0)
+    if p1_count > 0:
+        insights.append(f"{p1_count} SKU формируют основную прибыль бизнеса (P1).")
+
+    liquidate = int((health_summary or {}).get("LIQUIDATE", 0) or 0)
+    if liquidate > 0:
+        insights.append(f"{liquidate} SKU находится в зоне ликвидации.")
+
+    data_quality = facts.get("data_quality", {}) if isinstance(facts, dict) else {}
+    invalid_rows = int((data_quality or {}).get("invalid_sku_rows", 0) or 0)
+    if invalid_rows > 0:
+        insights.append(f"{invalid_rows} строк расходов не привязаны к валидному SKU.")
+
+    memory_summary = facts.get("decision_memory_summary", {}) if isinstance(facts, dict) else {}
+    total_logged = int((memory_summary or {}).get("total_logged", 0) or 0)
+    if total_logged > 0:
+        insights.append(f"В памяти AI уже накоплено {total_logged} решений.")
+    if decision_rows_added > 0:
+        insights.append(f"В текущем запуске добавлено {decision_rows_added} новых решений в память.")
+
+    evaluated = int((outcomes_payload or {}).get("evaluated", 0) or 0)
+    if evaluated > 0:
+        results = outcomes_payload.get("results", {}) if isinstance(outcomes_payload, dict) else {}
+        success = int((results or {}).get("success", 0) or 0)
+        neutral = int((results or {}).get("neutral", 0) or 0)
+        fail = int((results or {}).get("fail", 0) or 0)
+        insights.append(f"Оценка решений: успешных {success}, нейтральных {neutral}, неудачных {fail}.")
+
+    if not insights:
+        insights.append("Ключевые показатели рассчитаны без критичных отклонений.")
+    return insights[:5]
+
+
+def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict[str, Any]:
+    cabinet_root(repo_root, seller_id, create=True)
+    reports_dir(repo_root, seller_id, create=True)
+    seller_input_dir = input_dir(repo_root, seller_id, create=True)
+    out_dir = artifacts_dir(repo_root, seller_id, create=True)
+    cfg = load_seller_config(repo_root, seller_id)
+
+    started_at = _utc_now_iso()
+    seller_name = str(cfg.get("seller_name") or seller_id)
+
+    local_bundle = load_local_reports(seller_input_dir)
+    discovered_files = local_bundle.get("files", {})
+    input_debug = local_bundle.get("debug", {})
+    warnings: List[Dict[str, Any]] = list(local_bundle.get("warnings", []))
+    sales_rows = list(local_bundle.get("sales_rows", []))
+    ads_rows = list(local_bundle.get("ads_rows", []))
+    stocks_rows = list(local_bundle.get("stocks_rows", []))
+
+    if sales_rows:
+        source_mode = "local_reports"
+        metrics = build_metrics_from_reports(sales_rows, ads_rows, stocks_rows)
+        metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
+        invalid_rows = int(metrics_data_quality.get("invalid_sku_rows", 0) or 0)
+        if invalid_rows > 0:
+            warnings.append(
+                {
+                    "code": "invalid_sku_filtered",
+                    "message": f"Filtered invalid SKU rows: {invalid_rows}",
+                }
+            )
+        if bool(metrics_data_quality.get("unassigned_costs_present", False)):
+            warnings.append(
+                {
+                    "code": "unassigned_costs_detected",
+                    "message": "Part of costs is not assigned to SKU and stored in unassigned_costs.",
+                }
+            )
+        facts = build_facts_from_reports(
+            seller_id=seller_id,
+            run_date=run_date,
+            seller_name=seller_name,
+            metrics=metrics,
+            discovered_files=discovered_files,
+            warnings=warnings,
+            source_mode=source_mode,
+        )
+    else:
+        source_mode = "fallback_mock"
+        token_ref = str(((cfg.get("wb") or {}).get("token_ref") or "")).strip()
+        if not token_ref or not os.getenv(token_ref, "").strip():
+            warnings.append(
+                {
+                    "code": "wb_token_missing",
+                    "message": f"WB token missing for token_ref={token_ref or '(empty)'}",
+                }
+            )
+
+        metrics = {
+            "sku_metrics": [],
+            "totals": {
+                "revenue": 0.0,
+                "profit": 0.0,
+                "orders": 0,
+                "buys": 0,
+                "stock": 0,
+                "ads_spend": 0.0,
+            },
+            "financial": {},
+            "funnel": {},
+            "ads": {},
+            "stock": {},
+            "unassigned_costs": {
+                "revenue": 0.0,
+                "profit": 0.0,
+                "logistics": 0.0,
+                "penalties": 0.0,
+                "storage": 0.0,
+                "deductions": 0.0,
+                "rows": 0,
+            },
+            "data_quality": {
+                "valid_sku_count": 0,
+                "invalid_sku_rows": 0,
+                "unassigned_costs_present": False,
+            },
+        }
+
+        facts = build_facts_from_reports(
+            seller_id=seller_id,
+            run_date=run_date,
+            seller_name=seller_name,
+            metrics=metrics,
+            discovered_files=discovered_files,
+            warnings=warnings,
+            source_mode=source_mode,
+        )
+        facts["data_confidence"] = compute_data_confidence(warnings)
+
+    confidence = str(facts.get("data_confidence", "low"))
+    input_summary = facts.get("input_summary", {}) if isinstance(facts, dict) else {}
+    data_quality = facts.get("data_quality", {}) if isinstance(facts, dict) else {}
+    unassigned_costs = metrics.get("unassigned_costs", {}) if isinstance(metrics, dict) else {}
+
+    sku_metrics = _extract_sku_metrics(metrics)
+    abc_rows = compute_abc(sku_metrics)
+    abc_summary = {"A": 0, "B": 0, "C": 0}
+    for row in abc_rows:
+        cls = str(row.get("abc_class", ""))
+        if cls in abc_summary:
+            abc_summary[cls] += 1
+
+    profit_contribution = build_profit_contribution(metrics if isinstance(metrics, dict) else {})
+    p1_rows = profit_contribution.get("p1", []) if isinstance(profit_contribution, dict) else []
+    p2_rows = profit_contribution.get("p2", []) if isinstance(profit_contribution, dict) else []
+    p3_rows = profit_contribution.get("p3", []) if isinstance(profit_contribution, dict) else []
+    top_profit_rows = profit_contribution.get("top_profit_skus", []) if isinstance(profit_contribution, dict) else []
+    profit_meta = profit_contribution.get("meta", {}) if isinstance(profit_contribution, dict) else {}
+    total_profit = float(profit_meta.get("total_profit", 0.0) or 0.0)
+
+    if total_profit <= 0:
+        warnings.append(
+            {
+                "code": "low_total_profit",
+                "message": "Total SKU profit is non-positive; profit contribution shares set to 0.",
+            }
+        )
+    if isinstance(top_profit_rows, list) and top_profit_rows:
+        top_share = float((top_profit_rows[0] or {}).get("profit_share", 0.0) or 0.0)
+        if top_share > 0.5:
+            warnings.append(
+                {
+                    "code": "profit_concentration_high",
+                    "message": f"Top SKU contributes {round(top_share, 4)} of total profit.",
+                }
+            )
+
+    facts["profit_contribution_summary"] = {
+        "p1_count": len(p1_rows) if isinstance(p1_rows, list) else 0,
+        "p2_count": len(p2_rows) if isinstance(p2_rows, list) else 0,
+        "p3_count": len(p3_rows) if isinstance(p3_rows, list) else 0,
+        "top_profit_skus": [
+            str(item.get("sku"))
+            for item in (top_profit_rows if isinstance(top_profit_rows, list) else [])
+            if isinstance(item, dict) and str(item.get("sku") or "").strip()
+        ][:5],
+    }
+
+    territorial_input: Dict[str, Any] = dict(metrics if isinstance(metrics, dict) else {})
+    territorial_input["sales_rows"] = sales_rows
+    territorial_input["stocks_rows"] = stocks_rows
+    territorial_distribution = build_territorial_distribution(
+        territorial_input,
+        stocks_raw=stocks_rows,
+        seller_id=seller_id,
+        run_date=run_date,
+    )
+    territorial_summary = (
+        territorial_distribution.get("summary", {}) if isinstance(territorial_distribution, dict) else {}
+    )
+    if not isinstance(territorial_summary, dict):
+        territorial_summary = {}
+    sku_total = int(territorial_summary.get("sku_total", territorial_summary.get("sku_analyzed", 0)) or 0)
+    sku_with_ktr = int(
+        territorial_summary.get(
+            "sku_with_ktr",
+            int(territorial_summary.get("balanced_count", 0) or 0)
+            + int(territorial_summary.get("moderate_mismatch_count", 0) or 0)
+            + int(territorial_summary.get("misallocated_count", 0) or 0),
+        )
+        or 0
+    )
+    insufficient_distribution_data_count = int(
+        territorial_summary.get("insufficient_distribution_data_count", territorial_summary.get("insufficient_data_count", 0))
+        or 0
+    )
+    no_stock_data_count = int(territorial_summary.get("no_stock_data_count", 0) or 0)
+    insufficient_total_count = int(
+        territorial_summary.get("insufficient_total_count", territorial_summary.get("insufficient_data_count", 0)) or 0
+    )
+    facts["territorial_distribution_summary"] = {
+        "sku_total": sku_total,
+        "sku_with_ktr": sku_with_ktr,
+        "balanced_count": int(territorial_summary.get("balanced_count", 0) or 0),
+        "moderate_mismatch_count": int(territorial_summary.get("moderate_mismatch_count", 0) or 0),
+        "misallocated_count": int(territorial_summary.get("misallocated_count", 0) or 0),
+        "insufficient_distribution_data_count": insufficient_distribution_data_count,
+        "no_stock_data_count": no_stock_data_count,
+        "insufficient_total_count": insufficient_total_count,
+        "avg_ktr": float(territorial_summary.get("avg_ktr", 0.0) or 0.0),
+        "top_misaligned_skus": (
+            [
+                str(value)
+                for value in territorial_summary.get("top_misaligned_skus", [])
+                if str(value or "").strip()
+            ][:5]
+            if isinstance(territorial_summary.get("top_misaligned_skus"), list)
+            else []
+        ),
+    }
+
+    warnings.append(
+        {
+            "code": "territorial_distribution_built",
+            "message": f"Territorial distribution built for {sku_with_ktr} SKU with KTR",
+        }
+    )
+    if insufficient_total_count > 0:
+        warnings.append(
+            {
+                "code": "insufficient_warehouse_data",
+                "message": "Insufficient warehouse-level data for full territorial analysis",
+            }
+        )
+    high_ktr_count = int(territorial_summary.get("misallocated_count", 0) or 0)
+    if high_ktr_count > 0:
+        warnings.append(
+            {
+                "code": "high_ktr_detected",
+                "message": f"High KTR detected for {high_ktr_count} SKU",
+            }
+        )
+
+    health_payload = compute_sku_health(facts, metrics)
+    health_summary = health_payload.get("summary", {}) if isinstance(health_payload, dict) else {}
+    decisions_payload = build_decisions(metrics, abc_rows, health_payload, territorial_distribution)
+    decisions_summary = decisions_payload.get("summary", {}) if isinstance(decisions_payload, dict) else {}
+
+    job = {
+        "seller_id": seller_id,
+        "mode": "daily",
+        "run_date": run_date,
+        "status": "success",
+        "started_at": started_at,
+        "finished_at": _utc_now_iso(),
+        "error": None,
+        "artifacts_dir": out_dir,
+        "input_debug": input_debug,
+        "artifacts": [
+            "job.json",
+            "facts.json",
+            "metrics.json",
+            "warnings.json",
+            "abc_analysis.json",
+            "profit_contribution.json",
+            "territorial_distribution.json",
+            "health_score.json",
+            "decisions.json",
+            "memory/decision_memory.jsonl",
+            f"memory/outcomes/{run_date}_outcomes.json",
+            f"history/daily/{run_date}/",
+            "history/history_index.json",
+            "report_meta.json",
+            "report.pdf",
+        ],
+    }
+
+    write_json(os.path.join(out_dir, "metrics.json"), metrics)
+    write_json(os.path.join(out_dir, "abc_analysis.json"), abc_rows)
+    save_profit_contribution(os.path.join(out_dir, "profit_contribution.json"), profit_contribution)
+    save_territorial_distribution(Path(out_dir) / "territorial_distribution.json", territorial_distribution)
+    write_json(os.path.join(out_dir, "health_score.json"), health_payload)
+    write_json(os.path.join(out_dir, "decisions.json"), decisions_payload)
+
+    decision_rows_added = log_decisions(
+        seller_id=seller_id,
+        run_date=run_date,
+        metrics=metrics if isinstance(metrics, dict) else {},
+        decisions=decisions_payload if isinstance(decisions_payload, dict) else {},
+        artifacts_dir=Path(out_dir),
+    )
+    if decision_rows_added > 0:
+        warnings.append(
+            {
+                "code": "decision_memory_updated",
+                "message": f"Decision memory updated: added {decision_rows_added} records.",
+            }
+        )
+    job["decision_memory_added"] = decision_rows_added
+
+    memory_dir = Path(out_dir).parent / "memory"
+    outcomes_payload = evaluate_decision_outcomes(
+        seller_id=seller_id,
+        run_date=run_date,
+        artifacts_dir=Path(out_dir),
+        memory_dir=memory_dir,
+    )
+    outcomes_file = save_outcomes(
+        seller_id=seller_id,
+        run_date=run_date,
+        outcomes=outcomes_payload,
+        memory_dir=memory_dir,
+    )
+    outcomes_evaluated = int(outcomes_payload.get("evaluated", 0) or 0)
+    if outcomes_evaluated > 0:
+        warnings.append(
+            {
+                "code": "decision_outcomes_evaluated",
+                "message": f"Decision outcomes evaluated: {outcomes_evaluated}",
+            }
+        )
+    else:
+        warnings.append(
+            {
+                "code": "no_decisions_ready_for_outcome",
+                "message": "No decisions are ready for outcome evaluation yet",
+            }
+        )
+
+    decision_memory_summary = outcomes_payload.get("decision_memory_summary", {})
+    if not isinstance(decision_memory_summary, dict):
+        decision_memory_summary = {}
+    facts["decision_memory_summary"] = {
+        "total_logged": int(decision_memory_summary.get("total_logged", 0) or 0),
+        "pending": int(decision_memory_summary.get("pending", 0) or 0),
+        "success": int(decision_memory_summary.get("success", 0) or 0),
+        "fail": int(decision_memory_summary.get("fail", 0) or 0),
+        "neutral": int(decision_memory_summary.get("neutral", 0) or 0),
+    }
+    job["decision_outcomes_evaluated"] = outcomes_evaluated
+    job["decision_outcomes_file"] = str(outcomes_file)
+
+    write_json(os.path.join(out_dir, "facts.json"), facts)
+    write_json(os.path.join(out_dir, "warnings.json"), warnings)
+    totals = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
+    profit_rows = _top_profit_rows(
+        profit_contribution=profit_contribution if isinstance(profit_contribution, dict) else {},
+        sku_metrics=sku_metrics,
+        abc_rows=abc_rows,
+    )
+    key_insights = _build_key_insights(
+        facts=facts,
+        health_summary=health_summary if isinstance(health_summary, dict) else {},
+        outcomes_payload=outcomes_payload if isinstance(outcomes_payload, dict) else {},
+        decision_rows_added=decision_rows_added,
+    )
+
+    page_1: List[str] = [
+        "# WB AI Agent — Отчет по кабинету",
+        f"### Кабинет: {seller_id}",
+        f"### Дата отчета: {run_date}",
+        f"### Уверенность данных: {_confidence_ru(confidence)}",
+        "",
+        "## КЛЮЧЕВЫЕ KPI",
+        "Показатель | Значение",
+        f"Выручка | {_format_money(totals.get('revenue', 0.0))}",
+        f"Прибыль | {_format_money(totals.get('profit', 0.0))}",
+        f"Количество SKU | {_format_int(len(sku_metrics))}",
+        f"Выкупы / Заказы | {_format_int(totals.get('buys', 0))} / {_format_int(totals.get('orders', 0))}",
+        f"Расходы на рекламу | {_format_money(totals.get('ads_spend', 0.0))}",
+        "",
+        "## КЛЮЧЕВЫЕ ВЫВОДЫ",
+    ]
+    page_1.extend(f"- {line}" for line in key_insights)
+    balanced_count = int(territorial_summary.get("balanced_count", 0) or 0)
+    moderate_count = int(territorial_summary.get("moderate_mismatch_count", 0) or 0)
+    misallocated_count = int(territorial_summary.get("misallocated_count", 0) or 0)
+    analyzed_with_ktr = int(
+        territorial_summary.get("sku_with_ktr", balanced_count + moderate_count + misallocated_count) or 0
+    )
+    top_misaligned_pdf = territorial_summary.get("top_misaligned_skus", [])
+    if not isinstance(top_misaligned_pdf, list):
+        top_misaligned_pdf = []
+    top_misaligned_pdf = [str(x).strip() for x in top_misaligned_pdf if str(x).strip()]
+    territorial_items = territorial_distribution.get("skus", []) if isinstance(territorial_distribution, dict) else []
+    if not isinstance(territorial_items, list) and isinstance(territorial_distribution, dict):
+        territorial_items = territorial_distribution.get("items", [])
+    if not isinstance(territorial_items, list):
+        territorial_items = []
+    confidence_by_sku: Dict[str, str] = {}
+    for item in territorial_items:
+        if not isinstance(item, dict):
+            continue
+        sku = str(item.get("sku") or "").strip()
+        if not sku:
+            continue
+        confidence_by_sku[sku] = str(item.get("confidence") or "").strip().lower()
+    top_misaligned_confident = [sku for sku in top_misaligned_pdf if confidence_by_sku.get(sku) != "low"]
+    excluded_low_conf_count = len([sku for sku in top_misaligned_pdf if confidence_by_sku.get(sku) == "low"])
+    low_conf_ktr_count = sum(
+        1
+        for item in territorial_items
+        if isinstance(item, dict)
+        and _safe_float(item.get("ktr")) > 0
+        and str(item.get("confidence") or "").strip().lower() == "low"
+    )
+    top_misaligned_text = _compact_sku_list(top_misaligned_confident, limit=3)
+
+    page_1.extend(["", "## ТЕРРИТОРИАЛЬНОЕ РАСПРЕДЕЛЕНИЕ"])
+    if analyzed_with_ktr <= 0:
+        page_1.append("- Недостаточно данных для анализа территориального распределения")
+    else:
+        page_1.append(f"- Средний КТР по кабинету: {_format_ktr(territorial_summary.get('avg_ktr', 0.0))}")
+        page_1.append(f"- Хорошо распределены: {_format_int(balanced_count)} SKU")
+        page_1.append(f"- Есть перекос: {_format_int(moderate_count + misallocated_count)} SKU")
+        if top_misaligned_confident:
+            page_1.append(f"- Наибольший перекос (confidence medium/high): {top_misaligned_text}")
+        elif top_misaligned_pdf:
+            page_1.append("- Наибольший перекос: только low-confidence SKU (total_buys < 3)")
+        else:
+            page_1.append("- Наибольший перекос: —")
+        if excluded_low_conf_count > 0:
+            page_1.append(f"- Исключено low-confidence SKU из топа: {_format_int(excluded_low_conf_count)}")
+        if low_conf_ktr_count > 0:
+            page_1.append(
+                f"- Low-confidence KTR (total_buys < 3): {_format_int(low_conf_ktr_count)} SKU, интерпретировать осторожно"
+            )
+
+    page_1.extend(["", "## ТОП SKU ПО ПРИБЫЛИ", "SKU | Прибыль | Маржа | Класс прибыли | ABC"])
+    if profit_rows:
+        for row in profit_rows[:5]:
+            page_1.append(
+                f"{row.get('sku', 'n/a')} | "
+                f"{_format_money(row.get('profit', 0.0))} | "
+                f"{_format_pct(row.get('margin_pct', 0.0))} | "
+                f"{str(row.get('profit_class', '-') or '-')} | "
+                f"{str(row.get('abc_class', '-') or '-')}"
+            )
+    else:
+        page_1.append("Нет данных по SKU.")
+
+    decision_groups: Dict[str, List[Dict[str, Any]]] = {}
+    if isinstance(decisions_summary, dict):
+        for key in ("scale", "fix", "watch", "liquidate"):
+            rows = decisions_summary.get(key, [])
+            decision_groups[key] = [x for x in rows if isinstance(x, dict)] if isinstance(rows, list) else []
+    else:
+        decision_groups = {"scale": [], "fix": [], "watch": [], "liquidate": []}
+
+    status_labels = {
+        "scale": "МАСШТАБИРОВАТЬ (SCALE)",
+        "fix": "ИСПРАВИТЬ (FIX)",
+        "watch": "НАБЛЮДАТЬ (WATCH)",
+        "liquidate": "ЛИКВИДИРОВАТЬ (LIQUIDATE)",
+    }
+
+    page_2: List[str] = [
+        "# СТАТУС SKU И РЕШЕНИЯ AI",
+        "## СТАТУС SKU",
+        f"- {status_labels['scale']}: {_format_int(len(decision_groups['scale']))} — "
+        f"{_compact_sku_list([str(x.get('sku') or '').strip() for x in decision_groups['scale']])}",
+        f"- {status_labels['fix']}: {_format_int(len(decision_groups['fix']))} — "
+        f"{_compact_sku_list([str(x.get('sku') or '').strip() for x in decision_groups['fix']])}",
+        f"- {status_labels['watch']}: {_format_int(len(decision_groups['watch']))} — "
+        f"{_compact_sku_list([str(x.get('sku') or '').strip() for x in decision_groups['watch']])}",
+        f"- {status_labels['liquidate']}: {_format_int(len(decision_groups['liquidate']))} — "
+        f"{_compact_sku_list([str(x.get('sku') or '').strip() for x in decision_groups['liquidate']])}",
+        "",
+        "## РЕШЕНИЯ AI",
+    ]
+
+    def _append_decision_group(page: List[str], group_key: str) -> None:
+        page.append(f"### {status_labels[group_key]}")
+        rows = decision_groups.get(group_key, [])
+        if not rows:
+            page.append("- Нет SKU в этой группе.")
+            page.append("")
+            return
+        for row in rows:
+            sku = str(row.get("sku") or "n/a")
+            action_text = str(row.get("action") or "").strip() or "Решение не задано"
+            page.append(f"- SKU {sku} — прибыль {_format_money(row.get('profit', 0.0))} — {action_text.lower()}")
+        page.append("")
+
+    _append_decision_group(page_2, "scale")
+    _append_decision_group(page_2, "fix")
+    _append_decision_group(page_2, "watch")
+    _append_decision_group(page_2, "liquidate")
+
+    memory_summary = facts.get("decision_memory_summary", {}) if isinstance(facts, dict) else {}
+    important_warnings = _important_warnings(warnings)
+
+    page_3: List[str] = [
+        "# ОБУЧЕНИЕ AI И КАЧЕСТВО ДАННЫХ",
+        "## ПАМЯТЬ РЕШЕНИЙ AI",
+        "Показатель | Значение",
+        f"Всего решений | {_format_int(memory_summary.get('total_logged', 0))}",
+        f"Ожидают оценки | {_format_int(memory_summary.get('pending', 0))}",
+        f"Успешных | {_format_int(memory_summary.get('success', 0))}",
+        f"Неудачных | {_format_int(memory_summary.get('fail', 0))}",
+        f"Нейтральных | {_format_int(memory_summary.get('neutral', 0))}",
+    ]
+    if outcomes_evaluated > 0:
+        outcome_results = outcomes_payload.get("results", {}) if isinstance(outcomes_payload, dict) else {}
+        page_3.append(
+            f"- AI оценил {_format_int(outcomes_evaluated)} прошлых решений: "
+            f"{_format_int(outcome_results.get('success', 0))} успешных, "
+            f"{_format_int(outcome_results.get('neutral', 0))} нейтральных, "
+            f"{_format_int(outcome_results.get('fail', 0))} неудачных."
+        )
+
+    page_3.extend(
+        [
+            "",
+            "## КАЧЕСТВО ДАННЫХ",
+            "Показатель | Значение",
+            f"Валидные SKU | {_format_int(data_quality.get('valid_sku_count', 0))}",
+            f"Невалидные строки | {_format_int(data_quality.get('invalid_sku_rows', 0))}",
+            f"Расходы без SKU | {'Да' if bool(data_quality.get('unassigned_costs_present', False)) else 'Нет'}",
+        ]
+    )
+    if bool(data_quality.get("unassigned_costs_present", False)):
+        page_3.append("- Часть расходов не привязана к SKU и учтена отдельно.")
+
+    page_3.extend(["", "## ПРЕДУПРЕЖДЕНИЯ СИСТЕМЫ"])
+    if important_warnings:
+        for item in important_warnings:
+            code = str(item.get("code") or "")
+            message = _warning_message_ru(code, str(item.get("message") or ""))
+            page_3.append(f"- {message}")
+    else:
+        page_3.append("- Важных предупреждений нет.")
+
+    report_pages: List[List[str]] = [page_1, page_2, page_3]
+    pdf_lines: List[str] = []
+    for idx, page in enumerate(report_pages):
+        if idx > 0:
+            pdf_lines.append("\f")
+        pdf_lines.extend(page)
+
+    font_info = write_text_pdf(os.path.join(out_dir, "report.pdf"), pdf_lines)
+    job["pdf_font"] = {
+        "family": font_info.get("family", ""),
+        "regular": font_info.get("regular", ""),
+        "bold": font_info.get("bold", ""),
+    }
+    report_meta: Dict[str, Any] = {
+        "pdf_path": os.path.join(out_dir, "report.pdf"),
+        "font": job["pdf_font"],
+        "pages": int(str(font_info.get("pages", "1"))),
+    }
+    report_meta["page_previews"] = [
+        {"page": page_idx + 1, "lines": page[:30]} for page_idx, page in enumerate(report_pages)
+    ]
+
+    write_json(os.path.join(out_dir, "report_meta.json"), report_meta)
+    history_dir = Path(out_dir).parent / "history"
+    history_snapshot = save_daily_history_snapshot(
+        seller_id=seller_id,
+        run_date=run_date,
+        artifacts_dir=Path(out_dir),
+        history_dir=history_dir,
+    )
+    history_summary = history_snapshot.get("history_summary", {}) if isinstance(history_snapshot, dict) else {}
+    if not isinstance(history_summary, dict):
+        history_summary = {}
+
+    facts["history_summary"] = {
+        "snapshots_count": int(history_summary.get("snapshots_count", 0) or 0),
+        "latest_snapshot_date": str(history_summary.get("latest_snapshot_date") or run_date),
+    }
+
+    warnings.append(
+        {
+            "code": "history_snapshot_saved",
+            "message": f"History snapshot saved for {run_date}",
+        }
+    )
+    write_json(os.path.join(out_dir, "facts.json"), facts)
+    write_json(os.path.join(out_dir, "warnings.json"), warnings)
+
+    history_snapshot_final = save_daily_history_snapshot(
+        seller_id=seller_id,
+        run_date=run_date,
+        artifacts_dir=Path(out_dir),
+        history_dir=history_dir,
+    )
+    job["history_snapshot"] = {
+        "date": run_date,
+        "path": str((history_snapshot_final or {}).get("snapshot_path", "")),
+        "files": (history_snapshot_final or {}).get("files", []),
+    }
+    write_json(os.path.join(out_dir, "job.json"), job)
+
+    return job
+
+
+def _run_daily(repo_root: str, seller_id: str | None, run_date: str) -> List[Dict[str, Any]]:
+    sellers = [seller_id] if seller_id else _list_sellers(repo_root)
+    return [_run_daily_for_seller(repo_root, current, run_date) for current in sellers]
+
+
+def _run_weekly_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict[str, Any]:
+    cabinet_root(repo_root, seller_id, create=True)
+    out_dir = artifacts_dir(repo_root, seller_id, create=True)
+    history_dir = Path(repo_root) / "cabinets" / seller_id / "history"
+
+    started_at = _utc_now_iso()
+    weekly_data = build_weekly_intelligence(
+        seller_id=seller_id,
+        history_dir=history_dir,
+        run_date=run_date,
+    )
+    weekly_path = save_weekly_intelligence(
+        seller_id=seller_id,
+        artifacts_dir=Path(out_dir),
+        data=weekly_data,
+    )
+    trend_data = build_trend_anomalies(
+        seller_id=seller_id,
+        run_date=run_date,
+        history_dir=history_dir,
+    )
+    trend_path = save_trend_anomalies(
+        artifacts_dir=Path(out_dir),
+        data=trend_data,
+    )
+
+    snapshots_used = int(weekly_data.get("snapshots_used", 0) or 0)
+    anomaly_snapshots_used = int(trend_data.get("snapshots_used", 0) or 0)
+    warnings: List[Dict[str, Any]] = [
+        {
+            "code": "weekly_intelligence_built",
+            "message": f"Weekly intelligence built from {snapshots_used} snapshots",
+        },
+        {
+            "code": "trend_anomalies_built",
+            "message": f"Trend anomalies built from {anomaly_snapshots_used} snapshots",
+        }
+    ]
+    if snapshots_used < 7:
+        warnings.append(
+            {
+                "code": "insufficient_history_for_full_weekly",
+                "message": f"Only {snapshots_used} snapshots available; full 7-day analysis is limited",
+            }
+        )
+    if anomaly_snapshots_used < 3:
+        warnings.append(
+            {
+                "code": "insufficient_history_for_anomaly_detection",
+                "message": f"Only {anomaly_snapshots_used} snapshots available; anomaly detection is limited",
+            }
+        )
+
+    kpi_trends = weekly_data.get("kpi_trends", {}) if isinstance(weekly_data, dict) else {}
+    if not isinstance(kpi_trends, dict):
+        kpi_trends = {}
+    anomaly_summary = trend_data.get("summary", {}) if isinstance(trend_data, dict) else {}
+    if not isinstance(anomaly_summary, dict):
+        anomaly_summary = {}
+
+    weekly_facts = {
+        "seller_id": seller_id,
+        "run_date": run_date,
+        "window_days": int(weekly_data.get("window_days", 7) or 7),
+        "snapshots_used": snapshots_used,
+        "weekly_summary": {
+            "revenue_delta_pct": (kpi_trends.get("revenue") or {}).get("delta_pct"),
+            "profit_delta_pct": (kpi_trends.get("profit") or {}).get("delta_pct"),
+            "buyouts_delta_pct": (kpi_trends.get("buyouts") or {}).get("delta_pct"),
+        },
+        "anomaly_summary": {
+            "total_anomalies": int(anomaly_summary.get("total_anomalies", 0) or 0),
+            "high": int(anomaly_summary.get("high", 0) or 0),
+            "medium": int(anomaly_summary.get("medium", 0) or 0),
+            "low": int(anomaly_summary.get("low", 0) or 0),
+        },
+    }
+
+    write_json(os.path.join(out_dir, "weekly_facts.json"), weekly_facts)
+    write_json(os.path.join(out_dir, "warnings.json"), warnings)
+
+    sku_trends = weekly_data.get("sku_trends", {}) if isinstance(weekly_data, dict) else {}
+    if not isinstance(sku_trends, dict):
+        sku_trends = {}
+    growing = sku_trends.get("growing", [])
+    declining = sku_trends.get("declining", [])
+    if not isinstance(growing, list):
+        growing = []
+    if not isinstance(declining, list):
+        declining = []
+
+    weekly_pdf_lines: List[str] = [
+        "# НЕДЕЛЬНЫЙ ОТЧЕТ",
+        f"### Кабинет: {seller_id}",
+        f"### Дата: {run_date}",
+        f"### Период анализа: {weekly_data.get('window_days', 7)} дней",
+        f"### Использовано snapshot: {snapshots_used}",
+        "",
+        "## ТЕНДЕНЦИИ KPI",
+        "KPI | Начало | Текущее | Изменение | Изменение %",
+    ]
+
+    weekly_kpi_labels = {
+        "revenue": "Выручка",
+        "profit": "Прибыль",
+        "buyouts": "Выкупы",
+        "ads_spend": "Реклама",
+        "sku_count": "SKU",
+    }
+    for key in ("revenue", "profit", "buyouts", "ads_spend", "sku_count"):
+        row = kpi_trends.get(key, {})
+        if not isinstance(row, dict):
+            row = {}
+        weekly_pdf_lines.append(
+            f"{weekly_kpi_labels.get(key, key)} | {row.get('start', 0)} | {row.get('current', 0)} | {row.get('delta', 0)} | {row.get('delta_pct', None)}"
+        )
+
+    weekly_pdf_lines.extend(["", "## РАСТУЩИЕ SKU"])
+    if growing:
+        for item in growing[:10]:
+            if not isinstance(item, dict):
+                continue
+            weekly_pdf_lines.append(
+                f"- SKU {item.get('sku', 'н/д')} | изменение прибыли {item.get('profit_delta', 0)}"
+            )
+    else:
+        weekly_pdf_lines.append("- нет")
+
+    weekly_pdf_lines.extend(["", "## СНИЖАЮЩИЕСЯ SKU"])
+    if declining:
+        for item in declining[:10]:
+            if not isinstance(item, dict):
+                continue
+            weekly_pdf_lines.append(
+                f"- SKU {item.get('sku', 'н/д')} | изменение прибыли {item.get('profit_delta', 0)}"
+            )
+    else:
+        weekly_pdf_lines.append("- нет")
+
+    weekly_pdf_lines.extend(["", "## НЕДЕЛЬНЫЕ ВЫВОДЫ AI"])
+    insights = weekly_data.get("insights", []) if isinstance(weekly_data, dict) else []
+    if isinstance(insights, list) and insights:
+        for insight in insights[:8]:
+            weekly_pdf_lines.append(f"- {insight}")
+    else:
+        weekly_pdf_lines.append("- Недостаточно данных для недельных выводов.")
+
+    kpi_anomalies = trend_data.get("kpi_anomalies", []) if isinstance(trend_data, dict) else []
+    sku_anomalies = trend_data.get("sku_anomalies", []) if isinstance(trend_data, dict) else []
+    if not isinstance(kpi_anomalies, list):
+        kpi_anomalies = []
+    if not isinstance(sku_anomalies, list):
+        sku_anomalies = []
+    combined_anomalies = [x for x in (kpi_anomalies + sku_anomalies) if isinstance(x, dict)]
+    severity_order = {"high": 0, "medium": 1, "low": 2}
+    combined_anomalies.sort(
+        key=lambda x: (
+            severity_order.get(str(x.get("severity") or "").lower(), 3),
+            str(x.get("metric") or x.get("sku") or ""),
+            str(x.get("type") or ""),
+        )
+    )
+
+    weekly_pdf_lines.extend(["", "## АНОМАЛИИ И РИСКИ"])
+    if not combined_anomalies:
+        weekly_pdf_lines.append("- Значимых аномалий не обнаружено")
+    else:
+        for severity in ("high", "medium", "low"):
+            rows = [x for x in combined_anomalies if str(x.get("severity") or "").lower() == severity]
+            if not rows:
+                continue
+            for row in rows:
+                level = severity.upper()
+                message = str(row.get("message") or "Обнаружена аномалия.")
+                sku = str(row.get("sku") or "").strip()
+                if sku:
+                    weekly_pdf_lines.append(f"- [{level}] SKU {sku}: {message}")
+                else:
+                    weekly_pdf_lines.append(f"- [{level}] {message}")
+
+    write_text_pdf(os.path.join(out_dir, "weekly_report.pdf"), weekly_pdf_lines)
+
+    job = {
+        "seller_id": seller_id,
+        "mode": "weekly",
+        "run_date": run_date,
+        "status": "success",
+        "started_at": started_at,
+        "finished_at": _utc_now_iso(),
+        "error": None,
+        "artifacts_dir": out_dir,
+        "artifacts": [
+            "job.json",
+            "weekly_intelligence.json",
+            "trend_anomalies.json",
+            "weekly_facts.json",
+            "warnings.json",
+            "weekly_report.pdf",
+        ],
+        "weekly_intelligence_path": str(weekly_path),
+        "trend_anomalies_path": str(trend_path),
+        "snapshots_used": snapshots_used,
+    }
+    write_json(os.path.join(out_dir, "job.json"), job)
+    return job
+
+
+def _run_weekly(repo_root: str, seller_id: str | None, run_date: str) -> List[Dict[str, Any]]:
+    sellers = [seller_id] if seller_id else _list_sellers(repo_root)
+    return [_run_weekly_for_seller(repo_root, current, run_date) for current in sellers]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="WB AI Agent v3 skeleton (does not touch src/main.py)")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p_daily = sub.add_parser("daily", help="Run daily pipeline")
+    p_daily.add_argument("--seller", default=None, help="seller_id, РµСЃР»Рё РЅРµ Р·Р°РґР°РЅ вЂ” Р·Р°РїСѓСЃС‚РёС‚ РїРѕ РІСЃРµРј cabinets/*")
+    p_daily.add_argument("--date", default=_default_date(), help="YYYY-MM-DD")
+
+    p_weekly = sub.add_parser("weekly", help="Run weekly intelligence from history snapshots")
+    p_weekly.add_argument("--seller", default=None, help="seller_id, если не задан — запустит по всем cabinets/*")
+    p_weekly.add_argument("--date", default=_default_date(), help="YYYY-MM-DD")
+
+    p_audit = sub.add_parser("audit", help="Run audit pipeline (Excel input)")
+    p_audit.add_argument("--seller", required=True, help="seller_id")
+    p_audit.add_argument("--input", required=True, help="Path to Excel file")
+    p_audit.add_argument("--date", default=_default_date(), help="YYYY-MM-DD")
+
+    args = parser.parse_args()
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+    if args.cmd == "daily":
+        results = _run_daily(repo_root=repo_root, seller_id=args.seller, run_date=args.date)
+    elif args.cmd == "weekly":
+        results = _run_weekly(repo_root=repo_root, seller_id=args.seller, run_date=args.date)
+    else:
+        results = run_audit(repo_root=repo_root, seller_id=args.seller, run_date=args.date, audit_input=args.input)
+
+    ok = sum(1 for r in results if r.get("status") == "success")
+    fail = sum(1 for r in results if r.get("status") != "success")
+    print(f"v3 finished: success={ok} failed={fail}")
+    for r in results:
+        print(f"- {r.get('seller_id')} {r.get('mode')} {r.get('run_date')} => {r.get('status')}")
+
+
+if __name__ == "__main__":
+    main()

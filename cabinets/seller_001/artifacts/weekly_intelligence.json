@@ -1,0 +1,128 @@
+{
+  "seller_id": "seller_001",
+  "run_date": "2026-03-10",
+  "window_days": 7,
+  "snapshots_used": 1,
+  "kpi_trends": {
+    "revenue": {
+      "current": 11388.49,
+      "start": 11388.49,
+      "delta": 0.0,
+      "delta_pct": 0.0,
+      "trend": "flat"
+    },
+    "profit": {
+      "current": 6315.36,
+      "start": 6315.36,
+      "delta": 0.0,
+      "delta_pct": 0.0,
+      "trend": "flat"
+    },
+    "ads_spend": {
+      "current": 1659.2,
+      "start": 1659.2,
+      "delta": 0.0,
+      "delta_pct": 0.0,
+      "trend": "flat"
+    },
+    "buyouts": {
+      "current": 196.0,
+      "start": 196.0,
+      "delta": 0.0,
+      "delta_pct": 0.0,
+      "trend": "flat"
+    },
+    "sku_count": {
+      "current": 10.0,
+      "start": 10.0,
+      "delta": 0.0,
+      "delta_pct": 0.0,
+      "trend": "flat"
+    }
+  },
+  "sku_trends": {
+    "growing": [],
+    "declining": [],
+    "stable": [
+      {
+        "sku": "333615320",
+        "profit_start": 1071.62,
+        "profit_current": 1071.62,
+        "profit_delta": 0.0,
+        "trend": "flat"
+      },
+      {
+        "sku": "414589567",
+        "profit_start": 179.56,
+        "profit_current": 179.56,
+        "profit_delta": 0.0,
+        "trend": "flat"
+      },
+      {
+        "sku": "430679462",
+        "profit_start": 725.46,
+        "profit_current": 725.46,
+        "profit_delta": 0.0,
+        "trend": "flat"
+      },
+      {
+        "sku": "452102417",
+        "profit_start": 2115.46,
+        "profit_current": 2115.46,
+        "profit_delta": 0.0,
+        "trend": "flat"
+      },
+      {
+        "sku": "453526507",
+        "profit_start": 2156.71,
+        "profit_current": 2156.71,
+        "profit_delta": 0.0,
+        "trend": "flat"
+      },
+      {
+        "sku": "583470321",
+        "profit_start": 508.74,
+        "profit_current": 508.74,
+        "profit_delta": 0.0,
+        "trend": "flat"
+      },
+      {
+        "sku": "584904841",
+        "profit_start": 397.68,
+        "profit_current": 397.68,
+        "profit_delta": 0.0,
+        "trend": "flat"
+      },
+      {
+        "sku": "590614192",
+        "profit_start": 444.18,
+        "profit_current": 444.18,
+        "profit_delta": 0.0,
+        "trend": "flat"
+      },
+      {
+        "sku": "739377515",
+        "profit_start": 0.0,
+        "profit_current": 0.0,
+        "profit_delta": 0.0,
+        "trend": "flat"
+      },
+      {
+        "sku": "739384273",
+        "profit_start": 902.68,
+        "profit_current": 902.68,
+        "profit_delta": 0.0,
+        "trend": "flat"
+      }
+    ]
+  },
+  "insights": [
+    "Истории недостаточно: доступно только 1 snapshot для сравнения.",
+    "SKU с ростом прибыли: 0; со снижением: 0; стабильные: 10.",
+    "Истории пока недостаточно для полного 7-дневного анализа: доступно 1 snapshot."
+  ],
+  "data_quality": {
+    "snapshots_available": 1,
+    "enough_for_weekly": false
+  }
+}

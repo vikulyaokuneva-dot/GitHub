@@ -1,0 +1,39 @@
+name: WB Audit (offline)
+
+on:
+  workflow_dispatch:
+    inputs:
+      period:
+        description: "Label for the audit period, e.g. 2026-02-23_2026-03-01"
+        required: false
+        default: ""
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run audit
+        env:
+          WB_TAX_RATE: "0.06"
+          WB_TIMEZONE: "Europe/Moscow"
+          PYTHONPATH: "."
+        run: |
+          python audit/run_audit.py --period "${{ github.event.inputs.period }}" --input_dir audit/input --out_dir audit/artifacts
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wb-audit
+          path: audit/artifacts/*

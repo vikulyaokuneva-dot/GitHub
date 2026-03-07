@@ -1,0 +1,65 @@
+{
+  "seller_id": "seller_001",
+  "seller_name": "seller_001",
+  "run_date": "2026-03-10",
+  "generated_at": "2026-03-07T15:39:07Z",
+  "data_confidence": "medium",
+  "source_mode": "local_reports",
+  "input_summary": {
+    "sales_files_found": 2,
+    "ads_files_found": 1,
+    "stocks_files_found": 1,
+    "unknown_files_found": 1,
+    "source_mode": "local_reports",
+    "confidence": "medium"
+  },
+  "kpi": {
+    "revenue": 11388.49,
+    "profit": 6315.36,
+    "orders": 0,
+    "buyouts": 196
+  },
+  "data_quality": {
+    "valid_sku_count": 10,
+    "invalid_sku_rows": 52,
+    "unassigned_costs_present": true
+  },
+  "profit_contribution_summary": {
+    "p1_count": 4,
+    "p2_count": 3,
+    "p3_count": 3,
+    "top_profit_skus": [
+      "453526507",
+      "452102417",
+      "333615320",
+      "739384273",
+      "430679462"
+    ]
+  },
+  "territorial_distribution_summary": {
+    "sku_total": 10,
+    "sku_with_ktr": 6,
+    "balanced_count": 3,
+    "moderate_mismatch_count": 1,
+    "misallocated_count": 2,
+    "insufficient_distribution_data_count": 2,
+    "no_stock_data_count": 2,
+    "insufficient_total_count": 4,
+    "avg_ktr": 1.29,
+    "top_misaligned_skus": [
+      "584904841",
+      "333615320"
+    ]
+  },
+  "decision_memory_summary": {
+    "total_logged": 20,
+    "pending": 10,
+    "success": 1,
+    "fail": 0,
+    "neutral": 9
+  },
+  "history_summary": {
+    "snapshots_count": 1,
+    "latest_snapshot_date": "2026-03-10"
+  }
+}

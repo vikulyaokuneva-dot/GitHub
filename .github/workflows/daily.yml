@@ -1,0 +1,46 @@
+name: WB Daily Report
+
+on:
+  schedule:
+    # 05:00 UTC ~= 06:00 Europe/Berlin зимой (CET).
+    # Летом будет сдвиг. Для PoC ок, потом сделаем двойной cron или логику пропуска.
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run report
+        env:
+          WB_API_TOKEN: ${{ secrets.WB_API_TOKEN }}
+          YANDEX_SMTP_USER: ${{ secrets.YANDEX_SMTP_USER }}
+          YANDEX_SMTP_APP_PASS: ${{ secrets.YANDEX_SMTP_APP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          GIGACHAT_AUTH_KEY: ${{ secrets.GIGACHAT_AUTH_KEY }}
+          GIGACHAT_SCOPE: ${{ secrets.GIGACHAT_SCOPE }}
+          TZ: "Europe/Berlin"
+          GIGACHAT_DEBUG: "1"
+          GIGACHAT_VERIFY_SSL_CERTS: "false"
+          GIGACHAT_MODEL: "GigaChat-2"
+          GIGACHAT_TIMEOUT_SEC: "60"
+        run: |
+          python -m src.main
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wb-report
+          path: out/

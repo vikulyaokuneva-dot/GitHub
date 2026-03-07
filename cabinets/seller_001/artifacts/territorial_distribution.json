@@ -1,0 +1,279 @@
+{
+  "metadata": {
+    "engine": "territorial_distribution_engine",
+    "version": "1.0",
+    "seller_id": "seller_001",
+    "run_date": "2026-03-10",
+    "generated_at": "2026-03-07T15:39:07Z",
+    "source_artifacts": [
+      "metrics.json"
+    ]
+  },
+  "summary": {
+    "sku_total": 10,
+    "sku_with_ktr": 6,
+    "balanced_count": 3,
+    "moderate_mismatch_count": 1,
+    "misallocated_count": 2,
+    "insufficient_distribution_data_count": 2,
+    "no_stock_data_count": 2,
+    "insufficient_total_count": 4,
+    "avg_ktr": 1.29,
+    "top_misaligned_skus": [
+      "584904841",
+      "333615320"
+    ]
+  },
+  "skus": [
+    {
+      "sku": "584904841",
+      "total_buys": 1,
+      "total_stock": 18,
+      "demand_by_warehouse": {
+        "Казань": 1.0
+      },
+      "stock_by_warehouse": {
+        "Тула": 18.0
+      },
+      "demand_share_by_warehouse": {
+        "Казань": 1.0
+      },
+      "stock_share_by_warehouse": {
+        "Тула": 1.0
+      },
+      "distribution_gap": 1.0,
+      "ktr": 2.0,
+      "status": "misallocated",
+      "confidence": "low",
+      "low_sample_warning": true,
+      "dominant_demand_warehouses": null,
+      "dominant_stock_warehouses": null,
+      "relocation_hint": null
+    },
+    {
+      "sku": "333615320",
+      "total_buys": 6,
+      "total_stock": 238,
+      "demand_by_warehouse": {
+        "Краснодар": 2.0,
+        "Екатеринбург": 2.0,
+        "Электросталь": 2.0
+      },
+      "stock_by_warehouse": {
+        "Электросталь": 74.0,
+        "Краснодар": 1.0,
+        "Екатеринбург": 21.0,
+        "Тула": 58.0,
+        "Невинномысск": 17.0,
+        "Рязань": 19.0,
+        "Котовск": 7.0,
+        "Самара": 4.0,
+        "Волгоград": 16.0,
+        "Воронеж": 21.0
+      },
+      "demand_share_by_warehouse": {
+        "Краснодар": 0.333,
+        "Екатеринбург": 0.333,
+        "Электросталь": 0.333
+      },
+      "stock_share_by_warehouse": {
+        "Электросталь": 0.311,
+        "Краснодар": 0.004,
+        "Екатеринбург": 0.088,
+        "Тула": 0.244,
+        "Невинномысск": 0.071,
+        "Рязань": 0.08,
+        "Котовск": 0.029,
+        "Самара": 0.017,
+        "Волгоград": 0.067,
+        "Воронеж": 0.088
+      },
+      "distribution_gap": 0.596,
+      "ktr": 1.596,
+      "status": "misallocated",
+      "confidence": "high",
+      "low_sample_warning": false,
+      "dominant_demand_warehouses": null,
+      "dominant_stock_warehouses": null,
+      "relocation_hint": null
+    },
+    {
+      "sku": "453526507",
+      "total_buys": 5,
+      "total_stock": 21,
+      "demand_by_warehouse": {
+        "Тула": 5.0
+      },
+      "stock_by_warehouse": {
+        "Тула": 18.0,
+        "Невинномысск": 3.0
+      },
+      "demand_share_by_warehouse": {
+        "Тула": 1.0
+      },
+      "stock_share_by_warehouse": {
+        "Тула": 0.857,
+        "Невинномысск": 0.143
+      },
+      "distribution_gap": 0.143,
+      "ktr": 1.143,
+      "status": "moderate_mismatch",
+      "confidence": "medium",
+      "low_sample_warning": false,
+      "dominant_demand_warehouses": null,
+      "dominant_stock_warehouses": null,
+      "relocation_hint": null
+    },
+    {
+      "sku": "739384273",
+      "total_buys": 2,
+      "total_stock": 1,
+      "demand_by_warehouse": {
+        "Тула": 2.0
+      },
+      "stock_by_warehouse": {
+        "Тула": 1.0
+      },
+      "demand_share_by_warehouse": {
+        "Тула": 1.0
+      },
+      "stock_share_by_warehouse": {
+        "Тула": 1.0
+      },
+      "distribution_gap": 0.0,
+      "ktr": 1.0,
+      "status": "balanced",
+      "confidence": "low",
+      "low_sample_warning": true,
+      "dominant_demand_warehouses": null,
+      "dominant_stock_warehouses": null,
+      "relocation_hint": null
+    },
+    {
+      "sku": "590614192",
+      "total_buys": 1,
+      "total_stock": 2,
+      "demand_by_warehouse": {
+        "Тула": 1.0
+      },
+      "stock_by_warehouse": {
+        "Тула": 2.0
+      },
+      "demand_share_by_warehouse": {
+        "Тула": 1.0
+      },
+      "stock_share_by_warehouse": {
+        "Тула": 1.0
+      },
+      "distribution_gap": 0.0,
+      "ktr": 1.0,
+      "status": "balanced",
+      "confidence": "low",
+      "low_sample_warning": true,
+      "dominant_demand_warehouses": null,
+      "dominant_stock_warehouses": null,
+      "relocation_hint": null
+    },
+    {
+      "sku": "452102417",
+      "total_buys": 5,
+      "total_stock": 13,
+      "demand_by_warehouse": {
+        "Тула": 5.0
+      },
+      "stock_by_warehouse": {
+        "Тула": 13.0
+      },
+      "demand_share_by_warehouse": {
+        "Тула": 1.0
+      },
+      "stock_share_by_warehouse": {
+        "Тула": 1.0
+      },
+      "distribution_gap": 0.0,
+      "ktr": 1.0,
+      "status": "balanced",
+      "confidence": "medium",
+      "low_sample_warning": false,
+      "dominant_demand_warehouses": null,
+      "dominant_stock_warehouses": null,
+      "relocation_hint": null
+    },
+    {
+      "sku": "739377515",
+      "total_buys": 0,
+      "total_stock": 0,
+      "demand_by_warehouse": {},
+      "stock_by_warehouse": {},
+      "demand_share_by_warehouse": {},
+      "stock_share_by_warehouse": {},
+      "distribution_gap": null,
+      "ktr": null,
+      "status": "insufficient_distribution_data",
+      "confidence": "low",
+      "low_sample_warning": true,
+      "dominant_demand_warehouses": null,
+      "dominant_stock_warehouses": null,
+      "relocation_hint": null
+    },
+    {
+      "sku": "583470321",
+      "total_buys": 0,
+      "total_stock": 0,
+      "demand_by_warehouse": {},
+      "stock_by_warehouse": {},
+      "demand_share_by_warehouse": {},
+      "stock_share_by_warehouse": {},
+      "distribution_gap": null,
+      "ktr": null,
+      "status": "insufficient_distribution_data",
+      "confidence": "low",
+      "low_sample_warning": true,
+      "dominant_demand_warehouses": null,
+      "dominant_stock_warehouses": null,
+      "relocation_hint": null
+    },
+    {
+      "sku": "430679462",
+      "total_buys": 2,
+      "total_stock": 0,
+      "demand_by_warehouse": {
+        "Тула": 2.0
+      },
+      "stock_by_warehouse": {},
+      "demand_share_by_warehouse": {
+        "Тула": 1.0
+      },
+      "stock_share_by_warehouse": {},
+      "distribution_gap": null,
+      "ktr": null,
+      "status": "no_stock_data",
+      "confidence": "low",
+      "low_sample_warning": true,
+      "dominant_demand_warehouses": null,
+      "dominant_stock_warehouses": null,
+      "relocation_hint": null
+    },
+    {
+      "sku": "414589567",
+      "total_buys": 1,
+      "total_stock": 0,
+      "demand_by_warehouse": {
+        "Казань": 1.0
+      },
+      "stock_by_warehouse": {},
+      "demand_share_by_warehouse": {
+        "Казань": 1.0
+      },
+      "stock_share_by_warehouse": {},
+      "distribution_gap": null,
+      "ktr": null,
+      "status": "no_stock_data",
+      "confidence": "low",
+      "low_sample_warning": true,
+      "dominant_demand_warehouses": null,
+      "dominant_stock_warehouses": null,
+      "relocation_hint": null
+    }
+  ]
+}
