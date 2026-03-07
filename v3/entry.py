@@ -6,8 +6,12 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+from .analysis.ai_director import build_strategy_plan
 from .analysis.decision_engine import build_decisions
 from .analytics.abc_analysis import compute_abc
+from .analytics.growth_simulator import simulate_growth
+from .analytics.logistics_ktr import build_logistics_ktr
+from .analytics.opportunity_engine import compute_opportunity_scores
 from .analytics.profit_contribution import build_profit_contribution, save_profit_contribution
 from .analytics.sku_health import compute_sku_health
 from .analytics.territorial_distribution import build_territorial_distribution, save_territorial_distribution
@@ -17,7 +21,7 @@ from .history.trend_anomalies import build_trend_anomalies, save_trend_anomalies
 from .history.weekly_intelligence import build_weekly_intelligence, save_weekly_intelligence
 from .memory.decision_logger import log_decisions
 from .memory.decision_outcomes import evaluate_decision_outcomes, save_outcomes
-from .orchestrator import run_audit
+from .orchestrator import discover_sellers, run_audit
 from .paths import artifacts_dir, cabinet_root, input_dir, reports_dir
 from .pdf_render import write_text_pdf
 from .quality_gate import compute_data_confidence
@@ -28,6 +32,9 @@ from .sources.wb_reports_loader import (
 )
 from .storage import write_json
 
+_FALLBACK_SELLER_ID = "__missing_seller__"
+_ALLOW_FALLBACK_ENV = "WB_ALLOW_MISSING_SELLER"
+
 
 def _default_date() -> str:
     return date.today().isoformat()
@@ -35,17 +42,6 @@ def _default_date() -> str:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def _list_sellers(repo_root: str) -> List[str]:
-    cabinets = os.path.join(repo_root, "cabinets")
-    if not os.path.isdir(cabinets):
-        return []
-    return sorted(
-        name
-        for name in os.listdir(cabinets)
-        if not name.startswith("_") and os.path.isdir(os.path.join(cabinets, name))
-    )
 
 
 def _extract_sku_metrics(metrics: Any) -> List[Dict[str, Any]]:
@@ -526,10 +522,55 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             }
         )
 
+    write_json(os.path.join(out_dir, "metrics.json"), metrics)
+    write_json(os.path.join(out_dir, "abc_analysis.json"), abc_rows)
+    save_profit_contribution(os.path.join(out_dir, "profit_contribution.json"), profit_contribution)
+    save_territorial_distribution(Path(out_dir) / "territorial_distribution.json", territorial_distribution)
+
+    logistics_ktr = build_logistics_ktr(seller_id=seller_id, run_date=run_date, repo_root=repo_root)
+    logistics_summary = logistics_ktr.get("summary", {}) if isinstance(logistics_ktr, dict) else {}
+    if not isinstance(logistics_summary, dict):
+        logistics_summary = {}
+    facts["logistics_ktr_summary"] = {
+        "sku_total": int(logistics_summary.get("sku_total", 0) or 0),
+        "sku_with_ktr": int(logistics_summary.get("sku_with_ktr", 0) or 0),
+        "efficient_count": int(logistics_summary.get("efficient_count", 0) or 0),
+        "acceptable_count": int(logistics_summary.get("acceptable_count", 0) or 0),
+        "inefficient_count": int(logistics_summary.get("inefficient_count", 0) or 0),
+        "critical_count": int(logistics_summary.get("critical_count", 0) or 0),
+        "low_confidence_count": int(logistics_summary.get("low_confidence_count", 0) or 0),
+        "avg_ktr": float(logistics_summary.get("avg_ktr", 0.0) or 0.0),
+        "avg_locality_score": float(logistics_summary.get("avg_locality_score", 0.0) or 0.0),
+        "top_critical_skus": (
+            [
+                str(value)
+                for value in logistics_summary.get("top_critical_skus", [])
+                if str(value or "").strip()
+            ][:5]
+            if isinstance(logistics_summary.get("top_critical_skus"), list)
+            else []
+        ),
+    }
+
     health_payload = compute_sku_health(facts, metrics)
     health_summary = health_payload.get("summary", {}) if isinstance(health_payload, dict) else {}
-    decisions_payload = build_decisions(metrics, abc_rows, health_payload, territorial_distribution)
+    decisions_payload = build_decisions(metrics, abc_rows, health_payload, territorial_distribution, logistics_ktr)
     decisions_summary = decisions_payload.get("summary", {}) if isinstance(decisions_payload, dict) else {}
+    growth_simulation = simulate_growth(metrics if isinstance(metrics, dict) else {})
+    opportunity_scores = compute_opportunity_scores(
+        metrics if isinstance(metrics, dict) else {},
+        abc_rows if isinstance(abc_rows, list) else [],
+        health_payload if isinstance(health_payload, dict) else {},
+    )
+    director_strategy = build_strategy_plan(
+        metrics if isinstance(metrics, dict) else {},
+        abc_rows if isinstance(abc_rows, list) else [],
+        health_payload if isinstance(health_payload, dict) else {},
+        territorial_distribution if isinstance(territorial_distribution, dict) else {},
+        logistics_ktr if isinstance(logistics_ktr, dict) else {},
+        opportunity_scores if isinstance(opportunity_scores, dict) else {},
+        growth_simulation if isinstance(growth_simulation, dict) else {},
+    )
 
     job = {
         "seller_id": seller_id,
@@ -549,8 +590,12 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             "abc_analysis.json",
             "profit_contribution.json",
             "territorial_distribution.json",
+            "logistics_ktr.json",
             "health_score.json",
             "decisions.json",
+            "growth_simulation.json",
+            "opportunity_scores.json",
+            "director_strategy.json",
             "memory/decision_memory.jsonl",
             f"memory/outcomes/{run_date}_outcomes.json",
             f"history/daily/{run_date}/",
@@ -560,12 +605,11 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         ],
     }
 
-    write_json(os.path.join(out_dir, "metrics.json"), metrics)
-    write_json(os.path.join(out_dir, "abc_analysis.json"), abc_rows)
-    save_profit_contribution(os.path.join(out_dir, "profit_contribution.json"), profit_contribution)
-    save_territorial_distribution(Path(out_dir) / "territorial_distribution.json", territorial_distribution)
     write_json(os.path.join(out_dir, "health_score.json"), health_payload)
     write_json(os.path.join(out_dir, "decisions.json"), decisions_payload)
+    write_json(os.path.join(out_dir, "growth_simulation.json"), growth_simulation)
+    write_json(os.path.join(out_dir, "opportunity_scores.json"), opportunity_scores)
+    write_json(os.path.join(out_dir, "director_strategy.json"), director_strategy)
 
     decision_rows_added = log_decisions(
         seller_id=seller_id,
@@ -711,6 +755,21 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                 f"- Low-confidence KTR (total_buys < 3): {_format_int(low_conf_ktr_count)} SKU, интерпретировать осторожно"
             )
 
+    logistics_top_critical = logistics_summary.get("top_critical_skus", []) if isinstance(logistics_summary, dict) else []
+    if not isinstance(logistics_top_critical, list):
+        logistics_top_critical = []
+    logistics_top_critical = [str(x).strip() for x in logistics_top_critical if str(x).strip()]
+    logistics_sku_total = int(logistics_summary.get("sku_total", 0) or 0) if isinstance(logistics_summary, dict) else 0
+    if logistics_sku_total > 0:
+        page_1.extend(["", "## LOGISTICS KTR"])
+        page_1.append(f"- Critical SKU: {_format_int(logistics_summary.get('critical_count', 0))}")
+        page_1.append(f"- Inefficient SKU: {_format_int(logistics_summary.get('inefficient_count', 0))}")
+        page_1.append(f"- Average locality score: {_format_ktr(logistics_summary.get('avg_locality_score', 0.0))}")
+        if logistics_top_critical:
+            page_1.append(f"- Top critical SKU: {_compact_sku_list(logistics_top_critical, limit=5)}")
+        else:
+            page_1.append("- Top critical SKU: —")
+
     page_1.extend(["", "## ТОП SKU ПО ПРИБЫЛИ", "SKU | Прибыль | Маржа | Класс прибыли | ABC"])
     if profit_rows:
         for row in profit_rows[:5]:
@@ -771,6 +830,62 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     _append_decision_group(page_2, "fix")
     _append_decision_group(page_2, "watch")
     _append_decision_group(page_2, "liquidate")
+
+    director_strategy_payload = director_strategy if isinstance(director_strategy, dict) else {}
+    director_groups_raw = director_strategy_payload.get("strategy", {})
+    if not isinstance(director_groups_raw, dict):
+        director_groups_raw = {}
+    director_tasks_raw = director_strategy_payload.get("tasks", [])
+    if not isinstance(director_tasks_raw, list):
+        director_tasks_raw = []
+
+    director_groups: Dict[str, List[str]] = {}
+    for key in ("scale", "fix", "watch", "liquidate"):
+        raw_rows = director_groups_raw.get(key, [])
+        if isinstance(raw_rows, list):
+            director_groups[key] = [str(item).strip() for item in raw_rows if str(item).strip()]
+        else:
+            director_groups[key] = []
+
+    task_by_sku: Dict[str, str] = {}
+    for row in director_tasks_raw:
+        if not isinstance(row, dict):
+            continue
+        sku = str(row.get("sku") or "").strip()
+        task = str(row.get("task") or "").strip()
+        if not sku or not task:
+            continue
+        task_by_sku.setdefault(sku, task)
+
+    director_default_actions = {
+        "scale": "increase_ads",
+        "fix": "improve_listing",
+        "watch": "monitor",
+        "liquidate": "discount_or_remove",
+    }
+
+    page_2.extend(["## СТРАТЕГИЯ AI ДИРЕКТОРА"])
+    for key in ("scale", "fix", "watch", "liquidate"):
+        page_2.append(f"### {status_labels[key]}")
+        rows = director_groups.get(key, [])
+        if not rows:
+            page_2.append("- Нет SKU в этой группе.")
+            continue
+        default_task = director_default_actions.get(key, "")
+        for sku in rows[:10]:
+            task = task_by_sku.get(sku) or default_task
+            page_2.append(f"- SKU {sku} -> {task}")
+    rebalance_rows = [
+        row
+        for row in director_tasks_raw
+        if isinstance(row, dict) and str(row.get("task") or "").strip() == "rebalance_stock"
+    ]
+    if rebalance_rows:
+        page_2.append("### ЛОГИСТИЧЕСКАЯ БАЛАНСИРОВКА")
+        for row in rebalance_rows[:10]:
+            sku = str(row.get("sku") or "").strip()
+            if sku:
+                page_2.append(f"- SKU {sku} -> rebalance_stock")
 
     memory_summary = facts.get("decision_memory_summary", {}) if isinstance(facts, dict) else {}
     important_warnings = _important_warnings(warnings)
@@ -880,9 +995,138 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     return job
 
 
+def _failed_run_result(seller_id: str, run_date: str, mode: str, error: str) -> Dict[str, Any]:
+    return {
+        "seller_id": seller_id,
+        "mode": mode,
+        "run_date": run_date,
+        "status": "failed",
+        "error": error,
+    }
+
+
+def _batch_summary(run_date: str, results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    success_count = sum(1 for row in results if str(row.get("status") or "") == "success")
+    failed_count = len(results) - success_count
+    return {
+        "run_date": run_date,
+        "total_sellers": len(results),
+        "success_count": success_count,
+        "failed_count": failed_count,
+        "results": results,
+    }
+
+
+def _save_batch_summary(repo_root: str, summary: Dict[str, Any]) -> str:
+    cabinets_dir = Path(repo_root) / "cabinets"
+    batch_path = cabinets_dir / "_batch" / "batch_run_summary.json"
+    write_json(str(batch_path), summary)
+    return str(batch_path)
+
+
+def _resolve_seller_repo_root(repo_root: str, seller_id: str) -> str:
+    discovered = discover_sellers(repo_root)
+    if seller_id in discovered:
+        return repo_root
+    if seller_id == _FALLBACK_SELLER_ID:
+        allow_fallback = str(os.getenv(_ALLOW_FALLBACK_ENV, "")).strip() == "1"
+        if allow_fallback:
+            print(
+                f"[warn] fallback seller '{_FALLBACK_SELLER_ID}' enabled via {_ALLOW_FALLBACK_ENV}=1; "
+                "using debug fallback cabinet paths."
+            )
+            return repo_root
+        if discovered:
+            raise ValueError(
+                f"Refusing fallback seller '{_FALLBACK_SELLER_ID}' because real sellers exist: {', '.join(discovered)}. "
+                f"Set {_ALLOW_FALLBACK_ENV}=1 to force debug fallback."
+            )
+        print(
+            f"[warn] using fallback seller '{_FALLBACK_SELLER_ID}' because no real sellers were discovered in "
+            f"{Path(repo_root) / 'cabinets'}."
+        )
+        return repo_root
+
+    if discovered:
+        raise FileNotFoundError(f"Seller '{seller_id}' not found. Discovered sellers: {', '.join(discovered)}")
+
+    print(
+        f"[warn] seller '{seller_id}' not discovered; running in bootstrap mode because no sellers exist in "
+        f"{Path(repo_root) / 'cabinets'}."
+    )
+    return repo_root
+
+
+def _debug_seller_paths(repo_root: str, seller_id: str) -> None:
+    cabinets_dir = Path(repo_root) / "cabinets"
+    resolved_input_dir = Path(input_dir(repo_root, seller_id, create=False))
+    input_exists = resolved_input_dir.is_dir()
+    discovered_files = sorted([item.name for item in resolved_input_dir.iterdir() if item.is_file()]) if input_exists else []
+    print(f"[debug] project_root={repo_root}")
+    print(f"[debug] cabinets_dir={cabinets_dir}")
+    print(f"[debug] seller_id={seller_id}")
+    print(f"[debug] input_dir={resolved_input_dir}")
+    print(f"[debug] input_exists={input_exists}")
+    print(f"[debug] discovered_files={len(discovered_files)}")
+
+
+def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str | None = None) -> Dict[str, Any]:
+    resolved_repo_root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    resolved_run_date = run_date or _default_date()
+    try:
+        seller_repo_root = _resolve_seller_repo_root(resolved_repo_root, seller_id)
+        print(f"[{seller_id}] pipeline started")
+        _debug_seller_paths(seller_repo_root, seller_id)
+        result = _run_daily_for_seller(seller_repo_root, seller_id, resolved_run_date)
+        if str(result.get("status") or "") == "success":
+            print(f"[{seller_id}] pipeline finished successfully")
+        else:
+            print(f"[{seller_id}] pipeline failed: {result.get('error')}")
+        return result
+    except Exception as exc:
+        print(f"[{seller_id}] pipeline failed: {exc}")
+        return _failed_run_result(seller_id, resolved_run_date, mode="daily", error=str(exc))
+
+
+def run_for_all_sellers(run_date: str | None = None, repo_root: str | None = None) -> Dict[str, Any]:
+    resolved_repo_root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    resolved_run_date = run_date or _default_date()
+    sellers = discover_sellers(resolved_repo_root)
+    print(f"[batch] discovered {len(sellers)} sellers")
+    if sellers:
+        print(f"[batch] discovered sellers: {' '.join(sellers)}")
+    else:
+        print("[warn] no valid seller cabinets found")
+
+    results: List[Dict[str, Any]] = []
+    for current_seller in sellers:
+        results.append(run_for_seller(current_seller, run_date=resolved_run_date, repo_root=resolved_repo_root))
+
+    summary = _batch_summary(resolved_run_date, results)
+    summary["batch_summary_path"] = _save_batch_summary(resolved_repo_root, summary)
+    print("[batch] completed")
+    print(f"success: {summary['success_count']}")
+    print(f"failed: {summary['failed_count']}")
+    return summary
+
+
+def run_daily_batch(repo_root: str, seller_id: str | None, run_date: str) -> Dict[str, Any]:
+    if seller_id:
+        print(f"[batch] explicit seller: {seller_id}")
+        result = run_for_seller(seller_id, run_date=run_date, repo_root=repo_root)
+        summary = _batch_summary(run_date, [result])
+        print("[batch] completed")
+        print(f"success: {summary['success_count']}")
+        print(f"failed: {summary['failed_count']}")
+        return summary
+    return run_for_all_sellers(run_date=run_date, repo_root=repo_root)
+
+
 def _run_daily(repo_root: str, seller_id: str | None, run_date: str) -> List[Dict[str, Any]]:
-    sellers = [seller_id] if seller_id else _list_sellers(repo_root)
-    return [_run_daily_for_seller(repo_root, current, run_date) for current in sellers]
+    if seller_id:
+        return [run_for_seller(seller_id, run_date=run_date, repo_root=repo_root)]
+    batch = run_for_all_sellers(run_date=run_date, repo_root=repo_root)
+    return [row for row in batch.get("results", []) if isinstance(row, dict)]
 
 
 def _run_weekly_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict[str, Any]:
@@ -1093,8 +1337,27 @@ def _run_weekly_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dic
 
 
 def _run_weekly(repo_root: str, seller_id: str | None, run_date: str) -> List[Dict[str, Any]]:
-    sellers = [seller_id] if seller_id else _list_sellers(repo_root)
-    return [_run_weekly_for_seller(repo_root, current, run_date) for current in sellers]
+    sellers = [seller_id] if seller_id else discover_sellers(repo_root)
+    if seller_id is None:
+        if sellers:
+            print(f"[batch] discovered sellers: {', '.join(sellers)}")
+        else:
+            print("[warn] no valid seller cabinets found")
+    else:
+        print(f"[batch] explicit seller: {seller_id}")
+    results: List[Dict[str, Any]] = []
+    for current_seller in sellers:
+        try:
+            seller_repo_root = _resolve_seller_repo_root(repo_root, current_seller)
+            print(f"[{current_seller}] weekly pipeline started")
+            _debug_seller_paths(seller_repo_root, current_seller)
+            result = _run_weekly_for_seller(seller_repo_root, current_seller, run_date)
+            print(f"[{current_seller}] weekly pipeline finished successfully")
+            results.append(result)
+        except Exception as exc:
+            print(f"[{current_seller}] weekly pipeline failed: {exc}")
+            results.append(_failed_run_result(current_seller, run_date, mode="weekly", error=str(exc)))
+    return results
 
 
 def main() -> None:

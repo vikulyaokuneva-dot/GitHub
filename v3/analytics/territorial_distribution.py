@@ -242,6 +242,16 @@ def _shares(values: Dict[str, float]) -> Dict[str, float]:
     return {key: round(max(value, 0.0) / total, 3) for key, value in values.items() if value > 0}
 
 
+def _dominant_warehouses(share_by_warehouse: Dict[str, float], threshold: float = 0.2) -> List[str]:
+    dominant = [
+        (warehouse, float(share))
+        for warehouse, share in share_by_warehouse.items()
+        if _as_float(share) is not None and float(share) > threshold
+    ]
+    dominant.sort(key=lambda item: (-item[1], item[0]))
+    return [warehouse for warehouse, _ in dominant]
+
+
 def compute_distribution_gap(demand_share: Dict[str, float], stock_share: Dict[str, float]) -> float:
     warehouses = set(demand_share) | set(stock_share)
     if not warehouses:
@@ -284,6 +294,8 @@ def compute_sku_distribution(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 
         demand_share = _shares(demand_by_warehouse)
         stock_share = _shares(stock_by_warehouse)
+        dominant_demand_warehouses = _dominant_warehouses(demand_share)
+        dominant_stock_warehouses = _dominant_warehouses(stock_share)
 
         status: str
         gap: float | None = None
@@ -321,8 +333,8 @@ def compute_sku_distribution(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]
                 "status": status,
                 "confidence": confidence,
                 "low_sample_warning": confidence == "low",
-                "dominant_demand_warehouses": None,
-                "dominant_stock_warehouses": None,
+                "dominant_demand_warehouses": dominant_demand_warehouses,
+                "dominant_stock_warehouses": dominant_stock_warehouses,
                 "relocation_hint": None,
             }
         )

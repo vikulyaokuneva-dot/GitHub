@@ -1,0 +1,42 @@
+[
+  {
+    "code": "input_files_found",
+    "message": "Input files found: total=0, sales=0, ads=0, stocks=0, unknown=0"
+  },
+  {
+    "code": "input_files_missing",
+    "message": "No local input files found in cabinets/__missing_seller__/input"
+  },
+  {
+    "code": "sales_report_missing",
+    "message": "No valid sales report found in input/."
+  },
+  {
+    "code": "ads_report_missing",
+    "message": "No valid ads report found in input/."
+  },
+  {
+    "code": "stocks_report_missing",
+    "message": "No valid stocks report found in input/."
+  },
+  {
+    "code": "wb_token_missing",
+    "message": "WB token missing for token_ref=(empty)"
+  },
+  {
+    "code": "low_total_profit",
+    "message": "Total SKU profit is non-positive; profit contribution shares set to 0."
+  },
+  {
+    "code": "territorial_distribution_built",
+    "message": "Territorial distribution built for 0 SKU with KTR"
+  },
+  {
+    "code": "no_decisions_ready_for_outcome",
+    "message": "No decisions are ready for outcome evaluation yet"
+  },
+  {
+    "code": "history_snapshot_saved",
+    "message": "History snapshot saved for 2026-03-07"
+  }
+]

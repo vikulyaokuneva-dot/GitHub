@@ -41,7 +41,25 @@ FIELD_SYNONYMS = {
         "ваилдберриз_реализовал_товар_пр",
     ],
     "profit": ["profit", "прибыль", "доход", "валовая_прибыль", "net_profit"],
-    "orders": ["orders", "заказы", "колво_заказов", "количество_заказов", "заказанные_товары", "заказов_на_сумму"],
+    "orders": [
+        "orders",
+        "order_count",
+        "orders_count",
+        "заказы",
+        "заказы_шт",
+        "колво_заказов",
+        "колво_заказов_шт",
+        "кол_во_заказов",
+        "кол_заказов",
+        "количество_заказов",
+        "количество_заказов_шт",
+        "заказанные_товары",
+        "заказано_шт",
+        "заказов_на_сумму",
+        "ordered_units",
+        "ordered_qty",
+        "ordered_quantity",
+    ],
     "buys": ["buys", "выкупы", "продажи", "колво_выкупов", "количество_выкупов", "выкупили", "кол_во", "количество", "кол-во"],
     "sales_count": ["sales_count", "продаж", "колво_продаж", "количество_продаж", "реализовано", "кол_во", "количество", "кол-во"],
     "stock": [
@@ -567,6 +585,12 @@ def _rows_from_table(
                 item["sales_count"] = float(qty)
                 if item.get("buys") is None:
                     item["buys"] = float(qty)
+            if item.get("orders") is None:
+                order_qty = item.get("sales_count")
+                if order_qty is None:
+                    order_qty = item.get("buys")
+                if order_qty is not None:
+                    item["orders"] = float(order_qty)
 
             if item.get("revenue") is not None and item.get("profit") is None:
                 logistics = float(item.get("logistics") or 0.0)
@@ -694,6 +718,26 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
                 }
             )
             primary_sales_columns = _read_many(discovered["sales"], "sales", sales_rows, primary_only=primary_sales_source)
+            orders_source_field = (
+                primary_sales_columns.get("orders")
+                or primary_sales_columns.get("sales_count")
+                or primary_sales_columns.get("buys")
+                or ""
+            )
+            recognized_order_rows = sum(1 for row in sales_rows if float(row.get("orders") or 0.0) > 0)
+            extracted_orders_total = int(
+                round(sum(float(row.get("orders") or row.get("sales_count") or row.get("buys") or 0.0) for row in sales_rows))
+            )
+            print(f"[orders] source_field={orders_source_field or 'not_detected'}")
+            print(f"[orders] recognized_rows={recognized_order_rows}")
+            print(f"[orders] total_orders={extracted_orders_total}")
+            if "orders" not in primary_sales_columns and not orders_source_field:
+                warnings.append(
+                    {
+                        "code": "orders_column_not_detected",
+                        "message": "Orders column was not detected in primary sales source; totals.orders may remain 0.",
+                    }
+                )
             warnings.append(
                 {
                     "code": "primary_sales_matched_columns",
@@ -702,6 +746,7 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
                         f"sku={primary_sales_columns.get('sku','')}, "
                         f"revenue={primary_sales_columns.get('revenue','')}, "
                         f"profit={primary_sales_columns.get('profit','')}, "
+                        f"orders={primary_sales_columns.get('orders') or primary_sales_columns.get('sales_count') or primary_sales_columns.get('buys','')}, "
                         f"buys={primary_sales_columns.get('buys') or primary_sales_columns.get('sales_count') or primary_sales_columns.get('orders','')}"
                     ),
                 }

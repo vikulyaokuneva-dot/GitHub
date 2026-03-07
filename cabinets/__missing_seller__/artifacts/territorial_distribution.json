@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "engine": "territorial_distribution_engine",
+    "version": "1.0",
+    "seller_id": "__missing_seller__",
+    "run_date": "2026-03-07",
+    "generated_at": "2026-03-07T19:44:55Z",
+    "source_artifacts": [
+      "metrics.json"
+    ]
+  },
+  "summary": {
+    "sku_total": 0,
+    "sku_with_ktr": 0,
+    "balanced_count": 0,
+    "moderate_mismatch_count": 0,
+    "misallocated_count": 0,
+    "insufficient_distribution_data_count": 0,
+    "no_stock_data_count": 0,
+    "insufficient_total_count": 0,
+    "avg_ktr": 0.0,
+    "top_misaligned_skus": []
+  },
+  "skus": []
+}

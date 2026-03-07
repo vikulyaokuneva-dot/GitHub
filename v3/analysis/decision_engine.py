@@ -12,6 +12,15 @@ def _as_float(value: Any) -> float:
         return 0.0
 
 
+def _as_float_or_none(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _extract_sku_metrics(metrics: Any) -> List[Dict[str, Any]]:
     if isinstance(metrics, list):
         return [x for x in metrics if isinstance(x, dict)]
@@ -58,6 +67,24 @@ def _extract_territorial_items(territorial: Any) -> Dict[str, Dict[str, Any]]:
     return rows
 
 
+def _extract_logistics_items(logistics: Any) -> Dict[str, Dict[str, Any]]:
+    if not isinstance(logistics, dict):
+        return {}
+    value = logistics.get("skus")
+    if not isinstance(value, list):
+        value = logistics.get("items")
+    if not isinstance(value, list):
+        return {}
+    rows: Dict[str, Dict[str, Any]] = {}
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        sku = str(item.get("sku") or "").strip()
+        if sku:
+            rows[sku] = item
+    return rows
+
+
 def _choose_decision(profit: float, margin_pct: float, abc_class: str) -> tuple[str, str]:
     if profit <= 0:
         return "liquidate", "Ликвидировать остатки или отключить рекламу"
@@ -70,11 +97,18 @@ def _choose_decision(profit: float, margin_pct: float, abc_class: str) -> tuple[
     return "watch", "Наблюдать и тестировать"
 
 
-def build_decisions(metrics: Any, abc: Any, health: Any, territorial: Any | None = None) -> Dict[str, Any]:
+def build_decisions(
+    metrics: Any,
+    abc: Any,
+    health: Any,
+    territorial: Any | None = None,
+    logistics: Any | None = None,
+) -> Dict[str, Any]:
     sku_metrics = _extract_sku_metrics(metrics)
     abc_rows = _extract_abc(abc)
     health_items = _extract_health_items(health)
     territorial_items = _extract_territorial_items(territorial)
+    logistics_items = _extract_logistics_items(logistics)
 
     abc_by_sku = {str(item.get("sku")): str(item.get("abc_class", "")) for item in abc_rows}
     health_by_sku = {str(item.get("sku")): item for item in health_items}
@@ -99,12 +133,21 @@ def build_decisions(metrics: Any, abc: Any, health: Any, territorial: Any | None
         territorial_row = territorial_items.get(sku) or {}
         territorial_status = str(territorial_row.get("status") or "")
         territorial_ktr = _as_float(territorial_row.get("ktr"))
+        logistics_row = logistics_items.get(sku) or {}
+        logistics_efficiency_status = str(logistics_row.get("logistics_efficiency_status") or "")
+        priority_for_relocation = str(logistics_row.get("priority_for_relocation") or "none")
+        locality_score = _as_float_or_none(logistics_row.get("locality_score"))
         territorial_reasons: List[str] = []
         if territorial_ktr > 1.25:
             territorial_reasons = [
                 "Товар распределен по складам не в соответствии со спросом",
                 "Есть потенциал снижения логистики через перераспределение остатков",
             ]
+
+        if logistics_efficiency_status == "critical":
+            territorial_reasons.append("Critical logistics mismatch between demand and stock distribution.")
+        elif logistics_efficiency_status == "inefficient":
+            territorial_reasons.append("Logistics mismatch detected; relocation review may reduce delivery friction.")
 
         bucket, action = _choose_decision(profit, margin_pct, abc_class)
         item = {
@@ -116,6 +159,9 @@ def build_decisions(metrics: Any, abc: Any, health: Any, territorial: Any | None
             "health_status": health_status,
             "territorial_status": territorial_status,
             "territorial_ktr": round(territorial_ktr, 3) if territorial_ktr > 0 else None,
+            "logistics_efficiency_status": logistics_efficiency_status or None,
+            "priority_for_relocation": priority_for_relocation,
+            "locality_score": round(locality_score, 3) if locality_score is not None else None,
             "territorial_reasons": territorial_reasons,
         }
         summary[bucket].append(item)

@@ -2,6 +2,54 @@
   "seller_id": "seller_001",
   "snapshots": [
     {
+      "date": "2026-03-07",
+      "path": "daily/2026-03-07",
+      "files": [
+        "2026-03-07_outcomes.json",
+        "abc_analysis.json",
+        "decisions.json",
+        "facts.json",
+        "health_score.json",
+        "metrics.json",
+        "profit_contribution.json",
+        "warnings.json"
+      ],
+      "kpi": {
+        "revenue": 11388.49,
+        "profit": 6315.36,
+        "buyouts": 196,
+        "ads_spend": 1659.2,
+        "sku_count": 10,
+        "valid_sku_count": 10,
+        "invalid_sku_rows": 52
+      },
+      "seller_id": "seller_001"
+    },
+    {
+      "date": "2026-03-08",
+      "path": "daily/2026-03-08",
+      "files": [
+        "2026-03-08_outcomes.json",
+        "abc_analysis.json",
+        "decisions.json",
+        "facts.json",
+        "health_score.json",
+        "metrics.json",
+        "profit_contribution.json",
+        "warnings.json"
+      ],
+      "kpi": {
+        "revenue": 11388.49,
+        "profit": 6315.36,
+        "buyouts": 196,
+        "ads_spend": 1659.2,
+        "sku_count": 10,
+        "valid_sku_count": 10,
+        "invalid_sku_rows": 52
+      },
+      "seller_id": "seller_001"
+    },
+    {
       "date": "2026-03-10",
       "path": "daily/2026-03-10",
       "files": [

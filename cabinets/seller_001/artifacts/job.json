@@ -1,10 +1,10 @@
 {
   "seller_id": "seller_001",
   "mode": "daily",
-  "run_date": "2026-03-10",
+  "run_date": "2026-03-08",
   "status": "success",
-  "started_at": "2026-03-07T15:39:05Z",
-  "finished_at": "2026-03-07T15:39:07Z",
+  "started_at": "2026-03-07T21:14:00Z",
+  "finished_at": "2026-03-07T21:14:04Z",
   "error": null,
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
   "input_debug": {
@@ -114,7 +114,7 @@
           "stocks": 0
         },
         "column_scores": {
-          "sales": 4,
+          "sales": 5,
           "ads": 1,
           "stocks": 3
         },
@@ -241,6 +241,7 @@
     "primary_sales_source": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №641536051_4297720 - 1.xlsx",
     "primary_sales_columns": {
       "revenue": "к_перечислению_продавцу_за_реализованный_товар",
+      "orders": "кол_во",
       "buys": "кол_во",
       "sales_count": "кол_во",
       "logistics": "услуги_по_доставке_товара_покупателю",
@@ -265,28 +266,29 @@
     "abc_analysis.json",
     "profit_contribution.json",
     "territorial_distribution.json",
+    "logistics_ktr.json",
     "health_score.json",
     "decisions.json",
     "memory/decision_memory.jsonl",
-    "memory/outcomes/2026-03-10_outcomes.json",
-    "history/daily/2026-03-10/",
+    "memory/outcomes/2026-03-08_outcomes.json",
+    "history/daily/2026-03-08/",
     "history/history_index.json",
     "report_meta.json",
     "report.pdf"
   ],
   "decision_memory_added": 0,
   "decision_outcomes_evaluated": 0,
-  "decision_outcomes_file": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\memory\\outcomes\\2026-03-10_outcomes.json",
+  "decision_outcomes_file": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\memory\\outcomes\\2026-03-08_outcomes.json",
   "pdf_font": {
     "family": "arial",
     "regular": "C:\\Windows\\Fonts\\arial.ttf",
     "bold": "C:\\Windows\\Fonts\\arialbd.ttf"
   },
   "history_snapshot": {
-    "date": "2026-03-10",
-    "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\history\\daily\\2026-03-10",
+    "date": "2026-03-08",
+    "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\history\\daily\\2026-03-08",
     "files": [
-      "2026-03-10_outcomes.json",
+      "2026-03-08_outcomes.json",
       "abc_analysis.json",
       "decisions.json",
       "facts.json",

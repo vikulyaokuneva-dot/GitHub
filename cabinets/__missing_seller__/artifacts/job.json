@@ -1,0 +1,67 @@
+{
+  "seller_id": "__missing_seller__",
+  "mode": "daily",
+  "run_date": "2026-03-07",
+  "status": "success",
+  "started_at": "2026-03-07T19:44:55Z",
+  "finished_at": "2026-03-07T19:44:55Z",
+  "error": null,
+  "artifacts_dir": "C:\\Users\\CodexSandboxOffline\\.codex\\.sandbox\\cwd\\4cd70e165a5e5b05\\cabinets\\__missing_seller__\\artifacts",
+  "input_debug": {
+    "input_dir": "C:\\Users\\CodexSandboxOffline\\.codex\\.sandbox\\cwd\\4cd70e165a5e5b05\\cabinets\\__missing_seller__\\input",
+    "discovered": {
+      "sales": [],
+      "ads": [],
+      "stocks": [],
+      "unknown": []
+    },
+    "details": [],
+    "primary_sales_source": "",
+    "primary_sales_columns": {},
+    "loaded_rows": {
+      "sales": 0,
+      "ads": 0,
+      "stocks": 0
+    }
+  },
+  "artifacts": [
+    "job.json",
+    "facts.json",
+    "metrics.json",
+    "warnings.json",
+    "abc_analysis.json",
+    "profit_contribution.json",
+    "territorial_distribution.json",
+    "logistics_ktr.json",
+    "health_score.json",
+    "decisions.json",
+    "memory/decision_memory.jsonl",
+    "memory/outcomes/2026-03-07_outcomes.json",
+    "history/daily/2026-03-07/",
+    "history/history_index.json",
+    "report_meta.json",
+    "report.pdf"
+  ],
+  "decision_memory_added": 0,
+  "decision_outcomes_evaluated": 0,
+  "decision_outcomes_file": "C:\\Users\\CodexSandboxOffline\\.codex\\.sandbox\\cwd\\4cd70e165a5e5b05\\cabinets\\__missing_seller__\\memory\\outcomes\\2026-03-07_outcomes.json",
+  "pdf_font": {
+    "family": "arial",
+    "regular": "C:\\Windows\\Fonts\\arial.ttf",
+    "bold": "C:\\Windows\\Fonts\\arialbd.ttf"
+  },
+  "history_snapshot": {
+    "date": "2026-03-07",
+    "path": "C:\\Users\\CodexSandboxOffline\\.codex\\.sandbox\\cwd\\4cd70e165a5e5b05\\cabinets\\__missing_seller__\\history\\daily\\2026-03-07",
+    "files": [
+      "2026-03-07_outcomes.json",
+      "abc_analysis.json",
+      "decisions.json",
+      "facts.json",
+      "health_score.json",
+      "metrics.json",
+      "profit_contribution.json",
+      "warnings.json"
+    ]
+  }
+}

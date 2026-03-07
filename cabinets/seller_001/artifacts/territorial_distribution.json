@@ -3,8 +3,8 @@
     "engine": "territorial_distribution_engine",
     "version": "1.0",
     "seller_id": "seller_001",
-    "run_date": "2026-03-10",
-    "generated_at": "2026-03-07T15:39:07Z",
+    "run_date": "2026-03-08",
+    "generated_at": "2026-03-07T21:14:04Z",
     "source_artifacts": [
       "metrics.json"
     ]
@@ -46,8 +46,12 @@
       "status": "misallocated",
       "confidence": "low",
       "low_sample_warning": true,
-      "dominant_demand_warehouses": null,
-      "dominant_stock_warehouses": null,
+      "dominant_demand_warehouses": [
+        "Казань"
+      ],
+      "dominant_stock_warehouses": [
+        "Тула"
+      ],
       "relocation_hint": null
     },
     {
@@ -93,8 +97,15 @@
       "status": "misallocated",
       "confidence": "high",
       "low_sample_warning": false,
-      "dominant_demand_warehouses": null,
-      "dominant_stock_warehouses": null,
+      "dominant_demand_warehouses": [
+        "Екатеринбург",
+        "Краснодар",
+        "Электросталь"
+      ],
+      "dominant_stock_warehouses": [
+        "Электросталь",
+        "Тула"
+      ],
       "relocation_hint": null
     },
     {
@@ -120,8 +131,12 @@
       "status": "moderate_mismatch",
       "confidence": "medium",
       "low_sample_warning": false,
-      "dominant_demand_warehouses": null,
-      "dominant_stock_warehouses": null,
+      "dominant_demand_warehouses": [
+        "Тула"
+      ],
+      "dominant_stock_warehouses": [
+        "Тула"
+      ],
       "relocation_hint": null
     },
     {
@@ -145,8 +160,12 @@
       "status": "balanced",
       "confidence": "low",
       "low_sample_warning": true,
-      "dominant_demand_warehouses": null,
-      "dominant_stock_warehouses": null,
+      "dominant_demand_warehouses": [
+        "Тула"
+      ],
+      "dominant_stock_warehouses": [
+        "Тула"
+      ],
       "relocation_hint": null
     },
     {
@@ -170,8 +189,12 @@
       "status": "balanced",
       "confidence": "low",
       "low_sample_warning": true,
-      "dominant_demand_warehouses": null,
-      "dominant_stock_warehouses": null,
+      "dominant_demand_warehouses": [
+        "Тула"
+      ],
+      "dominant_stock_warehouses": [
+        "Тула"
+      ],
       "relocation_hint": null
     },
     {
@@ -195,8 +218,12 @@
       "status": "balanced",
       "confidence": "medium",
       "low_sample_warning": false,
-      "dominant_demand_warehouses": null,
-      "dominant_stock_warehouses": null,
+      "dominant_demand_warehouses": [
+        "Тула"
+      ],
+      "dominant_stock_warehouses": [
+        "Тула"
+      ],
       "relocation_hint": null
     },
     {
@@ -212,8 +239,8 @@
       "status": "insufficient_distribution_data",
       "confidence": "low",
       "low_sample_warning": true,
-      "dominant_demand_warehouses": null,
-      "dominant_stock_warehouses": null,
+      "dominant_demand_warehouses": [],
+      "dominant_stock_warehouses": [],
       "relocation_hint": null
     },
     {
@@ -229,8 +256,8 @@
       "status": "insufficient_distribution_data",
       "confidence": "low",
       "low_sample_warning": true,
-      "dominant_demand_warehouses": null,
-      "dominant_stock_warehouses": null,
+      "dominant_demand_warehouses": [],
+      "dominant_stock_warehouses": [],
       "relocation_hint": null
     },
     {
@@ -250,8 +277,10 @@
       "status": "no_stock_data",
       "confidence": "low",
       "low_sample_warning": true,
-      "dominant_demand_warehouses": null,
-      "dominant_stock_warehouses": null,
+      "dominant_demand_warehouses": [
+        "Тула"
+      ],
+      "dominant_stock_warehouses": [],
       "relocation_hint": null
     },
     {
@@ -271,8 +300,10 @@
       "status": "no_stock_data",
       "confidence": "low",
       "low_sample_warning": true,
-      "dominant_demand_warehouses": null,
-      "dominant_stock_warehouses": null,
+      "dominant_demand_warehouses": [
+        "Казань"
+      ],
+      "dominant_stock_warehouses": [],
       "relocation_hint": null
     }
   ]

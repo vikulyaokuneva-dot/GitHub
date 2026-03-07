@@ -1,0 +1,68 @@
+{
+  "seller_id": "__missing_seller__",
+  "seller_name": "__missing_seller__",
+  "run_date": "2026-03-07",
+  "generated_at": "2026-03-07T19:44:55Z",
+  "data_confidence": "low",
+  "source_mode": "fallback_mock",
+  "input_summary": {
+    "sales_files_found": 0,
+    "ads_files_found": 0,
+    "stocks_files_found": 0,
+    "unknown_files_found": 0,
+    "source_mode": "fallback_mock",
+    "confidence": "low"
+  },
+  "kpi": {
+    "revenue": 0.0,
+    "profit": 0.0,
+    "orders": 0,
+    "buyouts": 0
+  },
+  "data_quality": {
+    "valid_sku_count": 0,
+    "invalid_sku_rows": 0,
+    "unassigned_costs_present": false
+  },
+  "profit_contribution_summary": {
+    "p1_count": 0,
+    "p2_count": 0,
+    "p3_count": 0,
+    "top_profit_skus": []
+  },
+  "territorial_distribution_summary": {
+    "sku_total": 0,
+    "sku_with_ktr": 0,
+    "balanced_count": 0,
+    "moderate_mismatch_count": 0,
+    "misallocated_count": 0,
+    "insufficient_distribution_data_count": 0,
+    "no_stock_data_count": 0,
+    "insufficient_total_count": 0,
+    "avg_ktr": 0.0,
+    "top_misaligned_skus": []
+  },
+  "logistics_ktr_summary": {
+    "sku_total": 0,
+    "sku_with_ktr": 0,
+    "efficient_count": 0,
+    "acceptable_count": 0,
+    "inefficient_count": 0,
+    "critical_count": 0,
+    "low_confidence_count": 0,
+    "avg_ktr": 0.0,
+    "avg_locality_score": 0.0,
+    "top_critical_skus": []
+  },
+  "decision_memory_summary": {
+    "total_logged": 0,
+    "pending": 0,
+    "success": 0,
+    "fail": 0,
+    "neutral": 0
+  },
+  "history_summary": {
+    "snapshots_count": 1,
+    "latest_snapshot_date": "2026-03-07"
+  }
+}
