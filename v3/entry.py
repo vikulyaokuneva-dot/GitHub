@@ -24,7 +24,6 @@ from .memory.decision_outcomes import evaluate_decision_outcomes, save_outcomes
 from .orchestrator import discover_sellers, run_audit
 from .paths import artifacts_dir, cabinet_root, input_dir, reports_dir
 from .pdf_render import write_text_pdf
-from .quality_gate import compute_data_confidence
 from .sources.wb_reports_loader import (
     build_facts_from_reports,
     build_metrics_from_reports,
@@ -193,6 +192,7 @@ def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         "low_total_profit",
         "profit_concentration_high",
         "wb_token_missing",
+        "wb_api_empty",
         "territorial_distribution_built",
         "insufficient_warehouse_data",
         "high_ktr_detected",
@@ -310,93 +310,74 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     started_at = _utc_now_iso()
     seller_name = str(cfg.get("seller_name") or seller_id)
 
-    local_bundle = load_local_reports(seller_input_dir)
-    discovered_files = local_bundle.get("files", {})
-    input_debug = local_bundle.get("debug", {})
-    warnings: List[Dict[str, Any]] = list(local_bundle.get("warnings", []))
-    sales_rows = list(local_bundle.get("sales_rows", []))
-    ads_rows = list(local_bundle.get("ads_rows", []))
-    stocks_rows = list(local_bundle.get("stocks_rows", []))
+    token = str(os.getenv("WB_API_TOKEN", "")).strip()
+    discovered_files: Dict[str, List[str]] = {"sales": [], "ads": [], "stocks": [], "unknown": []}
+    input_debug: Dict[str, Any] = {}
+    warnings: List[Dict[str, Any]] = []
+    sales_rows: List[Dict[str, Any]] = []
+    ads_rows: List[Dict[str, Any]] = []
+    stocks_rows: List[Dict[str, Any]] = []
 
-    if sales_rows:
-        source_mode = "local_reports"
-        metrics = build_metrics_from_reports(sales_rows, ads_rows, stocks_rows)
-        metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
-        invalid_rows = int(metrics_data_quality.get("invalid_sku_rows", 0) or 0)
-        if invalid_rows > 0:
-            warnings.append(
-                {
-                    "code": "invalid_sku_filtered",
-                    "message": f"Filtered invalid SKU rows: {invalid_rows}",
-                }
-            )
-        if bool(metrics_data_quality.get("unassigned_costs_present", False)):
-            warnings.append(
-                {
-                    "code": "unassigned_costs_detected",
-                    "message": "Part of costs is not assigned to SKU and stored in unassigned_costs.",
-                }
-            )
-        facts = build_facts_from_reports(
-            seller_id=seller_id,
-            run_date=run_date,
-            seller_name=seller_name,
-            metrics=metrics,
-            discovered_files=discovered_files,
-            warnings=warnings,
-            source_mode=source_mode,
-        )
-    else:
-        source_mode = "fallback_mock"
-        token_ref = str(((cfg.get("wb") or {}).get("token_ref") or "")).strip()
-        if not token_ref or not os.getenv(token_ref, "").strip():
-            warnings.append(
-                {
-                    "code": "wb_token_missing",
-                    "message": f"WB token missing for token_ref={token_ref or '(empty)'}",
-                }
-            )
+    if token:
+        source_mode = "wb_api"
+        from .wb_client import WBClient
 
-        metrics = {
-            "sku_metrics": [],
-            "totals": {
-                "revenue": 0.0,
-                "profit": 0.0,
-                "orders": 0,
-                "buys": 0,
-                "stock": 0,
-                "ads_spend": 0.0,
-            },
-            "financial": {},
-            "funnel": {},
-            "ads": {},
-            "stock": {},
-            "unassigned_costs": {
-                "revenue": 0.0,
-                "profit": 0.0,
-                "logistics": 0.0,
-                "penalties": 0.0,
-                "storage": 0.0,
-                "deductions": 0.0,
-                "rows": 0,
-            },
-            "data_quality": {
-                "valid_sku_count": 0,
-                "invalid_sku_rows": 0,
-                "unassigned_costs_present": False,
+        client = WBClient(token)
+        sales_rows = client.fetch_sales(run_date)
+        ads_rows = client.fetch_ads(run_date)
+        stocks_rows = client.fetch_stocks()
+        input_debug = {
+            "source_mode": source_mode,
+            "loaded_rows": {
+                "sales": len(sales_rows),
+                "ads": len(ads_rows),
+                "stocks": len(stocks_rows),
             },
         }
+        if not sales_rows and not ads_rows and not stocks_rows:
+            warnings.append(
+                {
+                    "code": "wb_api_empty",
+                    "message": "WB API returned no rows",
+                }
+            )
+    else:
+        source_mode = "local_reports"
+        local_bundle = load_local_reports(seller_input_dir)
+        discovered_files = local_bundle.get("files", discovered_files)
+        input_debug = local_bundle.get("debug", {})
+        warnings = list(local_bundle.get("warnings", []))
+        sales_rows = list(local_bundle.get("sales_rows", []))
+        ads_rows = list(local_bundle.get("ads_rows", []))
+        stocks_rows = list(local_bundle.get("stocks_rows", []))
 
-        facts = build_facts_from_reports(
-            seller_id=seller_id,
-            run_date=run_date,
-            seller_name=seller_name,
-            metrics=metrics,
-            discovered_files=discovered_files,
-            warnings=warnings,
-            source_mode=source_mode,
+    metrics = build_metrics_from_reports(sales_rows, ads_rows, stocks_rows)
+    metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
+    invalid_rows = int(metrics_data_quality.get("invalid_sku_rows", 0) or 0)
+    if invalid_rows > 0:
+        warnings.append(
+            {
+                "code": "invalid_sku_filtered",
+                "message": f"Filtered invalid SKU rows: {invalid_rows}",
+            }
         )
-        facts["data_confidence"] = compute_data_confidence(warnings)
+    if bool(metrics_data_quality.get("unassigned_costs_present", False)):
+        warnings.append(
+            {
+                "code": "unassigned_costs_detected",
+                "message": "Part of costs is not assigned to SKU and stored in unassigned_costs.",
+            }
+        )
+    facts = build_facts_from_reports(
+        seller_id=seller_id,
+        run_date=run_date,
+        seller_name=seller_name,
+        metrics=metrics,
+        discovered_files=discovered_files,
+        warnings=warnings,
+        source_mode=source_mode,
+    )
+    facts["source_mode"] = source_mode
 
     confidence = str(facts.get("data_confidence", "low"))
     input_summary = facts.get("input_summary", {}) if isinstance(facts, dict) else {}

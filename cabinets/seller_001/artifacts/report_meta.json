@@ -5,7 +5,7 @@
     "regular": "C:\\Windows\\Fonts\\arial.ttf",
     "bold": "C:\\Windows\\Fonts\\arialbd.ttf"
   },
-  "pages": 3,
+  "pages": 4,
   "page_previews": [
     {
       "page": 1,
@@ -70,7 +70,11 @@
         "",
         "### ЛИКВИДИРОВАТЬ (LIQUIDATE)",
         "- SKU 739377515 — прибыль 0 ₽ — ликвидировать остатки или отключить рекламу",
-        ""
+        "",
+        "## СТРАТЕГИЯ AI ДИРЕКТОРА",
+        "### МАСШТАБИРОВАТЬ (SCALE)",
+        "- SKU 739384273 -> increase_ads",
+        "- SKU 452102417 -> increase_ads"
       ]
     },
     {
