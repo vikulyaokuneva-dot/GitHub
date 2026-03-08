@@ -37,7 +37,7 @@ jobs:
           GIGACHAT_MODEL: "GigaChat-2"
           GIGACHAT_TIMEOUT_SEC: "60"
         run: |
-          python -m src.entry daily
+          python -m v3.entry daily
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
