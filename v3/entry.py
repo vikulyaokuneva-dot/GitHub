@@ -30,6 +30,7 @@ from .sources.wb_reports_loader import (
     load_local_reports,
 )
 from .storage import write_json
+from src.mailer_yandex import send_email_with_pdf
 
 _FALLBACK_SELLER_ID = "__missing_seller__"
 _ALLOW_FALLBACK_ENV = "WB_ALLOW_MISSING_SELLER"
@@ -298,6 +299,86 @@ def _build_key_insights(
     if not insights:
         insights.append("Ключевые показатели рассчитаны без критичных отклонений.")
     return insights[:5]
+
+
+def _mask_email_address(value: str) -> str:
+    clean = str(value or "").strip()
+    if not clean:
+        return ""
+    local, sep, domain = clean.partition("@")
+    if sep != "@":
+        return clean
+    if not local:
+        return f"***@{domain}"
+    if len(local) == 1:
+        return f"{local}***@{domain}"
+    if len(local) == 2:
+        return f"{local[0]}***@{domain}"
+    return f"{local[:2]}***@{domain}"
+
+
+def _mask_email_targets(raw_value: str) -> str:
+    parts = [item.strip() for item in re.split(r"[;,]", str(raw_value or "")) if item.strip()]
+    if not parts:
+        return ""
+    return ", ".join(_mask_email_address(item) for item in parts)
+
+
+def _send_daily_report_email(seller_id: str, run_date: str, report_pdf_path: str) -> str:
+    email_to_raw = str(os.getenv("EMAIL_TO", "")).strip()
+    email_to_masked = _mask_email_targets(email_to_raw)
+    smtp_user = str(os.getenv("YANDEX_SMTP_USER", "")).strip()
+    smtp_pass = str(os.getenv("YANDEX_SMTP_APP_PASS", "")).strip()
+    attachment_exists = os.path.isfile(report_pdf_path)
+
+    print(f"[mail] email_to={email_to_masked or '<empty>'}")
+    print(f"[mail] smtp_user_exists={str(bool(smtp_user)).lower()}")
+    print(f"[mail] attachment_exists={str(attachment_exists).lower()}")
+    print("[mail] send_started")
+
+    try:
+        missing_env: List[str] = []
+        if not smtp_user:
+            missing_env.append("YANDEX_SMTP_USER")
+        if not smtp_pass:
+            missing_env.append("YANDEX_SMTP_APP_PASS")
+        if not email_to_raw:
+            missing_env.append("EMAIL_TO")
+        if missing_env:
+            raise RuntimeError(f"Missing required env vars: {', '.join(missing_env)}")
+        if not attachment_exists:
+            raise FileNotFoundError(f"Attachment not found: {report_pdf_path}")
+
+        subject = f"WB AI Agent v3 daily report: {seller_id} ({run_date})"
+        body = (
+            f"WB AI Agent v3 daily report for seller {seller_id} on {run_date}.\n\n"
+            "See attached report.pdf."
+        )
+        send_email_with_pdf(subject=subject, body=body, pdf_path=report_pdf_path)
+        print("[mail] send_success")
+        return email_to_masked
+    except Exception as exc:
+        print(f"[mail] send_failed: {exc}")
+        raise
+
+
+def _apply_email_result(
+    job: Dict[str, Any],
+    *,
+    attempted: bool,
+    sent: bool,
+    email_to: str,
+    error: str | None,
+) -> Dict[str, Any]:
+    job["email_attempted"] = attempted
+    job["email_sent"] = sent
+    job["email_to"] = email_to
+    job["email_error"] = error
+
+    if attempted and not sent and str(job.get("status") or "") == "success":
+        job["status"] = "partial_success"
+        job["error"] = error or "Email sending failed"
+    return job
 
 
 def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict[str, Any]:
@@ -988,11 +1069,15 @@ def _failed_run_result(seller_id: str, run_date: str, mode: str, error: str) -> 
 
 def _batch_summary(run_date: str, results: List[Dict[str, Any]]) -> Dict[str, Any]:
     success_count = sum(1 for row in results if str(row.get("status") or "") == "success")
-    failed_count = len(results) - success_count
+    partial_success_count = sum(1 for row in results if str(row.get("status") or "") == "partial_success")
+    failed_count = sum(
+        1 for row in results if str(row.get("status") or "") not in {"success", "partial_success"}
+    )
     return {
         "run_date": run_date,
         "total_sellers": len(results),
         "success_count": success_count,
+        "partial_success_count": partial_success_count,
         "failed_count": failed_count,
         "results": results,
     }
@@ -1060,7 +1145,35 @@ def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str |
         _debug_seller_paths(seller_repo_root, seller_id)
         result = _run_daily_for_seller(seller_repo_root, seller_id, resolved_run_date)
         if str(result.get("status") or "") == "success":
+            report_pdf_path = os.path.join(str(result.get("artifacts_dir") or ""), "report.pdf")
+            email_to_masked = _mask_email_targets(str(os.getenv("EMAIL_TO", "")).strip())
+            try:
+                email_to_masked = _send_daily_report_email(seller_id, resolved_run_date, report_pdf_path)
+                result = _apply_email_result(
+                    result,
+                    attempted=True,
+                    sent=True,
+                    email_to=email_to_masked,
+                    error=None,
+                )
+            except Exception as exc:
+                result = _apply_email_result(
+                    result,
+                    attempted=True,
+                    sent=False,
+                    email_to=email_to_masked,
+                    error=str(exc),
+                )
+
+            job_path = os.path.join(str(result.get("artifacts_dir") or ""), "job.json")
+            if str(result.get("artifacts_dir") or "").strip():
+                write_json(job_path, result)
+
+        status = str(result.get("status") or "")
+        if status == "success":
             print(f"[{seller_id}] pipeline finished successfully")
+        elif status == "partial_success":
+            print(f"[{seller_id}] pipeline finished with partial_success: {result.get('email_error')}")
         else:
             print(f"[{seller_id}] pipeline failed: {result.get('error')}")
         return result
@@ -1087,6 +1200,7 @@ def run_for_all_sellers(run_date: str | None = None, repo_root: str | None = Non
     summary["batch_summary_path"] = _save_batch_summary(resolved_repo_root, summary)
     print("[batch] completed")
     print(f"success: {summary['success_count']}")
+    print(f"partial_success: {summary['partial_success_count']}")
     print(f"failed: {summary['failed_count']}")
     return summary
 
@@ -1098,6 +1212,7 @@ def run_daily_batch(repo_root: str, seller_id: str | None, run_date: str) -> Dic
         summary = _batch_summary(run_date, [result])
         print("[batch] completed")
         print(f"success: {summary['success_count']}")
+        print(f"partial_success: {summary['partial_success_count']}")
         print(f"failed: {summary['failed_count']}")
         return summary
     return run_for_all_sellers(run_date=run_date, repo_root=repo_root)
@@ -1369,8 +1484,9 @@ def main() -> None:
         results = run_audit(repo_root=repo_root, seller_id=args.seller, run_date=args.date, audit_input=args.input)
 
     ok = sum(1 for r in results if r.get("status") == "success")
-    fail = sum(1 for r in results if r.get("status") != "success")
-    print(f"v3 finished: success={ok} failed={fail}")
+    partial = sum(1 for r in results if r.get("status") == "partial_success")
+    fail = sum(1 for r in results if r.get("status") not in {"success", "partial_success"})
+    print(f"v3 finished: success={ok} partial_success={partial} failed={fail}")
     for r in results:
         print(f"- {r.get('seller_id')} {r.get('mode')} {r.get('run_date')} => {r.get('status')}")
 
