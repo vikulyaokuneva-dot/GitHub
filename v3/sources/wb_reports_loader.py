@@ -974,8 +974,21 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
     data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
     codes = {str(w.get("code", "")) for w in warnings if isinstance(w, dict)}
     debug = {"input_files_found", "input_file_detected_type"}
-    severe = {"input_files_missing", "sales_report_missing", "required_columns_missing"}
-    medium = {"ads_report_missing", "stocks_report_missing", "input_file_unknown_type", "input_file_read_error", "input_file_skipped"}
+    severe = {
+        "input_files_missing",
+        "sales_report_missing",
+        "required_columns_missing",
+        "wb_api_zero_sales_rows",
+        "financial_data_missing",
+    }
+    medium = {
+        "ads_report_missing",
+        "stocks_report_missing",
+        "input_file_unknown_type",
+        "input_file_read_error",
+        "input_file_skipped",
+        "wb_api_financial_degraded",
+    }
     effective = codes - debug
 
     if source_mode == "fallback_mock":

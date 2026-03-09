@@ -2,9 +2,10 @@
 import argparse
 import os
 import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
+from zoneinfo import ZoneInfo
 
 from .analysis.ai_director import build_strategy_plan
 from .analysis.decision_engine import build_decisions
@@ -42,6 +43,113 @@ def _default_date() -> str:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _resolve_report_timezone(cfg: Dict[str, Any]) -> str:
+    env_tz = str(os.getenv("TZ", "")).strip()
+    if env_tz:
+        return env_tz
+    cfg_tz = str(cfg.get("timezone") or "").strip()
+    if cfg_tz:
+        return cfg_tz
+    return "Europe/Berlin"
+
+
+def _resolve_wb_period(run_date: str, timezone_name: str) -> Dict[str, Any]:
+    requested_date = datetime.strptime(run_date, "%Y-%m-%d").date()
+    applied_timezone = timezone_name
+    try:
+        local_today = datetime.now(ZoneInfo(timezone_name)).date()
+    except Exception:
+        applied_timezone = "UTC"
+        local_today = datetime.now(timezone.utc).date()
+
+    shifted_to_previous_day = False
+    effective_date = requested_date
+    if requested_date >= local_today:
+        effective_date = local_today - timedelta(days=1)
+        shifted_to_previous_day = True
+
+    return {
+        "run_date": run_date,
+        "timezone": applied_timezone,
+        "local_today": local_today.isoformat(),
+        "date_from": effective_date.isoformat(),
+        "date_to": effective_date.isoformat(),
+        "shifted_to_previous_day": shifted_to_previous_day,
+    }
+
+
+def _merge_financial_rows(sales_rows: List[Dict[str, Any]], orders_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    numeric_fields = (
+        "revenue",
+        "profit",
+        "orders",
+        "buys",
+        "sales_count",
+        "logistics",
+        "penalties",
+        "storage",
+        "deductions",
+    )
+    bucket: Dict[str, Dict[str, Any]] = {}
+
+    def _row_key(row: Dict[str, Any]) -> str:
+        sku = str(row.get("sku") or "").strip()
+        if sku:
+            return sku
+        seller_sku = str(row.get("seller_sku") or "").strip()
+        if seller_sku:
+            return f"seller:{seller_sku}"
+        return ""
+
+    def _upsert(row: Dict[str, Any]) -> None:
+        if not isinstance(row, dict):
+            return
+        key = _row_key(row)
+        if not key:
+            return
+        if key not in bucket:
+            bucket[key] = {
+                "sku": str(row.get("sku") or "").strip(),
+                "seller_sku": str(row.get("seller_sku") or "").strip(),
+                "warehouse": str(row.get("warehouse") or "").strip(),
+                "revenue": 0.0,
+                "profit": 0.0,
+                "orders": 0.0,
+                "buys": 0.0,
+                "sales_count": 0.0,
+                "logistics": 0.0,
+                "penalties": 0.0,
+                "storage": 0.0,
+                "deductions": 0.0,
+            }
+        dst = bucket[key]
+        if not dst.get("sku"):
+            dst["sku"] = str(row.get("sku") or "").strip()
+        if not dst.get("seller_sku"):
+            dst["seller_sku"] = str(row.get("seller_sku") or "").strip()
+        if not dst.get("warehouse"):
+            dst["warehouse"] = str(row.get("warehouse") or "").strip()
+        for field in numeric_fields:
+            dst[field] = float(dst.get(field, 0.0) or 0.0) + float(row.get(field, 0.0) or 0.0)
+
+    for source_row in sales_rows:
+        _upsert(source_row)
+    for source_row in orders_rows:
+        _upsert(source_row)
+
+    out: List[Dict[str, Any]] = []
+    for row in bucket.values():
+        item = dict(row)
+        for field in numeric_fields:
+            item[field] = round(float(item.get(field, 0.0) or 0.0), 2)
+        if not item.get("seller_sku"):
+            item.pop("seller_sku", None)
+        if not item.get("warehouse"):
+            item.pop("warehouse", None)
+        out.append(item)
+    return out
 
 
 def _extract_sku_metrics(metrics: Any) -> List[Dict[str, Any]]:
@@ -194,6 +302,9 @@ def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         "profit_concentration_high",
         "wb_token_missing",
         "wb_api_empty",
+        "wb_api_zero_sales_rows",
+        "wb_api_financial_degraded",
+        "financial_data_missing",
         "territorial_distribution_built",
         "insufficient_warehouse_data",
         "high_ktr_detected",
@@ -242,6 +353,9 @@ def _warning_message_ru(code: str, message: str) -> str:
         "low_total_profit": "Суммарная прибыль по SKU неположительная.",
         "profit_concentration_high": "Концентрация прибыли в одном SKU слишком высокая.",
         "wb_token_missing": "Отсутствует WB токен для внешнего источника.",
+        "wb_api_zero_sales_rows": "WB API вернул 0 строк продаж за выбранный период.",
+        "wb_api_financial_degraded": "Финансовые данные WB API не получены, использован деградированный режим.",
+        "financial_data_missing": "Данные о продажах не получены.",
         "territorial_distribution_built": (
             f"Рассчитано территориальное распределение для {number} SKU."
             if number is not None
@@ -394,19 +508,106 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     token = str(os.getenv("WB_API_TOKEN", "")).strip()
     discovered_files: Dict[str, List[str]] = {"sales": [], "ads": [], "stocks": [], "unknown": []}
     input_debug: Dict[str, Any] = {}
+    api_debug: Dict[str, Any] = {}
     warnings: List[Dict[str, Any]] = []
     sales_rows: List[Dict[str, Any]] = []
     ads_rows: List[Dict[str, Any]] = []
     stocks_rows: List[Dict[str, Any]] = []
+    api_sales_rows: List[Dict[str, Any]] = []
+    api_orders_rows: List[Dict[str, Any]] = []
+    api_realization_rows: List[Dict[str, Any]] = []
+    api_ads_rows: List[Dict[str, Any]] = []
+    api_stocks_rows: List[Dict[str, Any]] = []
+    local_financial_fallback_used = False
 
     if token:
         source_mode = "wb_api"
         from .wb_client import WBClient
 
+        report_timezone = _resolve_report_timezone(cfg)
+        period = _resolve_wb_period(run_date, report_timezone)
+        date_from = str(period.get("date_from") or run_date)
+        date_to = str(period.get("date_to") or run_date)
+        print(
+            f"[wb] period_resolved run_date={run_date} timezone={period.get('timezone')} "
+            f"date_from={date_from} date_to={date_to} shifted_to_previous_day={period.get('shifted_to_previous_day')}"
+        )
+
         client = WBClient(token)
-        sales_rows = client.fetch_sales(run_date)
-        ads_rows = client.fetch_ads(run_date)
-        stocks_rows = client.fetch_stocks()
+        api_realization_rows = client.fetch_realization(date_from=date_from, date_to=date_to)
+        api_sales_rows = client.fetch_sales(date_from=date_from, date_to=date_to)
+        api_orders_rows = client.fetch_orders(date_from=date_from, date_to=date_to)
+        api_ads_rows = client.fetch_ads(date_from=date_from, date_to=date_to)
+        api_stocks_rows = client.fetch_stocks()
+        ads_rows = list(api_ads_rows)
+        stocks_rows = list(api_stocks_rows)
+
+        sales_rows = list(api_realization_rows) if api_realization_rows else _merge_financial_rows(api_sales_rows, api_orders_rows)
+
+        if not api_sales_rows and not api_realization_rows:
+            warnings.append(
+                {
+                    "code": "wb_api_zero_sales_rows",
+                    "message": "WB API returned zero sales rows for selected period",
+                }
+            )
+
+        if not sales_rows:
+            local_bundle = load_local_reports(seller_input_dir)
+            discovered_files = local_bundle.get("files", discovered_files)
+            local_sales_rows = list(local_bundle.get("sales_rows", []))
+            local_ads_rows = list(local_bundle.get("ads_rows", []))
+            local_stocks_rows = list(local_bundle.get("stocks_rows", []))
+            local_warnings = list(local_bundle.get("warnings", []))
+
+            if local_sales_rows:
+                sales_rows = local_sales_rows
+                local_financial_fallback_used = True
+                warnings.append(
+                    {
+                        "code": "wb_local_sales_fallback_used",
+                        "message": "WB API sales data is empty; local sales files were used as fallback.",
+                    }
+                )
+            if not ads_rows and local_ads_rows:
+                ads_rows = local_ads_rows
+                warnings.append(
+                    {
+                        "code": "wb_local_ads_fallback_used",
+                        "message": "WB API ads data is empty; local ads files were used as fallback.",
+                    }
+                )
+            if not stocks_rows and local_stocks_rows:
+                stocks_rows = local_stocks_rows
+                warnings.append(
+                    {
+                        "code": "wb_local_stocks_fallback_used",
+                        "message": "WB API stocks data is empty; local stocks files were used as fallback.",
+                    }
+                )
+            warnings.extend(local_warnings)
+
+        if not sales_rows:
+            warnings.append(
+                {
+                    "code": "financial_data_missing",
+                    "message": "данные о продажах не получены",
+                }
+            )
+
+        api_debug = {
+            "sales_rows": len(api_sales_rows),
+            "orders_rows": len(api_orders_rows),
+            "realization_rows": len(api_realization_rows),
+            "ads_rows": len(api_ads_rows),
+            "stocks_rows": len(api_stocks_rows),
+            "date_from": date_from,
+            "date_to": date_to,
+            "run_date_requested": run_date,
+            "timezone": str(period.get("timezone") or report_timezone),
+            "shifted_to_previous_day": bool(period.get("shifted_to_previous_day")),
+            "local_financial_fallback_used": local_financial_fallback_used,
+        }
         input_debug = {
             "source_mode": source_mode,
             "loaded_rows": {
@@ -414,6 +615,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                 "ads": len(ads_rows),
                 "stocks": len(stocks_rows),
             },
+            "api_debug": api_debug,
         }
         if not sales_rows and not ads_rows and not stocks_rows:
             warnings.append(
@@ -431,6 +633,20 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         sales_rows = list(local_bundle.get("sales_rows", []))
         ads_rows = list(local_bundle.get("ads_rows", []))
         stocks_rows = list(local_bundle.get("stocks_rows", []))
+        api_debug = {
+            "sales_rows": 0,
+            "orders_rows": 0,
+            "realization_rows": 0,
+            "ads_rows": 0,
+            "stocks_rows": 0,
+            "date_from": run_date,
+            "date_to": run_date,
+        }
+
+    if not isinstance(input_debug, dict):
+        input_debug = {}
+    if "api_debug" not in input_debug:
+        input_debug["api_debug"] = api_debug
 
     metrics = build_metrics_from_reports(sales_rows, ads_rows, stocks_rows)
     metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
@@ -449,6 +665,27 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                 "message": "Part of costs is not assigned to SKU and stored in unassigned_costs.",
             }
         )
+    api_financial_empty = bool(token and not api_realization_rows and not api_sales_rows and not api_orders_rows)
+    financial_data_missing_flag = len(sales_rows) == 0
+    financial_data_degraded_flag = False
+    if financial_data_missing_flag:
+        if not any(str(item.get("code") or "") == "financial_data_missing" for item in warnings if isinstance(item, dict)):
+            warnings.append(
+                {
+                    "code": "financial_data_missing",
+                    "message": "данные о продажах не получены",
+                }
+            )
+        financial_data_degraded_flag = True
+    elif api_financial_empty:
+        warnings.append(
+            {
+                "code": "wb_api_financial_degraded",
+                "message": "WB API financial datasets are empty; local fallback data was used.",
+            }
+        )
+        financial_data_degraded_flag = True
+
     facts = build_facts_from_reports(
         seller_id=seller_id,
         run_date=run_date,
@@ -459,6 +696,9 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         source_mode=source_mode,
     )
     facts["source_mode"] = source_mode
+    facts["api_debug"] = api_debug
+    if isinstance(facts.get("data_quality"), dict):
+        facts["data_quality"]["financial_status"] = "degraded" if financial_data_degraded_flag else "ok"
 
     confidence = str(facts.get("data_confidence", "low"))
     input_summary = facts.get("input_summary", {}) if isinstance(facts, dict) else {}
@@ -638,12 +878,15 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "seller_id": seller_id,
         "mode": "daily",
         "run_date": run_date,
-        "status": "success",
+        "status": "partial_success" if financial_data_missing_flag else "success",
         "started_at": started_at,
         "finished_at": _utc_now_iso(),
-        "error": None,
+        "error": "данные о продажах не получены" if financial_data_missing_flag else None,
+        "source_mode": source_mode,
         "artifacts_dir": out_dir,
         "input_debug": input_debug,
+        "api_debug": api_debug,
+        "data_quality": "degraded" if financial_data_degraded_flag else "ok",
         "artifacts": [
             "job.json",
             "facts.json",
@@ -1052,6 +1295,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "path": str((history_snapshot_final or {}).get("snapshot_path", "")),
         "files": (history_snapshot_final or {}).get("files", []),
     }
+    job["warnings"] = [item for item in warnings if isinstance(item, dict)]
     write_json(os.path.join(out_dir, "job.json"), job)
 
     return job
@@ -1144,7 +1388,7 @@ def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str |
         print(f"[{seller_id}] pipeline started")
         _debug_seller_paths(seller_repo_root, seller_id)
         result = _run_daily_for_seller(seller_repo_root, seller_id, resolved_run_date)
-        if str(result.get("status") or "") == "success":
+        if str(result.get("status") or "") in {"success", "partial_success"}:
             report_pdf_path = os.path.join(str(result.get("artifacts_dir") or ""), "report.pdf")
             email_to_masked = _mask_email_targets(str(os.getenv("EMAIL_TO", "")).strip())
             try:
@@ -1173,7 +1417,10 @@ def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str |
         if status == "success":
             print(f"[{seller_id}] pipeline finished successfully")
         elif status == "partial_success":
-            print(f"[{seller_id}] pipeline finished with partial_success: {result.get('email_error')}")
+            print(
+                f"[{seller_id}] pipeline finished with partial_success: "
+                f"{result.get('error') or result.get('email_error')}"
+            )
         else:
             print(f"[{seller_id}] pipeline failed: {result.get('error')}")
         return result

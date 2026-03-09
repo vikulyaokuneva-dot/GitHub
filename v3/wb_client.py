@@ -122,13 +122,317 @@ class WBClient:
                 time.sleep(attempt * 1.5)
         raise RuntimeError(f"WB API failed after retries: {last_error}")
 
-    def fetch_sales(self, run_date: str) -> List[Dict[str, Any]]:
+    @staticmethod
+    def _row_date_iso(row: Dict[str, Any]) -> str:
+        for key in (
+            "date",
+            "dateFrom",
+            "dateTo",
+            "lastChangeDate",
+            "sale_dt",
+            "order_dt",
+        ):
+            raw = str(row.get(key) or "").strip()
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}.*", raw):
+                return raw[:10]
+        return ""
+
+    @classmethod
+    def _map_realization_row(cls, row: Dict[str, Any]) -> Dict[str, Any]:
+        sku = cls._as_sku(
+            row.get("nmId")
+            or row.get("nm_id")
+            or row.get("nmid")
+            or row.get("nmID")
+            or row.get("barcode")
+            or row.get("supplierArticle")
+            or row.get("vendorCode")
+        )
+        seller_sku = cls._as_sku(
+            row.get("supplierArticle")
+            or row.get("vendorCode")
+            or row.get("techSize")
+        )
+        warehouse = cls._pick_first_text(
+            row,
+            (
+                "warehouseName",
+                "warehouse",
+                "officeName",
+                "giOfficeName",
+                "oblastOkrugName",
+            ),
+        )
+        quantity = cls._pick_first_float(
+            row,
+            (
+                "quantity",
+                "sa_quantity",
+                "sales_qty",
+                "saleQty",
+                "ordersCount",
+                "order_count",
+                "orders",
+            ),
+            default=0.0,
+        )
+        revenue = cls._pick_first_float(
+            row,
+            (
+                "revenue",
+                "ppvz_for_pay",
+                "forPay",
+                "retail_amount",
+                "retailPriceWithDiscRub",
+            ),
+            default=0.0,
+        )
+        logistics = cls._pick_first_float(
+            row,
+            (
+                "logistics",
+                "delivery_rub",
+                "deliveryAmount",
+                "deliveryCost",
+            ),
+            default=0.0,
+        )
+        penalties = cls._pick_first_float(
+            row,
+            (
+                "penalties",
+                "penalty",
+                "penaltyAmount",
+            ),
+            default=0.0,
+        )
+        storage = cls._pick_first_float(
+            row,
+            (
+                "storage",
+                "storage_fee",
+                "storageFee",
+            ),
+            default=0.0,
+        )
+        deductions = cls._pick_first_float(
+            row,
+            (
+                "deductions",
+                "deduction",
+                "acquiringFee",
+            ),
+            default=0.0,
+        )
+        explicit_profit = cls._pick_optional_float(
+            row,
+            (
+                "profit",
+                "netProfit",
+                "income",
+            ),
+        )
+        profit = explicit_profit if explicit_profit is not None else revenue - logistics - penalties - storage - deductions
+
+        item: Dict[str, Any] = {
+            "sku": sku,
+            "revenue": round(revenue, 2),
+            "profit": round(profit, 2),
+            "orders": quantity,
+            "buys": quantity,
+            "sales_count": quantity,
+            "logistics": round(logistics, 2),
+            "penalties": round(penalties, 2),
+            "storage": round(storage, 2),
+            "deductions": round(deductions, 2),
+        }
+        if seller_sku:
+            item["seller_sku"] = seller_sku
+        if warehouse:
+            item["warehouse"] = warehouse
+        return item
+
+    @classmethod
+    def _map_sales_row(cls, row: Dict[str, Any]) -> Dict[str, Any]:
+        sku = cls._as_sku(
+            row.get("nmId")
+            or row.get("nm_id")
+            or row.get("nmid")
+            or row.get("barcode")
+            or row.get("supplierArticle")
+            or row.get("vendorCode")
+        )
+        seller_sku = cls._as_sku(
+            row.get("supplierArticle")
+            or row.get("vendorCode")
+            or row.get("techSize")
+        )
+        warehouse = cls._pick_first_text(
+            row,
+            (
+                "warehouseName",
+                "warehouse",
+                "officeName",
+                "oblastOkrugName",
+            ),
+        )
+        quantity = cls._pick_first_float(
+            row,
+            ("quantity", "sa_quantity", "saleQty", "sales_qty"),
+            default=0.0,
+        )
+        if quantity <= 0:
+            quantity = 1.0 if cls._pick_first_text(row, ("saleID", "saleId", "srid", "gNumber")) else 0.0
+        revenue = cls._pick_first_float(
+            row,
+            (
+                "revenue",
+                "forPay",
+                "totalPrice",
+                "finishedPrice",
+                "priceWithDisc",
+                "salePriceWithDisc",
+            ),
+            default=0.0,
+        )
+        logistics = cls._pick_first_float(
+            row,
+            (
+                "logistics",
+                "delivery_rub",
+                "deliveryAmount",
+                "deliveryCost",
+            ),
+            default=0.0,
+        )
+        penalties = cls._pick_first_float(
+            row,
+            (
+                "penalties",
+                "penalty",
+                "penaltyAmount",
+            ),
+            default=0.0,
+        )
+        storage = cls._pick_first_float(
+            row,
+            (
+                "storage",
+                "storage_fee",
+                "storageFee",
+            ),
+            default=0.0,
+        )
+        deductions = cls._pick_first_float(
+            row,
+            (
+                "deductions",
+                "deduction",
+                "acquiringFee",
+            ),
+            default=0.0,
+        )
+        explicit_profit = cls._pick_optional_float(
+            row,
+            (
+                "profit",
+                "netProfit",
+                "income",
+            ),
+        )
+        profit = explicit_profit if explicit_profit is not None else revenue - logistics - penalties - storage - deductions
+
+        item: Dict[str, Any] = {
+            "sku": sku,
+            "revenue": round(revenue, 2),
+            "profit": round(profit, 2),
+            "orders": quantity,
+            "buys": quantity,
+            "sales_count": quantity,
+            "logistics": round(logistics, 2),
+            "penalties": round(penalties, 2),
+            "storage": round(storage, 2),
+            "deductions": round(deductions, 2),
+        }
+        if seller_sku:
+            item["seller_sku"] = seller_sku
+        if warehouse:
+            item["warehouse"] = warehouse
+        return item
+
+    @classmethod
+    def _map_orders_row(cls, row: Dict[str, Any]) -> Dict[str, Any]:
+        sku = cls._as_sku(
+            row.get("nmId")
+            or row.get("nm_id")
+            or row.get("nmid")
+            or row.get("barcode")
+            or row.get("supplierArticle")
+            or row.get("vendorCode")
+        )
+        seller_sku = cls._as_sku(
+            row.get("supplierArticle")
+            or row.get("vendorCode")
+            or row.get("techSize")
+        )
+        warehouse = cls._pick_first_text(
+            row,
+            (
+                "warehouseName",
+                "warehouse",
+                "officeName",
+                "oblastOkrugName",
+            ),
+        )
+        quantity = cls._pick_first_float(
+            row,
+            (
+                "quantity",
+                "orderQty",
+                "orderCount",
+                "ordersCount",
+                "orders",
+            ),
+            default=0.0,
+        )
+        if quantity <= 0:
+            quantity = 1.0 if cls._pick_first_text(row, ("odid", "srid", "gNumber")) else 0.0
+        revenue = cls._pick_first_float(
+            row,
+            (
+                "totalPrice",
+                "priceWithDisc",
+                "finishedPrice",
+                "convertedPrice",
+            ),
+            default=0.0,
+        )
+        item: Dict[str, Any] = {
+            "sku": sku,
+            "revenue": round(revenue, 2),
+            "profit": 0.0,
+            "orders": quantity,
+            "buys": 0.0,
+            "sales_count": 0.0,
+            "logistics": 0.0,
+            "penalties": 0.0,
+            "storage": 0.0,
+            "deductions": 0.0,
+        }
+        if seller_sku:
+            item["seller_sku"] = seller_sku
+        if warehouse:
+            item["warehouse"] = warehouse
+        return item
+
+    def fetch_realization(self, date_from: str, date_to: str) -> List[Dict[str, Any]]:
+        print(f"[wb] fetch_realization started date_from={date_from} date_to={date_to}")
         payload = self._get_json(
             base_url=self.statistics_url,
             path="/api/v5/supplier/reportDetailByPeriod",
             params={
-                "dateFrom": run_date,
-                "dateTo": run_date,
+                "dateFrom": date_from,
+                "dateTo": date_to,
                 "limit": 100000,
                 "rrdid": 0,
             },
@@ -136,123 +440,50 @@ class WBClient:
             empty_on_204=[],
         )
         rows = self._extract_rows(payload, ("data", "items", "rows"))
-        out: List[Dict[str, Any]] = []
-        for row in rows:
-            sku = self._as_sku(
-                row.get("nmId")
-                or row.get("nm_id")
-                or row.get("nmid")
-                or row.get("nmID")
-                or row.get("barcode")
-                or row.get("supplierArticle")
-                or row.get("vendorCode")
-            )
-            seller_sku = self._as_sku(
-                row.get("supplierArticle")
-                or row.get("vendorCode")
-                or row.get("techSize")
-            )
-            warehouse = self._pick_first_text(
-                row,
-                (
-                    "warehouseName",
-                    "warehouse",
-                    "officeName",
-                    "giOfficeName",
-                    "oblastOkrugName",
-                ),
-            )
-            quantity = self._pick_first_float(
-                row,
-                (
-                    "quantity",
-                    "sa_quantity",
-                    "sales_qty",
-                    "saleQty",
-                    "ordersCount",
-                    "order_count",
-                    "orders",
-                ),
-                default=0.0,
-            )
-            revenue = self._pick_first_float(
-                row,
-                (
-                    "revenue",
-                    "ppvz_for_pay",
-                    "forPay",
-                    "retail_amount",
-                    "retailPriceWithDiscRub",
-                ),
-                default=0.0,
-            )
-            logistics = self._pick_first_float(
-                row,
-                (
-                    "logistics",
-                    "delivery_rub",
-                    "deliveryAmount",
-                    "deliveryCost",
-                ),
-                default=0.0,
-            )
-            penalties = self._pick_first_float(
-                row,
-                (
-                    "penalties",
-                    "penalty",
-                    "penaltyAmount",
-                ),
-                default=0.0,
-            )
-            storage = self._pick_first_float(
-                row,
-                (
-                    "storage",
-                    "storage_fee",
-                    "storageFee",
-                ),
-                default=0.0,
-            )
-            deductions = self._pick_first_float(
-                row,
-                (
-                    "deductions",
-                    "deduction",
-                    "acquiringFee",
-                ),
-                default=0.0,
-            )
-            explicit_profit = self._pick_optional_float(
-                row,
-                (
-                    "profit",
-                    "netProfit",
-                    "income",
-                ),
-            )
-            profit = explicit_profit if explicit_profit is not None else revenue - logistics - penalties - storage - deductions
-
-            item: Dict[str, Any] = {
-                "sku": sku,
-                "revenue": round(revenue, 2),
-                "profit": round(profit, 2),
-                "orders": quantity,
-                "buys": quantity,
-                "sales_count": quantity,
-                "logistics": round(logistics, 2),
-                "penalties": round(penalties, 2),
-                "storage": round(storage, 2),
-                "deductions": round(deductions, 2),
-            }
-            if seller_sku:
-                item["seller_sku"] = seller_sku
-            if warehouse:
-                item["warehouse"] = warehouse
-            out.append(item)
+        out = [self._map_realization_row(row) for row in rows]
+        print(f"[wb] fetch_realization rows={len(out)}")
         return out
 
-    def fetch_ads(self, run_date: str) -> List[Dict[str, Any]]:
+    def fetch_sales(self, date_from: str, date_to: str) -> List[Dict[str, Any]]:
+        print(f"[wb] fetch_sales started date_from={date_from} date_to={date_to}")
+        payload = self._get_json(
+            base_url=self.statistics_url,
+            path="/api/v1/supplier/sales",
+            params={"dateFrom": date_from},
+            allow_204=True,
+            empty_on_204=[],
+        )
+        rows = self._extract_rows(payload, ("data", "items", "rows"))
+        out: List[Dict[str, Any]] = []
+        for row in rows:
+            row_date = self._row_date_iso(row)
+            if row_date and row_date > date_to:
+                continue
+            out.append(self._map_sales_row(row))
+        print(f"[wb] fetch_sales rows={len(out)}")
+        return out
+
+    def fetch_orders(self, date_from: str, date_to: str) -> List[Dict[str, Any]]:
+        print(f"[wb] fetch_orders started date_from={date_from} date_to={date_to}")
+        payload = self._get_json(
+            base_url=self.statistics_url,
+            path="/api/v1/supplier/orders",
+            params={"dateFrom": date_from},
+            allow_204=True,
+            empty_on_204=[],
+        )
+        rows = self._extract_rows(payload, ("data", "items", "rows"))
+        out: List[Dict[str, Any]] = []
+        for row in rows:
+            row_date = self._row_date_iso(row)
+            if row_date and row_date > date_to:
+                continue
+            out.append(self._map_orders_row(row))
+        print(f"[wb] fetch_orders rows={len(out)}")
+        return out
+
+    def fetch_ads(self, date_from: str, date_to: str) -> List[Dict[str, Any]]:
+        print(f"[wb] fetch_ads started date_from={date_from} date_to={date_to}")
         adverts_payload = self._get_json(
             base_url=self.advert_url,
             path="/api/advert/v2/adverts",
@@ -271,6 +502,7 @@ class WBClient:
                 continue
             advert_ids.append(int(value))
         if not advert_ids:
+            print("[wb] fetch_ads rows=0")
             return []
 
         bucket: Dict[str, Dict[str, float]] = {}
@@ -282,8 +514,8 @@ class WBClient:
                 path="/adv/v3/fullstats",
                 params={
                     "ids": ",".join(str(advert_id) for advert_id in chunk),
-                    "beginDate": run_date,
-                    "endDate": run_date,
+                    "beginDate": date_from,
+                    "endDate": date_to,
                 },
                 allow_204=True,
                 empty_on_204=[],
@@ -342,10 +574,12 @@ class WBClient:
                 }
             )
         out.sort(key=lambda row: float(row.get("ads_spend", 0.0) or 0.0), reverse=True)
+        print(f"[wb] fetch_ads rows={len(out)}")
         return out
 
     def fetch_stocks(self) -> List[Dict[str, Any]]:
         date_from = (date.today() - timedelta(days=30)).isoformat()
+        print(f"[wb] fetch_stocks started date_from={date_from}")
         payload = self._get_json(
             base_url=self.statistics_url,
             path="/api/v1/supplier/stocks",
@@ -389,4 +623,5 @@ class WBClient:
             if warehouse:
                 item["warehouse"] = warehouse
             out.append(item)
+        print(f"[wb] fetch_stocks rows={len(out)}")
         return out
