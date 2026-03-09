@@ -137,17 +137,60 @@ class WBClient:
                 return raw[:10]
         return ""
 
+    @staticmethod
+    def _first_present_key(row: Dict[str, Any], keys: Iterable[str]) -> str:
+        for key in keys:
+            if key in row and str(row.get(key) or "").strip():
+                return key
+        return ""
+
     @classmethod
-    def _map_realization_row(cls, row: Dict[str, Any]) -> Dict[str, Any]:
-        sku = cls._as_sku(
-            row.get("nmId")
-            or row.get("nm_id")
-            or row.get("nmid")
-            or row.get("nmID")
-            or row.get("barcode")
-            or row.get("supplierArticle")
-            or row.get("vendorCode")
+    def _extract_operation_meta(cls, row: Dict[str, Any]) -> Dict[str, str]:
+        operation = cls._pick_first_text(
+            row,
+            (
+                "supplierOperName",
+                "supplier_oper_name",
+                "supplier_oper_name_ru",
+                "operation",
+                "operationName",
+                "docTypeName",
+                "doc_type_name",
+            ),
         )
+        operation_type = cls._pick_first_text(
+            row,
+            (
+                "supplierOperTypeName",
+                "supplier_oper_type_name",
+                "supplierOperType",
+                "supplier_oper_type",
+                "operationType",
+                "operation_type",
+            ),
+        )
+        operation_name = cls._pick_first_text(
+            row,
+            (
+                "nmSubjectName",
+                "subjectName",
+                "subject",
+                "brandName",
+                "name",
+                "nmName",
+            ),
+        )
+        return {
+            "_operation": operation,
+            "_operation_type": operation_type,
+            "_operation_name": operation_name,
+        }
+
+    @classmethod
+    def _map_realization_row(cls, row: Dict[str, Any], raw_row_index: int) -> Dict[str, Any]:
+        sku_keys = ("nmId", "nm_id", "nmid", "nmID", "barcode", "supplierArticle", "vendorCode")
+        sku_key = cls._first_present_key(row, sku_keys)
+        sku = cls._as_sku(row.get(sku_key)) if sku_key else ""
         seller_sku = cls._as_sku(
             row.get("supplierArticle")
             or row.get("vendorCode")
@@ -245,23 +288,23 @@ class WBClient:
             "penalties": round(penalties, 2),
             "storage": round(storage, 2),
             "deductions": round(deductions, 2),
+            "_raw_row_index": raw_row_index,
+            "_source_dataset": "realization",
+            "_raw_sku_value": str(row.get(sku_key) or "").strip() if sku_key else "",
+            "_sku_source_field": sku_key,
         }
         if seller_sku:
             item["seller_sku"] = seller_sku
         if warehouse:
             item["warehouse"] = warehouse
+        item.update(cls._extract_operation_meta(row))
         return item
 
     @classmethod
-    def _map_sales_row(cls, row: Dict[str, Any]) -> Dict[str, Any]:
-        sku = cls._as_sku(
-            row.get("nmId")
-            or row.get("nm_id")
-            or row.get("nmid")
-            or row.get("barcode")
-            or row.get("supplierArticle")
-            or row.get("vendorCode")
-        )
+    def _map_sales_row(cls, row: Dict[str, Any], raw_row_index: int) -> Dict[str, Any]:
+        sku_keys = ("nmId", "nm_id", "nmid", "barcode", "supplierArticle", "vendorCode")
+        sku_key = cls._first_present_key(row, sku_keys)
+        sku = cls._as_sku(row.get(sku_key)) if sku_key else ""
         seller_sku = cls._as_sku(
             row.get("supplierArticle")
             or row.get("vendorCode")
@@ -353,23 +396,23 @@ class WBClient:
             "penalties": round(penalties, 2),
             "storage": round(storage, 2),
             "deductions": round(deductions, 2),
+            "_raw_row_index": raw_row_index,
+            "_source_dataset": "sales",
+            "_raw_sku_value": str(row.get(sku_key) or "").strip() if sku_key else "",
+            "_sku_source_field": sku_key,
         }
         if seller_sku:
             item["seller_sku"] = seller_sku
         if warehouse:
             item["warehouse"] = warehouse
+        item.update(cls._extract_operation_meta(row))
         return item
 
     @classmethod
-    def _map_orders_row(cls, row: Dict[str, Any]) -> Dict[str, Any]:
-        sku = cls._as_sku(
-            row.get("nmId")
-            or row.get("nm_id")
-            or row.get("nmid")
-            or row.get("barcode")
-            or row.get("supplierArticle")
-            or row.get("vendorCode")
-        )
+    def _map_orders_row(cls, row: Dict[str, Any], raw_row_index: int) -> Dict[str, Any]:
+        sku_keys = ("nmId", "nm_id", "nmid", "barcode", "supplierArticle", "vendorCode")
+        sku_key = cls._first_present_key(row, sku_keys)
+        sku = cls._as_sku(row.get(sku_key)) if sku_key else ""
         seller_sku = cls._as_sku(
             row.get("supplierArticle")
             or row.get("vendorCode")
@@ -418,11 +461,16 @@ class WBClient:
             "penalties": 0.0,
             "storage": 0.0,
             "deductions": 0.0,
+            "_raw_row_index": raw_row_index,
+            "_source_dataset": "orders",
+            "_raw_sku_value": str(row.get(sku_key) or "").strip() if sku_key else "",
+            "_sku_source_field": sku_key,
         }
         if seller_sku:
             item["seller_sku"] = seller_sku
         if warehouse:
             item["warehouse"] = warehouse
+        item.update(cls._extract_operation_meta(row))
         return item
 
     def fetch_realization(self, date_from: str, date_to: str) -> List[Dict[str, Any]]:
@@ -440,7 +488,7 @@ class WBClient:
             empty_on_204=[],
         )
         rows = self._extract_rows(payload, ("data", "items", "rows"))
-        out = [self._map_realization_row(row) for row in rows]
+        out = [self._map_realization_row(row, raw_row_index=index) for index, row in enumerate(rows)]
         print(f"[wb] fetch_realization rows={len(out)}")
         return out
 
@@ -455,11 +503,11 @@ class WBClient:
         )
         rows = self._extract_rows(payload, ("data", "items", "rows"))
         out: List[Dict[str, Any]] = []
-        for row in rows:
+        for index, row in enumerate(rows):
             row_date = self._row_date_iso(row)
             if row_date and row_date > date_to:
                 continue
-            out.append(self._map_sales_row(row))
+            out.append(self._map_sales_row(row, raw_row_index=index))
         print(f"[wb] fetch_sales rows={len(out)}")
         return out
 
@@ -474,11 +522,11 @@ class WBClient:
         )
         rows = self._extract_rows(payload, ("data", "items", "rows"))
         out: List[Dict[str, Any]] = []
-        for row in rows:
+        for index, row in enumerate(rows):
             row_date = self._row_date_iso(row)
             if row_date and row_date > date_to:
                 continue
-            out.append(self._map_orders_row(row))
+            out.append(self._map_orders_row(row, raw_row_index=index))
         print(f"[wb] fetch_orders rows={len(out)}")
         return out
 

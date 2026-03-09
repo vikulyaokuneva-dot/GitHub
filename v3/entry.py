@@ -290,6 +290,7 @@ def _top_profit_rows(
 def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     keep_codes = {
         "invalid_sku_filtered",
+        "invalid_sku_reason_breakdown",
         "unassigned_costs_detected",
         "decision_memory_updated",
         "decision_outcomes_evaluated",
@@ -305,6 +306,7 @@ def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         "wb_api_zero_sales_rows",
         "wb_api_financial_degraded",
         "financial_data_missing",
+        "sales_activity_zero_revenue",
         "territorial_distribution_built",
         "insufficient_warehouse_data",
         "high_ktr_detected",
@@ -334,6 +336,7 @@ def _warning_message_ru(code: str, message: str) -> str:
             if number is not None
             else "Невалидные SKU-строки отфильтрованы."
         ),
+        "invalid_sku_reason_breakdown": "Есть строки с невалидным SKU по нескольким типам ошибок.",
         "unassigned_costs_detected": "Часть расходов не привязана к SKU и учтена отдельно.",
         "decision_memory_updated": (
             f"Память решений AI обновлена: добавлено {number} записей."
@@ -356,6 +359,7 @@ def _warning_message_ru(code: str, message: str) -> str:
         "wb_api_zero_sales_rows": "WB API вернул 0 строк продаж за выбранный период.",
         "wb_api_financial_degraded": "Финансовые данные WB API не получены, использован деградированный режим.",
         "financial_data_missing": "Данные о продажах не получены.",
+        "sales_activity_zero_revenue": "Есть продажи по SKU, но выручка по ним не атрибутирована.",
         "territorial_distribution_built": (
             f"Рассчитано территориальное распределение для {number} SKU."
             if number is not None
@@ -650,6 +654,9 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
 
     metrics = build_metrics_from_reports(sales_rows, ads_rows, stocks_rows)
     metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
+    financial_debug = metrics.get("financial_debug", []) if isinstance(metrics, dict) else []
+    if not isinstance(financial_debug, list):
+        financial_debug = []
     invalid_rows = int(metrics_data_quality.get("invalid_sku_rows", 0) or 0)
     if invalid_rows > 0:
         warnings.append(
@@ -658,11 +665,31 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                 "message": f"Filtered invalid SKU rows: {invalid_rows}",
             }
         )
+        invalid_reason_counts = metrics_data_quality.get("invalid_sku_reason_counts", {})
+        if isinstance(invalid_reason_counts, dict) and invalid_reason_counts:
+            breakdown = ", ".join(f"{k}={int(v)}" for k, v in sorted(invalid_reason_counts.items(), key=lambda x: str(x[0])))
+            warnings.append(
+                {
+                    "code": "invalid_sku_reason_breakdown",
+                    "message": f"Invalid SKU reason breakdown: {breakdown}",
+                }
+            )
     if bool(metrics_data_quality.get("unassigned_costs_present", False)):
         warnings.append(
             {
                 "code": "unassigned_costs_detected",
                 "message": "Part of costs is not assigned to SKU and stored in unassigned_costs.",
+            }
+        )
+    zero_revenue_activity_skus = metrics_data_quality.get("zero_revenue_activity_skus", [])
+    if isinstance(zero_revenue_activity_skus, list) and zero_revenue_activity_skus:
+        warnings.append(
+            {
+                "code": "sales_activity_zero_revenue",
+                "message": (
+                    "sales activity exists but revenue attribution is zero: "
+                    + ", ".join(str(sku) for sku in zero_revenue_activity_skus[:10])
+                ),
             }
         )
     api_financial_empty = bool(token and not api_realization_rows and not api_sales_rows and not api_orders_rows)
@@ -698,11 +725,14 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     facts["source_mode"] = source_mode
     facts["api_debug"] = api_debug
     if isinstance(facts.get("data_quality"), dict):
-        facts["data_quality"]["financial_status"] = "degraded" if financial_data_degraded_flag else "ok"
+        fact_financial_status = str(facts["data_quality"].get("financial_status") or "ok")
+        if financial_data_degraded_flag and fact_financial_status == "ok":
+            facts["data_quality"]["financial_status"] = "degraded"
 
     confidence = str(facts.get("data_confidence", "low"))
     input_summary = facts.get("input_summary", {}) if isinstance(facts, dict) else {}
     data_quality = facts.get("data_quality", {}) if isinstance(facts, dict) else {}
+    facts_financial_status = str(data_quality.get("financial_status") or "ok") if isinstance(data_quality, dict) else "ok"
     unassigned_costs = metrics.get("unassigned_costs", {}) if isinstance(metrics, dict) else {}
 
     sku_metrics = _extract_sku_metrics(metrics)
@@ -718,14 +748,14 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     p2_rows = profit_contribution.get("p2", []) if isinstance(profit_contribution, dict) else []
     p3_rows = profit_contribution.get("p3", []) if isinstance(profit_contribution, dict) else []
     top_profit_rows = profit_contribution.get("top_profit_skus", []) if isinstance(profit_contribution, dict) else []
-    profit_meta = profit_contribution.get("meta", {}) if isinstance(profit_contribution, dict) else {}
-    total_profit = float(profit_meta.get("total_profit", 0.0) or 0.0)
+    totals_payload = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
+    total_profit_overall = float(totals_payload.get("total_profit", totals_payload.get("profit", 0.0)) or 0.0)
 
-    if total_profit <= 0:
+    if total_profit_overall <= 0:
         warnings.append(
             {
                 "code": "low_total_profit",
-                "message": "Total SKU profit is non-positive; profit contribution shares set to 0.",
+                "message": "Total financial profit is non-positive; financial attribution may be incomplete.",
             }
         )
     if isinstance(top_profit_rows, list) and top_profit_rows:
@@ -825,6 +855,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         )
 
     write_json(os.path.join(out_dir, "metrics.json"), metrics)
+    write_json(os.path.join(out_dir, "financial_debug.json"), financial_debug)
     write_json(os.path.join(out_dir, "abc_analysis.json"), abc_rows)
     save_profit_contribution(os.path.join(out_dir, "profit_contribution.json"), profit_contribution)
     save_territorial_distribution(Path(out_dir) / "territorial_distribution.json", territorial_distribution)
@@ -878,19 +909,24 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "seller_id": seller_id,
         "mode": "daily",
         "run_date": run_date,
-        "status": "partial_success" if financial_data_missing_flag else "success",
+        "status": "partial_success" if (financial_data_missing_flag or facts_financial_status == "partial") else "success",
         "started_at": started_at,
         "finished_at": _utc_now_iso(),
-        "error": "данные о продажах не получены" if financial_data_missing_flag else None,
+        "error": (
+            "данные о продажах не получены"
+            if financial_data_missing_flag
+            else ("финансовая атрибуция частичная" if facts_financial_status == "partial" else None)
+        ),
         "source_mode": source_mode,
         "artifacts_dir": out_dir,
         "input_debug": input_debug,
         "api_debug": api_debug,
-        "data_quality": "degraded" if financial_data_degraded_flag else "ok",
+        "data_quality": facts_financial_status,
         "artifacts": [
             "job.json",
             "facts.json",
             "metrics.json",
+            "financial_debug.json",
             "warnings.json",
             "abc_analysis.json",
             "profit_contribution.json",
@@ -1226,6 +1262,18 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     )
     if bool(data_quality.get("unassigned_costs_present", False)):
         page_3.append("- Часть расходов не привязана к SKU и учтена отдельно.")
+
+    page_3.extend(
+        [
+            "",
+            "## КАЧЕСТВО ФИНАНСОВОЙ АТРИБУЦИИ",
+            "Показатель | Значение",
+            f"Валидных SKU | {_format_int(data_quality.get('valid_sku_count', 0))}",
+            f"Нераспределенных строк | {_format_int(data_quality.get('unassigned_rows', unassigned_costs.get('rows', 0)))}",
+            f"Нераспределенные расходы | {_format_money(unassigned_costs.get('profit', 0.0))}",
+            f"Достоверность AI-решений | {_confidence_ru(str(data_quality.get('ai_decision_reliability', 'medium')))}",
+        ]
+    )
 
     page_3.extend(["", "## ПРЕДУПРЕЖДЕНИЯ СИСТЕМЫ"])
     if important_warnings:

@@ -782,6 +782,35 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
 
 
 def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[Dict[str, Any]], stocks_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _row_profit_value(row: Dict[str, Any]) -> float:
+        if row.get("profit") is not None:
+            return float(row.get("profit") or 0.0)
+        return (
+            float(row.get("revenue") or 0.0)
+            - float(row.get("logistics") or 0.0)
+            - float(row.get("penalties") or 0.0)
+            - float(row.get("storage") or 0.0)
+            - float(row.get("deductions") or 0.0)
+        )
+
+    def _financial_status(
+        invalid_rows: int,
+        unassigned_present: bool,
+        unassigned_profit: float,
+        total_profit: float,
+        zero_revenue_activity_count: int,
+    ) -> tuple[str, str]:
+        if invalid_rows <= 0 and not unassigned_present and zero_revenue_activity_count <= 0:
+            return "ok", "high"
+        high_impact = (
+            invalid_rows >= 10
+            or abs(unassigned_profit) >= max(200.0, abs(total_profit) * 0.5)
+            or zero_revenue_activity_count >= 3
+        )
+        if high_impact:
+            return "partial", "low"
+        return "degraded", "medium"
+
     sales_split = split_assigned_vs_unassigned_rows(sales_rows)
     ads_split = split_assigned_vs_unassigned_rows(ads_rows)
     stocks_split = split_assigned_vs_unassigned_rows(stocks_rows)
@@ -798,6 +827,7 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "penalties": 0.0,
         "storage": 0.0,
         "deductions": 0.0,
+        "ads_spend": 0.0,
         "rows": len(sales_split["unassigned"]),
     }
     for row in sales_split["unassigned"]:
@@ -806,7 +836,7 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         penalties = float(row.get("penalties") or 0.0)
         storage = float(row.get("storage") or 0.0)
         deductions = float(row.get("deductions") or 0.0)
-        row_profit = float(row.get("profit")) if row.get("profit") is not None else (revenue - logistics - penalties - storage - deductions)
+        row_profit = _row_profit_value(row)
 
         unassigned_costs["revenue"] += revenue
         unassigned_costs["profit"] += row_profit
@@ -814,6 +844,40 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         unassigned_costs["penalties"] += penalties
         unassigned_costs["storage"] += storage
         unassigned_costs["deductions"] += deductions
+
+    for row in ads_split["unassigned"]:
+        unassigned_costs["ads_spend"] += float(row.get("ads_spend") or 0.0)
+
+    financial_debug: List[Dict[str, Any]] = []
+    invalid_reason_counts: Dict[str, int] = {}
+    for row in sales_split["unassigned"] + ads_split["unassigned"] + stocks_split["unassigned"]:
+        if not isinstance(row, dict):
+            continue
+        reason = str(row.get("_sku_validation_reason") or "unknown")
+        invalid_reason_counts[reason] = invalid_reason_counts.get(reason, 0) + 1
+    for idx, row in enumerate(sales_split["assigned"] + sales_split["unassigned"]):
+        if not isinstance(row, dict):
+            continue
+        is_valid = bool(row.get("_is_valid_sku", False))
+        reason_invalid = None if is_valid else str(row.get("_sku_validation_reason") or "unknown")
+        entry = {
+            "raw_row_index": int(row.get("_raw_row_index", idx) or idx),
+            "operation": str(row.get("_operation") or ""),
+            "type": str(row.get("_operation_type") or ""),
+            "name": str(row.get("_operation_name") or ""),
+            "extracted_sku": str(row.get("sku") or ""),
+            "is_valid_sku": is_valid,
+            "reason_invalid": reason_invalid,
+            "revenue_component": round(float(row.get("revenue") or 0.0), 2),
+            "logistics_component": round(float(row.get("logistics") or 0.0), 2),
+            "storage_component": round(float(row.get("storage") or 0.0), 2),
+            "deductions_component": round(float(row.get("deductions") or 0.0), 2),
+            "assigned_to_sku": str(row.get("sku") or "") if is_valid else None,
+            "unassigned": not is_valid,
+            "source_dataset": str(row.get("_source_dataset") or ""),
+            "sku_source_field": str(row.get("_sku_source_field") or ""),
+        }
+        financial_debug.append(entry)
 
     bucket: Dict[str, Dict[str, Any]] = {}
 
@@ -844,7 +908,7 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             continue
         item = _sku(sku)
         item["revenue"] += float(row.get("revenue") or 0.0)
-        item["profit"] += float(row.get("profit") or 0.0)
+        item["profit"] += _row_profit_value(row)
         item["orders"] += float(row.get("orders") or 0.0)
         item["buys"] += float(row.get("buys") or 0.0)
         item["sales_count"] += float(row.get("sales_count") or 0.0)
@@ -873,6 +937,7 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         _sku(sku)["stock"] += float(row.get("stock") or 0.0)
 
     sku_metrics: List[Dict[str, Any]] = []
+    zero_revenue_activity_skus: List[str] = []
     for sku, row in bucket.items():
         revenue = float(row["revenue"])
         profit_before_ads = float(row["profit"])
@@ -882,14 +947,24 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         roi = row["_roi"]
         ddr = row["_ddr"]
         cpo = row["_cpo"]
+
+        orders_value = int(round(float(row["orders"])))
+        buys_value = int(round(float(row["buys"]) if float(row["buys"]) > 0 else float(row["sales_count"])))
+        sales_count_value = int(round(float(row["sales_count"]) if float(row["sales_count"]) > 0 else float(row["buys"])))
+        has_sales_activity = bool(orders_value > 0 or buys_value > 0 or sales_count_value > 0)
+        revenue_attribution_zero = bool(has_sales_activity and abs(revenue) < 1e-9)
+        if revenue_attribution_zero:
+            zero_revenue_activity_skus.append(sku)
+
+        row_financial_status = "data_issue" if revenue_attribution_zero else "ok"
         sku_metrics.append(
             {
                 "sku": sku,
                 "revenue": round(revenue, 2),
                 "profit": round(profit, 2),
-                "orders": int(round(float(row["orders"]))),
-                "buys": int(round(float(row["buys"]) if float(row["buys"]) > 0 else float(row["sales_count"]))),
-                "sales_count": int(round(float(row["sales_count"]) if float(row["sales_count"]) > 0 else float(row["buys"]))),
+                "orders": orders_value,
+                "buys": buys_value,
+                "sales_count": sales_count_value,
                 "stock": int(round(float(row["stock"]))),
                 "ads_spend": round(ads_spend, 2),
                 "logistics": round(float(row["logistics"]), 2),
@@ -900,23 +975,25 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
                 "roi": round(sum(roi) / len(roi), 2) if roi else None,
                 "ddr": round(sum(ddr) / len(ddr), 2) if ddr else None,
                 "cpo": round(sum(cpo) / len(cpo), 2) if cpo else None,
+                "has_sales_activity": has_sales_activity,
+                "revenue_attribution_zero": revenue_attribution_zero,
+                "financial_status": row_financial_status,
             }
         )
 
     sku_metrics.sort(key=lambda x: (float(x.get("profit", 0.0)), float(x.get("revenue", 0.0))), reverse=True)
 
-    total_revenue = sum(float(row.get("revenue") or 0.0) for row in sales_rows)
-    total_sales_profit_before_ads = sum(
-        float(row.get("profit")) if row.get("profit") is not None else (
-            float(row.get("revenue") or 0.0)
-            - float(row.get("logistics") or 0.0)
-            - float(row.get("penalties") or 0.0)
-            - float(row.get("storage") or 0.0)
-            - float(row.get("deductions") or 0.0)
-        )
-        for row in sales_rows
-    )
-    total_ads_spend = sum(float(row.get("ads_spend") or 0.0) for row in ads_rows)
+    valid_revenue = sum(float(row.get("revenue") or 0.0) for row in valid_sales_rows)
+    valid_sales_profit_before_ads = sum(_row_profit_value(row) for row in valid_sales_rows)
+    valid_ads_spend = sum(float(row.get("ads_spend") or 0.0) for row in valid_ads_rows)
+
+    unassigned_revenue = float(unassigned_costs["revenue"])
+    unassigned_profit = float(unassigned_costs["profit"]) - float(unassigned_costs["ads_spend"])
+
+    sku_assigned_profit = valid_sales_profit_before_ads - valid_ads_spend
+    total_revenue = valid_revenue + unassigned_revenue
+    total_profit = sku_assigned_profit + unassigned_profit
+
     total_orders = sum(float(row.get("orders") or 0.0) for row in sales_rows)
     total_buys = sum(
         float(row.get("buys") or row.get("sales_count") or row.get("orders") or 0.0)
@@ -926,35 +1003,59 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
 
     totals = {
         "revenue": round(total_revenue, 2),
-        "profit": round(total_sales_profit_before_ads - total_ads_spend, 2),
+        "profit": round(total_profit, 2),
         "orders": int(round(total_orders)),
         "buys": int(round(total_buys)),
         "stock": int(round(total_stock)),
-        "ads_spend": round(total_ads_spend, 2),
+        "ads_spend": round(valid_ads_spend + float(unassigned_costs["ads_spend"]), 2),
+        "sku_assigned_revenue": round(valid_revenue, 2),
+        "unassigned_revenue": round(unassigned_revenue, 2),
+        "total_revenue": round(total_revenue, 2),
+        "sku_assigned_profit": round(sku_assigned_profit, 2),
+        "unassigned_profit": round(unassigned_profit, 2),
+        "total_profit": round(total_profit, 2),
     }
 
     unassigned_costs = {
         "revenue": round(float(unassigned_costs["revenue"]), 2),
-        "profit": round(float(unassigned_costs["profit"]), 2),
+        "profit": round(float(unassigned_profit), 2),
         "logistics": round(float(unassigned_costs["logistics"]), 2),
         "penalties": round(float(unassigned_costs["penalties"]), 2),
         "storage": round(float(unassigned_costs["storage"]), 2),
         "deductions": round(float(unassigned_costs["deductions"]), 2),
+        "ads_spend": round(float(unassigned_costs["ads_spend"]), 2),
         "rows": int(unassigned_costs["rows"]),
     }
+
+    unassigned_costs_present = bool(
+        unassigned_costs["rows"] > 0
+        or abs(unassigned_costs["revenue"]) > 0
+        or abs(unassigned_costs["profit"]) > 0
+        or abs(unassigned_costs["logistics"]) > 0
+        or abs(unassigned_costs["penalties"]) > 0
+        or abs(unassigned_costs["storage"]) > 0
+        or abs(unassigned_costs["deductions"]) > 0
+        or abs(unassigned_costs["ads_spend"]) > 0
+    )
+    financial_status, ai_reliability = _financial_status(
+        invalid_rows=int(invalid_sku_rows),
+        unassigned_present=unassigned_costs_present,
+        unassigned_profit=float(unassigned_costs["profit"]),
+        total_profit=float(totals["total_profit"]),
+        zero_revenue_activity_count=len(zero_revenue_activity_skus),
+    )
 
     data_quality = {
         "valid_sku_count": len(sku_metrics),
         "invalid_sku_rows": int(invalid_sku_rows),
-        "unassigned_costs_present": bool(
-            unassigned_costs["rows"] > 0
-            or abs(unassigned_costs["revenue"]) > 0
-            or abs(unassigned_costs["profit"]) > 0
-            or abs(unassigned_costs["logistics"]) > 0
-            or abs(unassigned_costs["penalties"]) > 0
-            or abs(unassigned_costs["storage"]) > 0
-            or abs(unassigned_costs["deductions"]) > 0
-        ),
+        "invalid_sku_reason_counts": invalid_reason_counts,
+        "unassigned_costs_present": unassigned_costs_present,
+        "unassigned_rows": int(unassigned_costs["rows"]),
+        "unassigned_profit": float(unassigned_costs["profit"]),
+        "financial_status": financial_status,
+        "ai_decision_reliability": ai_reliability,
+        "zero_revenue_activity_sku_count": len(zero_revenue_activity_skus),
+        "zero_revenue_activity_skus": zero_revenue_activity_skus[:50],
     }
 
     return {
@@ -962,7 +1063,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "totals": totals,
         "unassigned_costs": unassigned_costs,
         "data_quality": data_quality,
-        "financial": {"revenue": totals["revenue"], "profit": totals["profit"], "ads_spend": totals["ads_spend"]},
+        "financial_debug": financial_debug,
+        "financial": {"revenue": totals["total_revenue"], "profit": totals["total_profit"], "ads_spend": totals["ads_spend"]},
         "funnel": {"orders": totals["orders"], "buys": totals["buys"]},
         "ads": {"spend": totals["ads_spend"]},
         "stock": {"total_stock": totals["stock"]},
@@ -991,6 +1093,11 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
     }
     effective = codes - debug
 
+    invalid_sku_rows = int(data_quality.get("invalid_sku_rows", 0) or 0)
+    unassigned_present = bool(data_quality.get("unassigned_costs_present", False))
+    financial_status = str(data_quality.get("financial_status") or "ok")
+    ai_reliability = str(data_quality.get("ai_decision_reliability") or "high")
+
     if source_mode == "fallback_mock":
         confidence = "low"
     elif severe & effective:
@@ -999,6 +1106,13 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
         confidence = "medium"
     else:
         confidence = "high"
+
+    if financial_status == "partial":
+        confidence = "low"
+    elif financial_status == "degraded" and confidence == "high":
+        confidence = "medium"
+    elif (invalid_sku_rows > 0 or unassigned_present) and confidence == "high":
+        confidence = "medium"
 
     return {
         "seller_id": seller_id,
@@ -1016,14 +1130,21 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
             "confidence": confidence,
         },
         "kpi": {
-            "revenue": float(totals.get("revenue", 0.0) or 0.0),
-            "profit": float(totals.get("profit", 0.0) or 0.0),
+            "revenue": float(totals.get("total_revenue", totals.get("revenue", 0.0)) or 0.0),
+            "profit": float(totals.get("total_profit", totals.get("profit", 0.0)) or 0.0),
             "orders": int(totals.get("orders", 0) or 0),
             "buyouts": int(totals.get("buys", 0) or 0),
         },
         "data_quality": {
             "valid_sku_count": int(data_quality.get("valid_sku_count", 0) or 0),
-            "invalid_sku_rows": int(data_quality.get("invalid_sku_rows", 0) or 0),
-            "unassigned_costs_present": bool(data_quality.get("unassigned_costs_present", False)),
+            "invalid_sku_rows": invalid_sku_rows,
+            "invalid_sku_reason_counts": data_quality.get("invalid_sku_reason_counts", {}),
+            "unassigned_costs_present": unassigned_present,
+            "unassigned_rows": int(data_quality.get("unassigned_rows", 0) or 0),
+            "unassigned_profit": float(data_quality.get("unassigned_profit", 0.0) or 0.0),
+            "financial_status": financial_status,
+            "ai_decision_reliability": ai_reliability,
+            "zero_revenue_activity_sku_count": int(data_quality.get("zero_revenue_activity_sku_count", 0) or 0),
+            "zero_revenue_activity_skus": data_quality.get("zero_revenue_activity_skus", []),
         },
     }

@@ -85,16 +85,28 @@ def _extract_logistics_items(logistics: Any) -> Dict[str, Dict[str, Any]]:
     return rows
 
 
-def _choose_decision(profit: float, margin_pct: float, abc_class: str) -> tuple[str, str]:
+def _choose_decision(
+    profit: float,
+    margin_pct: float,
+    abc_class: str,
+    *,
+    financial_status: str,
+    has_sales_activity: bool,
+    revenue_attribution_zero: bool,
+) -> tuple[str, str]:
+    if financial_status in {"data_issue", "partial", "degraded"} or revenue_attribution_zero:
+        return "watch", "DATA_ISSUE: проверить финансовую атрибуцию перед экономическим решением"
+    if profit == 0 and has_sales_activity:
+        return "watch", "REVIEW: есть продажи, но атрибуция прибыли неполная"
     if profit <= 0:
-        return "liquidate", "Ликвидировать остатки или отключить рекламу"
+        return "liquidate", "LIQUIDATE: ликвидировать остатки или отключить рекламу"
     if profit > 0 and margin_pct >= 40 and abc_class == "A":
-        return "scale", "Масштабировать продажи и рекламу"
+        return "scale", "SCALE: масштабировать продажи и рекламу"
     if profit > 0 and 20 <= margin_pct < 40:
-        return "fix", "Оптимизировать цену и рекламу"
+        return "fix", "FIX: оптимизировать цену и рекламу"
     if 5 <= margin_pct < 20:
-        return "watch", "Наблюдать и тестировать"
-    return "watch", "Наблюдать и тестировать"
+        return "watch", "WATCH: наблюдать и тестировать"
+    return "watch", "WATCH: наблюдать и тестировать"
 
 
 def build_decisions(
@@ -137,6 +149,10 @@ def build_decisions(
         logistics_efficiency_status = str(logistics_row.get("logistics_efficiency_status") or "")
         priority_for_relocation = str(logistics_row.get("priority_for_relocation") or "none")
         locality_score = _as_float_or_none(logistics_row.get("locality_score"))
+        row_financial_status = str(row.get("financial_status") or "ok").strip().lower()
+        has_sales_activity = bool(row.get("has_sales_activity", False))
+        revenue_attribution_zero = bool(row.get("revenue_attribution_zero", False))
+
         territorial_reasons: List[str] = []
         if territorial_ktr > 1.25:
             territorial_reasons = [
@@ -145,11 +161,18 @@ def build_decisions(
             ]
 
         if logistics_efficiency_status == "critical":
-            territorial_reasons.append("Critical logistics mismatch between demand and stock distribution.")
+            territorial_reasons.append("Критичный логистический дисбаланс между спросом и распределением остатков.")
         elif logistics_efficiency_status == "inefficient":
-            territorial_reasons.append("Logistics mismatch detected; relocation review may reduce delivery friction.")
+            territorial_reasons.append("Обнаружен логистический дисбаланс; стоит рассмотреть перераспределение остатков.")
 
-        bucket, action = _choose_decision(profit, margin_pct, abc_class)
+        bucket, action = _choose_decision(
+            profit,
+            margin_pct,
+            abc_class,
+            financial_status=row_financial_status,
+            has_sales_activity=has_sales_activity,
+            revenue_attribution_zero=revenue_attribution_zero,
+        )
         item = {
             "sku": sku,
             "action": action,
@@ -163,6 +186,10 @@ def build_decisions(
             "priority_for_relocation": priority_for_relocation,
             "locality_score": round(locality_score, 3) if locality_score is not None else None,
             "territorial_reasons": territorial_reasons,
+            "financial_status": row_financial_status,
+            "has_sales_activity": has_sales_activity,
+            "revenue_attribution_zero": revenue_attribution_zero,
+            "decision_guard": "DATA_ISSUE" if row_financial_status in {"data_issue", "partial", "degraded"} or revenue_attribution_zero else "OK",
         }
         summary[bucket].append(item)
         evaluated.append(item)
@@ -171,7 +198,7 @@ def build_decisions(
     top_risk_skus = sorted(
         evaluated,
         key=lambda x: (
-            0 if x["action"].startswith("Ликвидировать") else 1,
+            0 if str(x.get("action") or "").strip().upper().startswith("LIQUIDATE") else 1,
             x["profit"],
             x["margin_pct"],
         ),
