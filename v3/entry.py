@@ -419,6 +419,112 @@ def _build_key_insights(
     return insights[:5]
 
 
+def _build_short_recommendations(
+    decision_groups: Dict[str, List[Dict[str, Any]]],
+    logistics_summary: Dict[str, Any],
+) -> List[str]:
+    recommendations: List[str] = []
+    scale_count = len(decision_groups.get("scale", []))
+    fix_count = len(decision_groups.get("fix", []))
+    liquidate_count = len(decision_groups.get("liquidate", []))
+    critical_logistics = int(logistics_summary.get("critical_count", 0) or 0)
+
+    if scale_count > 0:
+        recommendations.append("Усилить SKU из группы SCALE: поддержать запас и повысить рекламное присутствие.")
+    if fix_count > 0:
+        recommendations.append("Приоритизировать SKU из группы FIX: обновить карточки, цену и экономику unit-уровня.")
+    if liquidate_count > 0:
+        recommendations.append("По SKU из LIQUIDATE запустить сценарий ускоренной распродажи и очистки остатков.")
+    if critical_logistics > 0:
+        recommendations.append("Снизить логистические потери у critical SKU через перераспределение по складам.")
+
+    if not recommendations:
+        recommendations.append("Сохранить текущий курс и контролировать динамику KPI без резких изменений.")
+    return recommendations[:3]
+
+
+def _build_ai_day_conclusion(
+    run_date: str,
+    totals: Dict[str, Any],
+    data_quality: Dict[str, Any],
+    key_insights: List[str],
+    recommendations: List[str],
+) -> str:
+    revenue = _safe_float(totals.get("revenue", totals.get("total_revenue", 0.0)))
+    profit = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
+    orders = int(round(_safe_float(totals.get("orders", 0))))
+    avg_check = revenue / orders if orders > 0 else 0.0
+    margin_pct = (profit / revenue * 100.0) if revenue > 0 else 0.0
+
+    quality_code = str(data_quality.get("financial_status", "ok") or "ok")
+    quality_label = {
+        "ok": "высоком",
+        "degraded": "среднем",
+        "partial": "низком",
+    }.get(quality_code, "среднем")
+
+    main_insight = (key_insights[0] if key_insights else "Критичных отклонений по KPI не выявлено").rstrip(".")
+    focus = (recommendations[0] if recommendations else "Сохранить текущую операционную стратегию").rstrip(".")
+
+    return (
+        f"На {run_date} бизнес закрыл день с выручкой {_format_money(revenue)} и чистой прибылью {_format_money(profit)} "
+        f"(маржа {_format_pct(margin_pct)}). "
+        f"Получено {_format_int(orders)} заказов, средний чек составил {_format_money(avg_check)}. "
+        f"Качество финансовой атрибуции находится на {quality_label} уровне, поэтому решения AI опираются на подтвержденные данные дня. "
+        f"Главный сигнал: {main_insight}; фокус следующего дня: {focus}."
+    )
+
+
+def _build_management_email_body(
+    seller_id: str,
+    run_date: str,
+    summary: Dict[str, Any],
+) -> str:
+    revenue = _safe_float(summary.get("revenue", 0.0))
+    profit = _safe_float(summary.get("profit", 0.0))
+    orders = int(round(_safe_float(summary.get("orders", 0))))
+    avg_check = _safe_float(summary.get("avg_check", 0.0))
+    insights_raw = summary.get("key_insights", [])
+    recommendations_raw = summary.get("recommendations", [])
+    day_conclusion = str(summary.get("ai_day_conclusion", "")).strip()
+
+    insights = [str(item).strip() for item in insights_raw if str(item).strip()] if isinstance(insights_raw, list) else []
+    recommendations = (
+        [str(item).strip() for item in recommendations_raw if str(item).strip()]
+        if isinstance(recommendations_raw, list)
+        else []
+    )
+
+    lines: List[str] = [
+        f"Управленческое резюме WB AI Agent v3 — кабинет {seller_id}",
+        f"Дата: {run_date}",
+        "",
+        "КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ",
+        f"- Прибыль за день: {_format_money(profit)}",
+        f"- Выручка: {_format_money(revenue)}",
+        f"- Количество заказов: {_format_int(orders)}",
+        f"- Средний чек: {_format_money(avg_check)}",
+        "",
+        "КЛЮЧЕВЫЕ ВЫВОДЫ AI",
+    ]
+    if insights:
+        lines.extend(f"- {item}" for item in insights[:3])
+    else:
+        lines.append("- Существенных отклонений не зафиксировано, динамика стабильна.")
+
+    lines.extend(["", "КРАТКИЕ РЕКОМЕНДАЦИИ"])
+    if recommendations:
+        lines.extend(f"- {item}" for item in recommendations[:3])
+    else:
+        lines.append("- Поддерживать текущую стратегию и контролировать KPI в ежедневном цикле.")
+
+    if day_conclusion:
+        lines.extend(["", "AI ВЫВОД ДНЯ", day_conclusion])
+
+    lines.extend(["", "Детализация — в приложенном PDF-отчете."])
+    return "\n".join(lines)
+
+
 def _mask_email_address(value: str) -> str:
     clean = str(value or "").strip()
     if not clean:
@@ -442,7 +548,12 @@ def _mask_email_targets(raw_value: str) -> str:
     return ", ".join(_mask_email_address(item) for item in parts)
 
 
-def _send_daily_report_email(seller_id: str, run_date: str, report_pdf_path: str) -> str:
+def _send_daily_report_email(
+    seller_id: str,
+    run_date: str,
+    report_pdf_path: str,
+    email_summary: Dict[str, Any] | None = None,
+) -> str:
     email_to_raw = str(os.getenv("EMAIL_TO", "")).strip()
     email_to_masked = _mask_email_targets(email_to_raw)
     smtp_user = str(os.getenv("YANDEX_SMTP_USER", "")).strip()
@@ -467,10 +578,11 @@ def _send_daily_report_email(seller_id: str, run_date: str, report_pdf_path: str
         if not attachment_exists:
             raise FileNotFoundError(f"Attachment not found: {report_pdf_path}")
 
-        subject = f"WB AI Agent v3 daily report: {seller_id} ({run_date})"
-        body = (
-            f"WB AI Agent v3 daily report for seller {seller_id} on {run_date}.\n\n"
-            "See attached report.pdf."
+        subject = f"WB AI Agent v3 — управленческое резюме: {seller_id} ({run_date})"
+        body = _build_management_email_body(
+            seller_id=seller_id,
+            run_date=run_date,
+            summary=email_summary if isinstance(email_summary, dict) else {},
         )
         send_email_with_pdf(subject=subject, body=body, pdf_path=report_pdf_path)
         print("[mail] send_success")
@@ -1024,6 +1136,36 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         outcomes_payload=outcomes_payload if isinstance(outcomes_payload, dict) else {},
         decision_rows_added=decision_rows_added,
     )
+    revenue_total = _safe_float(totals.get("revenue", totals.get("total_revenue", 0.0)))
+    profit_total = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
+    orders_total = int(round(_safe_float(totals.get("orders", 0))))
+    avg_check = (revenue_total / orders_total) if orders_total > 0 else 0.0
+
+    wb_commission = _safe_float(totals.get("deductions", 0.0))
+    logistics_total = _safe_float(totals.get("logistics", 0.0))
+    storage_total = _safe_float(totals.get("storage", 0.0))
+    penalties_total = _safe_float(totals.get("penalties", 0.0))
+    ads_spend_total = _safe_float(totals.get("ads_spend", 0.0))
+    net_profit = profit_total
+    margin_pct_total = (net_profit / revenue_total * 100.0) if revenue_total > 0 else 0.0
+    cogs_total = max(
+        0.0,
+        revenue_total
+        - net_profit
+        - wb_commission
+        - logistics_total
+        - storage_total
+        - ads_spend_total
+        - penalties_total,
+    )
+
+    ads_impressions = int(round(_safe_float(totals.get("ads_impressions", 0))))
+    ads_clicks = int(round(_safe_float(totals.get("ads_clicks", 0))))
+    ads_ctr = _safe_float(totals.get("ads_ctr", 0.0))
+    ads_orders = int(round(_safe_float(totals.get("ads_orders", 0))))
+    ads_revenue = _safe_float(totals.get("ads_revenue", 0.0))
+    ads_acos = _safe_float(totals.get("ads_acos", 0.0))
+    ads_romi = _safe_float(totals.get("ads_romi", 0.0))
 
     page_1: List[str] = [
         "# WB AI Agent — Отчет по кабинету",
@@ -1033,11 +1175,35 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "",
         "## КЛЮЧЕВЫЕ KPI",
         "Показатель | Значение",
-        f"Выручка | {_format_money(totals.get('revenue', 0.0))}",
-        f"Прибыль | {_format_money(totals.get('profit', 0.0))}",
+        f"Выручка | {_format_money(revenue_total)}",
+        f"Прибыль | {_format_money(profit_total)}",
+        f"Количество заказов | {_format_int(orders_total)}",
+        f"Средний чек | {_format_money(avg_check)}",
         f"Количество SKU | {_format_int(len(sku_metrics))}",
         f"Выкупы / Заказы | {_format_int(totals.get('buys', 0))} / {_format_int(totals.get('orders', 0))}",
         f"Расходы на рекламу | {_format_money(totals.get('ads_spend', 0.0))}",
+        "",
+        "## ФИНАНСОВАЯ СТРУКТУРА",
+        "Показатель | Значение",
+        f"Выручка | {_format_money(revenue_total)}",
+        f"Комиссия WB | {_format_money(wb_commission)}",
+        f"Логистика | {_format_money(logistics_total)}",
+        f"Хранение | {_format_money(storage_total)}",
+        f"Реклама | {_format_money(ads_spend_total)}",
+        f"Себестоимость | {_format_money(cogs_total)}",
+        f"Чистая прибыль | {_format_money(net_profit)}",
+        f"Маржа % | {_format_pct(margin_pct_total)}",
+        "",
+        "## РЕКЛАМА",
+        "Показатель | Значение",
+        f"Показы | {_format_int(ads_impressions)}",
+        f"Клики | {_format_int(ads_clicks)}",
+        f"CTR | {_format_pct(ads_ctr)}",
+        f"Расход | {_format_money(ads_spend_total)}",
+        f"Заказы | {_format_int(ads_orders)}",
+        f"Выручка | {_format_money(ads_revenue)}",
+        f"ACOS | {_format_pct(ads_acos)}",
+        f"ROMI | {_format_pct(ads_romi)}",
         "",
         "## КЛЮЧЕВЫЕ ВЫВОДЫ",
     ]
@@ -1111,12 +1277,21 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         else:
             page_1.append("- Top critical SKU: —")
 
-    page_1.extend(["", "## ТОП SKU ПО ПРИБЫЛИ", "SKU | Прибыль | Маржа | Класс прибыли | ABC"])
+    page_1.extend(
+        [
+            "",
+            "## ТОП SKU ПО ПРИБЫЛИ",
+            "SKU | Прибыль | Доля прибыли (%) | Маржа (%) | Класс прибыли | ABC",
+        ]
+    )
     if profit_rows:
         for row in profit_rows[:5]:
+            profit_value = _safe_float(row.get("profit", 0.0))
+            profit_share_pct = (profit_value / profit_total * 100.0) if abs(profit_total) > 1e-9 else 0.0
             page_1.append(
                 f"{row.get('sku', 'n/a')} | "
-                f"{_format_money(row.get('profit', 0.0))} | "
+                f"{_format_money(profit_value)} | "
+                f"{_format_pct(profit_share_pct)} | "
                 f"{_format_pct(row.get('margin_pct', 0.0))} | "
                 f"{str(row.get('profit_class', '-') or '-')} | "
                 f"{str(row.get('abc_class', '-') or '-')}"
@@ -1227,6 +1402,31 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             sku = str(row.get("sku") or "").strip()
             if sku:
                 page_2.append(f"- SKU {sku} -> rebalance_stock")
+
+    short_recommendations = _build_short_recommendations(
+        decision_groups=decision_groups,
+        logistics_summary=logistics_summary if isinstance(logistics_summary, dict) else {},
+    )
+    ai_day_conclusion = _build_ai_day_conclusion(
+        run_date=run_date,
+        totals=totals if isinstance(totals, dict) else {},
+        data_quality=data_quality if isinstance(data_quality, dict) else {},
+        key_insights=key_insights,
+        recommendations=short_recommendations,
+    )
+    page_1.extend(["", "## AI ВЫВОД ДНЯ", ai_day_conclusion])
+    page_1.extend(["", "## КРАТКИЕ РЕКОМЕНДАЦИИ"])
+    page_1.extend(f"- {item}" for item in short_recommendations)
+
+    job["email_summary"] = {
+        "profit": round(profit_total, 2),
+        "revenue": round(revenue_total, 2),
+        "orders": orders_total,
+        "avg_check": round(avg_check, 2),
+        "key_insights": key_insights[:3],
+        "recommendations": short_recommendations,
+        "ai_day_conclusion": ai_day_conclusion,
+    }
 
     memory_summary = facts.get("decision_memory_summary", {}) if isinstance(facts, dict) else {}
     important_warnings = _important_warnings(warnings)
@@ -1439,8 +1639,14 @@ def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str |
         if str(result.get("status") or "") in {"success", "partial_success"}:
             report_pdf_path = os.path.join(str(result.get("artifacts_dir") or ""), "report.pdf")
             email_to_masked = _mask_email_targets(str(os.getenv("EMAIL_TO", "")).strip())
+            email_summary = result.get("email_summary", {}) if isinstance(result, dict) else {}
             try:
-                email_to_masked = _send_daily_report_email(seller_id, resolved_run_date, report_pdf_path)
+                email_to_masked = _send_daily_report_email(
+                    seller_id,
+                    resolved_run_date,
+                    report_pdf_path,
+                    email_summary if isinstance(email_summary, dict) else {},
+                )
                 result = _apply_email_result(
                     result,
                     attempted=True,

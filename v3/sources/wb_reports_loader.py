@@ -76,6 +76,11 @@ FIELD_SYNONYMS = {
     "roi": ["roi", "romi", "окупаемость", "рентабельность_рекламы"],
     "ddr": ["ddr", "ддр", "доля_рекламных_расходов", "доля_расходов"],
     "cpo": ["cpo", "стоимость_заказа", "cost_per_order"],
+    "impressions": ["impressions", "показы", "показы_всего", "просмотры", "views"],
+    "clicks": ["clicks", "клики", "переходы", "click"],
+    "ctr": ["ctr", "ctr_%", "кликабельность"],
+    "acos": ["acos", "acos_%", "ддр", "доля_рекламных_расходов"],
+    "romi": ["romi", "roi", "окупаемость_рекламы", "рентабельность_рекламы"],
     "margin": ["margin", "маржа", "маржинальность"],
     "margin_pct": ["margin_pct", "маржа_pct", "маржа_процент", "margin_percent"],
     "logistics": ["логистика", "услуги_по_доставке_товара_покупателю", "доставка", "доставка_товара_покупателю"],
@@ -513,7 +518,19 @@ def _rows_from_table(
                 canon["warehouse"] = preferred
                 break
     elif report_type == "ads":
-        required, useful = ["sku"], ["ads_spend", "roi", "ddr", "cpo"]
+        required, useful = ["sku"], [
+            "ads_spend",
+            "impressions",
+            "clicks",
+            "ctr",
+            "orders",
+            "revenue",
+            "acos",
+            "romi",
+            "roi",
+            "ddr",
+            "cpo",
+        ]
         string_fields = []
     else:
         required, useful = ["sku", "stock"], ["stock"]
@@ -892,11 +909,18 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
                 "sales_count": 0.0,
                 "stock": 0.0,
                 "ads_spend": 0.0,
+                "impressions": 0.0,
+                "clicks": 0.0,
+                "ads_orders": 0.0,
+                "ads_revenue": 0.0,
                 "logistics": 0.0,
                 "penalties": 0.0,
                 "storage": 0.0,
                 "deductions": 0.0,
                 "_roi": [],
+                "_romi": [],
+                "_acos": [],
+                "_ctr": [],
                 "_ddr": [],
                 "_cpo": [],
             }
@@ -923,8 +947,18 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             continue
         item = _sku(sku)
         item["ads_spend"] += float(row.get("ads_spend") or 0.0)
+        item["impressions"] += float(row.get("impressions") or 0.0)
+        item["clicks"] += float(row.get("clicks") or 0.0)
+        item["ads_orders"] += float(row.get("orders") or 0.0)
+        item["ads_revenue"] += float(row.get("revenue") or 0.0)
         if row.get("roi") is not None:
             item["_roi"].append(float(row["roi"]))
+        if row.get("romi") is not None:
+            item["_romi"].append(float(row["romi"]))
+        if row.get("acos") is not None:
+            item["_acos"].append(float(row["acos"]))
+        if row.get("ctr") is not None:
+            item["_ctr"].append(float(row["ctr"]))
         if row.get("ddr") is not None:
             item["_ddr"].append(float(row["ddr"]))
         if row.get("cpo") is not None:
@@ -945,6 +979,9 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         profit = profit_before_ads - ads_spend
         margin_pct = (profit / revenue * 100.0) if revenue > 0 else 0.0
         roi = row["_roi"]
+        romi = row["_romi"]
+        acos = row["_acos"]
+        ctr = row["_ctr"]
         ddr = row["_ddr"]
         cpo = row["_cpo"]
 
@@ -967,12 +1004,19 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
                 "sales_count": sales_count_value,
                 "stock": int(round(float(row["stock"]))),
                 "ads_spend": round(ads_spend, 2),
+                "impressions": int(round(float(row["impressions"]))),
+                "clicks": int(round(float(row["clicks"]))),
+                "ads_orders": int(round(float(row["ads_orders"]))),
+                "ads_revenue": round(float(row["ads_revenue"]), 2),
                 "logistics": round(float(row["logistics"]), 2),
                 "penalties": round(float(row["penalties"]), 2),
                 "storage": round(float(row["storage"]), 2),
                 "deductions": round(float(row["deductions"]), 2),
                 "margin_pct": round(margin_pct, 2),
                 "roi": round(sum(roi) / len(roi), 2) if roi else None,
+                "romi": round(sum(romi) / len(romi), 2) if romi else None,
+                "acos": round(sum(acos) / len(acos), 2) if acos else None,
+                "ctr": round(sum(ctr) / len(ctr), 2) if ctr else None,
                 "ddr": round(sum(ddr) / len(ddr), 2) if ddr else None,
                 "cpo": round(sum(cpo) / len(cpo), 2) if cpo else None,
                 "has_sales_activity": has_sales_activity,
@@ -986,6 +1030,17 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
     valid_revenue = sum(float(row.get("revenue") or 0.0) for row in valid_sales_rows)
     valid_sales_profit_before_ads = sum(_row_profit_value(row) for row in valid_sales_rows)
     valid_ads_spend = sum(float(row.get("ads_spend") or 0.0) for row in valid_ads_rows)
+    valid_logistics = sum(float(row.get("logistics") or 0.0) for row in valid_sales_rows)
+    valid_storage = sum(float(row.get("storage") or 0.0) for row in valid_sales_rows)
+    valid_penalties = sum(float(row.get("penalties") or 0.0) for row in valid_sales_rows)
+    valid_deductions = sum(float(row.get("deductions") or 0.0) for row in valid_sales_rows)
+
+    total_ads_impressions = sum(float(row.get("impressions") or 0.0) for row in ads_rows)
+    total_ads_clicks = sum(float(row.get("clicks") or 0.0) for row in ads_rows)
+    total_ads_orders = sum(float(row.get("orders") or row.get("sales_count") or row.get("buys") or 0.0) for row in ads_rows)
+    total_ads_revenue = sum(float(row.get("revenue") or 0.0) for row in ads_rows)
+    avg_ads_ctr = sum(float(row.get("ctr") or 0.0) for row in ads_rows if row.get("ctr") is not None)
+    avg_ads_ctr_count = sum(1 for row in ads_rows if row.get("ctr") is not None)
 
     unassigned_revenue = float(unassigned_costs["revenue"])
     unassigned_profit = float(unassigned_costs["profit"]) - float(unassigned_costs["ads_spend"])
@@ -1008,6 +1063,33 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "buys": int(round(total_buys)),
         "stock": int(round(total_stock)),
         "ads_spend": round(valid_ads_spend + float(unassigned_costs["ads_spend"]), 2),
+        "logistics": round(valid_logistics + float(unassigned_costs["logistics"]), 2),
+        "storage": round(valid_storage + float(unassigned_costs["storage"]), 2),
+        "penalties": round(valid_penalties + float(unassigned_costs["penalties"]), 2),
+        "deductions": round(valid_deductions + float(unassigned_costs["deductions"]), 2),
+        "ads_impressions": int(round(total_ads_impressions)),
+        "ads_clicks": int(round(total_ads_clicks)),
+        "ads_ctr": round(
+            (float(total_ads_clicks) / float(total_ads_impressions) * 100.0)
+            if total_ads_impressions > 0
+            else ((avg_ads_ctr / float(avg_ads_ctr_count)) if avg_ads_ctr_count > 0 else 0.0),
+            2,
+        ),
+        "ads_orders": int(round(total_ads_orders)),
+        "ads_revenue": round(total_ads_revenue, 2),
+        "ads_acos": round(
+            ((valid_ads_spend + float(unassigned_costs["ads_spend"])) / total_ads_revenue * 100.0)
+            if total_ads_revenue > 0
+            else 0.0,
+            2,
+        ),
+        "ads_romi": round(
+            ((total_ads_revenue - (valid_ads_spend + float(unassigned_costs["ads_spend"])))
+            / (valid_ads_spend + float(unassigned_costs["ads_spend"])) * 100.0)
+            if (valid_ads_spend + float(unassigned_costs["ads_spend"])) > 0
+            else 0.0,
+            2,
+        ),
         "sku_assigned_revenue": round(valid_revenue, 2),
         "unassigned_revenue": round(unassigned_revenue, 2),
         "total_revenue": round(total_revenue, 2),
@@ -1064,9 +1146,26 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "unassigned_costs": unassigned_costs,
         "data_quality": data_quality,
         "financial_debug": financial_debug,
-        "financial": {"revenue": totals["total_revenue"], "profit": totals["total_profit"], "ads_spend": totals["ads_spend"]},
+        "financial": {
+            "revenue": totals["total_revenue"],
+            "profit": totals["total_profit"],
+            "ads_spend": totals["ads_spend"],
+            "logistics": totals["logistics"],
+            "storage": totals["storage"],
+            "penalties": totals["penalties"],
+            "deductions": totals["deductions"],
+        },
         "funnel": {"orders": totals["orders"], "buys": totals["buys"]},
-        "ads": {"spend": totals["ads_spend"]},
+        "ads": {
+            "spend": totals["ads_spend"],
+            "impressions": totals["ads_impressions"],
+            "clicks": totals["ads_clicks"],
+            "ctr": totals["ads_ctr"],
+            "orders": totals["ads_orders"],
+            "revenue": totals["ads_revenue"],
+            "acos": totals["ads_acos"],
+            "romi": totals["ads_romi"],
+        },
         "stock": {"total_stock": totals["stock"]},
     }
 
