@@ -23,6 +23,45 @@ REPORT_NAME_KEYWORDS = {
     "stocks": ["остат", "склад", "stock", "inventory"],
 }
 
+_SUPPLIER_GOODS_DAILY_FIELD_SYNONYMS = {
+    "orders_count": (
+        "шт",
+        "заказанные_товары_шт",
+        "заказано_шт",
+        "кол_во_заказов",
+        "колво_заказов",
+        "количество_заказов",
+    ),
+    "orders_amount": (
+        "сумма_заказов_минус_комиссия_wb_руб",
+        "сумма_заказов_руб",
+        "заказов_на_сумму_rub",
+        "заказов_на_сумму",
+    ),
+    "buyouts_count": (
+        "выкупили_шт",
+        "выкупы_шт",
+        "количество_выкупов",
+        "кол_во_выкупов",
+        "продажи_шт",
+    ),
+    "buyouts_amount": (
+        "к_перечислению_за_товар_руб",
+        "к_перечислению_продавцу_за_товар_руб",
+        "к_перечислению_продавцу_за_реализованный_товар",
+        "к_перечислению",
+    ),
+}
+
+_SUPPLIER_GOODS_FILE_TOKENS = (
+    "товар",
+    "goods",
+    "supplier",
+    "ежеднев",
+    "daily",
+    "воронка",
+)
+
 FIELD_SYNONYMS = {
     "sku": ["sku", "nm_id", "nmid", "артикул", "артикул_wb", "артикул_продавца", "номенклатура", "код_товара", "код_номенклатуры", "наименование", "товар", "предмет"],
     "seller_sku": ["seller_sku", "supplier_sku", "артикул_поставщика", "артикул_продавца", "артикул", "vendor_code"],
@@ -348,6 +387,134 @@ def _read_table(path: str, max_rows: int | None = None) -> Tuple[List[str], List
     if ext == ".xlsx":
         return _read_xlsx_table(path, max_rows=max_rows)
     return _read_xls_table(path, max_rows=max_rows)
+
+
+def _match_supplier_goods_column(columns: List[str], variants: Tuple[str, ...]) -> str:
+    normalized_variants = {_normalize_text(item) for item in variants if str(item).strip()}
+    if not normalized_variants:
+        return ""
+
+    for col in columns:
+        if col in normalized_variants:
+            return col
+    for col in columns:
+        for variant in normalized_variants:
+            if variant and (variant in col or col in variant):
+                return col
+    return ""
+
+
+def _is_summary_row(row: Dict[str, Any]) -> bool:
+    for value in row.values():
+        text = str(value or "").strip()
+        if not text:
+            continue
+        if _as_float(text) is not None:
+            continue
+        token = _normalize_text(text)
+        if token in {"итого", "итог", "всего", "total", "grand_total"} or token.startswith("итого_"):
+            return True
+    return False
+
+
+def _extract_supplier_goods_daily_kpi(path: str) -> Dict[str, Any]:
+    cols, recs = _read_table(path)
+    if not cols or not recs:
+        return {}
+
+    normalized_columns, normalized_rows = _normalize_records(cols, recs)
+    column_map: Dict[str, str] = {}
+    for field, variants in _SUPPLIER_GOODS_DAILY_FIELD_SYNONYMS.items():
+        matched = _match_supplier_goods_column(normalized_columns, variants)
+        if not matched:
+            return {}
+        column_map[field] = matched
+
+    totals = {
+        "orders_count": 0.0,
+        "orders_amount": 0.0,
+        "buyouts_count": 0.0,
+        "buyouts_amount": 0.0,
+    }
+    used_rows = 0
+    for row in normalized_rows:
+        if not isinstance(row, dict):
+            continue
+        if _is_summary_row(row):
+            continue
+
+        row_has_numeric = False
+        row_values: Dict[str, float] = {}
+        for field, col in column_map.items():
+            number = _as_float(row.get(col))
+            if number is None:
+                number = 0.0
+            else:
+                row_has_numeric = True
+            row_values[field] = float(number)
+        if not row_has_numeric:
+            continue
+
+        used_rows += 1
+        for field in totals:
+            totals[field] += float(row_values.get(field, 0.0))
+
+    if used_rows <= 0:
+        return {}
+
+    return {
+        "source_file": os.path.basename(path),
+        "source_path": path,
+        "rows_used": used_rows,
+        "matched_columns": column_map,
+        "orders_count": int(round(totals["orders_count"])),
+        "orders_amount": round(totals["orders_amount"], 2),
+        "buyouts_count": int(round(totals["buyouts_count"])),
+        "buyouts_amount": round(totals["buyouts_amount"], 2),
+    }
+
+
+def load_supplier_goods_daily_kpi(input_dir: str) -> Dict[str, Any]:
+    if not os.path.isdir(input_dir):
+        return {"found": False}
+
+    candidates: List[Dict[str, Any]] = []
+    for name in sorted(os.listdir(input_dir)):
+        path = os.path.join(input_dir, name)
+        if not os.path.isfile(path):
+            continue
+        if os.path.splitext(name)[1].lower() not in ALLOWED_EXTENSIONS:
+            continue
+        try:
+            extracted = _extract_supplier_goods_daily_kpi(path)
+        except Exception:
+            continue
+        if not extracted:
+            continue
+
+        file_name_norm = _normalize_text(name)
+        score = 0
+        for token in _SUPPLIER_GOODS_FILE_TOKENS:
+            if _normalize_text(token) in file_name_norm:
+                score += 1
+        extracted["match_score"] = score
+        candidates.append(extracted)
+
+    if not candidates:
+        return {"found": False}
+
+    candidates.sort(
+        key=lambda item: (
+            int(item.get("match_score", 0) or 0),
+            int(item.get("rows_used", 0) or 0),
+            int(os.path.getmtime(str(item.get("source_path") or "")) if str(item.get("source_path") or "") else 0),
+        ),
+        reverse=True,
+    )
+    best = dict(candidates[0])
+    best["found"] = True
+    best["candidates_found"] = len(candidates)
+    return best
 
 
 def _canonical_columns(columns: List[str]) -> Dict[str, str]:
@@ -1173,6 +1340,9 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
 def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, metrics: Dict[str, Any], discovered_files: Dict[str, List[str]], warnings: List[Dict[str, Any]], source_mode: str) -> Dict[str, Any]:
     totals = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
     data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
+    daily_kpi = metrics.get("daily_kpi", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(daily_kpi, dict):
+        daily_kpi = {}
     codes = {str(w.get("code", "")) for w in warnings if isinstance(w, dict)}
     debug = {"input_files_found", "input_file_detected_type"}
     severe = {
@@ -1213,6 +1383,17 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
     elif (invalid_sku_rows > 0 or unassigned_present) and confidence == "high":
         confidence = "medium"
 
+    daily_orders_count = int(daily_kpi.get("daily_orders_count", totals.get("orders", 0)) or 0)
+    daily_orders_amount = float(
+        daily_kpi.get("daily_orders_amount", 0.0) or 0.0
+    )
+    daily_buyouts_count = int(daily_kpi.get("daily_buyouts_count", totals.get("buys", 0)) or 0)
+    daily_buyouts_amount = float(
+        daily_kpi.get("daily_buyouts_amount", 0.0) or 0.0
+    )
+    data_source_orders = str(daily_kpi.get("data_source_orders") or "metrics_totals_fallback")
+    data_source_buyouts = str(daily_kpi.get("data_source_buyouts") or "metrics_totals_fallback")
+
     return {
         "seller_id": seller_id,
         "seller_name": seller_name,
@@ -1220,6 +1401,12 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
         "generated_at": _utc_now_iso(),
         "data_confidence": confidence,
         "source_mode": source_mode,
+        "daily_orders_count": daily_orders_count,
+        "daily_orders_amount": round(daily_orders_amount, 2),
+        "daily_buyouts_count": daily_buyouts_count,
+        "daily_buyouts_amount": round(daily_buyouts_amount, 2),
+        "data_source_orders": data_source_orders,
+        "data_source_buyouts": data_source_buyouts,
         "input_summary": {
             "sales_files_found": len(discovered_files.get("sales", [])),
             "ads_files_found": len(discovered_files.get("ads", [])),
@@ -1231,8 +1418,10 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
         "kpi": {
             "revenue": float(totals.get("total_revenue", totals.get("revenue", 0.0)) or 0.0),
             "profit": float(totals.get("total_profit", totals.get("profit", 0.0)) or 0.0),
-            "orders": int(totals.get("orders", 0) or 0),
-            "buyouts": int(totals.get("buys", 0) or 0),
+            "orders": daily_orders_count,
+            "buyouts": daily_buyouts_count,
+            "orders_amount": round(daily_orders_amount, 2),
+            "buyouts_amount": round(daily_buyouts_amount, 2),
         },
         "data_quality": {
             "valid_sku_count": int(data_quality.get("valid_sku_count", 0) or 0),

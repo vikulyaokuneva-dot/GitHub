@@ -50,6 +50,30 @@
       "seller_id": "seller_001"
     },
     {
+      "date": "2026-03-09",
+      "path": "daily/2026-03-09",
+      "files": [
+        "2026-03-09_outcomes.json",
+        "abc_analysis.json",
+        "decisions.json",
+        "facts.json",
+        "health_score.json",
+        "metrics.json",
+        "profit_contribution.json",
+        "warnings.json"
+      ],
+      "kpi": {
+        "revenue": 0.0,
+        "profit": 0.0,
+        "buyouts": 0,
+        "ads_spend": 0.0,
+        "sku_count": 0,
+        "valid_sku_count": 0,
+        "invalid_sku_rows": 0
+      },
+      "seller_id": "seller_001"
+    },
+    {
       "date": "2026-03-10",
       "path": "daily/2026-03-10",
       "files": [

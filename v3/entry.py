@@ -29,12 +29,15 @@ from .sources.wb_reports_loader import (
     build_facts_from_reports,
     build_metrics_from_reports,
     load_local_reports,
+    load_supplier_goods_daily_kpi,
 )
 from .storage import write_json
 from src.mailer_yandex import send_email_with_pdf
 
 _FALLBACK_SELLER_ID = "__missing_seller__"
 _ALLOW_FALLBACK_ENV = "WB_ALLOW_MISSING_SELLER"
+_DAILY_SOURCE_SUPPLIER_GOODS = "wb_supplier_goods_report"
+_DAILY_SOURCE_FALLBACK = "metrics_totals_fallback"
 
 
 def _default_date() -> str:
@@ -184,6 +187,104 @@ def _safe_float(value: Any) -> float:
         return 0.0
 
 
+def _resolve_daily_kpi(
+    totals: Dict[str, Any],
+    supplier_goods_daily: Dict[str, Any],
+) -> Dict[str, Any]:
+    fallback_orders_count = int(round(_safe_float(totals.get("orders", 0))))
+    fallback_orders_amount = 0.0
+    fallback_buyouts_count = int(round(_safe_float(totals.get("buys", 0))))
+    fallback_buyouts_amount = 0.0
+
+    payload = {
+        "daily_orders_count": fallback_orders_count,
+        "daily_orders_amount": round(fallback_orders_amount, 2),
+        "daily_buyouts_count": fallback_buyouts_count,
+        "daily_buyouts_amount": round(fallback_buyouts_amount, 2),
+        "data_source_orders": _DAILY_SOURCE_FALLBACK,
+        "data_source_buyouts": _DAILY_SOURCE_FALLBACK,
+        "supplier_goods_source_file": "",
+    }
+
+    if isinstance(supplier_goods_daily, dict) and bool(supplier_goods_daily.get("found")):
+        source_file = str(supplier_goods_daily.get("source_file") or "")
+        payload.update(
+            {
+                "daily_orders_count": int(supplier_goods_daily.get("orders_count", fallback_orders_count) or 0),
+                "daily_orders_amount": round(
+                    _safe_float(supplier_goods_daily.get("orders_amount", fallback_orders_amount)),
+                    2,
+                ),
+                "daily_buyouts_count": int(supplier_goods_daily.get("buyouts_count", fallback_buyouts_count) or 0),
+                "daily_buyouts_amount": round(
+                    _safe_float(supplier_goods_daily.get("buyouts_amount", fallback_buyouts_amount)),
+                    2,
+                ),
+                "data_source_orders": _DAILY_SOURCE_SUPPLIER_GOODS,
+                "data_source_buyouts": _DAILY_SOURCE_SUPPLIER_GOODS,
+                "supplier_goods_source_file": source_file,
+            }
+        )
+    return payload
+
+
+def _daily_relative_diff_pct(actual: float, expected: float) -> float:
+    denominator = abs(expected)
+    if denominator <= 1e-9:
+        return 0.0 if abs(actual) <= 1e-9 else 100.0
+    return abs(actual - expected) / denominator * 100.0
+
+
+def _append_daily_kpi_mismatch_warning(
+    warnings: List[Dict[str, Any]],
+    summary_daily_kpi: Dict[str, Any],
+    supplier_goods_daily: Dict[str, Any],
+) -> None:
+    if not isinstance(supplier_goods_daily, dict) or not bool(supplier_goods_daily.get("found")):
+        return
+    if not isinstance(summary_daily_kpi, dict):
+        return
+
+    checks = {
+        "orders_count": (
+            _safe_float(summary_daily_kpi.get("daily_orders_count", 0)),
+            _safe_float(supplier_goods_daily.get("orders_count", 0)),
+        ),
+        "orders_amount": (
+            _safe_float(summary_daily_kpi.get("daily_orders_amount", 0.0)),
+            _safe_float(supplier_goods_daily.get("orders_amount", 0.0)),
+        ),
+        "buyouts_count": (
+            _safe_float(summary_daily_kpi.get("daily_buyouts_count", 0)),
+            _safe_float(supplier_goods_daily.get("buyouts_count", 0)),
+        ),
+        "buyouts_amount": (
+            _safe_float(summary_daily_kpi.get("daily_buyouts_amount", 0.0)),
+            _safe_float(supplier_goods_daily.get("buyouts_amount", 0.0)),
+        ),
+    }
+    debug: Dict[str, Any] = {}
+    mismatch_detected = False
+    for key, (actual, expected) in checks.items():
+        diff_pct = _daily_relative_diff_pct(actual, expected)
+        debug[key] = {
+            "summary_value": round(actual, 4),
+            "supplier_goods_value": round(expected, 4),
+            "diff_pct": round(diff_pct, 4),
+        }
+        if diff_pct > 1.0:
+            mismatch_detected = True
+
+    if mismatch_detected:
+        warnings.append(
+            {
+                "code": "daily_kpi_mismatch_with_supplier_goods_report",
+                "message": "daily KPI mismatch with WB supplier goods report",
+                "debug": debug,
+            }
+        )
+
+
 def _format_int(value: Any) -> str:
     number = int(round(_safe_float(value)))
     return f"{number:,}".replace(",", " ")
@@ -193,6 +294,11 @@ def _format_money(value: Any) -> str:
     amount = _safe_float(value)
     rounded = int(round(amount))
     return f"{rounded:,}".replace(",", " ") + " ₽"
+
+
+def _format_money_2(value: Any) -> str:
+    amount = _safe_float(value)
+    return f"{amount:,.2f}".replace(",", " ") + " ₽"
 
 
 def _format_pct(value: Any) -> str:
@@ -307,6 +413,7 @@ def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         "wb_api_financial_degraded",
         "financial_data_missing",
         "sales_activity_zero_revenue",
+        "daily_kpi_mismatch_with_supplier_goods_report",
         "territorial_distribution_built",
         "insufficient_warehouse_data",
         "high_ktr_detected",
@@ -360,6 +467,7 @@ def _warning_message_ru(code: str, message: str) -> str:
         "wb_api_financial_degraded": "Финансовые данные WB API не получены, использован деградированный режим.",
         "financial_data_missing": "Данные о продажах не получены.",
         "sales_activity_zero_revenue": "Есть продажи по SKU, но выручка по ним не атрибутирована.",
+        "daily_kpi_mismatch_with_supplier_goods_report": "Daily KPI не совпадает с supplier goods report WB.",
         "territorial_distribution_built": (
             f"Рассчитано территориальное распределение для {number} SKU."
             if number is not None
@@ -446,15 +554,17 @@ def _build_short_recommendations(
 def _build_ai_day_conclusion(
     run_date: str,
     totals: Dict[str, Any],
+    daily_kpi: Dict[str, Any],
     data_quality: Dict[str, Any],
     key_insights: List[str],
     recommendations: List[str],
 ) -> str:
-    revenue = _safe_float(totals.get("revenue", totals.get("total_revenue", 0.0)))
+    buyouts_revenue = _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
     profit = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
-    orders = int(round(_safe_float(totals.get("orders", 0))))
-    avg_check = revenue / orders if orders > 0 else 0.0
-    margin_pct = (profit / revenue * 100.0) if revenue > 0 else 0.0
+    orders = int(round(_safe_float(daily_kpi.get("daily_orders_count", totals.get("orders", 0)))))
+    buyouts = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", totals.get("buys", 0)))))
+    avg_buyout_check = buyouts_revenue / buyouts if buyouts > 0 else 0.0
+    margin_pct = (profit / buyouts_revenue * 100.0) if buyouts_revenue > 0 else 0.0
 
     quality_code = str(data_quality.get("financial_status", "ok") or "ok")
     quality_label = {
@@ -467,9 +577,11 @@ def _build_ai_day_conclusion(
     focus = (recommendations[0] if recommendations else "Сохранить текущую операционную стратегию").rstrip(".")
 
     return (
-        f"На {run_date} бизнес закрыл день с выручкой {_format_money(revenue)} и чистой прибылью {_format_money(profit)} "
+        f"На {run_date} бизнес закрыл день с перечислением по выкупам {_format_money_2(buyouts_revenue)} "
+        f"и чистой прибылью {_format_money(profit)} "
         f"(маржа {_format_pct(margin_pct)}). "
-        f"Получено {_format_int(orders)} заказов, средний чек составил {_format_money(avg_check)}. "
+        f"Получено {_format_int(orders)} заказов, выкуплено {_format_int(buyouts)} "
+        f"(средний чек по выкупу {_format_money_2(avg_buyout_check)}). "
         f"Качество финансовой атрибуции находится на {quality_label} уровне, поэтому решения AI опираются на подтвержденные данные дня. "
         f"Главный сигнал: {main_insight}; фокус следующего дня: {focus}."
     )
@@ -482,8 +594,11 @@ def _build_management_email_body(
 ) -> str:
     revenue = _safe_float(summary.get("revenue", 0.0))
     profit = _safe_float(summary.get("profit", 0.0))
-    orders = int(round(_safe_float(summary.get("orders", 0))))
     avg_check = _safe_float(summary.get("avg_check", 0.0))
+    daily_orders_count = int(round(_safe_float(summary.get("daily_orders_count", summary.get("orders", 0)))))
+    daily_orders_amount = _safe_float(summary.get("daily_orders_amount", 0.0))
+    daily_buyouts_count = int(round(_safe_float(summary.get("daily_buyouts_count", 0))))
+    daily_buyouts_amount = _safe_float(summary.get("daily_buyouts_amount", 0.0))
     insights_raw = summary.get("key_insights", [])
     recommendations_raw = summary.get("recommendations", [])
     day_conclusion = str(summary.get("ai_day_conclusion", "")).strip()
@@ -500,9 +615,14 @@ def _build_management_email_body(
         f"Дата: {run_date}",
         "",
         "КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ",
+        f"- Заказы: {_format_int(daily_orders_count)}",
+        f"- Выкупы: {_format_int(daily_buyouts_count)}",
+        f"- К перечислению по выкупам: {_format_money_2(daily_buyouts_amount)}",
+        f"- Сумма заказов (минус комиссия WB): {_format_money_2(daily_orders_amount)}",
+        "",
+        "ФИНАНСОВЫЙ КОНТУР",
         f"- Прибыль за день: {_format_money(profit)}",
-        f"- Выручка: {_format_money(revenue)}",
-        f"- Количество заказов: {_format_int(orders)}",
+        f"- Выручка (финансовая агрегация): {_format_money(revenue)}",
         f"- Средний чек: {_format_money(avg_check)}",
         "",
         "КЛЮЧЕВЫЕ ВЫВОДЫ AI",
@@ -635,6 +755,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     api_ads_rows: List[Dict[str, Any]] = []
     api_stocks_rows: List[Dict[str, Any]] = []
     local_financial_fallback_used = False
+    supplier_goods_daily = load_supplier_goods_daily_kpi(seller_input_dir)
 
     if token:
         source_mode = "wb_api"
@@ -763,8 +884,29 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         input_debug = {}
     if "api_debug" not in input_debug:
         input_debug["api_debug"] = api_debug
+    input_debug["supplier_goods_daily"] = supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {"found": False}
+    if isinstance(supplier_goods_daily, dict) and bool(supplier_goods_daily.get("found")):
+        warnings.append(
+            {
+                "code": "supplier_goods_report_detected",
+                "message": (
+                    "Supplier goods report detected: "
+                    + str(supplier_goods_daily.get("source_file") or "")
+                ),
+            }
+        )
 
     metrics = build_metrics_from_reports(sales_rows, ads_rows, stocks_rows)
+    totals_for_daily = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(totals_for_daily, dict):
+        totals_for_daily = {}
+    daily_kpi = _resolve_daily_kpi(totals_for_daily, supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {})
+    metrics["daily_kpi"] = daily_kpi
+    _append_daily_kpi_mismatch_warning(
+        warnings=warnings,
+        summary_daily_kpi=daily_kpi,
+        supplier_goods_daily=supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {},
+    )
     metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
     financial_debug = metrics.get("financial_debug", []) if isinstance(metrics, dict) else []
     if not isinstance(financial_debug, list):
@@ -1033,6 +1175,12 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "artifacts_dir": out_dir,
         "input_debug": input_debug,
         "api_debug": api_debug,
+        "daily_orders_count": int(daily_kpi.get("daily_orders_count", 0) or 0),
+        "daily_orders_amount": round(_safe_float(daily_kpi.get("daily_orders_amount", 0.0)), 2),
+        "daily_buyouts_count": int(daily_kpi.get("daily_buyouts_count", 0) or 0),
+        "daily_buyouts_amount": round(_safe_float(daily_kpi.get("daily_buyouts_amount", 0.0)), 2),
+        "data_source_orders": str(daily_kpi.get("data_source_orders") or _DAILY_SOURCE_FALLBACK),
+        "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK),
         "data_quality": facts_financial_status,
         "artifacts": [
             "job.json",
@@ -1138,8 +1286,11 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     )
     revenue_total = _safe_float(totals.get("revenue", totals.get("total_revenue", 0.0)))
     profit_total = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
-    orders_total = int(round(_safe_float(totals.get("orders", 0))))
-    avg_check = (revenue_total / orders_total) if orders_total > 0 else 0.0
+    daily_orders_count = int(round(_safe_float(daily_kpi.get("daily_orders_count", totals.get("orders", 0)))))
+    daily_orders_amount = _safe_float(daily_kpi.get("daily_orders_amount", 0.0))
+    daily_buyouts_count = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", totals.get("buys", 0)))))
+    daily_buyouts_amount = _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
+    avg_check = (daily_buyouts_amount / daily_buyouts_count) if daily_buyouts_count > 0 else 0.0
 
     wb_commission = _safe_float(totals.get("deductions", 0.0))
     logistics_total = _safe_float(totals.get("logistics", 0.0))
@@ -1175,12 +1326,16 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "",
         "## КЛЮЧЕВЫЕ KPI",
         "Показатель | Значение",
-        f"Выручка | {_format_money(revenue_total)}",
+        f"Количество заказов | {_format_int(daily_orders_count)}",
+        f"Сумма заказов (минус комиссия WB) | {_format_money_2(daily_orders_amount)}",
+        f"Выкупы | {_format_int(daily_buyouts_count)}",
+        f"К перечислению по выкупам | {_format_money_2(daily_buyouts_amount)}",
+        f"Средний чек по выкупу | {_format_money_2(avg_check)}",
+        f"Источник заказов | {str(daily_kpi.get('data_source_orders') or _DAILY_SOURCE_FALLBACK)}",
+        f"Источник выкупов | {str(daily_kpi.get('data_source_buyouts') or _DAILY_SOURCE_FALLBACK)}",
+        f"Финансовая выручка (агрегация) | {_format_money(revenue_total)}",
         f"Прибыль | {_format_money(profit_total)}",
-        f"Количество заказов | {_format_int(orders_total)}",
-        f"Средний чек | {_format_money(avg_check)}",
         f"Количество SKU | {_format_int(len(sku_metrics))}",
-        f"Выкупы / Заказы | {_format_int(totals.get('buys', 0))} / {_format_int(totals.get('orders', 0))}",
         f"Расходы на рекламу | {_format_money(totals.get('ads_spend', 0.0))}",
         "",
         "## ФИНАНСОВАЯ СТРУКТУРА",
@@ -1410,6 +1565,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     ai_day_conclusion = _build_ai_day_conclusion(
         run_date=run_date,
         totals=totals if isinstance(totals, dict) else {},
+        daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
         data_quality=data_quality if isinstance(data_quality, dict) else {},
         key_insights=key_insights,
         recommendations=short_recommendations,
@@ -1421,8 +1577,14 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     job["email_summary"] = {
         "profit": round(profit_total, 2),
         "revenue": round(revenue_total, 2),
-        "orders": orders_total,
+        "orders": daily_orders_count,
         "avg_check": round(avg_check, 2),
+        "daily_orders_count": daily_orders_count,
+        "daily_orders_amount": round(daily_orders_amount, 2),
+        "daily_buyouts_count": daily_buyouts_count,
+        "daily_buyouts_amount": round(daily_buyouts_amount, 2),
+        "data_source_orders": str(daily_kpi.get("data_source_orders") or _DAILY_SOURCE_FALLBACK),
+        "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK),
         "key_insights": key_insights[:3],
         "recommendations": short_recommendations,
         "ai_day_conclusion": ai_day_conclusion,

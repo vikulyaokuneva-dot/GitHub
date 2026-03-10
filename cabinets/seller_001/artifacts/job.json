@@ -1,267 +1,63 @@
 {
   "seller_id": "seller_001",
   "mode": "daily",
-  "run_date": "2026-03-08",
-  "status": "success",
-  "started_at": "2026-03-08T17:19:14Z",
-  "finished_at": "2026-03-08T17:19:16Z",
-  "error": null,
+  "run_date": "2026-03-09",
+  "status": "partial_success",
+  "started_at": "2026-03-10T13:31:25Z",
+  "finished_at": "2026-03-10T13:31:25Z",
+  "error": "данные о продажах не получены",
+  "source_mode": "local_reports",
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
   "input_debug": {
     "input_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input",
     "discovered": {
-      "sales": [
-        "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\4-3-2026 Воронка продаж с 27-02-2026 по 05-03-2026.xlsx",
-        "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №641536051_4297720 - 1.xlsx"
-      ],
-      "ads": [
-        "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Статистика (11).xlsx"
-      ],
-      "stocks": [
-        "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\report_2026_3_4 (1).xlsx"
-      ],
-      "unknown": [
-        "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\4-3-2026 23-01 с 23-02-2026 по 01-03-2026.xlsx"
-      ]
+      "sales": [],
+      "ads": [],
+      "stocks": [],
+      "unknown": []
     },
-    "details": [
-      {
-        "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\4-3-2026 23-01 с 23-02-2026 по 01-03-2026.xlsx",
-        "file": "4-3-2026 23-01 с 23-02-2026 по 01-03-2026.xlsx",
-        "type": null,
-        "source": "unknown",
-        "name_scores": {
-          "sales": 0,
-          "ads": 0,
-          "stocks": 0
-        },
-        "column_scores": {
-          "sales": 0,
-          "ads": 0,
-          "stocks": 0
-        },
-        "columns": [
-          "Значение за текущий период",
-          "С 2026-02-23 по 2026-03-01"
-        ],
-        "read_error": null
-      },
-      {
-        "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\4-3-2026 Воронка продаж с 27-02-2026 по 05-03-2026.xlsx",
-        "file": "4-3-2026 Воронка продаж с 27-02-2026 по 05-03-2026.xlsx",
-        "type": "sales",
-        "source": "name",
-        "name_scores": {
-          "sales": 2,
-          "ads": 0,
-          "stocks": 0
-        },
-        "column_scores": {
-          "sales": 0,
-          "ads": 0,
-          "stocks": 0
-        },
-        "columns": [
-          "Значение за текущий период",
-          "С 2026-02-27 по 2026-03-05"
-        ],
-        "read_error": null
-      },
-      {
-        "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\report_2026_3_4 (1).xlsx",
-        "file": "report_2026_3_4 (1).xlsx",
-        "type": "stocks",
-        "source": "columns",
-        "name_scores": {
-          "sales": 0,
-          "ads": 0,
-          "stocks": 0
-        },
-        "column_scores": {
-          "sales": 1,
-          "ads": 1,
-          "stocks": 3
-        },
-        "columns": [
-          "Бренд",
-          "Предмет",
-          "Артикул продавца",
-          "В пути до получателей",
-          "В пути возвраты на склад WB",
-          "Всего находится на складах",
-          "Электросталь",
-          "Краснодар",
-          "Екатеринбург - Перспективная 14",
-          "Тула",
-          "Невинномысск",
-          "Рязань (Тюшевское)",
-          "Котовск",
-          "Самара (Новосемейкино)",
-          "Волгоград",
-          "СЦ Барнаул",
-          "Воронеж"
-        ],
-        "read_error": null
-      },
-      {
-        "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №641536051_4297720 - 1.xlsx",
-        "file": "Еженедельный детализированный отчет №641536051_4297720 - 1.xlsx",
-        "type": "sales",
-        "source": "columns_overrode_name",
-        "name_scores": {
-          "sales": 2,
-          "ads": 0,
-          "stocks": 0
-        },
-        "column_scores": {
-          "sales": 5,
-          "ads": 1,
-          "stocks": 3
-        },
-        "columns": [
-          "№",
-          "Номер поставки",
-          "Предмет",
-          "Код номенклатуры",
-          "Бренд",
-          "Артикул поставщика",
-          "Название",
-          "Размер",
-          "Баркод",
-          "Тип документа",
-          "Обоснование для оплаты",
-          "Дата заказа покупателем",
-          "Дата продажи",
-          "Кол-во",
-          "Цена розничная",
-          "Вайлдберриз реализовал Товар (Пр)",
-          "Согласованный продуктовый дисконт, %",
-          "Промокод, %",
-          "Итоговая согласованная скидка, %",
-          "Цена розничная с учетом согласованной скидки",
-          "Размер снижения кВВ из-за рейтинга, %",
-          "Размер изменения кВВ из-за акции, %",
-          "Скидка постоянного Покупателя (СПП), %",
-          "Размер кВВ, %",
-          "Размер кВВ без НДС, % Базовый",
-          "Итоговый кВВ без НДС, %",
-          "Вознаграждение с продаж до вычета услуг поверенного, без НДС",
-          "Возмещение за выдачу и возврат товаров на ПВЗ",
-          "Эквайринг/Комиссии за организацию платежей",
-          "Размер комиссии за эквайринг/Комиссии за организацию платежей, %",
-          "Тип платежа за Эквайринг/Комиссии за организацию платежей",
-          "Вознаграждение Вайлдберриз (ВВ), без НДС",
-          "НДС с Вознаграждения Вайлдберриз",
-          "К перечислению Продавцу за реализованный Товар",
-          "Количество доставок",
-          "Количество возврата",
-          "Услуги по доставке товара покупателю",
-          "Дата начала действия фиксации",
-          "Дата конца действия фиксации",
-          "Признак услуги платной доставки",
-          "Общая сумма штрафов",
-          "Корректировка Вознаграждения Вайлдберриз (ВВ)",
-          "Виды логистики, штрафов и корректировок ВВ",
-          "Стикер МП",
-          "Наименование банка-эквайера",
-          "Номер офиса",
-          "Наименование офиса доставки",
-          "ИНН партнера",
-          "Партнер",
-          "Склад",
-          "Страна",
-          "Тип коробов",
-          "Номер таможенной декларации",
-          "Номер сборочного задания",
-          "Код маркировки",
-          "ШК",
-          "Srid",
-          "Возмещение издержек по перевозке/по складским операциям с товаром",
-          "Организатор перевозки",
-          "Хранение",
-          "Удержания",
-          "Операции на приемке",
-          "Фиксированный коэффициент склада по поставке",
-          "Признак продажи юридическому лицу",
-          "Номер короба для обработки товара",
-          "Скидка по программе софинансирования",
-          "Скидка Wibes, %",
-          "Компенсация скидки по программе лояльности",
-          "Стоимость участия в программе лояльности",
-          "Сумма удержанная за начисленные баллы программы лояльности",
-          "Id корзины заказа",
-          "Разовое изменение срока перечисления денежных средств",
-          "Id собственной акции продавца с дополнительной скидкой",
-          "Размер дополнительной скидки по собственной акции продавца, %",
-          "Способы продажи и тип товара",
-          "Уникальный идентификатор скидки лояльности от продавца",
-          "Размер скидки лояльности от продавца,%",
-          "Id промокода",
-          "Скидка за промокод, %"
-        ],
-        "read_error": null
-      },
-      {
-        "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Статистика (11).xlsx",
-        "file": "Статистика (11).xlsx",
-        "type": "ads",
-        "source": "columns_overrode_name",
-        "name_scores": {
-          "sales": 1,
-          "ads": 0,
-          "stocks": 0
-        },
-        "column_scores": {
-          "sales": 2,
-          "ads": 3,
-          "stocks": 1
-        },
-        "columns": [
-          "Название",
-          "Номенклатура",
-          "Затраты, RUB",
-          "Заказов на сумму, RUB",
-          "Показы",
-          "Клики",
-          "Добавлений в корзину",
-          "Заказанные товары, шт.",
-          "CTR(%)",
-          "CR (%)",
-          "CPM",
-          "CPC",
-          "CPO",
-          "Отмены",
-          "Средняя позиция",
-          "Номер мультикарточки",
-          "Тип конверсии"
-        ],
-        "read_error": null
-      }
-    ],
-    "primary_sales_source": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №641536051_4297720 - 1.xlsx",
-    "primary_sales_columns": {
-      "revenue": "к_перечислению_продавцу_за_реализованный_товар",
-      "orders": "кол_во",
-      "buys": "кол_во",
-      "sales_count": "кол_во",
-      "logistics": "услуги_по_доставке_товара_покупателю",
-      "penalties": "общая_сумма_штрафов",
-      "storage": "хранение",
-      "deductions": "удержания",
-      "warehouse": "склад",
-      "seller_sku": "артикул_поставщика",
-      "sku": "код_номенклатуры"
-    },
+    "details": [],
+    "primary_sales_source": "",
+    "primary_sales_columns": {},
     "loaded_rows": {
-      "sales": 154,
-      "ads": 3,
-      "stocks": 12
+      "sales": 0,
+      "ads": 0,
+      "stocks": 0
+    },
+    "api_debug": {
+      "sales_rows": 0,
+      "orders_rows": 0,
+      "realization_rows": 0,
+      "ads_rows": 0,
+      "stocks_rows": 0,
+      "date_from": "2026-03-09",
+      "date_to": "2026-03-09"
+    },
+    "supplier_goods_daily": {
+      "found": false
     }
   },
+  "api_debug": {
+    "sales_rows": 0,
+    "orders_rows": 0,
+    "realization_rows": 0,
+    "ads_rows": 0,
+    "stocks_rows": 0,
+    "date_from": "2026-03-09",
+    "date_to": "2026-03-09"
+  },
+  "daily_orders_count": 0,
+  "daily_orders_amount": 0.0,
+  "daily_buyouts_count": 0,
+  "daily_buyouts_amount": 0.0,
+  "data_source_orders": "metrics_totals_fallback",
+  "data_source_buyouts": "metrics_totals_fallback",
+  "data_quality": "degraded",
   "artifacts": [
     "job.json",
     "facts.json",
     "metrics.json",
+    "financial_debug.json",
     "warnings.json",
     "abc_analysis.json",
     "profit_contribution.json",
@@ -273,25 +69,44 @@
     "opportunity_scores.json",
     "director_strategy.json",
     "memory/decision_memory.jsonl",
-    "memory/outcomes/2026-03-08_outcomes.json",
-    "history/daily/2026-03-08/",
+    "memory/outcomes/2026-03-09_outcomes.json",
+    "history/daily/2026-03-09/",
     "history/history_index.json",
     "report_meta.json",
     "report.pdf"
   ],
   "decision_memory_added": 0,
   "decision_outcomes_evaluated": 0,
-  "decision_outcomes_file": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\memory\\outcomes\\2026-03-08_outcomes.json",
+  "decision_outcomes_file": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\memory\\outcomes\\2026-03-09_outcomes.json",
+  "email_summary": {
+    "profit": 0.0,
+    "revenue": 0.0,
+    "orders": 0,
+    "avg_check": 0.0,
+    "daily_orders_count": 0,
+    "daily_orders_amount": 0.0,
+    "daily_buyouts_count": 0,
+    "daily_buyouts_amount": 0.0,
+    "data_source_orders": "metrics_totals_fallback",
+    "data_source_buyouts": "metrics_totals_fallback",
+    "key_insights": [
+      "В памяти AI уже накоплено 40 решений."
+    ],
+    "recommendations": [
+      "Сохранить текущий курс и контролировать динамику KPI без резких изменений."
+    ],
+    "ai_day_conclusion": "На 2026-03-09 бизнес закрыл день с перечислением по выкупам 0.00 ₽ и чистой прибылью 0 ₽ (маржа 0.0 %). Получено 0 заказов, выкуплено 0 (средний чек по выкупу 0.00 ₽). Качество финансовой атрибуции находится на среднем уровне, поэтому решения AI опираются на подтвержденные данные дня. Главный сигнал: В памяти AI уже накоплено 40 решений; фокус следующего дня: Сохранить текущий курс и контролировать динамику KPI без резких изменений."
+  },
   "pdf_font": {
     "family": "arial",
     "regular": "C:\\Windows\\Fonts\\arial.ttf",
     "bold": "C:\\Windows\\Fonts\\arialbd.ttf"
   },
   "history_snapshot": {
-    "date": "2026-03-08",
-    "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\history\\daily\\2026-03-08",
+    "date": "2026-03-09",
+    "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\history\\daily\\2026-03-09",
     "files": [
-      "2026-03-08_outcomes.json",
+      "2026-03-09_outcomes.json",
       "abc_analysis.json",
       "decisions.json",
       "facts.json",
@@ -300,5 +115,51 @@
       "profit_contribution.json",
       "warnings.json"
     ]
-  }
+  },
+  "warnings": [
+    {
+      "code": "input_files_found",
+      "message": "Input files found: total=0, sales=0, ads=0, stocks=0, unknown=0"
+    },
+    {
+      "code": "input_files_missing",
+      "message": "No local input files found in cabinets/seller_001/input"
+    },
+    {
+      "code": "sales_report_missing",
+      "message": "No valid sales report found in input/."
+    },
+    {
+      "code": "ads_report_missing",
+      "message": "No valid ads report found in input/."
+    },
+    {
+      "code": "stocks_report_missing",
+      "message": "No valid stocks report found in input/."
+    },
+    {
+      "code": "financial_data_missing",
+      "message": "данные о продажах не получены"
+    },
+    {
+      "code": "low_total_profit",
+      "message": "Total financial profit is non-positive; financial attribution may be incomplete."
+    },
+    {
+      "code": "territorial_distribution_built",
+      "message": "Territorial distribution built for 0 SKU with KTR"
+    },
+    {
+      "code": "no_decisions_ready_for_outcome",
+      "message": "No decisions are ready for outcome evaluation yet"
+    },
+    {
+      "code": "history_snapshot_saved",
+      "message": "History snapshot saved for 2026-03-09"
+    }
+  ],
+  "email_attempted": true,
+  "email_sent": false,
+  "email_to": "",
+  "email_error": "Missing required env vars: YANDEX_SMTP_USER, YANDEX_SMTP_APP_PASS, EMAIL_TO"
 }
