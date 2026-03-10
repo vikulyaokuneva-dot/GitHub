@@ -6,6 +6,15 @@
     "bold": "C:\\Windows\\Fonts\\arialbd.ttf"
   },
   "pages": 4,
+  "daily_commerce_kpi": {
+    "daily_orders_count": 0,
+    "daily_orders_amount": 0.0,
+    "daily_buyouts_count": 0,
+    "daily_buyouts_amount": 0.0,
+    "avg_check": 0.0,
+    "data_source_orders": "metrics_totals_fallback",
+    "data_source_buyouts": "metrics_totals_fallback"
+  },
   "page_previews": [
     {
       "page": 1,
@@ -106,9 +115,9 @@
         "- Не найден валидный отчет продаж.",
         "- Не найден валидный рекламный отчет.",
         "- Не найден валидный отчет остатков.",
+        "- Daily KPI рассчитаны из слабого источника metrics totals fallback.",
         "- Данные о продажах не получены.",
-        "- Суммарная прибыль по SKU неположительная.",
-        "- Рассчитано территориальное распределение для 0 SKU."
+        "- Суммарная прибыль по SKU неположительная."
       ]
     }
   ]

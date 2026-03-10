@@ -3,8 +3,8 @@
   "mode": "daily",
   "run_date": "2026-03-09",
   "status": "partial_success",
-  "started_at": "2026-03-10T13:31:25Z",
-  "finished_at": "2026-03-10T13:31:25Z",
+  "started_at": "2026-03-10T14:05:42Z",
+  "finished_at": "2026-03-10T14:05:42Z",
   "error": "данные о продажах не получены",
   "source_mode": "local_reports",
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
@@ -81,6 +81,7 @@
   "email_summary": {
     "profit": 0.0,
     "revenue": 0.0,
+    "financial_revenue": 0.0,
     "orders": 0,
     "avg_check": 0.0,
     "daily_orders_count": 0,
@@ -136,6 +137,10 @@
     {
       "code": "stocks_report_missing",
       "message": "No valid stocks report found in input/."
+    },
+    {
+      "code": "weak_kpi_source",
+      "message": "Daily KPI derived from metrics totals fallback."
     },
     {
       "code": "financial_data_missing",

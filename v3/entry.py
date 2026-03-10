@@ -36,7 +36,10 @@ from src.mailer_yandex import send_email_with_pdf
 
 _FALLBACK_SELLER_ID = "__missing_seller__"
 _ALLOW_FALLBACK_ENV = "WB_ALLOW_MISSING_SELLER"
-_DAILY_SOURCE_SUPPLIER_GOODS = "wb_supplier_goods_report"
+_DAILY_SOURCE_SUPPLIER_GOODS = "supplier_goods"
+_DAILY_SOURCE_ORDERS_API = "orders_api"
+_DAILY_SOURCE_SALES_API = "sales_api"
+_DAILY_SOURCE_REALIZATION_API = "realization_api"
 _DAILY_SOURCE_FALLBACK = "metrics_totals_fallback"
 
 
@@ -187,9 +190,28 @@ def _safe_float(value: Any) -> float:
         return 0.0
 
 
+def _row_price_fallback(row: Dict[str, Any]) -> float:
+    if not isinstance(row, dict):
+        return 0.0
+    return _safe_float(
+        row.get("price", row.get("revenue", row.get("totalPrice", row.get("priceWithDisc", row.get("finishedPrice", 0.0)))))
+    )
+
+
+def _rows_count(rows: List[Dict[str, Any]]) -> int:
+    return len([row for row in rows if isinstance(row, dict)])
+
+
+def _rows_price_sum(rows: List[Dict[str, Any]]) -> float:
+    return round(sum(_row_price_fallback(row) for row in rows if isinstance(row, dict)), 2)
+
+
 def _resolve_daily_kpi(
     totals: Dict[str, Any],
     supplier_goods_daily: Dict[str, Any],
+    api_orders_rows: List[Dict[str, Any]],
+    api_sales_rows: List[Dict[str, Any]],
+    api_realization_rows: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     fallback_orders_count = int(round(_safe_float(totals.get("orders", 0))))
     fallback_orders_amount = 0.0
@@ -225,6 +247,26 @@ def _resolve_daily_kpi(
                 "supplier_goods_source_file": source_file,
             }
         )
+        return payload
+
+    if _rows_count(api_orders_rows) > 0:
+        payload["daily_orders_count"] = _rows_count(api_orders_rows)
+        payload["daily_orders_amount"] = _rows_price_sum(api_orders_rows)
+        payload["data_source_orders"] = _DAILY_SOURCE_ORDERS_API
+    elif _rows_count(api_sales_rows) > 0:
+        payload["daily_orders_count"] = _rows_count(api_sales_rows)
+        payload["daily_orders_amount"] = _rows_price_sum(api_sales_rows)
+        payload["data_source_orders"] = _DAILY_SOURCE_SALES_API
+
+    if _rows_count(api_sales_rows) > 0:
+        payload["daily_buyouts_count"] = _rows_count(api_sales_rows)
+        payload["daily_buyouts_amount"] = _rows_price_sum(api_sales_rows)
+        payload["data_source_buyouts"] = _DAILY_SOURCE_SALES_API
+    elif _rows_count(api_realization_rows) > 0:
+        payload["daily_buyouts_count"] = _rows_count(api_realization_rows)
+        payload["daily_buyouts_amount"] = _rows_price_sum(api_realization_rows)
+        payload["data_source_buyouts"] = _DAILY_SOURCE_REALIZATION_API
+
     return payload
 
 
@@ -413,6 +455,8 @@ def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         "wb_api_financial_degraded",
         "financial_data_missing",
         "sales_activity_zero_revenue",
+        "daily_kpi_fallback_used",
+        "weak_kpi_source",
         "daily_kpi_mismatch_with_supplier_goods_report",
         "territorial_distribution_built",
         "insufficient_warehouse_data",
@@ -467,6 +511,8 @@ def _warning_message_ru(code: str, message: str) -> str:
         "wb_api_financial_degraded": "Финансовые данные WB API не получены, использован деградированный режим.",
         "financial_data_missing": "Данные о продажах не получены.",
         "sales_activity_zero_revenue": "Есть продажи по SKU, но выручка по ним не атрибутирована.",
+        "daily_kpi_fallback_used": "Supplier goods report не найден, использован API fallback для daily KPI.",
+        "weak_kpi_source": "Daily KPI рассчитаны из слабого источника metrics totals fallback.",
         "daily_kpi_mismatch_with_supplier_goods_report": "Daily KPI не совпадает с supplier goods report WB.",
         "territorial_distribution_built": (
             f"Рассчитано территориальное распределение для {number} SKU."
@@ -563,7 +609,7 @@ def _build_ai_day_conclusion(
     profit = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
     orders = int(round(_safe_float(daily_kpi.get("daily_orders_count", totals.get("orders", 0)))))
     buyouts = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", totals.get("buys", 0)))))
-    avg_buyout_check = buyouts_revenue / buyouts if buyouts > 0 else 0.0
+    avg_buyout_check = buyouts_revenue / buyouts if (buyouts_revenue > 0 and buyouts > 0) else 0.0
     margin_pct = (profit / buyouts_revenue * 100.0) if buyouts_revenue > 0 else 0.0
 
     quality_code = str(data_quality.get("financial_status", "ok") or "ok")
@@ -592,7 +638,7 @@ def _build_management_email_body(
     run_date: str,
     summary: Dict[str, Any],
 ) -> str:
-    revenue = _safe_float(summary.get("revenue", 0.0))
+    revenue = _safe_float(summary.get("financial_revenue", summary.get("revenue", 0.0)))
     profit = _safe_float(summary.get("profit", 0.0))
     avg_check = _safe_float(summary.get("avg_check", 0.0))
     daily_orders_count = int(round(_safe_float(summary.get("daily_orders_count", summary.get("orders", 0)))))
@@ -900,8 +946,35 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     totals_for_daily = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
     if not isinstance(totals_for_daily, dict):
         totals_for_daily = {}
-    daily_kpi = _resolve_daily_kpi(totals_for_daily, supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {})
+    daily_kpi = _resolve_daily_kpi(
+        totals_for_daily,
+        supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {},
+        api_orders_rows if isinstance(api_orders_rows, list) else [],
+        api_sales_rows if isinstance(api_sales_rows, list) else [],
+        api_realization_rows if isinstance(api_realization_rows, list) else [],
+    )
     metrics["daily_kpi"] = daily_kpi
+    orders_source = str(daily_kpi.get("data_source_orders") or "")
+    buyouts_source = str(daily_kpi.get("data_source_buyouts") or "")
+    api_sources = {
+        _DAILY_SOURCE_ORDERS_API,
+        _DAILY_SOURCE_SALES_API,
+        _DAILY_SOURCE_REALIZATION_API,
+    }
+    if orders_source in api_sources or buyouts_source in api_sources:
+        warnings.append(
+            {
+                "code": "daily_kpi_fallback_used",
+                "message": "Supplier goods report not found, using API fallback.",
+            }
+        )
+    if orders_source == _DAILY_SOURCE_FALLBACK or buyouts_source == _DAILY_SOURCE_FALLBACK:
+        warnings.append(
+            {
+                "code": "weak_kpi_source",
+                "message": "Daily KPI derived from metrics totals fallback.",
+            }
+        )
     _append_daily_kpi_mismatch_warning(
         warnings=warnings,
         summary_daily_kpi=daily_kpi,
@@ -1290,7 +1363,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     daily_orders_amount = _safe_float(daily_kpi.get("daily_orders_amount", 0.0))
     daily_buyouts_count = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", totals.get("buys", 0)))))
     daily_buyouts_amount = _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
-    avg_check = (daily_buyouts_amount / daily_buyouts_count) if daily_buyouts_count > 0 else 0.0
+    avg_check = (daily_buyouts_amount / daily_buyouts_count) if (daily_buyouts_amount > 0 and daily_buyouts_count > 0) else 0.0
 
     wb_commission = _safe_float(totals.get("deductions", 0.0))
     logistics_total = _safe_float(totals.get("logistics", 0.0))
@@ -1576,7 +1649,8 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
 
     job["email_summary"] = {
         "profit": round(profit_total, 2),
-        "revenue": round(revenue_total, 2),
+        "revenue": round(daily_buyouts_amount, 2),
+        "financial_revenue": round(revenue_total, 2),
         "orders": daily_orders_count,
         "avg_check": round(avg_check, 2),
         "daily_orders_count": daily_orders_count,
@@ -1663,6 +1737,15 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "pdf_path": os.path.join(out_dir, "report.pdf"),
         "font": job["pdf_font"],
         "pages": int(str(font_info.get("pages", "1"))),
+        "daily_commerce_kpi": {
+            "daily_orders_count": daily_orders_count,
+            "daily_orders_amount": round(daily_orders_amount, 2),
+            "daily_buyouts_count": daily_buyouts_count,
+            "daily_buyouts_amount": round(daily_buyouts_amount, 2),
+            "avg_check": round(avg_check, 2),
+            "data_source_orders": str(daily_kpi.get("data_source_orders") or _DAILY_SOURCE_FALLBACK),
+            "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK),
+        },
     }
     report_meta["page_previews"] = [
         {"page": page_idx + 1, "lines": page[:30]} for page_idx, page in enumerate(report_pages)

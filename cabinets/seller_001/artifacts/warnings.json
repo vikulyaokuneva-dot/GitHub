@@ -20,6 +20,10 @@
     "message": "No valid stocks report found in input/."
   },
   {
+    "code": "weak_kpi_source",
+    "message": "Daily KPI derived from metrics totals fallback."
+  },
+  {
     "code": "financial_data_missing",
     "message": "данные о продажах не получены"
   },
