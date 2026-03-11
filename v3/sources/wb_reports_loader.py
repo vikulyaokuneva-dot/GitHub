@@ -69,6 +69,9 @@ FIELD_SYNONYMS = {
     "revenue": [
         "revenue",
         "выручка",
+        "заказов_на_сумму_rub",
+        "заказов_на_сумму_руб",
+        "заказов_на_сумму",
         "к_перечислению",
         "кперечислению",
         "к_перечислению_продавцу",
@@ -118,10 +121,31 @@ FIELD_SYNONYMS = {
     "impressions": ["impressions", "показы", "показы_всего", "просмотры", "views"],
     "clicks": ["clicks", "клики", "переходы", "click"],
     "ctr": ["ctr", "ctr_%", "кликабельность"],
+    "cpc": ["cpc", "цена_клика", "стоимость_клика"],
     "acos": ["acos", "acos_%", "ддр", "доля_рекламных_расходов"],
     "romi": ["romi", "roi", "окупаемость_рекламы", "рентабельность_рекламы"],
+    "conversion_type": ["conversion_type", "тип_конверсии", "конверсия"],
     "margin": ["margin", "маржа", "маржинальность"],
     "margin_pct": ["margin_pct", "маржа_pct", "маржа_процент", "margin_percent"],
+    "cost_price": [
+        "cost_price",
+        "cogs",
+        "cost_of_goods_sold",
+        "себестоимость",
+        "себестоимость_товара",
+        "закупочная_стоимость",
+        "себестоимость_руб",
+    ],
+    "wb_commission": [
+        "wb_commission",
+        "комиссия_wb",
+        "комиссия_wildberries",
+        "комиссия_маркетплейса",
+        "вознаграждение_wb",
+        "комиссионное_вознаграждение",
+        "retail_commission",
+        "sales_commission",
+    ],
     "logistics": ["логистика", "услуги_по_доставке_товара_покупателю", "доставка", "доставка_товара_покупателю"],
     "penalties": ["общая_сумма_штрафов", "штрафы", "сумма_штрафов"],
     "storage": ["хранение"],
@@ -266,26 +290,60 @@ def _xlsx_shared_strings(zf: zipfile.ZipFile) -> List[str]:
 
 def _xlsx_sheet_path(zf: zipfile.ZipFile) -> str:
     if "xl/worksheets/sheet1.xml" in zf.namelist():
-        return "xl/worksheets/sheet1.xml"
+        # Keep old fast path for common single-sheet workbooks.
+        # Specific sheet selection is handled below when workbook metadata is available.
+        pass
     wb = ET.fromstring(zf.read("xl/workbook.xml"))
     ns = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
     rid_attr = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
-    first = wb.find("x:sheets/x:sheet", ns)
-    if first is None:
-        raise RuntimeError("No sheets in workbook")
-    rid = first.attrib.get(rid_attr, "")
+    preferred_tokens = ("статистика", "statistics", "statistic")
+    preferred_rid = ""
+    first_rid = ""
+    first_target = ""
+
     rels_path = "xl/_rels/workbook.xml.rels"
-    if rid and rels_path in zf.namelist():
+    rel_map: Dict[str, str] = {}
+    if rels_path in zf.namelist():
         rels = ET.fromstring(zf.read(rels_path))
         rns = {"r": "http://schemas.openxmlformats.org/package/2006/relationships"}
         for rel in rels.findall("r:Relationship", rns):
-            if rel.attrib.get("Id") == rid:
-                target = rel.attrib.get("Target", "")
-                if target.startswith("/"):
-                    return target.lstrip("/")
-                if target.startswith("xl/"):
-                    return target
-                return f"xl/{target}"
+            rel_id = str(rel.attrib.get("Id") or "")
+            target_raw = str(rel.attrib.get("Target") or "")
+            if not rel_id or not target_raw:
+                continue
+            if target_raw.startswith("/"):
+                target = target_raw.lstrip("/")
+            elif target_raw.startswith("xl/"):
+                target = target_raw
+            else:
+                target = f"xl/{target_raw}"
+            rel_map[rel_id] = target
+
+    first = wb.find("x:sheets/x:sheet", ns)
+    if first is None:
+        raise RuntimeError("No sheets in workbook")
+
+    for sheet in wb.findall("x:sheets/x:sheet", ns):
+        rid = str(sheet.attrib.get(rid_attr) or "")
+        if not rid:
+            continue
+        name = _normalize_text(str(sheet.attrib.get("name") or ""))
+        if not first_rid:
+            first_rid = rid
+            first_target = rel_map.get(rid, "")
+        if any(token in name for token in preferred_tokens):
+            preferred_rid = rid
+            break
+
+    if preferred_rid and preferred_rid in rel_map:
+        return rel_map[preferred_rid]
+    if first_rid and first_rid in rel_map:
+        return rel_map[first_rid]
+    if first_target:
+        return first_target
+    if "xl/worksheets/sheet1.xml" in zf.namelist():
+        return "xl/worksheets/sheet1.xml"
+
     candidates = sorted([n for n in zf.namelist() if n.startswith("xl/worksheets/") and n.endswith(".xml")])
     if not candidates:
         raise RuntimeError("No worksheet xml found")
@@ -579,6 +637,21 @@ def _pick_type(scores: Dict[str, int]) -> str | None:
     return ordered[0][0]
 
 
+def _is_ads_campaign_total_row(row: Dict[str, Any]) -> bool:
+    if not isinstance(row, dict):
+        return False
+    for value in row.values():
+        raw = str(value or "").strip().lower()
+        if "всего по кампании" in raw or "итого по кампании" in raw or "campaign total" in raw:
+            return True
+        token = _normalize_text(raw)
+        if not token:
+            continue
+        if "всего_по_кампании" in token or "итого_по_кампании" in token:
+            return True
+    return False
+
+
 def _detect_report_type(path: str) -> Dict[str, Any]:
     name = os.path.basename(path)
     norm_name = _normalize_text(name)
@@ -665,6 +738,8 @@ def _rows_from_table(
             "sales_count",
             "margin",
             "margin_pct",
+            "cost_price",
+            "wb_commission",
             "logistics",
             "penalties",
             "storage",
@@ -690,6 +765,7 @@ def _rows_from_table(
             "impressions",
             "clicks",
             "ctr",
+            "cpc",
             "orders",
             "revenue",
             "acos",
@@ -698,7 +774,7 @@ def _rows_from_table(
             "ddr",
             "cpo",
         ]
-        string_fields = []
+        string_fields = ["conversion_type"]
     else:
         required, useful = ["sku", "stock"], ["stock"]
         string_fields = ["seller_sku"]
@@ -737,6 +813,23 @@ def _rows_from_table(
         matched_columns["sku"] = canon["sku"]
     rows: List[Dict[str, Any]] = []
     for r in nrows:
+        if report_type == "ads" and _is_ads_campaign_total_row(r):
+            total_item: Dict[str, Any] = {"_is_campaign_total": True}
+            for field in useful:
+                col = canon.get(field)
+                if not col:
+                    continue
+                val = _as_float(r.get(col))
+                if val is not None:
+                    total_item[field] = val
+            conv_col = canon.get("conversion_type")
+            if conv_col:
+                conversion_type = str(r.get(conv_col, "")).strip()
+                if conversion_type and conversion_type.lower() != "nan":
+                    total_item["conversion_type"] = conversion_type
+            rows.append(total_item)
+            continue
+
         sku_col = canon.get("sku")
         if not sku_col:
             continue
@@ -777,11 +870,21 @@ def _rows_from_table(
                     item["orders"] = float(order_qty)
 
             if item.get("revenue") is not None and item.get("profit") is None:
+                cost_price = float(item.get("cost_price") or 0.0)
+                wb_commission = float(item.get("wb_commission") or 0.0)
                 logistics = float(item.get("logistics") or 0.0)
                 penalties = float(item.get("penalties") or 0.0)
                 storage = float(item.get("storage") or 0.0)
                 deductions = float(item.get("deductions") or 0.0)
-                item["profit"] = float(item["revenue"]) - logistics - penalties - storage - deductions
+                item["profit"] = (
+                    float(item["revenue"])
+                    - cost_price
+                    - wb_commission
+                    - logistics
+                    - penalties
+                    - storage
+                    - deductions
+                )
         elif report_type == "stocks":
             ignored_columns = set(canon.values())
             ignored_columns.add(canon.get("seller_sku", ""))
@@ -824,6 +927,7 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
     stocks_rows: List[Dict[str, Any]] = []
     primary_sales_source = ""
     primary_sales_columns: Dict[str, str] = {}
+    loaded_files: Dict[str, List[str]] = {"sales": [], "ads": [], "stocks": []}
 
     total = len(discovered["sales"]) + len(discovered["ads"]) + len(discovered["stocks"]) + len(discovered["unknown"])
     warnings.append({"code": "input_files_found", "message": f"Input files found: total={total}, sales={len(discovered['sales'])}, ads={len(discovered['ads'])}, stocks={len(discovered['stocks'])}, unknown={len(discovered['unknown'])}"})
@@ -881,6 +985,7 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
                 rows, missing, matched_columns = _load_report(p, report_type)
                 if rows:
                     target.extend(rows)
+                    loaded_files.setdefault(report_type, []).append(name)
                     if report_type == "sales" and p == primary_only:
                         matched = matched_columns
                 else:
@@ -941,9 +1046,35 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
     _read_many(discovered["ads"], "ads", ads_rows)
     _read_many(discovered["stocks"], "stocks", stocks_rows)
 
+    ads_campaign_totals = {"ads_spend": 0.0, "revenue": 0.0, "orders": 0.0, "impressions": 0.0, "clicks": 0.0}
+    ads_campaign_total_rows = 0
+    ads_sku_rows_count = 0
+    for row in ads_rows:
+        if not isinstance(row, dict):
+            continue
+        if bool(row.get("_is_campaign_total", False)):
+            ads_campaign_total_rows += 1
+            ads_campaign_totals["ads_spend"] += float(row.get("ads_spend") or 0.0)
+            ads_campaign_totals["revenue"] += float(row.get("revenue") or 0.0)
+            ads_campaign_totals["orders"] += float(row.get("orders") or 0.0)
+            ads_campaign_totals["impressions"] += float(row.get("impressions") or 0.0)
+            ads_campaign_totals["clicks"] += float(row.get("clicks") or 0.0)
+            continue
+        ads_sku_rows_count += 1
+
+    ads_source_file = loaded_files.get("ads", [])[0] if loaded_files.get("ads") else ""
+    ads_loaded_from_file = bool(ads_sku_rows_count > 0)
+    if ads_loaded_from_file:
+        warnings.append(
+            {
+                "code": "ads_file_loaded",
+                "message": f"Ads report loaded from file: {ads_source_file}",
+            }
+        )
+
     if not discovered["sales"] or not sales_rows:
         warnings.append({"code": "sales_report_missing", "message": "No valid sales report found in input/."})
-    if not discovered["ads"] or not ads_rows:
+    if not discovered["ads"] or ads_sku_rows_count <= 0:
         warnings.append({"code": "ads_report_missing", "message": "No valid ads report found in input/."})
     if not discovered["stocks"] or not stocks_rows:
         warnings.append({"code": "stocks_report_missing", "message": "No valid stocks report found in input/."})
@@ -960,6 +1091,17 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
             "details": details,
             "primary_sales_source": primary_sales_source,
             "primary_sales_columns": primary_sales_columns,
+            "ads_source_file": ads_source_file,
+            "ads_loaded_from_file": ads_loaded_from_file,
+            "ads_sku_rows_count": ads_sku_rows_count,
+            "ads_campaign_total_rows": ads_campaign_total_rows,
+            "ads_campaign_totals": {
+                "ads_spend": round(float(ads_campaign_totals["ads_spend"]), 2),
+                "ads_revenue": round(float(ads_campaign_totals["revenue"]), 2),
+                "ads_orders": int(round(float(ads_campaign_totals["orders"]))),
+                "ads_impressions": int(round(float(ads_campaign_totals["impressions"]))),
+                "ads_clicks": int(round(float(ads_campaign_totals["clicks"]))),
+            },
             "loaded_rows": {"sales": len(sales_rows), "ads": len(ads_rows), "stocks": len(stocks_rows)},
         },
     }
@@ -971,6 +1113,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             return float(row.get("profit") or 0.0)
         return (
             float(row.get("revenue") or 0.0)
+            - float(row.get("cost_price") or 0.0)
+            - float(row.get("wb_commission") or 0.0)
             - float(row.get("logistics") or 0.0)
             - float(row.get("penalties") or 0.0)
             - float(row.get("storage") or 0.0)
@@ -995,6 +1139,54 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             return "partial", "low"
         return "degraded", "medium"
 
+    def _ads_conversion_bucket(value: Any) -> str:
+        raw = str(value or "").strip().lower()
+        if not raw:
+            return "unknown"
+        if "ассоц" in raw or "associated" in raw or "assoc" in raw:
+            return "associated"
+        return "direct"
+
+    ads_campaign_total_rows = [row for row in ads_rows if isinstance(row, dict) and bool(row.get("_is_campaign_total", False))]
+    ads_rows = [row for row in ads_rows if isinstance(row, dict) and not bool(row.get("_is_campaign_total", False))]
+    ads_campaign_totals = {
+        "ads_spend": 0.0,
+        "ads_revenue": 0.0,
+        "ads_orders": 0.0,
+        "ads_impressions": 0.0,
+        "ads_clicks": 0.0,
+    }
+    for row in ads_campaign_total_rows:
+        ads_campaign_totals["ads_spend"] += float(row.get("ads_spend") or 0.0)
+        ads_campaign_totals["ads_revenue"] += float(row.get("revenue") or 0.0)
+        ads_campaign_totals["ads_orders"] += float(row.get("orders") or 0.0)
+        ads_campaign_totals["ads_impressions"] += float(row.get("impressions") or 0.0)
+        ads_campaign_totals["ads_clicks"] += float(row.get("clicks") or 0.0)
+
+    ads_conversion_diag: Dict[str, Dict[str, float]] = {
+        "direct": {"rows": 0.0, "ads_spend": 0.0, "ads_revenue": 0.0, "ads_orders": 0.0},
+        "associated": {"rows": 0.0, "ads_spend": 0.0, "ads_revenue": 0.0, "ads_orders": 0.0},
+        "unknown": {"rows": 0.0, "ads_spend": 0.0, "ads_revenue": 0.0, "ads_orders": 0.0},
+    }
+    for row in ads_rows:
+        bucket_name = _ads_conversion_bucket(row.get("conversion_type"))
+        bucket_diag = ads_conversion_diag[bucket_name]
+        bucket_diag["rows"] += 1.0
+        bucket_diag["ads_spend"] += float(row.get("ads_spend") or 0.0)
+        bucket_diag["ads_revenue"] += float(row.get("revenue") or 0.0)
+        bucket_diag["ads_orders"] += float(row.get("orders") or 0.0)
+
+    direct_rows = int(round(float(ads_conversion_diag["direct"]["rows"])))
+    associated_rows = int(round(float(ads_conversion_diag["associated"]["rows"])))
+    if direct_rows > 0 and associated_rows > 0:
+        ads_attribution_quality = "mixed_direct_and_associated"
+    elif associated_rows > 0 and direct_rows <= 0:
+        ads_attribution_quality = "associated_only"
+    elif direct_rows > 0:
+        ads_attribution_quality = "direct_only"
+    else:
+        ads_attribution_quality = "unknown"
+
     sales_split = split_assigned_vs_unassigned_rows(sales_rows)
     ads_split = split_assigned_vs_unassigned_rows(ads_rows)
     stocks_split = split_assigned_vs_unassigned_rows(stocks_rows)
@@ -1007,6 +1199,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
     unassigned_costs = {
         "revenue": 0.0,
         "profit": 0.0,
+        "cost_price": 0.0,
+        "wb_commission": 0.0,
         "logistics": 0.0,
         "penalties": 0.0,
         "storage": 0.0,
@@ -1016,6 +1210,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
     }
     for row in sales_split["unassigned"]:
         revenue = float(row.get("revenue") or 0.0)
+        cost_price = float(row.get("cost_price") or 0.0)
+        wb_commission = float(row.get("wb_commission") or 0.0)
         logistics = float(row.get("logistics") or 0.0)
         penalties = float(row.get("penalties") or 0.0)
         storage = float(row.get("storage") or 0.0)
@@ -1024,6 +1220,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
 
         unassigned_costs["revenue"] += revenue
         unassigned_costs["profit"] += row_profit
+        unassigned_costs["cost_price"] += cost_price
+        unassigned_costs["wb_commission"] += wb_commission
         unassigned_costs["logistics"] += logistics
         unassigned_costs["penalties"] += penalties
         unassigned_costs["storage"] += storage
@@ -1053,6 +1251,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             "is_valid_sku": is_valid,
             "reason_invalid": reason_invalid,
             "revenue_component": round(float(row.get("revenue") or 0.0), 2),
+            "cost_price_component": round(float(row.get("cost_price") or 0.0), 2),
+            "wb_commission_component": round(float(row.get("wb_commission") or 0.0), 2),
             "logistics_component": round(float(row.get("logistics") or 0.0), 2),
             "storage_component": round(float(row.get("storage") or 0.0), 2),
             "deductions_component": round(float(row.get("deductions") or 0.0), 2),
@@ -1080,6 +1280,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
                 "clicks": 0.0,
                 "ads_orders": 0.0,
                 "ads_revenue": 0.0,
+                "cost_price": 0.0,
+                "wb_commission": 0.0,
                 "logistics": 0.0,
                 "penalties": 0.0,
                 "storage": 0.0,
@@ -1088,8 +1290,10 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
                 "_romi": [],
                 "_acos": [],
                 "_ctr": [],
+                "_cpc": [],
                 "_ddr": [],
                 "_cpo": [],
+                "_conversion_types": {},
             }
         return bucket[s]
 
@@ -1103,6 +1307,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         item["orders"] += float(row.get("orders") or 0.0)
         item["buys"] += float(row.get("buys") or 0.0)
         item["sales_count"] += float(row.get("sales_count") or 0.0)
+        item["cost_price"] += float(row.get("cost_price") or 0.0)
+        item["wb_commission"] += float(row.get("wb_commission") or 0.0)
         item["logistics"] += float(row.get("logistics") or 0.0)
         item["penalties"] += float(row.get("penalties") or 0.0)
         item["storage"] += float(row.get("storage") or 0.0)
@@ -1126,10 +1332,14 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             item["_acos"].append(float(row["acos"]))
         if row.get("ctr") is not None:
             item["_ctr"].append(float(row["ctr"]))
+        if row.get("cpc") is not None:
+            item["_cpc"].append(float(row["cpc"]))
         if row.get("ddr") is not None:
             item["_ddr"].append(float(row["ddr"]))
         if row.get("cpo") is not None:
             item["_cpo"].append(float(row["cpo"]))
+        conv_bucket = _ads_conversion_bucket(row.get("conversion_type"))
+        item["_conversion_types"][conv_bucket] = int(item["_conversion_types"].get(conv_bucket, 0) or 0) + 1
 
     for row in valid_stocks_rows:
         sku = str(row.get("sku") or "").strip()
@@ -1149,8 +1359,20 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         romi = row["_romi"]
         acos = row["_acos"]
         ctr = row["_ctr"]
+        cpc = row["_cpc"]
         ddr = row["_ddr"]
         cpo = row["_cpo"]
+        conversion_map = row["_conversion_types"] if isinstance(row.get("_conversion_types"), dict) else {}
+        if conversion_map:
+            non_unknown = [key for key, value in conversion_map.items() if key != "unknown" and int(value or 0) > 0]
+            if len(non_unknown) > 1:
+                conversion_type = "mixed"
+            elif len(non_unknown) == 1:
+                conversion_type = non_unknown[0]
+            else:
+                conversion_type = "unknown"
+        else:
+            conversion_type = "unknown"
 
         orders_value = int(round(float(row["orders"])))
         buys_value = int(round(float(row["buys"]) if float(row["buys"]) > 0 else float(row["sales_count"])))
@@ -1175,6 +1397,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
                 "clicks": int(round(float(row["clicks"]))),
                 "ads_orders": int(round(float(row["ads_orders"]))),
                 "ads_revenue": round(float(row["ads_revenue"]), 2),
+                "cost_price": round(float(row["cost_price"]), 2),
+                "wb_commission": round(float(row["wb_commission"]), 2),
                 "logistics": round(float(row["logistics"]), 2),
                 "penalties": round(float(row["penalties"]), 2),
                 "storage": round(float(row["storage"]), 2),
@@ -1184,8 +1408,10 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
                 "romi": round(sum(romi) / len(romi), 2) if romi else None,
                 "acos": round(sum(acos) / len(acos), 2) if acos else None,
                 "ctr": round(sum(ctr) / len(ctr), 2) if ctr else None,
+                "cpc": round(sum(cpc) / len(cpc), 2) if cpc else None,
                 "ddr": round(sum(ddr) / len(ddr), 2) if ddr else None,
                 "cpo": round(sum(cpo) / len(cpo), 2) if cpo else None,
+                "conversion_type": conversion_type,
                 "has_sales_activity": has_sales_activity,
                 "revenue_attribution_zero": revenue_attribution_zero,
                 "financial_status": row_financial_status,
@@ -1197,24 +1423,57 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
     valid_revenue = sum(float(row.get("revenue") or 0.0) for row in valid_sales_rows)
     valid_sales_profit_before_ads = sum(_row_profit_value(row) for row in valid_sales_rows)
     valid_ads_spend = sum(float(row.get("ads_spend") or 0.0) for row in valid_ads_rows)
+    valid_cost_price = sum(float(row.get("cost_price") or 0.0) for row in valid_sales_rows)
+    valid_wb_commission = sum(float(row.get("wb_commission") or 0.0) for row in valid_sales_rows)
     valid_logistics = sum(float(row.get("logistics") or 0.0) for row in valid_sales_rows)
     valid_storage = sum(float(row.get("storage") or 0.0) for row in valid_sales_rows)
     valid_penalties = sum(float(row.get("penalties") or 0.0) for row in valid_sales_rows)
     valid_deductions = sum(float(row.get("deductions") or 0.0) for row in valid_sales_rows)
 
-    total_ads_impressions = sum(float(row.get("impressions") or 0.0) for row in ads_rows)
-    total_ads_clicks = sum(float(row.get("clicks") or 0.0) for row in ads_rows)
-    total_ads_orders = sum(float(row.get("orders") or row.get("sales_count") or row.get("buys") or 0.0) for row in ads_rows)
-    total_ads_revenue = sum(float(row.get("revenue") or 0.0) for row in ads_rows)
+    derived_ads_impressions = sum(float(row.get("impressions") or 0.0) for row in ads_rows)
+    derived_ads_clicks = sum(float(row.get("clicks") or 0.0) for row in ads_rows)
+    derived_ads_orders = sum(float(row.get("orders") or row.get("sales_count") or row.get("buys") or 0.0) for row in ads_rows)
+    derived_ads_revenue = sum(float(row.get("revenue") or 0.0) for row in ads_rows)
     avg_ads_ctr = sum(float(row.get("ctr") or 0.0) for row in ads_rows if row.get("ctr") is not None)
     avg_ads_ctr_count = sum(1 for row in ads_rows if row.get("ctr") is not None)
 
     unassigned_revenue = float(unassigned_costs["revenue"])
     unassigned_profit = float(unassigned_costs["profit"]) - float(unassigned_costs["ads_spend"])
+    derived_ads_spend = valid_ads_spend + float(unassigned_costs["ads_spend"])
+    total_cost_price = valid_cost_price + float(unassigned_costs["cost_price"])
+    total_wb_commission = valid_wb_commission + float(unassigned_costs["wb_commission"])
+    total_logistics = valid_logistics + float(unassigned_costs["logistics"])
+    total_storage = valid_storage + float(unassigned_costs["storage"])
+    total_penalties = valid_penalties + float(unassigned_costs["penalties"])
+    total_deductions = valid_deductions + float(unassigned_costs["deductions"])
+
+    def _pick_ads_total(campaign_value: float, derived_value: float) -> float:
+        if ads_campaign_total_rows and abs(campaign_value) > 1e-9:
+            return float(campaign_value)
+        return float(derived_value)
+
+    total_ads_spend = _pick_ads_total(float(ads_campaign_totals["ads_spend"]), derived_ads_spend)
+    total_ads_revenue = _pick_ads_total(float(ads_campaign_totals["ads_revenue"]), derived_ads_revenue)
+    total_ads_orders = _pick_ads_total(float(ads_campaign_totals["ads_orders"]), derived_ads_orders)
+    total_ads_impressions = _pick_ads_total(float(ads_campaign_totals["ads_impressions"]), derived_ads_impressions)
+    total_ads_clicks = _pick_ads_total(float(ads_campaign_totals["ads_clicks"]), derived_ads_clicks)
 
     sku_assigned_profit = valid_sales_profit_before_ads - valid_ads_spend
     total_revenue = valid_revenue + unassigned_revenue
     total_profit = sku_assigned_profit + unassigned_profit
+    gross_profit = total_revenue - total_cost_price - total_wb_commission
+    net_profit = (
+        total_revenue
+        - total_cost_price
+        - total_wb_commission
+        - total_logistics
+        - total_storage
+        - total_penalties
+        - total_deductions
+        - total_ads_spend
+    )
+    margin_pct = (net_profit / total_revenue * 100.0) if total_revenue > 0 else 0.0
+    profitability_pct = (net_profit / total_cost_price * 100.0) if total_cost_price > 0 else 0.0
 
     total_orders = sum(float(row.get("orders") or 0.0) for row in sales_rows)
     total_buys = sum(
@@ -1229,13 +1488,18 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "orders": int(round(total_orders)),
         "buys": int(round(total_buys)),
         "stock": int(round(total_stock)),
-        "ads_spend": round(valid_ads_spend + float(unassigned_costs["ads_spend"]), 2),
-        "logistics": round(valid_logistics + float(unassigned_costs["logistics"]), 2),
-        "storage": round(valid_storage + float(unassigned_costs["storage"]), 2),
-        "penalties": round(valid_penalties + float(unassigned_costs["penalties"]), 2),
-        "deductions": round(valid_deductions + float(unassigned_costs["deductions"]), 2),
+        "ads_spend": round(total_ads_spend, 2),
+        "ads_spend_total": round(total_ads_spend, 2),
+        "cost_price": round(total_cost_price, 2),
+        "wb_commission": round(total_wb_commission, 2),
+        "logistics": round(total_logistics, 2),
+        "storage": round(total_storage, 2),
+        "penalties": round(total_penalties, 2),
+        "deductions": round(total_deductions, 2),
         "ads_impressions": int(round(total_ads_impressions)),
+        "ads_impressions_total": int(round(total_ads_impressions)),
         "ads_clicks": int(round(total_ads_clicks)),
+        "ads_clicks_total": int(round(total_ads_clicks)),
         "ads_ctr": round(
             (float(total_ads_clicks) / float(total_ads_impressions) * 100.0)
             if total_ads_impressions > 0
@@ -1243,17 +1507,18 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             2,
         ),
         "ads_orders": int(round(total_ads_orders)),
+        "ads_orders_total": int(round(total_ads_orders)),
         "ads_revenue": round(total_ads_revenue, 2),
+        "ads_revenue_total": round(total_ads_revenue, 2),
         "ads_acos": round(
-            ((valid_ads_spend + float(unassigned_costs["ads_spend"])) / total_ads_revenue * 100.0)
+            (total_ads_spend / total_ads_revenue * 100.0)
             if total_ads_revenue > 0
             else 0.0,
             2,
         ),
         "ads_romi": round(
-            ((total_ads_revenue - (valid_ads_spend + float(unassigned_costs["ads_spend"])))
-            / (valid_ads_spend + float(unassigned_costs["ads_spend"])) * 100.0)
-            if (valid_ads_spend + float(unassigned_costs["ads_spend"])) > 0
+            ((total_ads_revenue - total_ads_spend) / total_ads_spend * 100.0)
+            if total_ads_spend > 0
             else 0.0,
             2,
         ),
@@ -1263,11 +1528,17 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "sku_assigned_profit": round(sku_assigned_profit, 2),
         "unassigned_profit": round(unassigned_profit, 2),
         "total_profit": round(total_profit, 2),
+        "gross_profit": round(gross_profit, 2),
+        "net_profit": round(net_profit, 2),
+        "margin_pct": round(margin_pct, 2),
+        "profitability_pct": round(profitability_pct, 2),
     }
 
     unassigned_costs = {
         "revenue": round(float(unassigned_costs["revenue"]), 2),
         "profit": round(float(unassigned_profit), 2),
+        "cost_price": round(float(unassigned_costs["cost_price"]), 2),
+        "wb_commission": round(float(unassigned_costs["wb_commission"]), 2),
         "logistics": round(float(unassigned_costs["logistics"]), 2),
         "penalties": round(float(unassigned_costs["penalties"]), 2),
         "storage": round(float(unassigned_costs["storage"]), 2),
@@ -1280,6 +1551,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         unassigned_costs["rows"] > 0
         or abs(unassigned_costs["revenue"]) > 0
         or abs(unassigned_costs["profit"]) > 0
+        or abs(unassigned_costs["cost_price"]) > 0
+        or abs(unassigned_costs["wb_commission"]) > 0
         or abs(unassigned_costs["logistics"]) > 0
         or abs(unassigned_costs["penalties"]) > 0
         or abs(unassigned_costs["storage"]) > 0
@@ -1293,6 +1566,50 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         total_profit=float(totals["total_profit"]),
         zero_revenue_activity_count=len(zero_revenue_activity_skus),
     )
+    has_financial_activity = bool(
+        total_revenue > 0
+        or abs(total_logistics) > 0
+        or abs(total_storage) > 0
+        or abs(total_penalties) > 0
+        or abs(total_deductions) > 0
+        or abs(total_ads_spend) > 0
+    )
+    cost_price_missing = bool(has_financial_activity and abs(total_cost_price) <= 1e-9)
+    wb_commission_missing = bool(has_financial_activity and abs(total_wb_commission) <= 1e-9)
+    expense_attribution_partial = bool(unassigned_costs_present or int(invalid_sku_rows) > 0)
+    net_profit_partial = bool(cost_price_missing or wb_commission_missing or expense_attribution_partial)
+    financial_margin_not_final = net_profit_partial
+    completeness_checks = (
+        not cost_price_missing,
+        not wb_commission_missing,
+        not expense_attribution_partial,
+    )
+    financial_completeness_pct = sum(1 for ok in completeness_checks if ok) / len(completeness_checks) * 100.0
+    if net_profit_partial:
+        financial_status = "partial"
+        ai_reliability = "low"
+
+    financial_kpi = {
+        "revenue": round(total_revenue, 2),
+        "cost_price": round(total_cost_price, 2),
+        "wb_commission": round(total_wb_commission, 2),
+        "logistics": round(total_logistics, 2),
+        "storage": round(total_storage, 2),
+        "penalties": round(total_penalties, 2),
+        "deductions": round(total_deductions, 2),
+        "ads_spend": round(total_ads_spend, 2),
+        "gross_profit": round(gross_profit, 2),
+        "net_profit": round(net_profit, 2),
+        "margin_pct": round(margin_pct, 2),
+        "profitability_pct": round(profitability_pct, 2),
+        "cost_price_missing": cost_price_missing,
+        "wb_commission_missing": wb_commission_missing,
+        "expense_attribution_partial": expense_attribution_partial,
+        "net_profit_partial": net_profit_partial,
+        "financial_margin_not_final": financial_margin_not_final,
+        "completeness_pct": round(financial_completeness_pct, 2),
+        "is_partial": net_profit_partial,
+    }
 
     data_quality = {
         "valid_sku_count": len(sku_metrics),
@@ -1305,6 +1622,59 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "ai_decision_reliability": ai_reliability,
         "zero_revenue_activity_sku_count": len(zero_revenue_activity_skus),
         "zero_revenue_activity_skus": zero_revenue_activity_skus[:50],
+        "cost_price_missing": cost_price_missing,
+        "wb_commission_missing": wb_commission_missing,
+        "expense_attribution_partial": expense_attribution_partial,
+        "net_profit_partial": net_profit_partial,
+        "financial_margin_not_final": financial_margin_not_final,
+        "financial_completeness_pct": round(financial_completeness_pct, 2),
+    }
+
+    ads_diagnostics = {
+        "rows": len(ads_rows),
+        "campaign_total_rows": len(ads_campaign_total_rows),
+        "campaign_totals": {
+            "ads_spend": round(float(ads_campaign_totals["ads_spend"]), 2),
+            "ads_revenue": round(float(ads_campaign_totals["ads_revenue"]), 2),
+            "ads_orders": int(round(float(ads_campaign_totals["ads_orders"]))),
+            "ads_impressions": int(round(float(ads_campaign_totals["ads_impressions"]))),
+            "ads_clicks": int(round(float(ads_campaign_totals["ads_clicks"]))),
+        },
+        "derived_totals": {
+            "ads_spend": round(derived_ads_spend, 2),
+            "ads_revenue": round(derived_ads_revenue, 2),
+            "ads_orders": int(round(derived_ads_orders)),
+            "ads_impressions": int(round(derived_ads_impressions)),
+            "ads_clicks": int(round(derived_ads_clicks)),
+        },
+        "selected_totals": {
+            "ads_spend": round(total_ads_spend, 2),
+            "ads_revenue": round(total_ads_revenue, 2),
+            "ads_orders": int(round(total_ads_orders)),
+            "ads_impressions": int(round(total_ads_impressions)),
+            "ads_clicks": int(round(total_ads_clicks)),
+        },
+        "conversion_breakdown": {
+            "direct": {
+                "rows": int(round(ads_conversion_diag["direct"]["rows"])),
+                "ads_spend": round(float(ads_conversion_diag["direct"]["ads_spend"]), 2),
+                "ads_revenue": round(float(ads_conversion_diag["direct"]["ads_revenue"]), 2),
+                "ads_orders": int(round(float(ads_conversion_diag["direct"]["ads_orders"]))),
+            },
+            "associated": {
+                "rows": int(round(ads_conversion_diag["associated"]["rows"])),
+                "ads_spend": round(float(ads_conversion_diag["associated"]["ads_spend"]), 2),
+                "ads_revenue": round(float(ads_conversion_diag["associated"]["ads_revenue"]), 2),
+                "ads_orders": int(round(float(ads_conversion_diag["associated"]["ads_orders"]))),
+            },
+            "unknown": {
+                "rows": int(round(ads_conversion_diag["unknown"]["rows"])),
+                "ads_spend": round(float(ads_conversion_diag["unknown"]["ads_spend"]), 2),
+                "ads_revenue": round(float(ads_conversion_diag["unknown"]["ads_revenue"]), 2),
+                "ads_orders": int(round(float(ads_conversion_diag["unknown"]["ads_orders"]))),
+            },
+        },
+        "attribution_quality": ads_attribution_quality,
     }
 
     return {
@@ -1313,25 +1683,44 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "unassigned_costs": unassigned_costs,
         "data_quality": data_quality,
         "financial_debug": financial_debug,
+        "financial_kpi": financial_kpi,
+        "ads_diagnostics": ads_diagnostics,
         "financial": {
             "revenue": totals["total_revenue"],
-            "profit": totals["total_profit"],
+            "cost_price": totals["cost_price"],
+            "wb_commission": totals["wb_commission"],
+            "gross_profit": totals["gross_profit"],
+            "profit": totals["net_profit"],
+            "net_profit": totals["net_profit"],
+            "margin_pct": totals["margin_pct"],
+            "profitability_pct": totals["profitability_pct"],
             "ads_spend": totals["ads_spend"],
             "logistics": totals["logistics"],
             "storage": totals["storage"],
             "penalties": totals["penalties"],
             "deductions": totals["deductions"],
+            "financial_completeness_pct": financial_kpi["completeness_pct"],
+            "is_partial": financial_kpi["is_partial"],
+            "ads_attribution_quality": ads_attribution_quality,
         },
         "funnel": {"orders": totals["orders"], "buys": totals["buys"]},
         "ads": {
             "spend": totals["ads_spend"],
+            "spend_total": totals["ads_spend_total"],
             "impressions": totals["ads_impressions"],
+            "impressions_total": totals["ads_impressions_total"],
             "clicks": totals["ads_clicks"],
+            "clicks_total": totals["ads_clicks_total"],
             "ctr": totals["ads_ctr"],
             "orders": totals["ads_orders"],
+            "orders_total": totals["ads_orders_total"],
             "revenue": totals["ads_revenue"],
+            "revenue_total": totals["ads_revenue_total"],
             "acos": totals["ads_acos"],
             "romi": totals["ads_romi"],
+            "rows": len(ads_rows),
+            "campaign_total_rows": len(ads_campaign_total_rows),
+            "attribution_quality": ads_attribution_quality,
         },
         "stock": {"total_stock": totals["stock"]},
     }
@@ -1393,6 +1782,63 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
     )
     data_source_orders = str(daily_kpi.get("data_source_orders") or "metrics_totals_fallback")
     data_source_buyouts = str(daily_kpi.get("data_source_buyouts") or "metrics_totals_fallback")
+    data_source_orders_count = str(daily_kpi.get("data_source_orders_count") or data_source_orders)
+    data_source_orders_amount = str(daily_kpi.get("data_source_orders_amount") or "metrics_totals_fallback")
+    data_source_buyouts_count = str(daily_kpi.get("data_source_buyouts_count") or data_source_buyouts)
+    data_source_buyouts_amount = str(daily_kpi.get("data_source_buyouts_amount") or "metrics_totals_fallback")
+
+    financial_kpi = metrics.get("financial_kpi", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(financial_kpi, dict):
+        financial_kpi = {}
+    ads_metrics = metrics.get("ads", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(ads_metrics, dict):
+        ads_metrics = {}
+    ads_diagnostics = metrics.get("ads_diagnostics", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(ads_diagnostics, dict):
+        ads_diagnostics = {}
+    ads_rows_count = int(ads_diagnostics.get("rows", 0) or 0)
+    ads_spend_value = float(
+        totals.get("ads_spend_total", totals.get("ads_spend", ads_metrics.get("spend", 0.0))) or 0.0
+    )
+    ads_attribution_quality = str(
+        ads_diagnostics.get("attribution_quality", ads_metrics.get("attribution_quality", "unknown")) or "unknown"
+    )
+    financial_kpi_payload = {
+        "revenue": float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))) or 0.0),
+        "cost_price": float(financial_kpi.get("cost_price", totals.get("cost_price", 0.0)) or 0.0),
+        "wb_commission": float(financial_kpi.get("wb_commission", totals.get("wb_commission", 0.0)) or 0.0),
+        "logistics": float(financial_kpi.get("logistics", totals.get("logistics", 0.0)) or 0.0),
+        "storage": float(financial_kpi.get("storage", totals.get("storage", 0.0)) or 0.0),
+        "penalties": float(financial_kpi.get("penalties", totals.get("penalties", 0.0)) or 0.0),
+        "deductions": float(financial_kpi.get("deductions", totals.get("deductions", 0.0)) or 0.0),
+        "ads_spend": float(financial_kpi.get("ads_spend", totals.get("ads_spend", 0.0)) or 0.0),
+        "gross_profit": float(financial_kpi.get("gross_profit", totals.get("gross_profit", 0.0)) or 0.0),
+        "net_profit": float(financial_kpi.get("net_profit", totals.get("net_profit", totals.get("total_profit", totals.get("profit", 0.0)))) or 0.0),
+        "margin_pct": float(financial_kpi.get("margin_pct", totals.get("margin_pct", 0.0)) or 0.0),
+        "profitability_pct": float(financial_kpi.get("profitability_pct", totals.get("profitability_pct", 0.0)) or 0.0),
+        "cost_price_missing": bool(financial_kpi.get("cost_price_missing", False)),
+        "wb_commission_missing": bool(financial_kpi.get("wb_commission_missing", False)),
+        "expense_attribution_partial": bool(financial_kpi.get("expense_attribution_partial", False)),
+        "net_profit_partial": bool(financial_kpi.get("net_profit_partial", False)),
+        "financial_margin_not_final": bool(financial_kpi.get("financial_margin_not_final", False)),
+        "completeness_pct": float(financial_kpi.get("completeness_pct", data_quality.get("financial_completeness_pct", 0.0)) or 0.0),
+        "is_partial": bool(financial_kpi.get("is_partial", False)),
+    }
+    commerce_kpi = {
+        "daily_orders_count": daily_orders_count,
+        "daily_orders_amount": round(daily_orders_amount, 2),
+        "daily_buyouts_count": daily_buyouts_count,
+        "daily_buyouts_amount": round(daily_buyouts_amount, 2),
+        "avg_check": round((daily_buyouts_amount / daily_buyouts_count) if daily_buyouts_count > 0 else 0.0, 2),
+        "data_source_orders": data_source_orders,
+        "data_source_buyouts": data_source_buyouts,
+        "data_source_orders_count": data_source_orders_count,
+        "data_source_orders_amount": data_source_orders_amount,
+        "data_source_buyouts_count": data_source_buyouts_count,
+        "data_source_buyouts_amount": data_source_buyouts_amount,
+        "orders_amount_confirmed": bool(daily_kpi.get("orders_amount_confirmed", False)),
+        "buyouts_amount_confirmed": bool(daily_kpi.get("buyouts_amount_confirmed", False)),
+    }
 
     return {
         "seller_id": seller_id,
@@ -1407,6 +1853,17 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
         "daily_buyouts_amount": round(daily_buyouts_amount, 2),
         "data_source_orders": data_source_orders,
         "data_source_buyouts": data_source_buyouts,
+        "data_source_orders_count": data_source_orders_count,
+        "data_source_orders_amount": data_source_orders_amount,
+        "data_source_buyouts_count": data_source_buyouts_count,
+        "data_source_buyouts_amount": data_source_buyouts_amount,
+        "orders_amount_confirmed": bool(daily_kpi.get("orders_amount_confirmed", False)),
+        "buyouts_amount_confirmed": bool(daily_kpi.get("buyouts_amount_confirmed", False)),
+        "ads_rows": ads_rows_count,
+        "ads_spend": round(ads_spend_value, 2),
+        "ads_loaded_from_file": False,
+        "ads_source_file": "",
+        "ads_attribution_quality": ads_attribution_quality,
         "input_summary": {
             "sales_files_found": len(discovered_files.get("sales", [])),
             "ads_files_found": len(discovered_files.get("ads", [])),
@@ -1415,9 +1872,11 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
             "source_mode": source_mode,
             "confidence": confidence,
         },
+        "commerce_kpi": commerce_kpi,
+        "financial_kpi": financial_kpi_payload,
         "kpi": {
-            "revenue": float(totals.get("total_revenue", totals.get("revenue", 0.0)) or 0.0),
-            "profit": float(totals.get("total_profit", totals.get("profit", 0.0)) or 0.0),
+            "revenue": financial_kpi_payload["revenue"],
+            "profit": financial_kpi_payload["net_profit"],
             "orders": daily_orders_count,
             "buyouts": daily_buyouts_count,
             "orders_amount": round(daily_orders_amount, 2),
@@ -1434,5 +1893,18 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
             "ai_decision_reliability": ai_reliability,
             "zero_revenue_activity_sku_count": int(data_quality.get("zero_revenue_activity_sku_count", 0) or 0),
             "zero_revenue_activity_skus": data_quality.get("zero_revenue_activity_skus", []),
+            "ads_attribution_quality": ads_attribution_quality,
+            "cost_price_missing": bool(data_quality.get("cost_price_missing", financial_kpi_payload["cost_price_missing"])),
+            "wb_commission_missing": bool(data_quality.get("wb_commission_missing", financial_kpi_payload["wb_commission_missing"])),
+            "expense_attribution_partial": bool(
+                data_quality.get("expense_attribution_partial", financial_kpi_payload["expense_attribution_partial"])
+            ),
+            "net_profit_partial": bool(data_quality.get("net_profit_partial", financial_kpi_payload["net_profit_partial"])),
+            "financial_margin_not_final": bool(
+                data_quality.get("financial_margin_not_final", financial_kpi_payload["financial_margin_not_final"])
+            ),
+            "financial_completeness_pct": float(
+                data_quality.get("financial_completeness_pct", financial_kpi_payload["completeness_pct"]) or 0.0
+            ),
         },
     }

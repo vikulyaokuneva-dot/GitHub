@@ -230,6 +230,27 @@ class WBClient:
             ),
             default=0.0,
         )
+        cost_price = cls._pick_first_float(
+            row,
+            (
+                "cost_price",
+                "costPrice",
+                "purchasePrice",
+                "supplierPrice",
+            ),
+            default=0.0,
+        )
+        wb_commission = cls._pick_first_float(
+            row,
+            (
+                "wb_commission",
+                "commission",
+                "retailCommission",
+                "ppvz_sales_commission",
+                "ppvz_sales_commission_value",
+            ),
+            default=0.0,
+        )
         logistics = cls._pick_first_float(
             row,
             (
@@ -275,7 +296,11 @@ class WBClient:
                 "income",
             ),
         )
-        profit = explicit_profit if explicit_profit is not None else revenue - logistics - penalties - storage - deductions
+        profit = (
+            explicit_profit
+            if explicit_profit is not None
+            else revenue - cost_price - wb_commission - logistics - penalties - storage - deductions
+        )
 
         item: Dict[str, Any] = {
             "sku": sku,
@@ -284,6 +309,8 @@ class WBClient:
             "orders": quantity,
             "buys": quantity,
             "sales_count": quantity,
+            "cost_price": round(cost_price, 2),
+            "wb_commission": round(wb_commission, 2),
             "logistics": round(logistics, 2),
             "penalties": round(penalties, 2),
             "storage": round(storage, 2),
@@ -338,6 +365,27 @@ class WBClient:
             ),
             default=0.0,
         )
+        cost_price = cls._pick_first_float(
+            row,
+            (
+                "cost_price",
+                "costPrice",
+                "purchasePrice",
+                "supplierPrice",
+            ),
+            default=0.0,
+        )
+        wb_commission = cls._pick_first_float(
+            row,
+            (
+                "wb_commission",
+                "commission",
+                "retailCommission",
+                "ppvz_sales_commission",
+                "ppvz_sales_commission_value",
+            ),
+            default=0.0,
+        )
         logistics = cls._pick_first_float(
             row,
             (
@@ -383,7 +431,11 @@ class WBClient:
                 "income",
             ),
         )
-        profit = explicit_profit if explicit_profit is not None else revenue - logistics - penalties - storage - deductions
+        profit = (
+            explicit_profit
+            if explicit_profit is not None
+            else revenue - cost_price - wb_commission - logistics - penalties - storage - deductions
+        )
 
         item: Dict[str, Any] = {
             "sku": sku,
@@ -392,6 +444,8 @@ class WBClient:
             "orders": quantity,
             "buys": quantity,
             "sales_count": quantity,
+            "cost_price": round(cost_price, 2),
+            "wb_commission": round(wb_commission, 2),
             "logistics": round(logistics, 2),
             "penalties": round(penalties, 2),
             "storage": round(storage, 2),
@@ -457,6 +511,8 @@ class WBClient:
             "orders": quantity,
             "buys": 0.0,
             "sales_count": 0.0,
+            "cost_price": 0.0,
+            "wb_commission": 0.0,
             "logistics": 0.0,
             "penalties": 0.0,
             "storage": 0.0,

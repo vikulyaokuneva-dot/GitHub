@@ -63,7 +63,6 @@ _PRIORITY_BY_METRIC: Dict[str, Tuple[str, ...]] = {
     ),
     "orders_amount": (
         SOURCE_SUPPLIER_GOODS,
-        SOURCE_ORDERS_API,
         SOURCE_SALES_API,
         SOURCE_FALLBACK,
     ),
@@ -194,7 +193,8 @@ def resolve_daily_kpi(raw_bundle: dict) -> dict:
     """Resolve daily commerce KPI from raw payloads without making API calls.
 
     Selection is done independently for each metric with configured source priorities:
-    - `orders_*`: supplier_goods_report -> orders_api -> sales_api -> metrics_totals_fallback
+    - `orders_count`: supplier_goods_report -> orders_api -> sales_api -> metrics_totals_fallback
+    - `orders_amount`: supplier_goods_report -> sales_api -> metrics_totals_fallback
     - `buyouts_*`: supplier_goods_report -> sales_api -> realization_api -> metrics_totals_fallback
 
     Returns:

@@ -20,6 +20,13 @@ from .config import load_seller_config
 from .history.history_store import save_daily_history_snapshot
 from .history.trend_anomalies import build_trend_anomalies, save_trend_anomalies
 from .history.weekly_intelligence import build_weekly_intelligence, save_weekly_intelligence
+from .daily_kpi_resolver import (
+    DAILY_SOURCE_FALLBACK as _DAILY_SOURCE_FALLBACK,
+    DAILY_SOURCE_ORDERS_API as _DAILY_SOURCE_ORDERS_API,
+    DAILY_SOURCE_REALIZATION_API as _DAILY_SOURCE_REALIZATION_API,
+    DAILY_SOURCE_SALES_API as _DAILY_SOURCE_SALES_API,
+    resolve_daily_kpi,
+)
 from .memory.decision_logger import log_decisions
 from .memory.decision_outcomes import evaluate_decision_outcomes, save_outcomes
 from .orchestrator import discover_sellers, run_audit
@@ -36,11 +43,6 @@ from src.mailer_yandex import send_email_with_pdf
 
 _FALLBACK_SELLER_ID = "__missing_seller__"
 _ALLOW_FALLBACK_ENV = "WB_ALLOW_MISSING_SELLER"
-_DAILY_SOURCE_SUPPLIER_GOODS = "supplier_goods"
-_DAILY_SOURCE_ORDERS_API = "orders_api"
-_DAILY_SOURCE_SALES_API = "sales_api"
-_DAILY_SOURCE_REALIZATION_API = "realization_api"
-_DAILY_SOURCE_FALLBACK = "metrics_totals_fallback"
 
 
 def _default_date() -> str:
@@ -190,84 +192,58 @@ def _safe_float(value: Any) -> float:
         return 0.0
 
 
-def _row_price_fallback(row: Dict[str, Any]) -> float:
-    if not isinstance(row, dict):
-        return 0.0
-    return _safe_float(
-        row.get("price", row.get("revenue", row.get("totalPrice", row.get("priceWithDisc", row.get("finishedPrice", 0.0)))))
+def _build_financial_kpi(totals: Dict[str, Any], data_quality: Dict[str, Any]) -> Dict[str, Any]:
+    revenue = _safe_float(totals.get("total_revenue", totals.get("revenue", 0.0)))
+    cost_price = _safe_float(totals.get("cost_price", 0.0))
+    wb_commission = _safe_float(totals.get("wb_commission", 0.0))
+    logistics = _safe_float(totals.get("logistics", 0.0))
+    storage = _safe_float(totals.get("storage", 0.0))
+    penalties = _safe_float(totals.get("penalties", 0.0))
+    deductions = _safe_float(totals.get("deductions", 0.0))
+    ads_spend = _safe_float(totals.get("ads_spend_total", totals.get("ads_spend", 0.0)))
+
+    gross_profit = revenue - cost_price - wb_commission
+    net_profit = revenue - cost_price - wb_commission - logistics - storage - penalties - deductions - ads_spend
+    margin_pct = (net_profit / revenue * 100.0) if revenue > 0 else 0.0
+    profitability_pct = (net_profit / cost_price * 100.0) if cost_price > 0 else 0.0
+
+    invalid_rows = int(_safe_float(data_quality.get("invalid_sku_rows", 0))) if isinstance(data_quality, dict) else 0
+    unassigned_present = bool(data_quality.get("unassigned_costs_present", False)) if isinstance(data_quality, dict) else False
+
+    has_financial_activity = bool(revenue > 0 or abs(logistics) > 0 or abs(storage) > 0 or abs(penalties) > 0 or abs(deductions) > 0)
+    cost_price_missing = bool(has_financial_activity and abs(cost_price) <= 1e-9)
+    wb_commission_missing = bool(has_financial_activity and abs(wb_commission) <= 1e-9)
+    expense_attribution_partial = bool(invalid_rows > 0 or unassigned_present)
+    net_profit_partial = bool(cost_price_missing or wb_commission_missing or expense_attribution_partial)
+    financial_margin_not_final = net_profit_partial
+    completeness_checks = (
+        not cost_price_missing,
+        not wb_commission_missing,
+        not expense_attribution_partial,
     )
+    completeness_pct = (sum(1 for ok in completeness_checks if ok) / len(completeness_checks) * 100.0)
 
-
-def _rows_count(rows: List[Dict[str, Any]]) -> int:
-    return len([row for row in rows if isinstance(row, dict)])
-
-
-def _rows_price_sum(rows: List[Dict[str, Any]]) -> float:
-    return round(sum(_row_price_fallback(row) for row in rows if isinstance(row, dict)), 2)
-
-
-def _resolve_daily_kpi(
-    totals: Dict[str, Any],
-    supplier_goods_daily: Dict[str, Any],
-    api_orders_rows: List[Dict[str, Any]],
-    api_sales_rows: List[Dict[str, Any]],
-    api_realization_rows: List[Dict[str, Any]],
-) -> Dict[str, Any]:
-    fallback_orders_count = int(round(_safe_float(totals.get("orders", 0))))
-    fallback_orders_amount = 0.0
-    fallback_buyouts_count = int(round(_safe_float(totals.get("buys", 0))))
-    fallback_buyouts_amount = 0.0
-
-    payload = {
-        "daily_orders_count": fallback_orders_count,
-        "daily_orders_amount": round(fallback_orders_amount, 2),
-        "daily_buyouts_count": fallback_buyouts_count,
-        "daily_buyouts_amount": round(fallback_buyouts_amount, 2),
-        "data_source_orders": _DAILY_SOURCE_FALLBACK,
-        "data_source_buyouts": _DAILY_SOURCE_FALLBACK,
-        "supplier_goods_source_file": "",
+    return {
+        "revenue": round(revenue, 2),
+        "cost_price": round(cost_price, 2),
+        "wb_commission": round(wb_commission, 2),
+        "logistics": round(logistics, 2),
+        "storage": round(storage, 2),
+        "penalties": round(penalties, 2),
+        "deductions": round(deductions, 2),
+        "ads_spend": round(ads_spend, 2),
+        "gross_profit": round(gross_profit, 2),
+        "net_profit": round(net_profit, 2),
+        "margin_pct": round(margin_pct, 2),
+        "profitability_pct": round(profitability_pct, 2),
+        "cost_price_missing": cost_price_missing,
+        "wb_commission_missing": wb_commission_missing,
+        "expense_attribution_partial": expense_attribution_partial,
+        "net_profit_partial": net_profit_partial,
+        "financial_margin_not_final": financial_margin_not_final,
+        "completeness_pct": round(completeness_pct, 2),
+        "is_partial": net_profit_partial,
     }
-
-    if isinstance(supplier_goods_daily, dict) and bool(supplier_goods_daily.get("found")):
-        source_file = str(supplier_goods_daily.get("source_file") or "")
-        payload.update(
-            {
-                "daily_orders_count": int(supplier_goods_daily.get("orders_count", fallback_orders_count) or 0),
-                "daily_orders_amount": round(
-                    _safe_float(supplier_goods_daily.get("orders_amount", fallback_orders_amount)),
-                    2,
-                ),
-                "daily_buyouts_count": int(supplier_goods_daily.get("buyouts_count", fallback_buyouts_count) or 0),
-                "daily_buyouts_amount": round(
-                    _safe_float(supplier_goods_daily.get("buyouts_amount", fallback_buyouts_amount)),
-                    2,
-                ),
-                "data_source_orders": _DAILY_SOURCE_SUPPLIER_GOODS,
-                "data_source_buyouts": _DAILY_SOURCE_SUPPLIER_GOODS,
-                "supplier_goods_source_file": source_file,
-            }
-        )
-        return payload
-
-    if _rows_count(api_orders_rows) > 0:
-        payload["daily_orders_count"] = _rows_count(api_orders_rows)
-        payload["daily_orders_amount"] = _rows_price_sum(api_orders_rows)
-        payload["data_source_orders"] = _DAILY_SOURCE_ORDERS_API
-    elif _rows_count(api_sales_rows) > 0:
-        payload["daily_orders_count"] = _rows_count(api_sales_rows)
-        payload["daily_orders_amount"] = _rows_price_sum(api_sales_rows)
-        payload["data_source_orders"] = _DAILY_SOURCE_SALES_API
-
-    if _rows_count(api_sales_rows) > 0:
-        payload["daily_buyouts_count"] = _rows_count(api_sales_rows)
-        payload["daily_buyouts_amount"] = _rows_price_sum(api_sales_rows)
-        payload["data_source_buyouts"] = _DAILY_SOURCE_SALES_API
-    elif _rows_count(api_realization_rows) > 0:
-        payload["daily_buyouts_count"] = _rows_count(api_realization_rows)
-        payload["daily_buyouts_amount"] = _rows_price_sum(api_realization_rows)
-        payload["data_source_buyouts"] = _DAILY_SOURCE_REALIZATION_API
-
-    return payload
 
 
 def _daily_relative_diff_pct(actual: float, expected: float) -> float:
@@ -446,6 +422,10 @@ def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         "sales_report_missing",
         "ads_report_missing",
         "stocks_report_missing",
+        "ads_file_loaded",
+        "ads_spend_applied_to_profit",
+        "ads_attribution_partial",
+        "net_profit_reduced_by_ads",
         "input_files_missing",
         "low_total_profit",
         "profit_concentration_high",
@@ -454,6 +434,11 @@ def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         "wb_api_zero_sales_rows",
         "wb_api_financial_degraded",
         "financial_data_missing",
+        "cost_price_missing",
+        "wb_commission_missing",
+        "expense_attribution_partial",
+        "net_profit_partial",
+        "financial_margin_not_final",
         "sales_activity_zero_revenue",
         "daily_kpi_fallback_used",
         "weak_kpi_source",
@@ -503,6 +488,10 @@ def _warning_message_ru(code: str, message: str) -> str:
         "sales_report_missing": "Не найден валидный отчет продаж.",
         "ads_report_missing": "Не найден валидный рекламный отчет.",
         "stocks_report_missing": "Не найден валидный отчет остатков.",
+        "ads_file_loaded": "Рекламный файл успешно загружен.",
+        "ads_spend_applied_to_profit": "Рекламные расходы учтены при расчете чистой прибыли.",
+        "ads_attribution_partial": "В рекламной атрибуции есть ассоциированные конверсии, показатели смешанные.",
+        "net_profit_reduced_by_ads": "Чистая прибыль уменьшена на сумму рекламных расходов.",
         "input_files_missing": "Во входной папке нет локальных отчетов.",
         "low_total_profit": "Суммарная прибыль по SKU неположительная.",
         "profit_concentration_high": "Концентрация прибыли в одном SKU слишком высокая.",
@@ -510,6 +499,11 @@ def _warning_message_ru(code: str, message: str) -> str:
         "wb_api_zero_sales_rows": "WB API вернул 0 строк продаж за выбранный период.",
         "wb_api_financial_degraded": "Финансовые данные WB API не получены, использован деградированный режим.",
         "financial_data_missing": "Данные о продажах не получены.",
+        "cost_price_missing": "Себестоимость не подтверждена, финансовый контур частичный.",
+        "wb_commission_missing": "Комиссия WB не подтверждена, финансовый контур частичный.",
+        "expense_attribution_partial": "Часть расходов атрибутирована неполно (есть invalid/unassigned строки).",
+        "net_profit_partial": "Чистая прибыль рассчитана частично из-за неполных финансовых компонентов.",
+        "financial_margin_not_final": "Маржинальность не финальная, так как финансовый контур частичный.",
         "sales_activity_zero_revenue": "Есть продажи по SKU, но выручка по ним не атрибутирована.",
         "daily_kpi_fallback_used": "Supplier goods report не найден, использован API fallback для daily KPI.",
         "weak_kpi_source": "Daily KPI рассчитаны из слабого источника metrics totals fallback.",
@@ -606,11 +600,12 @@ def _build_ai_day_conclusion(
     recommendations: List[str],
 ) -> str:
     buyouts_revenue = _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
-    profit = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
+    financial_revenue = _safe_float(totals.get("total_revenue", totals.get("revenue", 0.0)))
+    profit = _safe_float(totals.get("net_profit", totals.get("profit", totals.get("total_profit", 0.0))))
     orders = int(round(_safe_float(daily_kpi.get("daily_orders_count", totals.get("orders", 0)))))
     buyouts = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", totals.get("buys", 0)))))
     avg_buyout_check = buyouts_revenue / buyouts if (buyouts_revenue > 0 and buyouts > 0) else 0.0
-    margin_pct = (profit / buyouts_revenue * 100.0) if buyouts_revenue > 0 else 0.0
+    margin_pct = (profit / financial_revenue * 100.0) if financial_revenue > 0 else 0.0
 
     quality_code = str(data_quality.get("financial_status", "ok") or "ok")
     quality_label = {
@@ -639,12 +634,35 @@ def _build_management_email_body(
     summary: Dict[str, Any],
 ) -> str:
     revenue = _safe_float(summary.get("financial_revenue", summary.get("revenue", 0.0)))
-    profit = _safe_float(summary.get("profit", 0.0))
+    gross_profit = _safe_float(summary.get("gross_profit", 0.0))
+    net_profit = _safe_float(summary.get("profit", summary.get("net_profit", 0.0)))
+    cost_price = _safe_float(summary.get("cost_price", 0.0))
+    wb_commission = _safe_float(summary.get("wb_commission", 0.0))
+    logistics = _safe_float(summary.get("logistics", 0.0))
+    storage = _safe_float(summary.get("storage", 0.0))
+    penalties = _safe_float(summary.get("penalties", 0.0))
+    deductions = _safe_float(summary.get("deductions", 0.0))
+    ads_spend = _safe_float(summary.get("ads_spend", 0.0))
+    margin_pct = _safe_float(summary.get("margin_pct", 0.0))
+    profitability_pct = _safe_float(summary.get("profitability_pct", 0.0))
+    financial_completeness_pct = _safe_float(summary.get("financial_completeness_pct", 0.0))
+    financial_partial = bool(summary.get("financial_partial", False))
+    ads_rows = int(round(_safe_float(summary.get("ads_rows", 0))))
+    ads_impressions = int(round(_safe_float(summary.get("ads_impressions", 0))))
+    ads_clicks = int(round(_safe_float(summary.get("ads_clicks", 0))))
+    ads_orders = int(round(_safe_float(summary.get("ads_orders", 0))))
+    ads_loaded_from_file = bool(summary.get("ads_loaded_from_file", False))
+    ads_source_file = str(summary.get("ads_source_file") or "")
+    ads_attribution_quality = str(summary.get("ads_attribution_quality") or "unknown")
+    ads_applied_to_profit = bool(summary.get("ads_applied_to_profit", False))
     avg_check = _safe_float(summary.get("avg_check", 0.0))
     daily_orders_count = int(round(_safe_float(summary.get("daily_orders_count", summary.get("orders", 0)))))
     daily_orders_amount = _safe_float(summary.get("daily_orders_amount", 0.0))
     daily_buyouts_count = int(round(_safe_float(summary.get("daily_buyouts_count", 0))))
     daily_buyouts_amount = _safe_float(summary.get("daily_buyouts_amount", 0.0))
+    orders_count_source = str(summary.get("data_source_orders_count") or summary.get("data_source_orders") or _DAILY_SOURCE_FALLBACK)
+    orders_amount_source = str(summary.get("data_source_orders_amount") or _DAILY_SOURCE_FALLBACK)
+    buyouts_source = str(summary.get("data_source_buyouts_count") or summary.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK)
     insights_raw = summary.get("key_insights", [])
     recommendations_raw = summary.get("recommendations", [])
     day_conclusion = str(summary.get("ai_day_conclusion", "")).strip()
@@ -660,15 +678,37 @@ def _build_management_email_body(
         f"Управленческое резюме WB AI Agent v3 — кабинет {seller_id}",
         f"Дата: {run_date}",
         "",
-        "КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ",
+        "COMMERCE KPI",
         f"- Заказы: {_format_int(daily_orders_count)}",
         f"- Выкупы: {_format_int(daily_buyouts_count)}",
         f"- К перечислению по выкупам: {_format_money_2(daily_buyouts_amount)}",
         f"- Сумма заказов (минус комиссия WB): {_format_money_2(daily_orders_amount)}",
+        f"- Источник orders_count: {orders_count_source}",
+        f"- Источник orders_amount: {orders_amount_source}",
+        f"- Источник buyouts: {buyouts_source}",
         "",
-        "ФИНАНСОВЫЙ КОНТУР",
-        f"- Прибыль за день: {_format_money(profit)}",
+        "FINANCIAL KPI",
         f"- Выручка (финансовая агрегация): {_format_money(revenue)}",
+        f"- Себестоимость: {_format_money(cost_price)}",
+        f"- Комиссия WB: {_format_money(wb_commission)}",
+        f"- Валовая прибыль: {_format_money(gross_profit)}",
+        f"- Чистая прибыль: {_format_money(net_profit)}",
+        f"- Маржа: {_format_pct(margin_pct)}",
+        f"- Рентабельность: {_format_pct(profitability_pct)}",
+        f"- Логистика: {_format_money(logistics)}",
+        f"- Хранение: {_format_money(storage)}",
+        f"- Штрафы: {_format_money(penalties)}",
+        f"- Удержания: {_format_money(deductions)}",
+        f"- Реклама: {_format_money(ads_spend)}",
+        f"- Полнота финансовых данных: {_format_pct(financial_completeness_pct)}",
+        f"- Финансовый контур: {'частичный' if financial_partial else 'подтвержденный'}",
+        f"- Рекламных строк: {_format_int(ads_rows)}",
+        f"- Показы: {_format_int(ads_impressions)}",
+        f"- Клики: {_format_int(ads_clicks)}",
+        f"- Заказанные товары из рекламы: {_format_int(ads_orders)}",
+        f"- Источник рекламы: {ads_source_file or ('local_file' if ads_loaded_from_file else 'api_or_missing')}",
+        f"- Атрибуция рекламы: {ads_attribution_quality}",
+        f"- Реклама учтена в прибыли: {'Да' if ads_applied_to_profit else 'Нет'}",
         f"- Средний чек: {_format_money(avg_check)}",
         "",
         "КЛЮЧЕВЫЕ ВЫВОДЫ AI",
@@ -801,6 +841,10 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     api_ads_rows: List[Dict[str, Any]] = []
     api_stocks_rows: List[Dict[str, Any]] = []
     local_financial_fallback_used = False
+    ads_loaded_from_file = False
+    ads_source_file = ""
+    ads_rows_count = 0
+    ads_attribution_quality = "unknown"
     supplier_goods_daily = load_supplier_goods_daily_kpi(seller_input_dir)
 
     if token:
@@ -825,7 +869,8 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         ads_rows = list(api_ads_rows)
         stocks_rows = list(api_stocks_rows)
 
-        sales_rows = list(api_realization_rows) if api_realization_rows else _merge_financial_rows(api_sales_rows, api_orders_rows)
+        # orders_api rows are commerce-only and must not be used for financial revenue.
+        sales_rows = list(api_realization_rows) if api_realization_rows else list(api_sales_rows)
 
         if not api_sales_rows and not api_realization_rows:
             warnings.append(
@@ -842,6 +887,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             local_ads_rows = list(local_bundle.get("ads_rows", []))
             local_stocks_rows = list(local_bundle.get("stocks_rows", []))
             local_warnings = list(local_bundle.get("warnings", []))
+            local_debug = local_bundle.get("debug", {}) if isinstance(local_bundle.get("debug"), dict) else {}
 
             if local_sales_rows:
                 sales_rows = local_sales_rows
@@ -854,6 +900,8 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                 )
             if not ads_rows and local_ads_rows:
                 ads_rows = local_ads_rows
+                ads_loaded_from_file = bool(local_debug.get("ads_loaded_from_file", len(local_ads_rows) > 0))
+                ads_source_file = str(local_debug.get("ads_source_file") or "")
                 warnings.append(
                     {
                         "code": "wb_local_ads_fallback_used",
@@ -916,6 +964,9 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         sales_rows = list(local_bundle.get("sales_rows", []))
         ads_rows = list(local_bundle.get("ads_rows", []))
         stocks_rows = list(local_bundle.get("stocks_rows", []))
+        if isinstance(input_debug, dict):
+            ads_loaded_from_file = bool(input_debug.get("ads_loaded_from_file", len(ads_rows) > 0))
+            ads_source_file = str(input_debug.get("ads_source_file") or "")
         api_debug = {
             "sales_rows": 0,
             "orders_rows": 0,
@@ -931,6 +982,8 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     if "api_debug" not in input_debug:
         input_debug["api_debug"] = api_debug
     input_debug["supplier_goods_daily"] = supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {"found": False}
+    input_debug["ads_loaded_from_file"] = bool(ads_loaded_from_file)
+    input_debug["ads_source_file"] = ads_source_file
     if isinstance(supplier_goods_daily, dict) and bool(supplier_goods_daily.get("found")):
         warnings.append(
             {
@@ -946,29 +999,101 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     totals_for_daily = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
     if not isinstance(totals_for_daily, dict):
         totals_for_daily = {}
-    daily_kpi = _resolve_daily_kpi(
+    daily_kpi = resolve_daily_kpi(
         totals_for_daily,
         supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {},
         api_orders_rows if isinstance(api_orders_rows, list) else [],
         api_sales_rows if isinstance(api_sales_rows, list) else [],
         api_realization_rows if isinstance(api_realization_rows, list) else [],
     )
+    metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(metrics_data_quality, dict):
+        metrics_data_quality = {}
+    financial_kpi = _build_financial_kpi(totals_for_daily, metrics_data_quality)
+    metrics["financial_kpi"] = financial_kpi
+    ads_diagnostics = metrics.get("ads_diagnostics", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(ads_diagnostics, dict):
+        ads_diagnostics = {}
+    ads_metrics = metrics.get("ads", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(ads_metrics, dict):
+        ads_metrics = {}
+    ads_rows_count = int(ads_diagnostics.get("rows", ads_metrics.get("rows", len(ads_rows))) or 0)
+    if not ads_source_file:
+        ads_source_file = str(
+            input_debug.get("ads_source_file")
+            if isinstance(input_debug, dict)
+            else ""
+        )
+    if not ads_loaded_from_file:
+        ads_loaded_from_file = bool(
+            (isinstance(input_debug, dict) and input_debug.get("ads_loaded_from_file", False))
+            or (source_mode == "local_reports" and ads_rows_count > 0)
+        )
+    ads_attribution_quality = str(
+        ads_diagnostics.get("attribution_quality", ads_metrics.get("attribution_quality", "unknown")) or "unknown"
+    )
+    metrics["ads_ingestion"] = {
+        "ads_rows": ads_rows_count,
+        "ads_loaded_from_file": bool(ads_loaded_from_file),
+        "ads_source_file": ads_source_file,
+        "ads_attribution_quality": ads_attribution_quality,
+    }
+    if isinstance(input_debug, dict):
+        input_debug["ads_rows"] = ads_rows_count
+        input_debug["ads_attribution_quality"] = ads_attribution_quality
     metrics["daily_kpi"] = daily_kpi
-    orders_source = str(daily_kpi.get("data_source_orders") or "")
-    buyouts_source = str(daily_kpi.get("data_source_buyouts") or "")
+    metrics["commerce_kpi"] = {
+        "daily_orders_count": int(daily_kpi.get("daily_orders_count", 0) or 0),
+        "daily_orders_amount": round(_safe_float(daily_kpi.get("daily_orders_amount", 0.0)), 2),
+        "daily_buyouts_count": int(daily_kpi.get("daily_buyouts_count", 0) or 0),
+        "daily_buyouts_amount": round(_safe_float(daily_kpi.get("daily_buyouts_amount", 0.0)), 2),
+        "avg_check": round(
+            (
+                _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
+                / _safe_float(daily_kpi.get("daily_buyouts_count", 0))
+            )
+            if _safe_float(daily_kpi.get("daily_buyouts_count", 0)) > 0
+            else 0.0,
+            2,
+        ),
+        "data_source_orders_count": str(
+            daily_kpi.get("data_source_orders_count")
+            or daily_kpi.get("data_source_orders")
+            or _DAILY_SOURCE_FALLBACK
+        ),
+        "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _DAILY_SOURCE_FALLBACK),
+        "data_source_buyouts_count": str(
+            daily_kpi.get("data_source_buyouts_count")
+            or daily_kpi.get("data_source_buyouts")
+            or _DAILY_SOURCE_FALLBACK
+        ),
+        "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _DAILY_SOURCE_FALLBACK),
+        "orders_amount_confirmed": bool(daily_kpi.get("orders_amount_confirmed", False)),
+        "buyouts_amount_confirmed": bool(daily_kpi.get("buyouts_amount_confirmed", False)),
+    }
+
+    orders_sources = {
+        str(daily_kpi.get("data_source_orders_count") or daily_kpi.get("data_source_orders") or ""),
+        str(daily_kpi.get("data_source_orders_amount") or ""),
+    }
+    buyouts_sources = {
+        str(daily_kpi.get("data_source_buyouts_count") or daily_kpi.get("data_source_buyouts") or ""),
+        str(daily_kpi.get("data_source_buyouts_amount") or ""),
+    }
+    kpi_sources = {source for source in (orders_sources | buyouts_sources) if source}
     api_sources = {
         _DAILY_SOURCE_ORDERS_API,
         _DAILY_SOURCE_SALES_API,
         _DAILY_SOURCE_REALIZATION_API,
     }
-    if orders_source in api_sources or buyouts_source in api_sources:
+    if any(source in api_sources for source in kpi_sources):
         warnings.append(
             {
                 "code": "daily_kpi_fallback_used",
                 "message": "Supplier goods report not found, using API fallback.",
             }
         )
-    if orders_source == _DAILY_SOURCE_FALLBACK or buyouts_source == _DAILY_SOURCE_FALLBACK:
+    if _DAILY_SOURCE_FALLBACK in kpi_sources:
         warnings.append(
             {
                 "code": "weak_kpi_source",
@@ -980,7 +1105,6 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         summary_daily_kpi=daily_kpi,
         supplier_goods_daily=supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {},
     )
-    metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
     financial_debug = metrics.get("financial_debug", []) if isinstance(metrics, dict) else []
     if not isinstance(financial_debug, list):
         financial_debug = []
@@ -1019,7 +1143,76 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                 ),
             }
         )
-    api_financial_empty = bool(token and not api_realization_rows and not api_sales_rows and not api_orders_rows)
+    if bool(financial_kpi.get("cost_price_missing", False)):
+        warnings.append(
+            {
+                "code": "cost_price_missing",
+                "message": "Cost price is missing; financial net profit is partial.",
+            }
+        )
+    if bool(financial_kpi.get("wb_commission_missing", False)):
+        warnings.append(
+            {
+                "code": "wb_commission_missing",
+                "message": "WB commission is missing; financial net profit is partial.",
+            }
+        )
+    if bool(financial_kpi.get("expense_attribution_partial", False)):
+        warnings.append(
+            {
+                "code": "expense_attribution_partial",
+                "message": "Expense attribution is partial due to unassigned or invalid SKU rows.",
+            }
+        )
+    if bool(financial_kpi.get("net_profit_partial", False)):
+        warnings.append(
+            {
+                "code": "net_profit_partial",
+                "message": "Net profit is partial due to missing or partially attributed financial components.",
+            }
+        )
+    if bool(financial_kpi.get("financial_margin_not_final", False)):
+        warnings.append(
+            {
+                "code": "financial_margin_not_final",
+                "message": "Financial margin is not final because net profit is partial.",
+            }
+        )
+    if ads_loaded_from_file:
+        warnings.append(
+            {
+                "code": "ads_file_loaded",
+                "message": f"Ads report loaded from file: {ads_source_file or 'local_input'}",
+            }
+        )
+    if ads_rows_count <= 0 and not any(str(item.get("code") or "") == "ads_report_missing" for item in warnings if isinstance(item, dict)):
+        warnings.append(
+            {
+                "code": "ads_report_missing",
+                "message": "Ads report is missing or has zero usable rows.",
+            }
+        )
+    if ads_attribution_quality in {"mixed_direct_and_associated", "associated_only"}:
+        warnings.append(
+            {
+                "code": "ads_attribution_partial",
+                "message": f"Ads attribution includes associated conversions ({ads_attribution_quality}).",
+            }
+        )
+    if _safe_float(financial_kpi.get("ads_spend", 0.0)) > 0:
+        warnings.append(
+            {
+                "code": "ads_spend_applied_to_profit",
+                "message": "Ads spend applied to net profit calculation.",
+            }
+        )
+        warnings.append(
+            {
+                "code": "net_profit_reduced_by_ads",
+                "message": "Net profit reduced by ads spend.",
+            }
+        )
+    api_financial_empty = bool(token and not api_realization_rows and not api_sales_rows)
     financial_data_missing_flag = len(sales_rows) == 0
     financial_data_degraded_flag = False
     if financial_data_missing_flag:
@@ -1051,9 +1244,19 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     )
     facts["source_mode"] = source_mode
     facts["api_debug"] = api_debug
+    facts["commerce_kpi"] = metrics.get("commerce_kpi", {})
+    facts["financial_kpi"] = metrics.get("financial_kpi", {})
+    facts["ads_rows"] = ads_rows_count
+    facts["ads_spend"] = round(_safe_float(financial_kpi.get("ads_spend", 0.0)), 2)
+    facts["ads_loaded_from_file"] = bool(ads_loaded_from_file)
+    facts["ads_source_file"] = ads_source_file
+    facts["ads_attribution_quality"] = ads_attribution_quality
     if isinstance(facts.get("data_quality"), dict):
         fact_financial_status = str(facts["data_quality"].get("financial_status") or "ok")
-        if financial_data_degraded_flag and fact_financial_status == "ok":
+        facts["data_quality"]["ads_attribution_quality"] = ads_attribution_quality
+        if bool(financial_kpi.get("is_partial", False)):
+            facts["data_quality"]["financial_status"] = "partial"
+        elif financial_data_degraded_flag and fact_financial_status == "ok":
             facts["data_quality"]["financial_status"] = "degraded"
 
     confidence = str(facts.get("data_confidence", "low"))
@@ -1252,8 +1455,29 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "daily_orders_amount": round(_safe_float(daily_kpi.get("daily_orders_amount", 0.0)), 2),
         "daily_buyouts_count": int(daily_kpi.get("daily_buyouts_count", 0) or 0),
         "daily_buyouts_amount": round(_safe_float(daily_kpi.get("daily_buyouts_amount", 0.0)), 2),
+        "ads_rows": ads_rows_count,
+        "ads_spend": round(_safe_float(financial_kpi.get("ads_spend", 0.0)), 2),
+        "ads_loaded_from_file": bool(ads_loaded_from_file),
+        "ads_source_file": ads_source_file,
+        "ads_attribution_quality": ads_attribution_quality,
         "data_source_orders": str(daily_kpi.get("data_source_orders") or _DAILY_SOURCE_FALLBACK),
+        "data_source_orders_count": str(
+            daily_kpi.get("data_source_orders_count")
+            or daily_kpi.get("data_source_orders")
+            or _DAILY_SOURCE_FALLBACK
+        ),
+        "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _DAILY_SOURCE_FALLBACK),
         "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK),
+        "data_source_buyouts_count": str(
+            daily_kpi.get("data_source_buyouts_count")
+            or daily_kpi.get("data_source_buyouts")
+            or _DAILY_SOURCE_FALLBACK
+        ),
+        "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _DAILY_SOURCE_FALLBACK),
+        "orders_amount_confirmed": bool(daily_kpi.get("orders_amount_confirmed", False)),
+        "buyouts_amount_confirmed": bool(daily_kpi.get("buyouts_amount_confirmed", False)),
+        "financial_completeness_pct": round(_safe_float(financial_kpi.get("completeness_pct", 0.0)), 2),
+        "financial_partial": bool(financial_kpi.get("is_partial", False)),
         "data_quality": facts_financial_status,
         "artifacts": [
             "job.json",
@@ -1357,7 +1581,10 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         outcomes_payload=outcomes_payload if isinstance(outcomes_payload, dict) else {},
         decision_rows_added=decision_rows_added,
     )
-    revenue_total = _safe_float(totals.get("revenue", totals.get("total_revenue", 0.0)))
+    financial_kpi = metrics.get("financial_kpi", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(financial_kpi, dict):
+        financial_kpi = _build_financial_kpi(totals if isinstance(totals, dict) else {}, data_quality if isinstance(data_quality, dict) else {})
+    revenue_total = _safe_float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))))
     profit_total = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
     daily_orders_count = int(round(_safe_float(daily_kpi.get("daily_orders_count", totals.get("orders", 0)))))
     daily_orders_amount = _safe_float(daily_kpi.get("daily_orders_amount", 0.0))
@@ -1365,23 +1592,19 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     daily_buyouts_amount = _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
     avg_check = (daily_buyouts_amount / daily_buyouts_count) if (daily_buyouts_amount > 0 and daily_buyouts_count > 0) else 0.0
 
-    wb_commission = _safe_float(totals.get("deductions", 0.0))
-    logistics_total = _safe_float(totals.get("logistics", 0.0))
-    storage_total = _safe_float(totals.get("storage", 0.0))
-    penalties_total = _safe_float(totals.get("penalties", 0.0))
-    ads_spend_total = _safe_float(totals.get("ads_spend", 0.0))
-    net_profit = profit_total
-    margin_pct_total = (net_profit / revenue_total * 100.0) if revenue_total > 0 else 0.0
-    cogs_total = max(
-        0.0,
-        revenue_total
-        - net_profit
-        - wb_commission
-        - logistics_total
-        - storage_total
-        - ads_spend_total
-        - penalties_total,
-    )
+    cost_price_total = _safe_float(financial_kpi.get("cost_price", totals.get("cost_price", 0.0)))
+    wb_commission = _safe_float(financial_kpi.get("wb_commission", totals.get("wb_commission", 0.0)))
+    logistics_total = _safe_float(financial_kpi.get("logistics", totals.get("logistics", 0.0)))
+    storage_total = _safe_float(financial_kpi.get("storage", totals.get("storage", 0.0)))
+    penalties_total = _safe_float(financial_kpi.get("penalties", totals.get("penalties", 0.0)))
+    deductions_total = _safe_float(financial_kpi.get("deductions", totals.get("deductions", 0.0)))
+    ads_spend_total = _safe_float(financial_kpi.get("ads_spend", totals.get("ads_spend", 0.0)))
+    gross_profit_total = _safe_float(financial_kpi.get("gross_profit", revenue_total - cost_price_total - wb_commission))
+    net_profit = _safe_float(financial_kpi.get("net_profit", totals.get("net_profit", profit_total)))
+    margin_pct_total = _safe_float(financial_kpi.get("margin_pct", (net_profit / revenue_total * 100.0) if revenue_total > 0 else 0.0))
+    profitability_pct_total = _safe_float(financial_kpi.get("profitability_pct", (net_profit / cost_price_total * 100.0) if cost_price_total > 0 else 0.0))
+    financial_completeness_pct = _safe_float(financial_kpi.get("completeness_pct", 0.0))
+    financial_partial = bool(financial_kpi.get("is_partial", False))
 
     ads_impressions = int(round(_safe_float(totals.get("ads_impressions", 0))))
     ads_clicks = int(round(_safe_float(totals.get("ads_clicks", 0))))
@@ -1397,30 +1620,38 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         f"### Дата отчета: {run_date}",
         f"### Уверенность данных: {_confidence_ru(confidence)}",
         "",
-        "## КЛЮЧЕВЫЕ KPI",
+        "## COMMERCE KPI",
         "Показатель | Значение",
         f"Количество заказов | {_format_int(daily_orders_count)}",
         f"Сумма заказов (минус комиссия WB) | {_format_money_2(daily_orders_amount)}",
         f"Выкупы | {_format_int(daily_buyouts_count)}",
         f"К перечислению по выкупам | {_format_money_2(daily_buyouts_amount)}",
         f"Средний чек по выкупу | {_format_money_2(avg_check)}",
-        f"Источник заказов | {str(daily_kpi.get('data_source_orders') or _DAILY_SOURCE_FALLBACK)}",
-        f"Источник выкупов | {str(daily_kpi.get('data_source_buyouts') or _DAILY_SOURCE_FALLBACK)}",
-        f"Финансовая выручка (агрегация) | {_format_money(revenue_total)}",
-        f"Прибыль | {_format_money(profit_total)}",
+        f"Источник orders_count | {str(daily_kpi.get('data_source_orders_count') or daily_kpi.get('data_source_orders') or _DAILY_SOURCE_FALLBACK)}",
+        f"Источник orders_amount | {str(daily_kpi.get('data_source_orders_amount') or _DAILY_SOURCE_FALLBACK)}",
+        f"Источник buyouts_count | {str(daily_kpi.get('data_source_buyouts_count') or daily_kpi.get('data_source_buyouts') or _DAILY_SOURCE_FALLBACK)}",
+        f"Источник buyouts_amount | {str(daily_kpi.get('data_source_buyouts_amount') or _DAILY_SOURCE_FALLBACK)}",
+        f"Orders amount подтвержден | {'Да' if bool(daily_kpi.get('orders_amount_confirmed', False)) else 'Нет'}",
+        f"Buyouts amount подтвержден | {'Да' if bool(daily_kpi.get('buyouts_amount_confirmed', False)) else 'Нет'}",
         f"Количество SKU | {_format_int(len(sku_metrics))}",
-        f"Расходы на рекламу | {_format_money(totals.get('ads_spend', 0.0))}",
+        f"Расходы на рекламу | {_format_money(ads_spend_total)}",
         "",
-        "## ФИНАНСОВАЯ СТРУКТУРА",
+        "## FINANCIAL KPI",
         "Показатель | Значение",
-        f"Выручка | {_format_money(revenue_total)}",
+        f"Выручка (подтвержденная финансовыми строками) | {_format_money(revenue_total)}",
+        f"Себестоимость | {_format_money(cost_price_total)}",
         f"Комиссия WB | {_format_money(wb_commission)}",
         f"Логистика | {_format_money(logistics_total)}",
         f"Хранение | {_format_money(storage_total)}",
+        f"Штрафы | {_format_money(penalties_total)}",
+        f"Удержания | {_format_money(deductions_total)}",
         f"Реклама | {_format_money(ads_spend_total)}",
-        f"Себестоимость | {_format_money(cogs_total)}",
+        f"Валовая прибыль | {_format_money(gross_profit_total)}",
         f"Чистая прибыль | {_format_money(net_profit)}",
         f"Маржа % | {_format_pct(margin_pct_total)}",
+        f"Рентабельность % | {_format_pct(profitability_pct_total)}",
+        f"Полнота финансовых данных | {_format_pct(financial_completeness_pct)}",
+        f"Статус финансового контура | {'частичный' if financial_partial else 'финальный'}",
         "",
         "## РЕКЛАМА",
         "Показатель | Значение",
@@ -1432,6 +1663,9 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         f"Выручка | {_format_money(ads_revenue)}",
         f"ACOS | {_format_pct(ads_acos)}",
         f"ROMI | {_format_pct(ads_romi)}",
+        f"Реклама учтена в прибыли | {'Да' if ads_spend_total > 0 else 'Нет'}",
+        f"Атрибуция рекламы | {ads_attribution_quality}",
+        f"Источник рекламы | {ads_source_file or ('local_file' if ads_loaded_from_file else 'api_or_missing')}",
         "",
         "## КЛЮЧЕВЫЕ ВЫВОДЫ",
     ]
@@ -1648,7 +1882,29 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     page_1.extend(f"- {item}" for item in short_recommendations)
 
     job["email_summary"] = {
-        "profit": round(profit_total, 2),
+        "profit": round(net_profit, 2),
+        "net_profit": round(net_profit, 2),
+        "gross_profit": round(gross_profit_total, 2),
+        "cost_price": round(cost_price_total, 2),
+        "wb_commission": round(wb_commission, 2),
+        "logistics": round(logistics_total, 2),
+        "storage": round(storage_total, 2),
+        "penalties": round(penalties_total, 2),
+        "deductions": round(deductions_total, 2),
+        "ads_spend": round(ads_spend_total, 2),
+        "margin_pct": round(margin_pct_total, 2),
+        "profitability_pct": round(profitability_pct_total, 2),
+        "financial_completeness_pct": round(financial_completeness_pct, 2),
+        "financial_partial": financial_partial,
+        "ads_rows": ads_rows_count,
+        "ads_spend": round(ads_spend_total, 2),
+        "ads_impressions": ads_impressions,
+        "ads_clicks": ads_clicks,
+        "ads_orders": ads_orders,
+        "ads_loaded_from_file": bool(ads_loaded_from_file),
+        "ads_source_file": ads_source_file,
+        "ads_attribution_quality": ads_attribution_quality,
+        "ads_applied_to_profit": bool(ads_spend_total > 0),
         "revenue": round(daily_buyouts_amount, 2),
         "financial_revenue": round(revenue_total, 2),
         "orders": daily_orders_count,
@@ -1658,7 +1914,19 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "daily_buyouts_count": daily_buyouts_count,
         "daily_buyouts_amount": round(daily_buyouts_amount, 2),
         "data_source_orders": str(daily_kpi.get("data_source_orders") or _DAILY_SOURCE_FALLBACK),
+        "data_source_orders_count": str(
+            daily_kpi.get("data_source_orders_count")
+            or daily_kpi.get("data_source_orders")
+            or _DAILY_SOURCE_FALLBACK
+        ),
+        "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _DAILY_SOURCE_FALLBACK),
         "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK),
+        "data_source_buyouts_count": str(
+            daily_kpi.get("data_source_buyouts_count")
+            or daily_kpi.get("data_source_buyouts")
+            or _DAILY_SOURCE_FALLBACK
+        ),
+        "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _DAILY_SOURCE_FALLBACK),
         "key_insights": key_insights[:3],
         "recommendations": short_recommendations,
         "ai_day_conclusion": ai_day_conclusion,
@@ -1707,6 +1975,8 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             f"Валидных SKU | {_format_int(data_quality.get('valid_sku_count', 0))}",
             f"Нераспределенных строк | {_format_int(data_quality.get('unassigned_rows', unassigned_costs.get('rows', 0)))}",
             f"Нераспределенные расходы | {_format_money(unassigned_costs.get('profit', 0.0))}",
+            f"Полнота финансовых данных | {_format_pct(financial_completeness_pct)}",
+            f"Финансовый контур финальный | {'Нет' if financial_partial else 'Да'}",
             f"Достоверность AI-решений | {_confidence_ru(str(data_quality.get('ai_decision_reliability', 'medium')))}",
         ]
     )
@@ -1744,7 +2014,38 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             "daily_buyouts_amount": round(daily_buyouts_amount, 2),
             "avg_check": round(avg_check, 2),
             "data_source_orders": str(daily_kpi.get("data_source_orders") or _DAILY_SOURCE_FALLBACK),
+            "data_source_orders_count": str(
+                daily_kpi.get("data_source_orders_count")
+                or daily_kpi.get("data_source_orders")
+                or _DAILY_SOURCE_FALLBACK
+            ),
+            "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _DAILY_SOURCE_FALLBACK),
             "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK),
+            "data_source_buyouts_count": str(
+                daily_kpi.get("data_source_buyouts_count")
+                or daily_kpi.get("data_source_buyouts")
+                or _DAILY_SOURCE_FALLBACK
+            ),
+            "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _DAILY_SOURCE_FALLBACK),
+        },
+        "daily_financial_kpi": {
+            "revenue": round(revenue_total, 2),
+            "cost_price": round(cost_price_total, 2),
+            "wb_commission": round(wb_commission, 2),
+            "ads_spend": round(ads_spend_total, 2),
+            "ads_impressions": ads_impressions,
+            "ads_clicks": ads_clicks,
+            "ads_orders": ads_orders,
+            "ads_rows": ads_rows_count,
+            "ads_source_file": ads_source_file,
+            "ads_loaded_from_file": bool(ads_loaded_from_file),
+            "ads_attribution_quality": ads_attribution_quality,
+            "gross_profit": round(gross_profit_total, 2),
+            "net_profit": round(net_profit, 2),
+            "margin_pct": round(margin_pct_total, 2),
+            "profitability_pct": round(profitability_pct_total, 2),
+            "financial_completeness_pct": round(financial_completeness_pct, 2),
+            "financial_partial": financial_partial,
         },
     }
     report_meta["page_previews"] = [
