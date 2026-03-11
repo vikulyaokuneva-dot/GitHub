@@ -114,9 +114,5 @@
   {
     "code": "no_decisions_ready_for_outcome",
     "message": "No decisions are ready for outcome evaluation yet"
-  },
-  {
-    "code": "history_snapshot_saved",
-    "message": "History snapshot saved for 2026-03-11"
   }
 ]

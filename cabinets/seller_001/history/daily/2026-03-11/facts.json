@@ -2,7 +2,7 @@
   "seller_id": "seller_001",
   "seller_name": "seller_001",
   "run_date": "2026-03-11",
-  "generated_at": "2026-03-11T19:38:39Z",
+  "generated_at": "2026-03-11T21:48:27Z",
   "data_confidence": "low",
   "source_mode": "local_reports",
   "daily_orders_count": 0,
@@ -336,9 +336,5 @@
     "success": 3,
     "fail": 12,
     "neutral": 15
-  },
-  "history_summary": {
-    "snapshots_count": 5,
-    "latest_snapshot_date": "2026-03-11"
   }
 }
