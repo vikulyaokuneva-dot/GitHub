@@ -2,7 +2,7 @@
   "seller_id": "seller_001",
   "seller_name": "seller_001",
   "run_date": "2026-03-11",
-  "generated_at": "2026-03-11T15:28:21Z",
+  "generated_at": "2026-03-11T16:36:19Z",
   "data_confidence": "low",
   "source_mode": "local_reports",
   "daily_orders_count": 0,
@@ -139,6 +139,15 @@
   "data_source_ads_spend": "local_report",
   "sku_activity_orders_hint": 29,
   "sku_activity_buyouts_hint": 29,
+  "commerce_activity": {
+    "item_qty": 29,
+    "sales_activity_qty": 29,
+    "sku_activity_count": 7,
+    "confirmed_daily_orders_count": 0,
+    "confirmed_daily_buyouts_count": 0,
+    "orders_gap_vs_activity": 29,
+    "buyouts_gap_vs_activity": 29
+  },
   "orders_count_unknown_reason": "no_confirmed_orders_source: supplier_goods/api.orders/api.sales; quantity_hint_blocked_for_orders_count (sku_activity_hint=29)",
   "buyouts_count_unknown_reason": "no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization; quantity_hint_blocked_for_buyouts_count (sku_activity_hint=29)",
   "source_flags": {

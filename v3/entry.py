@@ -452,6 +452,7 @@ def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         "daily_orders_count_unknown",
         "daily_buyouts_count_unknown",
         "daily_kpi_unknown",
+        "totals_orders_buys_not_confirmed",
         "quantity_orders_fallback_blocked",
         "daily_kpi_mismatch_with_supplier_goods_report",
         "territorial_distribution_built",
@@ -521,6 +522,7 @@ def _warning_message_ru(code: str, message: str) -> str:
         "daily_orders_count_unknown": "Количество заказов за день не подтверждено ни одним валидным источником.",
         "daily_buyouts_count_unknown": "Количество выкупов за день не подтверждено ни одним валидным источником.",
         "daily_kpi_unknown": "Daily KPI по заказам/выкупам не подтверждены валидным источником.",
+        "totals_orders_buys_not_confirmed": "В totals заказы/выкупы не подтверждены и не подставляются из quantity/activity.",
         "quantity_orders_fallback_blocked": "Колонка quantity не может использоваться как fallback для orders/buyouts count.",
         "daily_kpi_mismatch_with_supplier_goods_report": "Daily KPI не совпадает с supplier goods report WB.",
         "territorial_distribution_built": (
@@ -1260,6 +1262,10 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     data_source_logistics = str(source_map.get("logistics") or _SOURCE_UNKNOWN)
     data_source_storage = str(source_map.get("storage") or _SOURCE_UNKNOWN)
     data_source_ads_spend = str(source_map.get("ads_spend") or _SOURCE_UNKNOWN)
+    orders_count_confirmed = bool(daily_kpi.get("orders_count_confirmed", False))
+    buyouts_count_confirmed = bool(daily_kpi.get("buyouts_count_confirmed", False))
+    confirmed_orders_total = int(daily_kpi.get("daily_orders_count", 0) or 0) if orders_count_confirmed else 0
+    confirmed_buyouts_total = int(daily_kpi.get("daily_buyouts_count", 0) or 0) if buyouts_count_confirmed else 0
 
     daily_kpi["data_source_orders_count"] = data_source_orders_count
     daily_kpi["data_source_buyouts_count"] = data_source_buyouts_count
@@ -1267,6 +1273,18 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     daily_kpi["data_source_buyouts_amount"] = data_source_buyouts_amount
     daily_kpi["data_source_orders"] = str(daily_kpi.get("data_source_orders_count") or _SOURCE_UNKNOWN)
     daily_kpi["data_source_buyouts"] = str(daily_kpi.get("data_source_buyouts_count") or _SOURCE_UNKNOWN)
+    if isinstance(totals_for_daily, dict):
+        totals_for_daily["orders"] = int(confirmed_orders_total)
+        totals_for_daily["buys"] = int(confirmed_buyouts_total)
+        totals_for_daily["orders_confirmed"] = bool(orders_count_confirmed)
+        totals_for_daily["buys_confirmed"] = bool(buyouts_count_confirmed)
+        totals_for_daily["data_source_orders"] = data_source_orders_count
+        totals_for_daily["data_source_buys"] = data_source_buyouts_count
+        totals_for_daily["orders_unconfirmed"] = not bool(orders_count_confirmed)
+        totals_for_daily["buys_unconfirmed"] = not bool(buyouts_count_confirmed)
+    sales_activity_qty_hint = int(totals_for_daily.get("sales_activity_qty", 0) or 0) if isinstance(totals_for_daily, dict) else 0
+    item_qty_hint = int(totals_for_daily.get("item_qty", sales_activity_qty_hint) or 0) if isinstance(totals_for_daily, dict) else 0
+    sku_activity_count = int(totals_for_daily.get("sku_activity_count", 0) or 0) if isinstance(totals_for_daily, dict) else 0
 
     metrics["ads_ingestion"] = {
         "ads_rows": ads_rows_count,
@@ -1284,6 +1302,23 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     metrics["source_policy"] = source_policy if isinstance(source_policy, dict) else {}
     metrics["data_sources"] = source_map
     metrics["source_flags"] = source_flags
+    metrics["commerce_activity"] = {
+        "item_qty": int(item_qty_hint),
+        "sales_activity_qty": int(sales_activity_qty_hint),
+        "sku_activity_count": int(sku_activity_count),
+        "confirmed_daily_orders_count": int(confirmed_orders_total),
+        "confirmed_daily_buyouts_count": int(confirmed_buyouts_total),
+        "orders_gap_vs_activity": int(sales_activity_qty_hint - confirmed_orders_total),
+        "buyouts_gap_vs_activity": int(sales_activity_qty_hint - confirmed_buyouts_total),
+    }
+    if isinstance(metrics.get("funnel"), dict):
+        metrics["funnel"]["orders"] = int(confirmed_orders_total)
+        metrics["funnel"]["buys"] = int(confirmed_buyouts_total)
+        metrics["funnel"]["orders_confirmed"] = bool(orders_count_confirmed)
+        metrics["funnel"]["buys_confirmed"] = bool(buyouts_count_confirmed)
+        metrics["funnel"]["item_qty"] = int(item_qty_hint)
+        metrics["funnel"]["sales_activity_qty"] = int(sales_activity_qty_hint)
+        metrics["funnel"]["sku_activity_count"] = int(sku_activity_count)
     if isinstance(input_debug, dict):
         input_debug["ads_rows"] = ads_rows_count
         input_debug["ads_rows_raw"] = int(max(ads_rows_raw, ads_rows_usable))
@@ -1347,6 +1382,22 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             {
                 "code": "quantity_orders_fallback_blocked",
                 "message": "quantity column cannot be used as orders_count fallback",
+            }
+        )
+    if (
+        (
+            data_source_orders_count == _SOURCE_UNKNOWN
+            or data_source_buyouts_count == _SOURCE_UNKNOWN
+        )
+        and sales_activity_qty_hint > 0
+    ):
+        warnings.append(
+            {
+                "code": "totals_orders_buys_not_confirmed",
+                "message": (
+                    "totals orders/buys not confirmed; keeping totals.orders/totals.buys at 0 "
+                    f"while sales_activity_qty={sales_activity_qty_hint}"
+                ),
             }
         )
     orders_unknown_reason = str(daily_kpi.get("orders_count_unknown_reason") or "").strip()
@@ -1555,6 +1606,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     facts["data_source_ads_spend"] = data_source_ads_spend
     facts["sku_activity_orders_hint"] = int(daily_kpi.get("sku_activity_orders_hint", 0) or 0)
     facts["sku_activity_buyouts_hint"] = int(daily_kpi.get("sku_activity_buyouts_hint", 0) or 0)
+    facts["commerce_activity"] = metrics.get("commerce_activity", {}) if isinstance(metrics.get("commerce_activity"), dict) else {}
     facts["orders_count_unknown_reason"] = str(daily_kpi.get("orders_count_unknown_reason") or "")
     facts["buyouts_count_unknown_reason"] = str(daily_kpi.get("buyouts_count_unknown_reason") or "")
     facts["source_flags"] = source_flags
@@ -1796,6 +1848,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "sku_activity_buyouts_hint": int(daily_kpi.get("sku_activity_buyouts_hint", 0) or 0),
         "orders_count_unknown_reason": str(daily_kpi.get("orders_count_unknown_reason") or ""),
         "buyouts_count_unknown_reason": str(daily_kpi.get("buyouts_count_unknown_reason") or ""),
+        "commerce_activity": metrics.get("commerce_activity", {}) if isinstance(metrics.get("commerce_activity"), dict) else {},
         "data_source_revenue": data_source_revenue,
         "data_source_wb_commission": data_source_wb_commission,
         "data_source_logistics": data_source_logistics,

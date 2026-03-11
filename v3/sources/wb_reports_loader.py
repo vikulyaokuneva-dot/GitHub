@@ -2060,18 +2060,38 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
     margin_pct = (net_profit / total_revenue * 100.0) if total_revenue > 0 else 0.0
     profitability_pct = (net_profit / total_cost_price * 100.0) if total_cost_price > 0 else 0.0
 
-    total_orders = sum(float(row.get("orders") or 0.0) for row in sales_rows)
-    total_buys = sum(
-        float(row.get("buys") or row.get("sales_count") or row.get("orders") or 0.0)
-        for row in sales_rows
-    )
+    def _row_item_qty(row: Dict[str, Any]) -> float:
+        explicit_quantity = row.get("quantity", None)
+        if explicit_quantity is not None:
+            return float(explicit_quantity or 0.0)
+        return float(row.get("buys") or row.get("sales_count") or row.get("orders") or 0.0)
+
+    def _row_sales_activity_qty(row: Dict[str, Any]) -> float:
+        return float(
+            row.get("sales_count")
+            or row.get("buys")
+            or row.get("orders")
+            or row.get("quantity")
+            or 0.0
+        )
+
+    total_item_qty = sum(_row_item_qty(row) for row in sales_rows if isinstance(row, dict))
+    total_sales_activity_qty = sum(_row_sales_activity_qty(row) for row in sales_rows if isinstance(row, dict))
+    total_sku_activity_count = sum(1 for row in sku_metrics if bool(row.get("has_sales_activity", False)))
     total_stock = sum(float(row.get("stock") or 0.0) for row in stocks_rows)
 
     totals = {
         "revenue": round(total_revenue, 2),
         "profit": round(total_profit, 2),
-        "orders": int(round(total_orders)),
-        "buys": int(round(total_buys)),
+        "orders": 0,
+        "buys": 0,
+        "orders_confirmed": False,
+        "buys_confirmed": False,
+        "data_source_orders": "unknown",
+        "data_source_buys": "unknown",
+        "item_qty": int(round(total_item_qty)),
+        "sales_activity_qty": int(round(total_sales_activity_qty)),
+        "sku_activity_count": int(total_sku_activity_count),
         "stock": int(round(total_stock)),
         "ads_spend": round(total_ads_spend, 2),
         "ads_spend_total": round(total_ads_spend, 2),
@@ -2288,7 +2308,15 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             "is_partial": financial_kpi["is_partial"],
             "ads_attribution_quality": ads_attribution_quality,
         },
-        "funnel": {"orders": totals["orders"], "buys": totals["buys"]},
+        "funnel": {
+            "orders": totals["orders"],
+            "buys": totals["buys"],
+            "orders_confirmed": bool(totals["orders_confirmed"]),
+            "buys_confirmed": bool(totals["buys_confirmed"]),
+            "item_qty": totals["item_qty"],
+            "sales_activity_qty": totals["sales_activity_qty"],
+            "sku_activity_count": totals["sku_activity_count"],
+        },
         "ads": {
             "spend": totals["ads_spend"],
             "spend_total": totals["ads_spend_total"],
@@ -2357,20 +2385,20 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
     elif (invalid_sku_rows > 0 or unassigned_present) and confidence == "high":
         confidence = "medium"
 
-    daily_orders_count = int(daily_kpi.get("daily_orders_count", totals.get("orders", 0)) or 0)
+    daily_orders_count = int(daily_kpi.get("daily_orders_count", 0) or 0)
     daily_orders_amount = float(
         daily_kpi.get("daily_orders_amount", 0.0) or 0.0
     )
-    daily_buyouts_count = int(daily_kpi.get("daily_buyouts_count", totals.get("buys", 0)) or 0)
+    daily_buyouts_count = int(daily_kpi.get("daily_buyouts_count", 0) or 0)
     daily_buyouts_amount = float(
         daily_kpi.get("daily_buyouts_amount", 0.0) or 0.0
     )
-    data_source_orders = str(daily_kpi.get("data_source_orders") or "metrics_totals_fallback")
-    data_source_buyouts = str(daily_kpi.get("data_source_buyouts") or "metrics_totals_fallback")
+    data_source_orders = str(daily_kpi.get("data_source_orders") or "unknown")
+    data_source_buyouts = str(daily_kpi.get("data_source_buyouts") or "unknown")
     data_source_orders_count = str(daily_kpi.get("data_source_orders_count") or data_source_orders)
-    data_source_orders_amount = str(daily_kpi.get("data_source_orders_amount") or "metrics_totals_fallback")
+    data_source_orders_amount = str(daily_kpi.get("data_source_orders_amount") or "unknown")
     data_source_buyouts_count = str(daily_kpi.get("data_source_buyouts_count") or data_source_buyouts)
-    data_source_buyouts_amount = str(daily_kpi.get("data_source_buyouts_amount") or "metrics_totals_fallback")
+    data_source_buyouts_amount = str(daily_kpi.get("data_source_buyouts_amount") or "unknown")
 
     financial_kpi = metrics.get("financial_kpi", {}) if isinstance(metrics, dict) else {}
     if not isinstance(financial_kpi, dict):

@@ -46,8 +46,26 @@ def resolve_daily_kpi(
     fallback_orders_amount = 0.0
     fallback_buyouts_count = 0
     fallback_buyouts_amount = 0.0
-    totals_orders_hint = int(round(_safe_float(totals.get("orders", 0))))
-    totals_buyouts_hint = int(round(_safe_float(totals.get("buys", 0))))
+    totals_orders_hint = int(
+        round(
+            _safe_float(
+                totals.get(
+                    "sales_activity_qty",
+                    totals.get("item_qty", totals.get("orders", 0)),
+                )
+            )
+        )
+    )
+    totals_buyouts_hint = int(
+        round(
+            _safe_float(
+                totals.get(
+                    "sales_activity_qty",
+                    totals.get("item_qty", totals.get("buys", 0)),
+                )
+            )
+        )
+    )
 
     payload = {
         "daily_orders_count": fallback_orders_count,

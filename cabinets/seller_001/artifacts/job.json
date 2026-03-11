@@ -3,8 +3,8 @@
   "mode": "daily",
   "run_date": "2026-03-11",
   "status": "partial_success",
-  "started_at": "2026-03-11T15:28:19Z",
-  "finished_at": "2026-03-11T15:28:21Z",
+  "started_at": "2026-03-11T16:36:16Z",
+  "finished_at": "2026-03-11T16:36:19Z",
   "error": "финансовая атрибуция частичная",
   "source_mode": "local_reports",
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
@@ -462,6 +462,15 @@
   "sku_activity_buyouts_hint": 29,
   "orders_count_unknown_reason": "no_confirmed_orders_source: supplier_goods/api.orders/api.sales; quantity_hint_blocked_for_orders_count (sku_activity_hint=29)",
   "buyouts_count_unknown_reason": "no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization; quantity_hint_blocked_for_buyouts_count (sku_activity_hint=29)",
+  "commerce_activity": {
+    "item_qty": 29,
+    "sales_activity_qty": 29,
+    "sku_activity_count": 7,
+    "confirmed_daily_orders_count": 0,
+    "confirmed_daily_buyouts_count": 0,
+    "orders_gap_vs_activity": 29,
+    "buyouts_gap_vs_activity": 29
+  },
   "data_source_revenue": "supplier_goods",
   "data_source_wb_commission": "supplier_goods",
   "data_source_logistics": "supplier_goods",
@@ -667,6 +676,10 @@
     {
       "code": "quantity_orders_fallback_blocked",
       "message": "quantity column cannot be used as orders_count fallback"
+    },
+    {
+      "code": "totals_orders_buys_not_confirmed",
+      "message": "totals orders/buys not confirmed; keeping totals.orders/totals.buys at 0 while sales_activity_qty=29"
     },
     {
       "code": "daily_orders_count_unknown",

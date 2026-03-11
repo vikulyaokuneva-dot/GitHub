@@ -36,6 +36,10 @@
     "message": "quantity column cannot be used as orders_count fallback"
   },
   {
+    "code": "totals_orders_buys_not_confirmed",
+    "message": "totals orders/buys not confirmed; keeping totals.orders/totals.buys at 0 while sales_activity_qty=29"
+  },
+  {
     "code": "daily_orders_count_unknown",
     "message": "daily_orders_count is unknown: no_confirmed_orders_source: supplier_goods/api.orders/api.sales; quantity_hint_blocked_for_orders_count (sku_activity_hint=29)"
   },
