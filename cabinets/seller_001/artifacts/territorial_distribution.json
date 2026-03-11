@@ -3,8 +3,8 @@
     "engine": "territorial_distribution_engine",
     "version": "1.0",
     "seller_id": "seller_001",
-    "run_date": "2026-03-09",
-    "generated_at": "2026-03-10T14:05:42Z",
+    "run_date": "2026-03-11",
+    "generated_at": "2026-03-11T11:57:02Z",
     "source_artifacts": [
       "metrics.json"
     ]

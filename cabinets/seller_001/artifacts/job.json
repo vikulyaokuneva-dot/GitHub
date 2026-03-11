@@ -1,10 +1,10 @@
 {
   "seller_id": "seller_001",
   "mode": "daily",
-  "run_date": "2026-03-09",
+  "run_date": "2026-03-11",
   "status": "partial_success",
-  "started_at": "2026-03-10T14:05:42Z",
-  "finished_at": "2026-03-10T14:05:42Z",
+  "started_at": "2026-03-11T11:57:02Z",
+  "finished_at": "2026-03-11T11:57:02Z",
   "error": "данные о продажах не получены",
   "source_mode": "local_reports",
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
@@ -19,6 +19,24 @@
     "details": [],
     "primary_sales_source": "",
     "primary_sales_columns": {},
+    "ads_file_candidates_found": 0,
+    "ads_file_detected": false,
+    "ads_source_file": "",
+    "ads_sheet_found": "",
+    "ads_columns_detected": [],
+    "ads_rows_raw": 0,
+    "ads_rows_usable": 0,
+    "ads_loader_error": "",
+    "ads_loaded_from_file": false,
+    "ads_sku_rows_count": 0,
+    "ads_campaign_total_rows": 0,
+    "ads_campaign_totals": {
+      "ads_spend": 0.0,
+      "ads_revenue": 0.0,
+      "ads_orders": 0,
+      "ads_impressions": 0,
+      "ads_clicks": 0
+    },
     "loaded_rows": {
       "sales": 0,
       "ads": 0,
@@ -30,12 +48,14 @@
       "realization_rows": 0,
       "ads_rows": 0,
       "stocks_rows": 0,
-      "date_from": "2026-03-09",
-      "date_to": "2026-03-09"
+      "date_from": "2026-03-11",
+      "date_to": "2026-03-11"
     },
     "supplier_goods_daily": {
       "found": false
-    }
+    },
+    "ads_rows": 0,
+    "ads_attribution_quality": "unknown"
   },
   "api_debug": {
     "sales_rows": 0,
@@ -43,15 +63,35 @@
     "realization_rows": 0,
     "ads_rows": 0,
     "stocks_rows": 0,
-    "date_from": "2026-03-09",
-    "date_to": "2026-03-09"
+    "date_from": "2026-03-11",
+    "date_to": "2026-03-11"
   },
   "daily_orders_count": 0,
   "daily_orders_amount": 0.0,
   "daily_buyouts_count": 0,
   "daily_buyouts_amount": 0.0,
+  "ads_rows": 0,
+  "ads_spend": 0.0,
+  "ads_loaded_from_file": false,
+  "ads_source_file": "",
+  "ads_file_candidates_found": 0,
+  "ads_file_detected": false,
+  "ads_sheet_found": "",
+  "ads_columns_detected": [],
+  "ads_rows_raw": 0,
+  "ads_rows_usable": 0,
+  "ads_loader_error": "",
+  "ads_attribution_quality": "unknown",
   "data_source_orders": "metrics_totals_fallback",
+  "data_source_orders_count": "metrics_totals_fallback",
+  "data_source_orders_amount": "metrics_totals_fallback",
   "data_source_buyouts": "metrics_totals_fallback",
+  "data_source_buyouts_count": "metrics_totals_fallback",
+  "data_source_buyouts_amount": "metrics_totals_fallback",
+  "orders_amount_confirmed": false,
+  "buyouts_amount_confirmed": false,
+  "financial_completeness_pct": 100.0,
+  "financial_partial": false,
   "data_quality": "degraded",
   "artifacts": [
     "job.json",
@@ -69,17 +109,38 @@
     "opportunity_scores.json",
     "director_strategy.json",
     "memory/decision_memory.jsonl",
-    "memory/outcomes/2026-03-09_outcomes.json",
-    "history/daily/2026-03-09/",
+    "memory/outcomes/2026-03-11_outcomes.json",
+    "history/daily/2026-03-11/",
     "history/history_index.json",
     "report_meta.json",
     "report.pdf"
   ],
   "decision_memory_added": 0,
   "decision_outcomes_evaluated": 0,
-  "decision_outcomes_file": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\memory\\outcomes\\2026-03-09_outcomes.json",
+  "decision_outcomes_file": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\memory\\outcomes\\2026-03-11_outcomes.json",
   "email_summary": {
     "profit": 0.0,
+    "net_profit": 0.0,
+    "gross_profit": 0.0,
+    "cost_price": 0.0,
+    "wb_commission": 0.0,
+    "logistics": 0.0,
+    "storage": 0.0,
+    "penalties": 0.0,
+    "deductions": 0.0,
+    "ads_spend": 0.0,
+    "margin_pct": 0.0,
+    "profitability_pct": 0.0,
+    "financial_completeness_pct": 100.0,
+    "financial_partial": false,
+    "ads_rows": 0,
+    "ads_impressions": 0,
+    "ads_clicks": 0,
+    "ads_orders": 0,
+    "ads_loaded_from_file": false,
+    "ads_source_file": "",
+    "ads_attribution_quality": "unknown",
+    "ads_applied_to_profit": false,
     "revenue": 0.0,
     "financial_revenue": 0.0,
     "orders": 0,
@@ -89,14 +150,18 @@
     "daily_buyouts_count": 0,
     "daily_buyouts_amount": 0.0,
     "data_source_orders": "metrics_totals_fallback",
+    "data_source_orders_count": "metrics_totals_fallback",
+    "data_source_orders_amount": "metrics_totals_fallback",
     "data_source_buyouts": "metrics_totals_fallback",
+    "data_source_buyouts_count": "metrics_totals_fallback",
+    "data_source_buyouts_amount": "metrics_totals_fallback",
     "key_insights": [
       "В памяти AI уже накоплено 40 решений."
     ],
     "recommendations": [
       "Сохранить текущий курс и контролировать динамику KPI без резких изменений."
     ],
-    "ai_day_conclusion": "На 2026-03-09 бизнес закрыл день с перечислением по выкупам 0.00 ₽ и чистой прибылью 0 ₽ (маржа 0.0 %). Получено 0 заказов, выкуплено 0 (средний чек по выкупу 0.00 ₽). Качество финансовой атрибуции находится на среднем уровне, поэтому решения AI опираются на подтвержденные данные дня. Главный сигнал: В памяти AI уже накоплено 40 решений; фокус следующего дня: Сохранить текущий курс и контролировать динамику KPI без резких изменений."
+    "ai_day_conclusion": "На 2026-03-11 бизнес закрыл день с перечислением по выкупам 0.00 ₽ и чистой прибылью 0 ₽ (маржа 0.0 %). Получено 0 заказов, выкуплено 0 (средний чек по выкупу 0.00 ₽). Качество финансовой атрибуции находится на среднем уровне, поэтому решения AI опираются на подтвержденные данные дня. Главный сигнал: В памяти AI уже накоплено 40 решений; фокус следующего дня: Сохранить текущий курс и контролировать динамику KPI без резких изменений."
   },
   "pdf_font": {
     "family": "arial",
@@ -104,10 +169,10 @@
     "bold": "C:\\Windows\\Fonts\\arialbd.ttf"
   },
   "history_snapshot": {
-    "date": "2026-03-09",
-    "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\history\\daily\\2026-03-09",
+    "date": "2026-03-11",
+    "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\history\\daily\\2026-03-11",
     "files": [
-      "2026-03-09_outcomes.json",
+      "2026-03-11_outcomes.json",
       "abc_analysis.json",
       "decisions.json",
       "facts.json",
@@ -160,7 +225,7 @@
     },
     {
       "code": "history_snapshot_saved",
-      "message": "History snapshot saved for 2026-03-09"
+      "message": "History snapshot saved for 2026-03-11"
     }
   ],
   "email_attempted": true,

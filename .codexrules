@@ -1,0 +1,7 @@
+This repository is WB AI Agent v3.
+
+Rules:
+- Do not rewrite architecture.
+- Only patch existing modules.
+- Keep pipeline stable.
+- Do not break daily entry pipeline.
