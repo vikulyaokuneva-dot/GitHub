@@ -1,10 +1,103 @@
 {
   "p1": [],
   "p2": [],
-  "p3": [],
-  "top_profit_skus": [],
+  "p3": [
+    {
+      "sku": "452102417",
+      "profit": 461.88,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "283212418",
+      "profit": 14.2,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "739384273",
+      "profit": 1.39,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "414589567",
+      "profit": 1.2,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "590614192",
+      "profit": 1.16,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "453526507",
+      "profit": 0.55,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "430679462",
+      "profit": -89.0,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "333615320",
+      "profit": -640.54,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    }
+  ],
+  "top_profit_skus": [
+    {
+      "sku": "452102417",
+      "profit": 461.88,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "283212418",
+      "profit": 14.2,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "739384273",
+      "profit": 1.39,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "414589567",
+      "profit": 1.2,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    },
+    {
+      "sku": "590614192",
+      "profit": 1.16,
+      "profit_share": 0.0,
+      "cumulative_profit_share": 0.0,
+      "class": "P3"
+    }
+  ],
   "meta": {
-    "total_profit": 0,
-    "sku_count": 0
+    "total_profit": -249.16,
+    "sku_count": 8
   }
 }

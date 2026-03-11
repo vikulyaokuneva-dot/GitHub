@@ -26,23 +26,46 @@ REPORT_NAME_KEYWORDS = {
 ADS_FILE_NAME_KEYWORDS = ("статистика", "реклама", "advert", "ads")
 ADS_SHEET_KEYWORDS = ("статистика", "statistics")
 EXCEL_EXTENSIONS = {".xlsx", ".xls"}
+ADS_REPORT_NAME_KEYWORDS = ("статистика", "ads", "реклама")
+ADS_REQUIRED_COLUMN_HINT = "затраты_rub"
+
+SUPPLIER_GOODS_NAME_KEYWORDS = ("ежедневный", "детализированный", "supplier", "goods", "report")
+SUPPLIER_GOODS_REQUIRED_COLUMN_HINTS = (
+    "номенклатура",
+    "заказано",
+    "выкупили",
+    "сумма заказов",
+    "к перечислению",
+)
+SUPPLIER_GOODS_FINANCIAL_COLUMN_HINTS = (
+    "код номенклатуры",
+    "к перечислению продавцу за реализованный товар",
+    "вознаграждение вайлдберриз",
+    "услуги по доставке товара покупателю",
+    "хранение",
+    "удержания",
+    "количество возврата",
+)
 
 _SUPPLIER_GOODS_DAILY_FIELD_SYNONYMS = {
     "orders_count": (
         "шт",
         "заказанные_товары_шт",
+        "заказано",
         "заказано_шт",
         "кол_во_заказов",
         "колво_заказов",
         "количество_заказов",
     ),
     "orders_amount": (
+        "сумма_заказов",
         "сумма_заказов_минус_комиссия_wb_руб",
         "сумма_заказов_руб",
         "заказов_на_сумму_rub",
         "заказов_на_сумму",
     ),
     "buyouts_count": (
+        "выкупили",
         "выкупили_шт",
         "выкупы_шт",
         "количество_выкупов",
@@ -50,6 +73,7 @@ _SUPPLIER_GOODS_DAILY_FIELD_SYNONYMS = {
         "продажи_шт",
     ),
     "buyouts_amount": (
+        "к_перечислению_руб",
         "к_перечислению_за_товар_руб",
         "к_перечислению_продавцу_за_товар_руб",
         "к_перечислению_продавцу_за_реализованный_товар",
@@ -57,11 +81,28 @@ _SUPPLIER_GOODS_DAILY_FIELD_SYNONYMS = {
     ),
 }
 
+_SUPPLIER_GOODS_CONFIRMED_ORDERS_COUNT_HINTS = (
+    "orders_count",
+    "order_count",
+    "кол_во_заказов",
+    "количество_заказов",
+    "колво_заказов",
+)
+
+_SUPPLIER_GOODS_CONFIRMED_BUYOUTS_COUNT_HINTS = (
+    "buyouts_count",
+    "кол_во_выкупов",
+    "количество_выкупов",
+    "колво_выкупов",
+)
+
 _SUPPLIER_GOODS_FILE_TOKENS = (
     "товар",
     "goods",
     "supplier",
     "ежеднев",
+    "детализирован",
+    "report",
     "daily",
     "воронка",
 )
@@ -146,6 +187,12 @@ FIELD_SYNONYMS = {
         "комиссия_wb",
         "комиссия_wildberries",
         "комиссия_маркетплейса",
+        "вознаграждение_ваилдберриз",
+        "вознаграждение_вайлдберриз",
+        "вознаграждение_ваилдберриз_вв",
+        "вознаграждение_вайлдберриз_вв",
+        "вознаграждение_ваилдберриз_вв_без_ндс",
+        "вознаграждение_вайлдберриз_вв_без_ндс",
         "вознаграждение_wb",
         "комиссионное_вознаграждение",
         "retail_commission",
@@ -190,6 +237,33 @@ def _normalize_text(value: str) -> str:
     text = text.replace(" ", "_")
     text = re.sub(r"[^\w]+", "_", text)
     return re.sub(r"_+", "_", text).strip("_")
+
+
+def _name_hint_token(norm_name: str, tokens: Iterable[str]) -> str:
+    for token in tokens:
+        normalized = _normalize_text(token)
+        if normalized and normalized in norm_name:
+            return normalized
+    return ""
+
+
+def _column_hint_present(normalized_columns: List[str], required_tokens: Iterable[str]) -> bool:
+    required = [_normalize_text(token) for token in required_tokens if str(token).strip()]
+    if not required:
+        return False
+    for token in required:
+        if not any(token and (token in col or col in token) for col in normalized_columns if col):
+            return False
+    return True
+
+
+def _column_hints_detected(normalized_columns: List[str], required_tokens: Iterable[str]) -> List[str]:
+    required = [_normalize_text(token) for token in required_tokens if str(token).strip()]
+    detected: List[str] = []
+    for token in required:
+        if any(token and (token in col or col in token) for col in normalized_columns if col):
+            detected.append(token)
+    return detected
 
 
 def _as_float(value: Any) -> float | None:
@@ -293,6 +367,101 @@ def _xlsx_shared_strings(zf: zipfile.ZipFile) -> List[str]:
     return out
 
 
+def _xlsx_sheet_targets(zf: zipfile.ZipFile) -> List[Tuple[str, str]]:
+    if "xl/workbook.xml" not in zf.namelist():
+        return []
+    wb = ET.fromstring(zf.read("xl/workbook.xml"))
+    ns = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    rid_attr = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+
+    rels_path = "xl/_rels/workbook.xml.rels"
+    rel_map: Dict[str, str] = {}
+    if rels_path in zf.namelist():
+        rels = ET.fromstring(zf.read(rels_path))
+        rns = {"r": "http://schemas.openxmlformats.org/package/2006/relationships"}
+        for rel in rels.findall("r:Relationship", rns):
+            rel_id = str(rel.attrib.get("Id") or "")
+            target_raw = str(rel.attrib.get("Target") or "")
+            if not rel_id or not target_raw:
+                continue
+            if target_raw.startswith("/"):
+                target = target_raw.lstrip("/")
+            elif target_raw.startswith("xl/"):
+                target = target_raw
+            else:
+                target = f"xl/{target_raw}"
+            rel_map[rel_id] = target
+
+    out: List[Tuple[str, str]] = []
+    for sheet in wb.findall("x:sheets/x:sheet", ns):
+        rid = str(sheet.attrib.get(rid_attr) or "")
+        name = str(sheet.attrib.get("name") or "").strip()
+        target = rel_map.get(rid, "")
+        if name and target:
+            out.append((name, target))
+    return out
+
+
+def _xlsx_rows_from_sheet(
+    zf: zipfile.ZipFile,
+    shared: List[str],
+    sheet_path: str,
+    max_rows: int | None = None,
+) -> List[List[Any]]:
+    if sheet_path not in zf.namelist():
+        return []
+    root = ET.fromstring(zf.read(sheet_path))
+    ns = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    data = root.find("x:sheetData", ns)
+    if data is None:
+        return []
+
+    out: List[List[Any]] = []
+    for row_el in data.findall("x:row", ns):
+        if max_rows is not None and len(out) >= max_rows:
+            break
+        cells: Dict[int, Any] = {}
+        max_col = -1
+        for c in row_el.findall("x:c", ns):
+            col = _col_to_idx(c.attrib.get("r", "A1"))
+            max_col = max(max_col, col)
+            t = c.attrib.get("t", "")
+            if t == "inlineStr":
+                parts = [(x.text or "") for x in c.findall(".//x:t", ns)]
+                value: Any = "".join(parts)
+            else:
+                v = c.find("x:v", ns)
+                raw = "" if v is None or v.text is None else v.text
+                if t == "s":
+                    idx = int(raw) if str(raw).isdigit() else -1
+                    value = shared[idx] if 0 <= idx < len(shared) else ""
+                else:
+                    value = raw
+            cells[col] = value
+        row = ["" for _ in range(max_col + 1)] if max_col >= 0 else []
+        for idx, val in cells.items():
+            if 0 <= idx < len(row):
+                row[idx] = val
+        out.append(row)
+    return out
+
+
+def _xlsx_workbook_sheet_columns(path: str) -> List[Tuple[str, List[str]]]:
+    with zipfile.ZipFile(path, "r") as zf:
+        shared = _xlsx_shared_strings(zf)
+        out: List[Tuple[str, List[str]]] = []
+        for sheet_name, sheet_path in _xlsx_sheet_targets(zf):
+            rows = _xlsx_rows_from_sheet(zf, shared, sheet_path, max_rows=120)
+            if not rows:
+                continue
+            header, _ = _pick_header(rows, max_rows=1)
+            if not header:
+                continue
+            normalized_columns = [_normalize_text(col) for col in header]
+            out.append((sheet_name, normalized_columns))
+        return out
+
+
 def _xlsx_sheet_names(path: str) -> List[str]:
     with zipfile.ZipFile(path, "r") as zf:
         if "xl/workbook.xml" not in zf.namelist():
@@ -315,6 +484,45 @@ def _excel_sheet_names(path: str) -> List[str]:
         workbook = pd.ExcelFile(path)
         return [str(name).strip() for name in list(workbook.sheet_names or []) if str(name).strip()]
     return []
+
+
+def _workbook_sheet_with_required_columns(path: str, required_tokens: Iterable[str]) -> str:
+    ext = os.path.splitext(path)[1].lower()
+    if ext not in EXCEL_EXTENSIONS:
+        return ""
+
+    if ext == ".xlsx":
+        try:
+            for sheet_name, normalized_columns in _xlsx_workbook_sheet_columns(path):
+                if _column_hint_present(normalized_columns, required_tokens):
+                    return str(sheet_name)
+        except Exception:
+            pass
+
+    if pd is not None:
+        try:
+            workbook = pd.ExcelFile(path)
+            for sheet_name in list(workbook.sheet_names or []):
+                frame = workbook.parse(sheet_name=sheet_name, nrows=0)
+                normalized_columns = [_normalize_text(col) for col in list(frame.columns)]
+                if _column_hint_present(normalized_columns, required_tokens):
+                    return str(sheet_name)
+        except Exception:
+            pass
+
+    try:
+        columns, _ = _read_table(path, max_rows=3)
+        normalized_columns = [_normalize_text(col) for col in columns]
+        if _column_hint_present(normalized_columns, required_tokens):
+            return "sheet1"
+    except Exception:
+        return ""
+    return ""
+
+
+def _table_columns(path: str) -> List[str]:
+    cols, _ = _read_table(path, max_rows=3)
+    return [_normalize_text(col) for col in cols]
 
 
 def _find_ads_sheet_name(sheet_names: List[str]) -> str:
@@ -500,6 +708,17 @@ def _match_supplier_goods_column(columns: List[str], variants: Tuple[str, ...]) 
     return ""
 
 
+def _is_confirmed_supplier_count_column(column_name: str, reliable_hints: Tuple[str, ...]) -> bool:
+    normalized = _normalize_text(column_name)
+    if not normalized:
+        return False
+    for hint in reliable_hints:
+        token = _normalize_text(hint)
+        if token and (normalized == token or token in normalized):
+            return True
+    return False
+
+
 def _is_summary_row(row: Dict[str, Any]) -> bool:
     for value in row.values():
         text = str(value or "").strip()
@@ -558,6 +777,17 @@ def _extract_supplier_goods_daily_kpi(path: str) -> Dict[str, Any]:
     if used_rows <= 0:
         return {}
 
+    orders_count_col = str(column_map.get("orders_count") or "")
+    buyouts_count_col = str(column_map.get("buyouts_count") or "")
+    orders_count_confirmed = _is_confirmed_supplier_count_column(
+        orders_count_col,
+        _SUPPLIER_GOODS_CONFIRMED_ORDERS_COUNT_HINTS,
+    )
+    buyouts_count_confirmed = _is_confirmed_supplier_count_column(
+        buyouts_count_col,
+        _SUPPLIER_GOODS_CONFIRMED_BUYOUTS_COUNT_HINTS,
+    )
+
     return {
         "source_file": os.path.basename(path),
         "source_path": path,
@@ -567,13 +797,24 @@ def _extract_supplier_goods_daily_kpi(path: str) -> Dict[str, Any]:
         "orders_amount": round(totals["orders_amount"], 2),
         "buyouts_count": int(round(totals["buyouts_count"])),
         "buyouts_amount": round(totals["buyouts_amount"], 2),
+        "orders_count_confirmed": bool(orders_count_confirmed),
+        "buyouts_count_confirmed": bool(buyouts_count_confirmed),
+        "amounts_confirmed": True,
+        "kpi_confirmed": bool(orders_count_confirmed and buyouts_count_confirmed),
     }
 
 
 def load_supplier_goods_daily_kpi(input_dir: str) -> Dict[str, Any]:
     if not os.path.isdir(input_dir):
-        return {"found": False}
+        return {
+            "found": False,
+            "input_files_detected": 0,
+            "supplier_goods_candidates": [],
+            "detection_reason": "",
+        }
 
+    supplier_candidates: List[Dict[str, Any]] = []
+    input_files_detected = 0
     candidates: List[Dict[str, Any]] = []
     for name in sorted(os.listdir(input_dir)):
         path = os.path.join(input_dir, name)
@@ -581,23 +822,85 @@ def load_supplier_goods_daily_kpi(input_dir: str) -> Dict[str, Any]:
             continue
         if os.path.splitext(name)[1].lower() not in ALLOWED_EXTENSIONS:
             continue
+        input_files_detected += 1
+
+        file_name_norm = _normalize_text(name)
+        supplier_name_hint = _name_hint_token(file_name_norm, SUPPLIER_GOODS_NAME_KEYWORDS)
+        supplier_sheet_hint = _workbook_sheet_with_required_columns(path, SUPPLIER_GOODS_REQUIRED_COLUMN_HINTS)
+        supplier_financial_sheet_hint = _workbook_sheet_with_required_columns(path, SUPPLIER_GOODS_FINANCIAL_COLUMN_HINTS)
+        candidate_reasons: List[str] = []
+        if supplier_name_hint:
+            candidate_reasons.append(f"name:{supplier_name_hint}")
+        if supplier_sheet_hint:
+            candidate_reasons.append(f"workbook_columns:{supplier_sheet_hint}")
+        if supplier_financial_sheet_hint:
+            candidate_reasons.append(f"financial_columns:{supplier_financial_sheet_hint}")
+        if candidate_reasons:
+            supplier_candidates.append(
+                {
+                    "file": name,
+                    "reason": ", ".join(candidate_reasons),
+                }
+            )
+
         try:
             extracted = _extract_supplier_goods_daily_kpi(path)
         except Exception:
-            continue
+            extracted = {}
+
+        if not extracted and supplier_financial_sheet_hint:
+            financial_columns_detected: List[str] = []
+            try:
+                financial_columns_detected = _column_hints_detected(_table_columns(path), SUPPLIER_GOODS_FINANCIAL_COLUMN_HINTS)
+            except Exception:
+                financial_columns_detected = []
+            extracted = {
+                "source_file": os.path.basename(path),
+                "source_path": path,
+                "rows_used": 0,
+                "matched_columns": {},
+                "orders_count": 0,
+                "orders_amount": 0.0,
+                "buyouts_count": 0,
+                "buyouts_amount": 0.0,
+                "kpi_confirmed": False,
+                "orders_count_confirmed": False,
+                "buyouts_count_confirmed": False,
+                "amounts_confirmed": False,
+                "financial_columns_detected": financial_columns_detected,
+            }
         if not extracted:
             continue
 
-        file_name_norm = _normalize_text(name)
         score = 0
         for token in _SUPPLIER_GOODS_FILE_TOKENS:
             if _normalize_text(token) in file_name_norm:
                 score += 1
+        if supplier_name_hint:
+            score += 3
+        if supplier_sheet_hint:
+            score += 5
+        if supplier_financial_sheet_hint:
+            score += 4
         extracted["match_score"] = score
+        extracted["detection_reason"] = ", ".join(candidate_reasons) if candidate_reasons else "field_synonyms"
+        if "kpi_confirmed" not in extracted:
+            extracted["kpi_confirmed"] = True
+        if "orders_count_confirmed" not in extracted:
+            extracted["orders_count_confirmed"] = False
+        if "buyouts_count_confirmed" not in extracted:
+            extracted["buyouts_count_confirmed"] = False
+        if "amounts_confirmed" not in extracted:
+            extracted["amounts_confirmed"] = bool(extracted.get("kpi_confirmed", False))
         candidates.append(extracted)
 
     if not candidates:
-        return {"found": False}
+        return {
+            "found": False,
+            "input_files_detected": int(input_files_detected),
+            "supplier_goods_candidates": supplier_candidates,
+            "detection_reason": "",
+        }
 
     candidates.sort(
         key=lambda item: (
@@ -610,6 +913,13 @@ def load_supplier_goods_daily_kpi(input_dir: str) -> Dict[str, Any]:
     best = dict(candidates[0])
     best["found"] = True
     best["candidates_found"] = len(candidates)
+    best["input_files_detected"] = int(input_files_detected)
+    best["supplier_goods_candidates"] = supplier_candidates
+    best["detection_reason"] = str(best.get("detection_reason") or "")
+    best["kpi_confirmed"] = bool(best.get("kpi_confirmed", True))
+    best["orders_count_confirmed"] = bool(best.get("orders_count_confirmed", False))
+    best["buyouts_count_confirmed"] = bool(best.get("buyouts_count_confirmed", False))
+    best["amounts_confirmed"] = bool(best.get("amounts_confirmed", best.get("kpi_confirmed", False)))
     return best
 
 
@@ -694,7 +1004,9 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
     name = os.path.basename(path)
     norm_name = _normalize_text(name)
     ext = os.path.splitext(name)[1].lower()
-    ads_name_hint = any(_normalize_text(token) in norm_name for token in ADS_FILE_NAME_KEYWORDS) if ext in EXCEL_EXTENSIONS else False
+    ads_name_hint_token = _name_hint_token(norm_name, ADS_REPORT_NAME_KEYWORDS)
+    ads_name_hint = bool(ads_name_hint_token)
+    supplier_name_hint_token = _name_hint_token(norm_name, SUPPLIER_GOODS_NAME_KEYWORDS)
     name_scores = {"sales": 0, "ads": 0, "stocks": 0}
     for t, words in REPORT_NAME_KEYWORDS.items():
         for w in words:
@@ -712,6 +1024,9 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
     by_sheet = None
     sheet_names: List[str] = []
     ads_sheet_found = ""
+    supplier_goods_sheet_found = ""
+    ads_spend_column_sheet = ""
+    ads_spend_column_found = False
     read_error = None
     columns: List[str] = []
 
@@ -722,15 +1037,27 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
             if ads_sheet_found:
                 sheet_scores["ads"] = 10
                 by_sheet = "ads"
+            supplier_goods_sheet_found = _workbook_sheet_with_required_columns(path, SUPPLIER_GOODS_REQUIRED_COLUMN_HINTS)
+            ads_spend_column_sheet = _workbook_sheet_with_required_columns(path, ("Затраты, RUB",))
+            ads_spend_column_found = bool(ads_spend_column_sheet)
         except Exception:
             sheet_names = []
             ads_sheet_found = ""
+            supplier_goods_sheet_found = ""
+            ads_spend_column_sheet = ""
+            ads_spend_column_found = False
 
     try:
         columns, _ = _read_table(path, max_rows=25)
         canon = _canonical_columns(columns)
+        normalized_columns = [_normalize_text(col) for col in columns]
         col_scores["sales"] = sum(1 for k in ["revenue", "profit", "orders", "buys", "sales_count", "margin", "margin_pct"] if k in canon)
         col_scores["ads"] = sum(1 for k in ["ads_spend", "orders", "revenue", "impressions", "clicks", "ctr", "cpc", "cpo", "conversion_type", "roi", "ddr"] if k in canon)
+        if _column_hint_present(normalized_columns, (ADS_REQUIRED_COLUMN_HINT,)):
+            ads_spend_column_found = True
+            if not ads_spend_column_sheet:
+                ads_spend_column_sheet = "sheet1"
+            col_scores["ads"] += 8
         col_scores["stocks"] = sum(2 for k in ["stock"] if k in canon)
         if "sku" in canon:
             col_scores["sales"] += 1
@@ -742,7 +1069,13 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
 
     chosen = by_name
     source = "name"
-    if by_sheet == "ads":
+    if ads_name_hint:
+        chosen = "ads"
+        source = "ads_name_hint"
+    elif ads_spend_column_found:
+        chosen = "ads"
+        source = "ads_spend_column"
+    elif by_sheet == "ads":
         if by_name and by_name != "ads":
             source = "sheet_overrode_name"
         elif by_name == "ads":
@@ -754,17 +1087,49 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
         chosen = by_cols
         source = "columns" if not by_name else "columns_overrode_name"
 
+    supplier_goods_candidate_reasons: List[str] = []
+    if supplier_name_hint_token:
+        supplier_goods_candidate_reasons.append(f"name:{supplier_name_hint_token}")
+    if supplier_goods_sheet_found:
+        supplier_goods_candidate_reasons.append(f"workbook_columns:{supplier_goods_sheet_found}")
+    supplier_goods_candidate = bool(supplier_goods_candidate_reasons)
+
+    ads_candidate_reasons: List[str] = []
+    if ads_name_hint_token:
+        ads_candidate_reasons.append(f"name:{ads_name_hint_token}")
+    if ads_sheet_found:
+        ads_candidate_reasons.append(f"sheet:{ads_sheet_found}")
+    if ads_spend_column_found:
+        ads_candidate_reasons.append(f"workbook_column:Затраты, RUB@{ads_spend_column_sheet or 'sheet1'}")
+    ads_candidate = bool(ads_candidate_reasons)
+
+    detection_reason = source if chosen else "unknown"
+    if source == "ads_name_hint":
+        detection_reason = f"ads_by_name:{ads_name_hint_token}"
+    elif source == "ads_spend_column":
+        detection_reason = f"ads_by_workbook_column:{ads_spend_column_sheet or 'sheet1'}"
+    elif source in {"sheet", "name+sheet", "sheet_overrode_name"} and ads_sheet_found:
+        detection_reason = f"{source}:{ads_sheet_found}"
+
     return {
         "path": path,
         "file": name,
         "type": chosen,
         "source": source if chosen else "unknown",
+        "detection_reason": detection_reason,
         "name_scores": name_scores,
         "sheet_scores": sheet_scores,
         "column_scores": col_scores,
         "columns": columns,
         "sheet_names": sheet_names,
         "ads_sheet_found": ads_sheet_found,
+        "supplier_goods_sheet_found": supplier_goods_sheet_found,
+        "supplier_goods_candidate": supplier_goods_candidate,
+        "supplier_goods_reason": ", ".join(supplier_goods_candidate_reasons),
+        "ads_candidate": ads_candidate,
+        "ads_candidate_reason": ", ".join(ads_candidate_reasons),
+        "ads_spend_column_found": ads_spend_column_found,
+        "ads_spend_column_sheet": ads_spend_column_sheet,
         "ads_name_hint": ads_name_hint,
         "read_error": read_error,
     }
@@ -1035,6 +1400,29 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
     ads_rows_raw = 0
     ads_rows_usable = 0
     ads_loader_issues: List[str] = []
+    input_files_detected = len(details)
+    supplier_goods_candidates: List[Dict[str, str]] = []
+    ads_candidates: List[Dict[str, str]] = []
+    detection_reason: Dict[str, str] = {}
+
+    for item in details:
+        file_name = str(item.get("file") or os.path.basename(str(item.get("path") or "")))
+        if file_name:
+            detection_reason[file_name] = str(item.get("detection_reason") or item.get("source") or "unknown")
+        if bool(item.get("supplier_goods_candidate")):
+            supplier_goods_candidates.append(
+                {
+                    "file": file_name,
+                    "reason": str(item.get("supplier_goods_reason") or "candidate"),
+                }
+            )
+        if bool(item.get("ads_candidate")):
+            ads_candidates.append(
+                {
+                    "file": file_name,
+                    "reason": str(item.get("ads_candidate_reason") or "candidate"),
+                }
+            )
 
     ads_detected_initial = list(discovered.get("ads", []))
 
@@ -1047,9 +1435,13 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
             return False
         if str(detail.get("type") or "") == "ads":
             return True
+        if bool(detail.get("ads_candidate")):
+            return True
         if bool(detail.get("ads_name_hint")):
             return True
         if str(detail.get("ads_sheet_found") or "").strip():
+            return True
+        if bool(detail.get("ads_spend_column_found")):
             return True
         norm_name = _normalize_text(str(detail.get("file") or ""))
         return any(token and token in norm_name for token in normalized_ads_name_tokens)
@@ -1269,8 +1661,12 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
         "warnings": warnings,
         "debug": {
             "input_dir": input_dir,
+            "input_files_detected": int(input_files_detected),
             "discovered": discovered,
             "details": details,
+            "supplier_goods_candidates": supplier_goods_candidates,
+            "ads_candidates": ads_candidates,
+            "detection_reason": detection_reason,
             "primary_sales_source": primary_sales_source,
             "primary_sales_columns": primary_sales_columns,
             "ads_file_candidates_found": len(ads_candidate_paths),

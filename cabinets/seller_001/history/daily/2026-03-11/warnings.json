@@ -1,31 +1,99 @@
 [
   {
     "code": "input_files_found",
-    "message": "Input files found: total=0, sales=0, ads=0, stocks=0, unknown=0"
+    "message": "Input files found: total=2, sales=1, ads=1, stocks=0, unknown=0"
   },
   {
-    "code": "input_files_missing",
-    "message": "No local input files found in cabinets/seller_001/input"
+    "code": "input_file_detected_type",
+    "message": "Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx => sales (columns_overrode_name)"
   },
   {
-    "code": "sales_report_missing",
-    "message": "No valid sales report found in input/."
+    "code": "input_file_detected_type",
+    "message": "Статистика (12).xlsx => ads (ads_name_hint)"
   },
   {
-    "code": "ads_report_missing",
-    "message": "No valid ads report found in input/."
+    "code": "primary_sales_source",
+    "message": "Primary sales source: Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx"
+  },
+  {
+    "code": "primary_sales_matched_columns",
+    "message": "Primary sales matched columns: sku=код_номенклатуры, revenue=к_перечислению_продавцу_за_реализованный_товар, profit=, orders=кол_во, buys=кол_во"
+  },
+  {
+    "code": "ads_file_loaded",
+    "message": "Ads report loaded from file: Статистика (12).xlsx"
   },
   {
     "code": "stocks_report_missing",
     "message": "No valid stocks report found in input/."
   },
   {
-    "code": "weak_kpi_source",
-    "message": "Daily KPI derived from metrics totals fallback."
+    "code": "supplier_goods_report_detected",
+    "message": "Supplier goods report detected: Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx"
   },
   {
-    "code": "financial_data_missing",
-    "message": "данные о продажах не получены"
+    "code": "quantity_orders_fallback_blocked",
+    "message": "quantity column cannot be used as orders_count fallback"
+  },
+  {
+    "code": "daily_orders_count_unknown",
+    "message": "daily_orders_count is unknown: no_confirmed_orders_source: supplier_goods/api.orders/api.sales; quantity_hint_blocked_for_orders_count (sku_activity_hint=29)"
+  },
+  {
+    "code": "daily_buyouts_count_unknown",
+    "message": "daily_buyouts_count is unknown: no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization; quantity_hint_blocked_for_buyouts_count (sku_activity_hint=29)"
+  },
+  {
+    "code": "daily_kpi_unknown",
+    "message": "daily orders/buyouts counts remain unknown because no confirmed source is available"
+  },
+  {
+    "code": "invalid_sku_filtered",
+    "message": "Filtered invalid SKU rows: 3"
+  },
+  {
+    "code": "invalid_sku_reason_breakdown",
+    "message": "Invalid SKU reason breakdown: invalid_literal=3"
+  },
+  {
+    "code": "unassigned_costs_detected",
+    "message": "Part of costs is not assigned to SKU and stored in unassigned_costs."
+  },
+  {
+    "code": "sales_activity_zero_revenue",
+    "message": "sales activity exists but revenue attribution is zero: 333615320, 739384273, 590614192, 453526507, 414589567, 283212418"
+  },
+  {
+    "code": "cost_price_missing",
+    "message": "Cost price is missing; financial net profit is partial."
+  },
+  {
+    "code": "expense_attribution_partial",
+    "message": "Expense attribution is partial due to unassigned or invalid SKU rows."
+  },
+  {
+    "code": "net_profit_partial",
+    "message": "Net profit is partial due to missing or partially attributed financial components."
+  },
+  {
+    "code": "financial_margin_not_final",
+    "message": "Financial margin is not final because net profit is partial."
+  },
+  {
+    "code": "ads_file_loaded",
+    "message": "Ads report loaded from file: Статистика (12).xlsx"
+  },
+  {
+    "code": "ads_attribution_partial",
+    "message": "Ads attribution includes associated conversions (mixed_direct_and_associated)."
+  },
+  {
+    "code": "ads_spend_applied_to_profit",
+    "message": "Ads spend applied to net profit calculation."
+  },
+  {
+    "code": "net_profit_reduced_by_ads",
+    "message": "Net profit reduced by ads spend."
   },
   {
     "code": "low_total_profit",
@@ -34,6 +102,10 @@
   {
     "code": "territorial_distribution_built",
     "message": "Territorial distribution built for 0 SKU with KTR"
+  },
+  {
+    "code": "insufficient_warehouse_data",
+    "message": "Insufficient warehouse-level data for full territorial analysis"
   },
   {
     "code": "no_decisions_ready_for_outcome",

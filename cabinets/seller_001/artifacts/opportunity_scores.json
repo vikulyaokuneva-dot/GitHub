@@ -1,4 +1,15 @@
 {
-  "opportunities": [],
-  "top_opportunities": []
+  "opportunities": [
+    {
+      "sku": "452102417",
+      "score": 0.958738,
+      "profit": 461.88,
+      "margin_pct": 1.053558,
+      "abc_class": "C",
+      "health_status": "SCALE"
+    }
+  ],
+  "top_opportunities": [
+    "452102417"
+  ]
 }

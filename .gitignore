@@ -1,26 +1,44 @@
 # Python
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
 *.pyd
-.Python
-.venv/
-venv/
-ENV/
-.env
 
-# OS/editor
-.DS_Store
+# VS Code
 .vscode/
+.history/
 
-# Outputs
-out/
-audit/artifacts/
+# OS
+.DS_Store
+Thumbs.db
 
-# v3 multi-cabinet local secrets & raw data
-cabinets/**/secrets.env
-cabinets/**/data/raw/
-cabinets/**/reports/
+# Virtual env
+venv/
+.env/
 
-# local artifacts
+# Logs
 *.log
+
+# Runtime artifacts
+cabinets/*/artifacts/*.json
+cabinets/*/history/**
+cabinets/*/memory/**
+cabinets/*/reports/**
+cabinets/_batch/*.json
+
+# User input files
+cabinets/*/input/*.xlsx
+cabinets/*/input/*.csv
+
+# Keep empty folders
+!cabinets/*/input/.gitkeep
+!cabinets/*/artifacts/.gitkeep
+
+# Temporary
+tmp/
+temp/
+
+# Secrets
+.env
+secrets.json
+config.local.json

@@ -2,80 +2,80 @@
   {
     "sku": "453526507",
     "revenue": 2448.51,
-    "profit": 2156.71,
-    "share": 0.253668,
-    "cumulative_share": 0.253668,
+    "profit": 2364.26,
+    "share": 0.248603,
+    "cumulative_share": 0.248603,
     "abc_class": "A"
   },
   {
     "sku": "452102417",
     "revenue": 2315.66,
-    "profit": 2115.46,
-    "share": 0.248816,
-    "cumulative_share": 0.502485,
+    "profit": 2348.76,
+    "share": 0.246974,
+    "cumulative_share": 0.495577,
     "abc_class": "A"
   },
   {
     "sku": "333615320",
     "revenue": 3014.22,
-    "profit": 1071.62,
-    "share": 0.126042,
-    "cumulative_share": 0.628527,
+    "profit": 1373.25,
+    "share": 0.144398,
+    "cumulative_share": 0.639975,
     "abc_class": "A"
   },
   {
     "sku": "739384273",
     "revenue": 983.28,
-    "profit": 902.68,
-    "share": 0.106172,
-    "cumulative_share": 0.734698,
+    "profit": 973.15,
+    "share": 0.102327,
+    "cumulative_share": 0.742302,
     "abc_class": "A"
   },
   {
     "sku": "430679462",
     "revenue": 803.46,
-    "profit": 725.46,
-    "share": 0.085327,
-    "cumulative_share": 0.820025,
+    "profit": 770.72,
+    "share": 0.081042,
+    "cumulative_share": 0.823344,
     "abc_class": "B"
   },
   {
     "sku": "583470321",
     "revenue": 551.64,
-    "profit": 508.74,
-    "share": 0.059837,
-    "cumulative_share": 0.879862,
+    "profit": 567.38,
+    "share": 0.05966,
+    "cumulative_share": 0.883004,
     "abc_class": "B"
   },
   {
     "sku": "590614192",
     "revenue": 484.48,
-    "profit": 444.18,
-    "share": 0.052244,
-    "cumulative_share": 0.932106,
+    "profit": 473.11,
+    "share": 0.049748,
+    "cumulative_share": 0.932752,
     "abc_class": "B"
   },
   {
     "sku": "584904841",
     "revenue": 543.88,
-    "profit": 397.68,
-    "share": 0.046774,
-    "cumulative_share": 0.97888,
+    "profit": 417.27,
+    "share": 0.043876,
+    "cumulative_share": 0.976628,
     "abc_class": "C"
   },
   {
     "sku": "414589567",
     "revenue": 243.36,
-    "profit": 179.56,
-    "share": 0.02112,
-    "cumulative_share": 1.0,
+    "profit": 215.16,
+    "share": 0.022624,
+    "cumulative_share": 0.999252,
     "abc_class": "C"
   },
   {
     "sku": "739377515",
     "revenue": 0.0,
-    "profit": 0.0,
-    "share": 0.0,
+    "profit": 7.11,
+    "share": 0.000748,
     "cumulative_share": 1.0,
     "abc_class": "C"
   }

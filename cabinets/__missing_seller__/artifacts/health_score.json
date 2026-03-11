@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-11T11:33:19Z",
+  "generated_at": "2026-03-11T13:55:35Z",
   "seller_id": "__missing_seller__",
   "date": "2026-03-11",
   "items": [
@@ -63,12 +63,12 @@
     },
     {
       "sku": "333615320",
-      "health_score": 75,
+      "health_score": 85,
       "status": "SCALE",
       "confidence": "medium",
       "reasons": [
         "Profit > 0",
-        "Margin 20-39%",
+        "Margin >= 40%",
         "Sales velocity >= 5",
         "Ads data partial (cpo/ads_spend only)"
       ],
@@ -266,11 +266,11 @@
     },
     {
       "sku": "739377515",
-      "health_score": 35,
-      "status": "LIQUIDATE",
+      "health_score": 50,
+      "status": "FIX",
       "confidence": "medium",
       "reasons": [
-        "Profit = 0",
+        "Profit > 0",
         "Margin < 5%",
         "Sales velocity 1-4",
         "Ads data partial (cpo/ads_spend only)"
@@ -278,18 +278,18 @@
       "actions": [
         {
           "priority": "P1",
-          "title": "Снижение цены/распродажа остатков",
-          "details": "Ускорить оборачиваемость и высвободить капитал."
+          "title": "Поднять маржу/проверить цену и себестоимость",
+          "details": "Пересчитать юнит-экономику и целевую цену."
         },
         {
           "priority": "P2",
-          "title": "Отключить рекламу",
-          "details": "Остановить неэффективные кампании до пересмотра unit-экономики."
+          "title": "Оптимизировать карточку (конверсия)",
+          "details": "Улучшить контент, фото, оффер и отзывы."
         },
         {
           "priority": "P3",
-          "title": "Решение: вывести из ассортимента",
-          "details": "Проверить целесообразность дальнейших закупок SKU."
+          "title": "Точечная реклама/ключи",
+          "details": "Оставить только высокоинтентные запросы и связки."
         }
       ]
     }
@@ -297,9 +297,9 @@
   "summary": {
     "total_skus": 10,
     "SCALE": 9,
-    "FIX": 0,
+    "FIX": 1,
     "WATCH": 0,
-    "LIQUIDATE": 1,
+    "LIQUIDATE": 0,
     "confidence": "medium",
     "reasons": [],
     "top_scale": [
@@ -307,28 +307,21 @@
         "sku": "453526507",
         "score": 85,
         "status": "SCALE",
-        "profit": 2156.71
+        "profit": 2364.26
       },
       {
         "sku": "452102417",
         "score": 85,
         "status": "SCALE",
-        "profit": 2115.46
+        "profit": 2348.76
       },
       {
-        "sku": "739384273",
+        "sku": "333615320",
         "score": 85,
         "status": "SCALE",
-        "profit": 902.68
+        "profit": 1373.25
       }
     ],
-    "top_liquidate": [
-      {
-        "sku": "739377515",
-        "score": 35,
-        "status": "LIQUIDATE",
-        "profit": 0.0
-      }
-    ]
+    "top_liquidate": []
   }
 }

@@ -7,8 +7,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 from zoneinfo import ZoneInfo
 
-from .analysis.ai_director import build_strategy_plan
-from .analysis.decision_engine import build_decisions
 from .analytics.abc_analysis import compute_abc
 from .analytics.growth_simulator import simulate_growth
 from .analytics.logistics_ktr import build_logistics_ktr
@@ -17,6 +15,7 @@ from .analytics.profit_contribution import build_profit_contribution, save_profi
 from .analytics.sku_health import compute_sku_health
 from .analytics.territorial_distribution import build_territorial_distribution, save_territorial_distribution
 from .config import load_seller_config
+from .decisions import build_decisions_layer
 from .history.history_store import save_daily_history_snapshot
 from .history.trend_anomalies import build_trend_anomalies, save_trend_anomalies
 from .history.weekly_intelligence import build_weekly_intelligence, save_weekly_intelligence
@@ -27,14 +26,18 @@ from .daily_kpi_resolver import (
     DAILY_SOURCE_SALES_API as _DAILY_SOURCE_SALES_API,
     resolve_daily_kpi,
 )
+from .domain.source_policy import SOURCE_UNKNOWN as _SOURCE_UNKNOWN
+from .domain.source_policy import resolve_source_policy
+from .metrics import build_metrics_from_normalized
 from .memory.decision_logger import log_decisions
 from .memory.decision_outcomes import evaluate_decision_outcomes, save_outcomes
+from .normalization import normalize_raw_bundle
 from .orchestrator import discover_sellers, run_audit
 from .paths import artifacts_dir, cabinet_root, input_dir, reports_dir
 from .pdf_render import write_text_pdf
+from .raw import build_raw_bundle
 from .sources.wb_reports_loader import (
     build_facts_from_reports,
-    build_metrics_from_reports,
     load_local_reports,
     load_supplier_goods_daily_kpi,
 )
@@ -258,7 +261,11 @@ def _append_daily_kpi_mismatch_warning(
     summary_daily_kpi: Dict[str, Any],
     supplier_goods_daily: Dict[str, Any],
 ) -> None:
-    if not isinstance(supplier_goods_daily, dict) or not bool(supplier_goods_daily.get("found")):
+    if (
+        not isinstance(supplier_goods_daily, dict)
+        or not bool(supplier_goods_daily.get("found"))
+        or not bool(supplier_goods_daily.get("kpi_confirmed", True))
+    ):
         return
     if not isinstance(summary_daily_kpi, dict):
         return
@@ -442,6 +449,10 @@ def _important_warnings(warnings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         "sales_activity_zero_revenue",
         "daily_kpi_fallback_used",
         "weak_kpi_source",
+        "daily_orders_count_unknown",
+        "daily_buyouts_count_unknown",
+        "daily_kpi_unknown",
+        "quantity_orders_fallback_blocked",
         "daily_kpi_mismatch_with_supplier_goods_report",
         "territorial_distribution_built",
         "insufficient_warehouse_data",
@@ -507,6 +518,10 @@ def _warning_message_ru(code: str, message: str) -> str:
         "sales_activity_zero_revenue": "Есть продажи по SKU, но выручка по ним не атрибутирована.",
         "daily_kpi_fallback_used": "Supplier goods report не найден, использован API fallback для daily KPI.",
         "weak_kpi_source": "Daily KPI рассчитаны из слабого источника metrics totals fallback.",
+        "daily_orders_count_unknown": "Количество заказов за день не подтверждено ни одним валидным источником.",
+        "daily_buyouts_count_unknown": "Количество выкупов за день не подтверждено ни одним валидным источником.",
+        "daily_kpi_unknown": "Daily KPI по заказам/выкупам не подтверждены валидным источником.",
+        "quantity_orders_fallback_blocked": "Колонка quantity не может использоваться как fallback для orders/buyouts count.",
         "daily_kpi_mismatch_with_supplier_goods_report": "Daily KPI не совпадает с supplier goods report WB.",
         "territorial_distribution_built": (
             f"Рассчитано территориальное распределение для {number} SKU."
@@ -602,8 +617,8 @@ def _build_ai_day_conclusion(
     buyouts_revenue = _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
     financial_revenue = _safe_float(totals.get("total_revenue", totals.get("revenue", 0.0)))
     profit = _safe_float(totals.get("net_profit", totals.get("profit", totals.get("total_profit", 0.0))))
-    orders = int(round(_safe_float(daily_kpi.get("daily_orders_count", totals.get("orders", 0)))))
-    buyouts = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", totals.get("buys", 0)))))
+    orders = int(round(_safe_float(daily_kpi.get("daily_orders_count", 0))))
+    buyouts = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", 0))))
     avg_buyout_check = buyouts_revenue / buyouts if (buyouts_revenue > 0 and buyouts > 0) else 0.0
     margin_pct = (profit / financial_revenue * 100.0) if financial_revenue > 0 else 0.0
 
@@ -656,13 +671,13 @@ def _build_management_email_body(
     ads_attribution_quality = str(summary.get("ads_attribution_quality") or "unknown")
     ads_applied_to_profit = bool(summary.get("ads_applied_to_profit", False))
     avg_check = _safe_float(summary.get("avg_check", 0.0))
-    daily_orders_count = int(round(_safe_float(summary.get("daily_orders_count", summary.get("orders", 0)))))
+    daily_orders_count = int(round(_safe_float(summary.get("daily_orders_count", 0))))
     daily_orders_amount = _safe_float(summary.get("daily_orders_amount", 0.0))
     daily_buyouts_count = int(round(_safe_float(summary.get("daily_buyouts_count", 0))))
     daily_buyouts_amount = _safe_float(summary.get("daily_buyouts_amount", 0.0))
-    orders_count_source = str(summary.get("data_source_orders_count") or summary.get("data_source_orders") or _DAILY_SOURCE_FALLBACK)
-    orders_amount_source = str(summary.get("data_source_orders_amount") or _DAILY_SOURCE_FALLBACK)
-    buyouts_source = str(summary.get("data_source_buyouts_count") or summary.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK)
+    orders_count_source = str(summary.get("data_source_orders_count") or summary.get("data_source_orders") or _SOURCE_UNKNOWN)
+    orders_amount_source = str(summary.get("data_source_orders_amount") or _SOURCE_UNKNOWN)
+    buyouts_source = str(summary.get("data_source_buyouts_count") or summary.get("data_source_buyouts") or _SOURCE_UNKNOWN)
     insights_raw = summary.get("key_insights", [])
     recommendations_raw = summary.get("recommendations", [])
     day_conclusion = str(summary.get("ai_day_conclusion", "")).strip()
@@ -850,7 +865,12 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
 
     if token:
         source_mode = "wb_api"
-        from .wb_client import WBClient
+        from .api.wb_client import WBApiClient
+        from .ingestion.api_orders_loader import load_orders_from_api
+        from .ingestion.api_realization_loader import load_realization_from_api
+        from .ingestion.api_sales_loader import load_sales_from_api
+        from .ingestion.api_stocks_loader import load_stocks_from_api
+        from .wb_client import WBClient as LegacyAdsClient
 
         report_timezone = _resolve_report_timezone(cfg)
         period = _resolve_wb_period(run_date, report_timezone)
@@ -861,12 +881,82 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             f"date_from={date_from} date_to={date_to} shifted_to_previous_day={period.get('shifted_to_previous_day')}"
         )
 
-        client = WBClient(token)
-        api_realization_rows = client.fetch_realization(date_from=date_from, date_to=date_to)
-        api_sales_rows = client.fetch_sales(date_from=date_from, date_to=date_to)
-        api_orders_rows = client.fetch_orders(date_from=date_from, date_to=date_to)
-        api_ads_rows = client.fetch_ads(date_from=date_from, date_to=date_to)
-        api_stocks_rows = client.fetch_stocks()
+        api_endpoint_debug: List[Dict[str, Any]] = []
+        client = WBApiClient(token)
+
+        realization_bundle = load_realization_from_api(client, date_from=date_from, date_to=date_to)
+        api_realization_rows = list(realization_bundle.get("rows", []))
+        realization_debug = realization_bundle.get("api_debug", {})
+        if isinstance(realization_debug, dict):
+            api_endpoint_debug.append(realization_debug)
+
+        sales_bundle = load_sales_from_api(client, date_from=date_from, date_to=date_to)
+        api_sales_rows = list(sales_bundle.get("rows", []))
+        sales_debug = sales_bundle.get("api_debug", {})
+        if isinstance(sales_debug, dict):
+            api_endpoint_debug.append(sales_debug)
+
+        orders_bundle = load_orders_from_api(client, date_from=date_from, date_to=date_to)
+        api_orders_rows = list(orders_bundle.get("rows", []))
+        orders_debug = orders_bundle.get("api_debug", {})
+        if isinstance(orders_debug, dict):
+            api_endpoint_debug.append(orders_debug)
+
+        try:
+            stocks_date_from = (datetime.strptime(date_from, "%Y-%m-%d").date() - timedelta(days=30)).isoformat()
+        except Exception:
+            stocks_date_from = date_from
+        stocks_bundle = load_stocks_from_api(client, date_from=stocks_date_from, date_to=date_to)
+        api_stocks_rows = list(stocks_bundle.get("rows", []))
+        stocks_debug = stocks_bundle.get("api_debug", {})
+        if isinstance(stocks_debug, dict):
+            api_endpoint_debug.append(stocks_debug)
+
+        try:
+            legacy_ads_client = LegacyAdsClient(token)
+            api_ads_rows = legacy_ads_client.fetch_ads(date_from=date_from, date_to=date_to)
+            api_endpoint_debug.append(
+                {
+                    "endpoint": "ads_legacy",
+                    "success": True,
+                    "fail": False,
+                    "rows_loaded": len(api_ads_rows),
+                    "date_from": date_from,
+                    "date_to": date_to,
+                    "error_text": "",
+                    "status_code": 200,
+                    "attempts": 1,
+                }
+            )
+        except Exception as exc:
+            api_ads_rows = []
+            api_endpoint_debug.append(
+                {
+                    "endpoint": "ads_legacy",
+                    "success": False,
+                    "fail": True,
+                    "rows_loaded": 0,
+                    "date_from": date_from,
+                    "date_to": date_to,
+                    "error_text": str(exc),
+                    "status_code": None,
+                    "attempts": 1,
+                }
+            )
+
+        failed_endpoints = [
+            str(item.get("endpoint") or "")
+            for item in api_endpoint_debug
+            if isinstance(item, dict) and not bool(item.get("success", False))
+        ]
+        if failed_endpoints:
+            warnings.append(
+                {
+                    "code": "wb_api_endpoint_failed",
+                    "message": "WB API endpoint failed: " + ", ".join(failed_endpoints),
+                }
+            )
+
         ads_rows = list(api_ads_rows)
         stocks_rows = list(api_stocks_rows)
 
@@ -965,6 +1055,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             "realization_rows": len(api_realization_rows),
             "ads_rows": len(api_ads_rows),
             "stocks_rows": len(api_stocks_rows),
+            "endpoints": api_endpoint_debug,
             "date_from": date_from,
             "date_to": date_to,
             "run_date_requested": run_date,
@@ -1020,6 +1111,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             "realization_rows": 0,
             "ads_rows": 0,
             "stocks_rows": 0,
+            "endpoints": [],
             "date_from": run_date,
             "date_to": run_date,
         }
@@ -1046,6 +1138,15 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     input_debug["ads_rows_usable"] = int(input_debug.get("ads_rows_usable", ads_rows_usable_current) or 0)
     input_debug["ads_loader_error"] = ads_loader_error
 
+    input_debug["source_priority"] = {
+        "sales": "api.realization -> api.sales -> local.sales",
+        "orders_kpi_count": "supplier_goods_confirmed_count -> api.orders -> api.sales -> unknown",
+        "buyouts_kpi_count": "supplier_goods_confirmed_count -> api.sales -> api.realization -> unknown",
+        "stocks": "api.stocks -> local.stocks",
+        "ads": "api.ads_legacy -> local.ads",
+        "supplier_goods_daily": "local_excel_financial_source",
+    }
+
     input_debug["supplier_goods_daily"] = supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {"found": False}
     input_debug["ads_loaded_from_file"] = bool(ads_loaded_from_file)
     input_debug["ads_source_file"] = ads_source_file
@@ -1060,7 +1161,33 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             }
         )
 
-    metrics = build_metrics_from_reports(sales_rows, ads_rows, stocks_rows)
+    raw_bundle = build_raw_bundle(
+        source_mode=source_mode,
+        sales_rows=sales_rows if isinstance(sales_rows, list) else [],
+        ads_rows=ads_rows if isinstance(ads_rows, list) else [],
+        stocks_rows=stocks_rows if isinstance(stocks_rows, list) else [],
+        api_orders_rows=api_orders_rows if isinstance(api_orders_rows, list) else [],
+        api_sales_rows=api_sales_rows if isinstance(api_sales_rows, list) else [],
+        api_realization_rows=api_realization_rows if isinstance(api_realization_rows, list) else [],
+        api_stocks_rows=api_stocks_rows if isinstance(api_stocks_rows, list) else [],
+        supplier_goods_daily=supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {},
+        discovered_files=discovered_files if isinstance(discovered_files, dict) else {},
+        input_debug=input_debug if isinstance(input_debug, dict) else {},
+        api_debug=api_debug if isinstance(api_debug, dict) else {},
+    )
+    normalized_bundle = normalize_raw_bundle(raw_bundle)
+    metrics = build_metrics_from_normalized(normalized_bundle)
+    if isinstance(input_debug, dict):
+        input_debug["raw_layer"] = {
+            "source_mode": raw_bundle.source_mode,
+            "sales_rows": len(raw_bundle.sales_rows),
+            "ads_rows": len(raw_bundle.ads_rows),
+            "stocks_rows": len(raw_bundle.stocks_rows),
+            "api_orders_rows": len(raw_bundle.api_orders_rows),
+            "api_sales_rows": len(raw_bundle.api_sales_rows),
+            "api_realization_rows": len(raw_bundle.api_realization_rows),
+        }
+        input_debug["normalization_layer"] = normalized_bundle.debug if isinstance(normalized_bundle.debug, dict) else {}
     totals_for_daily = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
     if not isinstance(totals_for_daily, dict):
         totals_for_daily = {}
@@ -1108,6 +1235,38 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     ads_rows_raw = int(input_debug.get("ads_rows_raw", 0) or 0) if isinstance(input_debug, dict) else 0
     ads_rows_usable = int(input_debug.get("ads_rows_usable", ads_rows_count) or 0) if isinstance(input_debug, dict) else ads_rows_count
     ads_loader_error = str(input_debug.get("ads_loader_error") or "") if isinstance(input_debug, dict) else ""
+    source_policy = resolve_source_policy(
+        source_mode=source_mode,
+        daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
+        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+        supplier_goods_daily=supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {},
+        api_debug=api_debug if isinstance(api_debug, dict) else {},
+        input_debug=input_debug if isinstance(input_debug, dict) else {},
+        ads_loaded_from_file=bool(ads_loaded_from_file),
+        ads_rows_count=int(ads_rows_count),
+    )
+    source_map = source_policy.get("sources", {}) if isinstance(source_policy, dict) else {}
+    if not isinstance(source_map, dict):
+        source_map = {}
+    source_flags = source_policy.get("source_flags", {}) if isinstance(source_policy, dict) else {}
+    if not isinstance(source_flags, dict):
+        source_flags = {}
+    data_source_orders_count = str(source_map.get("orders_count") or _SOURCE_UNKNOWN)
+    data_source_buyouts_count = str(source_map.get("buyouts_count") or _SOURCE_UNKNOWN)
+    data_source_orders_amount = str(source_map.get("orders_amount") or _SOURCE_UNKNOWN)
+    data_source_buyouts_amount = str(source_map.get("buyouts_amount") or _SOURCE_UNKNOWN)
+    data_source_revenue = str(source_map.get("revenue") or _SOURCE_UNKNOWN)
+    data_source_wb_commission = str(source_map.get("wb_commission") or _SOURCE_UNKNOWN)
+    data_source_logistics = str(source_map.get("logistics") or _SOURCE_UNKNOWN)
+    data_source_storage = str(source_map.get("storage") or _SOURCE_UNKNOWN)
+    data_source_ads_spend = str(source_map.get("ads_spend") or _SOURCE_UNKNOWN)
+
+    daily_kpi["data_source_orders_count"] = data_source_orders_count
+    daily_kpi["data_source_buyouts_count"] = data_source_buyouts_count
+    daily_kpi["data_source_orders_amount"] = data_source_orders_amount
+    daily_kpi["data_source_buyouts_amount"] = data_source_buyouts_amount
+    daily_kpi["data_source_orders"] = str(daily_kpi.get("data_source_orders_count") or _SOURCE_UNKNOWN)
+    daily_kpi["data_source_buyouts"] = str(daily_kpi.get("data_source_buyouts_count") or _SOURCE_UNKNOWN)
 
     metrics["ads_ingestion"] = {
         "ads_rows": ads_rows_count,
@@ -1122,6 +1281,9 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "ads_rows_usable": ads_rows_usable,
         "ads_loader_error": ads_loader_error,
     }
+    metrics["source_policy"] = source_policy if isinstance(source_policy, dict) else {}
+    metrics["data_sources"] = source_map
+    metrics["source_flags"] = source_flags
     if isinstance(input_debug, dict):
         input_debug["ads_rows"] = ads_rows_count
         input_debug["ads_rows_raw"] = int(max(ads_rows_raw, ads_rows_usable))
@@ -1132,6 +1294,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         input_debug["ads_columns_detected"] = ads_columns_detected
         input_debug["ads_loader_error"] = ads_loader_error
         input_debug["ads_attribution_quality"] = ads_attribution_quality
+        input_debug["source_policy"] = source_policy if isinstance(source_policy, dict) else {}
     metrics["daily_kpi"] = daily_kpi
     metrics["commerce_kpi"] = {
         "daily_orders_count": int(daily_kpi.get("daily_orders_count", 0) or 0),
@@ -1147,30 +1310,18 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             else 0.0,
             2,
         ),
-        "data_source_orders_count": str(
-            daily_kpi.get("data_source_orders_count")
-            or daily_kpi.get("data_source_orders")
-            or _DAILY_SOURCE_FALLBACK
-        ),
-        "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _DAILY_SOURCE_FALLBACK),
-        "data_source_buyouts_count": str(
-            daily_kpi.get("data_source_buyouts_count")
-            or daily_kpi.get("data_source_buyouts")
-            or _DAILY_SOURCE_FALLBACK
-        ),
-        "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _DAILY_SOURCE_FALLBACK),
+        "data_source_orders_count": data_source_orders_count,
+        "data_source_orders_amount": data_source_orders_amount,
+        "data_source_buyouts_count": data_source_buyouts_count,
+        "data_source_buyouts_amount": data_source_buyouts_amount,
+        "orders_count_confirmed": bool(daily_kpi.get("orders_count_confirmed", False)),
+        "buyouts_count_confirmed": bool(daily_kpi.get("buyouts_count_confirmed", False)),
         "orders_amount_confirmed": bool(daily_kpi.get("orders_amount_confirmed", False)),
         "buyouts_amount_confirmed": bool(daily_kpi.get("buyouts_amount_confirmed", False)),
     }
 
-    orders_sources = {
-        str(daily_kpi.get("data_source_orders_count") or daily_kpi.get("data_source_orders") or ""),
-        str(daily_kpi.get("data_source_orders_amount") or ""),
-    }
-    buyouts_sources = {
-        str(daily_kpi.get("data_source_buyouts_count") or daily_kpi.get("data_source_buyouts") or ""),
-        str(daily_kpi.get("data_source_buyouts_amount") or ""),
-    }
+    orders_sources = {data_source_orders_count, data_source_orders_amount}
+    buyouts_sources = {data_source_buyouts_count, data_source_buyouts_amount}
     kpi_sources = {source for source in (orders_sources | buyouts_sources) if source}
     api_sources = {
         _DAILY_SOURCE_ORDERS_API,
@@ -1189,6 +1340,44 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             {
                 "code": "weak_kpi_source",
                 "message": "Daily KPI derived from metrics totals fallback.",
+            }
+        )
+    if bool(daily_kpi.get("quantity_fallback_blocked", False)):
+        warnings.append(
+            {
+                "code": "quantity_orders_fallback_blocked",
+                "message": "quantity column cannot be used as orders_count fallback",
+            }
+        )
+    orders_unknown_reason = str(daily_kpi.get("orders_count_unknown_reason") or "").strip()
+    buyouts_unknown_reason = str(daily_kpi.get("buyouts_count_unknown_reason") or "").strip()
+    if data_source_orders_count == _SOURCE_UNKNOWN:
+        warnings.append(
+            {
+                "code": "daily_orders_count_unknown",
+                "message": (
+                    f"daily_orders_count is unknown: {orders_unknown_reason}"
+                    if orders_unknown_reason
+                    else "daily_orders_count is unknown: no confirmed source"
+                ),
+            }
+        )
+    if data_source_buyouts_count == _SOURCE_UNKNOWN:
+        warnings.append(
+            {
+                "code": "daily_buyouts_count_unknown",
+                "message": (
+                    f"daily_buyouts_count is unknown: {buyouts_unknown_reason}"
+                    if buyouts_unknown_reason
+                    else "daily_buyouts_count is unknown: no confirmed source"
+                ),
+            }
+        )
+    if data_source_orders_count == _SOURCE_UNKNOWN and data_source_buyouts_count == _SOURCE_UNKNOWN:
+        warnings.append(
+            {
+                "code": "daily_kpi_unknown",
+                "message": "daily orders/buyouts counts remain unknown because no confirmed source is available",
             }
         )
     _append_daily_kpi_mismatch_warning(
@@ -1353,6 +1542,23 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     facts["ads_rows_usable"] = int(input_debug.get("ads_rows_usable", ads_rows_count) or 0) if isinstance(input_debug, dict) else ads_rows_count
     facts["ads_loader_error"] = str(input_debug.get("ads_loader_error") or "") if isinstance(input_debug, dict) else ""
     facts["ads_attribution_quality"] = ads_attribution_quality
+    facts["data_source_orders_count"] = data_source_orders_count
+    facts["data_source_buyouts_count"] = data_source_buyouts_count
+    facts["data_source_orders_amount"] = data_source_orders_amount
+    facts["data_source_buyouts_amount"] = data_source_buyouts_amount
+    facts["orders_count_confirmed"] = bool(daily_kpi.get("orders_count_confirmed", False))
+    facts["buyouts_count_confirmed"] = bool(daily_kpi.get("buyouts_count_confirmed", False))
+    facts["data_source_revenue"] = data_source_revenue
+    facts["data_source_wb_commission"] = data_source_wb_commission
+    facts["data_source_logistics"] = data_source_logistics
+    facts["data_source_storage"] = data_source_storage
+    facts["data_source_ads_spend"] = data_source_ads_spend
+    facts["sku_activity_orders_hint"] = int(daily_kpi.get("sku_activity_orders_hint", 0) or 0)
+    facts["sku_activity_buyouts_hint"] = int(daily_kpi.get("sku_activity_buyouts_hint", 0) or 0)
+    facts["orders_count_unknown_reason"] = str(daily_kpi.get("orders_count_unknown_reason") or "")
+    facts["buyouts_count_unknown_reason"] = str(daily_kpi.get("buyouts_count_unknown_reason") or "")
+    facts["source_flags"] = source_flags
+    facts["source_policy"] = source_policy if isinstance(source_policy, dict) else {}
     if isinstance(facts.get("data_quality"), dict):
         fact_financial_status = str(facts["data_quality"].get("financial_status") or "ok")
         facts["data_quality"]["ads_attribution_quality"] = ads_attribution_quality
@@ -1519,23 +1725,28 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
 
     health_payload = compute_sku_health(facts, metrics)
     health_summary = health_payload.get("summary", {}) if isinstance(health_payload, dict) else {}
-    decisions_payload = build_decisions(metrics, abc_rows, health_payload, territorial_distribution, logistics_ktr)
-    decisions_summary = decisions_payload.get("summary", {}) if isinstance(decisions_payload, dict) else {}
     growth_simulation = simulate_growth(metrics if isinstance(metrics, dict) else {})
     opportunity_scores = compute_opportunity_scores(
         metrics if isinstance(metrics, dict) else {},
         abc_rows if isinstance(abc_rows, list) else [],
         health_payload if isinstance(health_payload, dict) else {},
     )
-    director_strategy = build_strategy_plan(
-        metrics if isinstance(metrics, dict) else {},
-        abc_rows if isinstance(abc_rows, list) else [],
-        health_payload if isinstance(health_payload, dict) else {},
-        territorial_distribution if isinstance(territorial_distribution, dict) else {},
-        logistics_ktr if isinstance(logistics_ktr, dict) else {},
-        opportunity_scores if isinstance(opportunity_scores, dict) else {},
-        growth_simulation if isinstance(growth_simulation, dict) else {},
+    decisions_layer_payload = build_decisions_layer(
+        metrics=metrics if isinstance(metrics, dict) else {},
+        abc_rows=abc_rows if isinstance(abc_rows, list) else [],
+        health_payload=health_payload if isinstance(health_payload, dict) else {},
+        territorial_distribution=territorial_distribution if isinstance(territorial_distribution, dict) else {},
+        logistics_ktr=logistics_ktr if isinstance(logistics_ktr, dict) else {},
+        opportunity_scores=opportunity_scores if isinstance(opportunity_scores, dict) else {},
+        growth_simulation=growth_simulation if isinstance(growth_simulation, dict) else {},
     )
+    decisions_payload = decisions_layer_payload.get("decisions_payload", {})
+    if not isinstance(decisions_payload, dict):
+        decisions_payload = {}
+    decisions_summary = decisions_payload.get("summary", {}) if isinstance(decisions_payload, dict) else {}
+    director_strategy = decisions_layer_payload.get("director_strategy", {})
+    if not isinstance(director_strategy, dict):
+        director_strategy = {}
 
     job = {
         "seller_id": seller_id,
@@ -1573,20 +1784,24 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "ads_rows_usable": int(input_debug.get("ads_rows_usable", ads_rows_count) or 0) if isinstance(input_debug, dict) else ads_rows_count,
         "ads_loader_error": str(input_debug.get("ads_loader_error") or "") if isinstance(input_debug, dict) else "",
         "ads_attribution_quality": ads_attribution_quality,
-        "data_source_orders": str(daily_kpi.get("data_source_orders") or _DAILY_SOURCE_FALLBACK),
-        "data_source_orders_count": str(
-            daily_kpi.get("data_source_orders_count")
-            or daily_kpi.get("data_source_orders")
-            or _DAILY_SOURCE_FALLBACK
-        ),
-        "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _DAILY_SOURCE_FALLBACK),
-        "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK),
-        "data_source_buyouts_count": str(
-            daily_kpi.get("data_source_buyouts_count")
-            or daily_kpi.get("data_source_buyouts")
-            or _DAILY_SOURCE_FALLBACK
-        ),
-        "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _DAILY_SOURCE_FALLBACK),
+        "data_source_orders": data_source_orders_count,
+        "data_source_orders_count": data_source_orders_count,
+        "data_source_orders_amount": data_source_orders_amount,
+        "data_source_buyouts": data_source_buyouts_count,
+        "data_source_buyouts_count": data_source_buyouts_count,
+        "data_source_buyouts_amount": data_source_buyouts_amount,
+        "orders_count_confirmed": bool(daily_kpi.get("orders_count_confirmed", False)),
+        "buyouts_count_confirmed": bool(daily_kpi.get("buyouts_count_confirmed", False)),
+        "sku_activity_orders_hint": int(daily_kpi.get("sku_activity_orders_hint", 0) or 0),
+        "sku_activity_buyouts_hint": int(daily_kpi.get("sku_activity_buyouts_hint", 0) or 0),
+        "orders_count_unknown_reason": str(daily_kpi.get("orders_count_unknown_reason") or ""),
+        "buyouts_count_unknown_reason": str(daily_kpi.get("buyouts_count_unknown_reason") or ""),
+        "data_source_revenue": data_source_revenue,
+        "data_source_wb_commission": data_source_wb_commission,
+        "data_source_logistics": data_source_logistics,
+        "data_source_storage": data_source_storage,
+        "data_source_ads_spend": data_source_ads_spend,
+        "source_flags": source_flags,
         "orders_amount_confirmed": bool(daily_kpi.get("orders_amount_confirmed", False)),
         "buyouts_amount_confirmed": bool(daily_kpi.get("buyouts_amount_confirmed", False)),
         "financial_completeness_pct": round(_safe_float(financial_kpi.get("completeness_pct", 0.0)), 2),
@@ -1596,6 +1811,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             "job.json",
             "facts.json",
             "metrics.json",
+            "api_debug.json",
             "financial_debug.json",
             "warnings.json",
             "abc_analysis.json",
@@ -1621,6 +1837,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     write_json(os.path.join(out_dir, "growth_simulation.json"), growth_simulation)
     write_json(os.path.join(out_dir, "opportunity_scores.json"), opportunity_scores)
     write_json(os.path.join(out_dir, "director_strategy.json"), director_strategy)
+    write_json(os.path.join(out_dir, "api_debug.json"), api_debug if isinstance(api_debug, dict) else {})
 
     decision_rows_added = log_decisions(
         seller_id=seller_id,
@@ -1699,9 +1916,9 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         financial_kpi = _build_financial_kpi(totals if isinstance(totals, dict) else {}, data_quality if isinstance(data_quality, dict) else {})
     revenue_total = _safe_float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))))
     profit_total = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
-    daily_orders_count = int(round(_safe_float(daily_kpi.get("daily_orders_count", totals.get("orders", 0)))))
+    daily_orders_count = int(round(_safe_float(daily_kpi.get("daily_orders_count", 0))))
     daily_orders_amount = _safe_float(daily_kpi.get("daily_orders_amount", 0.0))
-    daily_buyouts_count = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", totals.get("buys", 0)))))
+    daily_buyouts_count = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", 0))))
     daily_buyouts_amount = _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
     avg_check = (daily_buyouts_amount / daily_buyouts_count) if (daily_buyouts_amount > 0 and daily_buyouts_count > 0) else 0.0
 
@@ -1740,10 +1957,12 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         f"Выкупы | {_format_int(daily_buyouts_count)}",
         f"К перечислению по выкупам | {_format_money_2(daily_buyouts_amount)}",
         f"Средний чек по выкупу | {_format_money_2(avg_check)}",
-        f"Источник orders_count | {str(daily_kpi.get('data_source_orders_count') or daily_kpi.get('data_source_orders') or _DAILY_SOURCE_FALLBACK)}",
-        f"Источник orders_amount | {str(daily_kpi.get('data_source_orders_amount') or _DAILY_SOURCE_FALLBACK)}",
-        f"Источник buyouts_count | {str(daily_kpi.get('data_source_buyouts_count') or daily_kpi.get('data_source_buyouts') or _DAILY_SOURCE_FALLBACK)}",
-        f"Источник buyouts_amount | {str(daily_kpi.get('data_source_buyouts_amount') or _DAILY_SOURCE_FALLBACK)}",
+        f"Источник orders_count | {str(daily_kpi.get('data_source_orders_count') or daily_kpi.get('data_source_orders') or _SOURCE_UNKNOWN)}",
+        f"Источник orders_amount | {str(daily_kpi.get('data_source_orders_amount') or _SOURCE_UNKNOWN)}",
+        f"Источник buyouts_count | {str(daily_kpi.get('data_source_buyouts_count') or daily_kpi.get('data_source_buyouts') or _SOURCE_UNKNOWN)}",
+        f"Источник buyouts_amount | {str(daily_kpi.get('data_source_buyouts_amount') or _SOURCE_UNKNOWN)}",
+        f"Orders count подтвержден | {'Да' if bool(daily_kpi.get('orders_count_confirmed', False)) else 'Нет'}",
+        f"Buyouts count подтвержден | {'Да' if bool(daily_kpi.get('buyouts_count_confirmed', False)) else 'Нет'}",
         f"Orders amount подтвержден | {'Да' if bool(daily_kpi.get('orders_amount_confirmed', False)) else 'Нет'}",
         f"Buyouts amount подтвержден | {'Да' if bool(daily_kpi.get('buyouts_amount_confirmed', False)) else 'Нет'}",
         f"Количество SKU | {_format_int(len(sku_metrics))}",
@@ -2026,20 +2245,22 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "daily_orders_amount": round(daily_orders_amount, 2),
         "daily_buyouts_count": daily_buyouts_count,
         "daily_buyouts_amount": round(daily_buyouts_amount, 2),
-        "data_source_orders": str(daily_kpi.get("data_source_orders") or _DAILY_SOURCE_FALLBACK),
+        "data_source_orders": str(daily_kpi.get("data_source_orders") or _SOURCE_UNKNOWN),
         "data_source_orders_count": str(
             daily_kpi.get("data_source_orders_count")
             or daily_kpi.get("data_source_orders")
-            or _DAILY_SOURCE_FALLBACK
+            or _SOURCE_UNKNOWN
         ),
-        "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _DAILY_SOURCE_FALLBACK),
-        "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK),
+        "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _SOURCE_UNKNOWN),
+        "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _SOURCE_UNKNOWN),
         "data_source_buyouts_count": str(
             daily_kpi.get("data_source_buyouts_count")
             or daily_kpi.get("data_source_buyouts")
-            or _DAILY_SOURCE_FALLBACK
+            or _SOURCE_UNKNOWN
         ),
-        "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _DAILY_SOURCE_FALLBACK),
+        "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _SOURCE_UNKNOWN),
+        "orders_count_confirmed": bool(daily_kpi.get("orders_count_confirmed", False)),
+        "buyouts_count_confirmed": bool(daily_kpi.get("buyouts_count_confirmed", False)),
         "key_insights": key_insights[:3],
         "recommendations": short_recommendations,
         "ai_day_conclusion": ai_day_conclusion,
@@ -2126,20 +2347,22 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             "daily_buyouts_count": daily_buyouts_count,
             "daily_buyouts_amount": round(daily_buyouts_amount, 2),
             "avg_check": round(avg_check, 2),
-            "data_source_orders": str(daily_kpi.get("data_source_orders") or _DAILY_SOURCE_FALLBACK),
+            "data_source_orders": str(daily_kpi.get("data_source_orders") or _SOURCE_UNKNOWN),
             "data_source_orders_count": str(
                 daily_kpi.get("data_source_orders_count")
                 or daily_kpi.get("data_source_orders")
-                or _DAILY_SOURCE_FALLBACK
+                or _SOURCE_UNKNOWN
             ),
-            "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _DAILY_SOURCE_FALLBACK),
-            "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _DAILY_SOURCE_FALLBACK),
+            "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _SOURCE_UNKNOWN),
+            "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _SOURCE_UNKNOWN),
             "data_source_buyouts_count": str(
                 daily_kpi.get("data_source_buyouts_count")
                 or daily_kpi.get("data_source_buyouts")
-                or _DAILY_SOURCE_FALLBACK
+                or _SOURCE_UNKNOWN
             ),
-            "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _DAILY_SOURCE_FALLBACK),
+            "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _SOURCE_UNKNOWN),
+            "orders_count_confirmed": bool(daily_kpi.get("orders_count_confirmed", False)),
+            "buyouts_count_confirmed": bool(daily_kpi.get("buyouts_count_confirmed", False)),
         },
         "daily_financial_kpi": {
             "revenue": round(revenue_total, 2),

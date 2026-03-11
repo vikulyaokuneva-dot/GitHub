@@ -25,7 +25,7 @@
   },
   {
     "code": "input_file_detected_type",
-    "message": "Статистика (11).xlsx => ads (name+sheet)"
+    "message": "Статистика (11).xlsx => ads (ads_name_hint)"
   },
   {
     "code": "primary_sales_source",
@@ -44,8 +44,12 @@
     "message": "Ads report loaded from file: Статистика (11).xlsx"
   },
   {
-    "code": "weak_kpi_source",
-    "message": "Daily KPI derived from metrics totals fallback."
+    "code": "supplier_goods_report_detected",
+    "message": "Supplier goods report detected: Еженедельный детализированный отчет №641536051_4297720 - 1.xlsx"
+  },
+  {
+    "code": "quantity_orders_fallback_blocked",
+    "message": "quantity column cannot be used as orders_count fallback"
   },
   {
     "code": "invalid_sku_filtered",
@@ -66,10 +70,6 @@
   {
     "code": "cost_price_missing",
     "message": "Cost price is missing; financial net profit is partial."
-  },
-  {
-    "code": "wb_commission_missing",
-    "message": "WB commission is missing; financial net profit is partial."
   },
   {
     "code": "expense_attribution_partial",
@@ -106,10 +106,6 @@
   {
     "code": "high_ktr_detected",
     "message": "High KTR detected for 2 SKU"
-  },
-  {
-    "code": "decision_memory_updated",
-    "message": "Decision memory updated: added 10 records."
   },
   {
     "code": "no_decisions_ready_for_outcome",

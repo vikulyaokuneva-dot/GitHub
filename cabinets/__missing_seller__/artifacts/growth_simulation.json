@@ -2,244 +2,244 @@
   "skus": [
     {
       "sku": "453526507",
-      "base_profit": 2156.71,
+      "base_profit": 2364.26,
       "simulations": [
         {
           "traffic_increase_pct": 10,
           "expected_orders": 23,
           "expected_buys": 23,
-          "expected_profit": 2372.38,
-          "profit_delta": 215.67
+          "expected_profit": 2600.69,
+          "profit_delta": 236.43
         },
         {
           "traffic_increase_pct": 20,
           "expected_orders": 25,
           "expected_buys": 25,
-          "expected_profit": 2588.05,
-          "profit_delta": 431.34
+          "expected_profit": 2837.11,
+          "profit_delta": 472.85
         },
         {
           "traffic_increase_pct": 30,
           "expected_orders": 27,
           "expected_buys": 27,
-          "expected_profit": 2803.72,
-          "profit_delta": 647.01
+          "expected_profit": 3073.54,
+          "profit_delta": 709.28
         }
       ]
     },
     {
       "sku": "452102417",
-      "base_profit": 2115.46,
+      "base_profit": 2348.76,
       "simulations": [
         {
           "traffic_increase_pct": 10,
           "expected_orders": 28,
           "expected_buys": 28,
-          "expected_profit": 2327.01,
-          "profit_delta": 211.55
+          "expected_profit": 2583.64,
+          "profit_delta": 234.88
         },
         {
           "traffic_increase_pct": 20,
           "expected_orders": 30,
           "expected_buys": 30,
-          "expected_profit": 2538.55,
-          "profit_delta": 423.09
+          "expected_profit": 2818.51,
+          "profit_delta": 469.75
         },
         {
           "traffic_increase_pct": 30,
           "expected_orders": 32,
           "expected_buys": 32,
-          "expected_profit": 2750.1,
-          "profit_delta": 634.64
+          "expected_profit": 3053.39,
+          "profit_delta": 704.63
         }
       ]
     },
     {
       "sku": "333615320",
-      "base_profit": 1071.62,
+      "base_profit": 1373.25,
       "simulations": [
         {
           "traffic_increase_pct": 10,
           "expected_orders": 37,
           "expected_buys": 37,
-          "expected_profit": 1178.78,
-          "profit_delta": 107.16
+          "expected_profit": 1510.58,
+          "profit_delta": 137.33
         },
         {
           "traffic_increase_pct": 20,
           "expected_orders": 41,
           "expected_buys": 41,
-          "expected_profit": 1285.94,
-          "profit_delta": 214.32
+          "expected_profit": 1647.9,
+          "profit_delta": 274.65
         },
         {
           "traffic_increase_pct": 30,
           "expected_orders": 44,
           "expected_buys": 44,
-          "expected_profit": 1393.11,
-          "profit_delta": 321.49
+          "expected_profit": 1785.23,
+          "profit_delta": 411.98
         }
       ]
     },
     {
       "sku": "739384273",
-      "base_profit": 902.68,
+      "base_profit": 973.15,
       "simulations": [
         {
           "traffic_increase_pct": 10,
           "expected_orders": 18,
           "expected_buys": 18,
-          "expected_profit": 992.95,
-          "profit_delta": 90.27
+          "expected_profit": 1070.47,
+          "profit_delta": 97.32
         },
         {
           "traffic_increase_pct": 20,
           "expected_orders": 19,
           "expected_buys": 19,
-          "expected_profit": 1083.22,
-          "profit_delta": 180.54
+          "expected_profit": 1167.78,
+          "profit_delta": 194.63
         },
         {
           "traffic_increase_pct": 30,
           "expected_orders": 21,
           "expected_buys": 21,
-          "expected_profit": 1173.48,
-          "profit_delta": 270.8
+          "expected_profit": 1265.1,
+          "profit_delta": 291.95
         }
       ]
     },
     {
       "sku": "430679462",
-      "base_profit": 725.46,
+      "base_profit": 770.72,
       "simulations": [
         {
           "traffic_increase_pct": 10,
           "expected_orders": 11,
           "expected_buys": 11,
-          "expected_profit": 798.01,
-          "profit_delta": 72.55
+          "expected_profit": 847.79,
+          "profit_delta": 77.07
         },
         {
           "traffic_increase_pct": 20,
           "expected_orders": 12,
           "expected_buys": 12,
-          "expected_profit": 870.55,
-          "profit_delta": 145.09
+          "expected_profit": 924.86,
+          "profit_delta": 154.14
         },
         {
           "traffic_increase_pct": 30,
           "expected_orders": 13,
           "expected_buys": 13,
-          "expected_profit": 943.1,
-          "profit_delta": 217.64
+          "expected_profit": 1001.94,
+          "profit_delta": 231.22
         }
       ]
     },
     {
       "sku": "583470321",
-      "base_profit": 508.74,
+      "base_profit": 567.38,
       "simulations": [
         {
           "traffic_increase_pct": 10,
           "expected_orders": 12,
           "expected_buys": 12,
-          "expected_profit": 559.61,
-          "profit_delta": 50.87
+          "expected_profit": 624.12,
+          "profit_delta": 56.74
         },
         {
           "traffic_increase_pct": 20,
           "expected_orders": 13,
           "expected_buys": 13,
-          "expected_profit": 610.49,
-          "profit_delta": 101.75
+          "expected_profit": 680.86,
+          "profit_delta": 113.48
         },
         {
           "traffic_increase_pct": 30,
           "expected_orders": 14,
           "expected_buys": 14,
-          "expected_profit": 661.36,
-          "profit_delta": 152.62
+          "expected_profit": 737.59,
+          "profit_delta": 170.21
         }
       ]
     },
     {
       "sku": "590614192",
-      "base_profit": 444.18,
+      "base_profit": 473.11,
       "simulations": [
         {
           "traffic_increase_pct": 10,
           "expected_orders": 10,
           "expected_buys": 10,
-          "expected_profit": 488.6,
-          "profit_delta": 44.42
+          "expected_profit": 520.42,
+          "profit_delta": 47.31
         },
         {
           "traffic_increase_pct": 20,
           "expected_orders": 11,
           "expected_buys": 11,
-          "expected_profit": 533.02,
-          "profit_delta": 88.84
+          "expected_profit": 567.73,
+          "profit_delta": 94.62
         },
         {
           "traffic_increase_pct": 30,
           "expected_orders": 12,
           "expected_buys": 12,
-          "expected_profit": 577.43,
-          "profit_delta": 133.25
+          "expected_profit": 615.04,
+          "profit_delta": 141.93
         }
       ]
     },
     {
       "sku": "584904841",
-      "base_profit": 397.68,
+      "base_profit": 417.27,
       "simulations": [
         {
           "traffic_increase_pct": 10,
           "expected_orders": 3,
           "expected_buys": 3,
-          "expected_profit": 437.45,
-          "profit_delta": 39.77
+          "expected_profit": 459.0,
+          "profit_delta": 41.73
         },
         {
           "traffic_increase_pct": 20,
           "expected_orders": 4,
           "expected_buys": 4,
-          "expected_profit": 477.22,
-          "profit_delta": 79.54
+          "expected_profit": 500.72,
+          "profit_delta": 83.45
         },
         {
           "traffic_increase_pct": 30,
           "expected_orders": 4,
           "expected_buys": 4,
-          "expected_profit": 516.98,
-          "profit_delta": 119.3
+          "expected_profit": 542.45,
+          "profit_delta": 125.18
         }
       ]
     },
     {
       "sku": "414589567",
-      "base_profit": 179.56,
+      "base_profit": 215.16,
       "simulations": [
         {
           "traffic_increase_pct": 10,
           "expected_orders": 3,
           "expected_buys": 3,
-          "expected_profit": 197.52,
-          "profit_delta": 17.96
+          "expected_profit": 236.68,
+          "profit_delta": 21.52
         },
         {
           "traffic_increase_pct": 20,
           "expected_orders": 4,
           "expected_buys": 4,
-          "expected_profit": 215.47,
-          "profit_delta": 35.91
+          "expected_profit": 258.19,
+          "profit_delta": 43.03
         },
         {
           "traffic_increase_pct": 30,
           "expected_orders": 4,
           "expected_buys": 4,
-          "expected_profit": 233.43,
-          "profit_delta": 53.87
+          "expected_profit": 279.71,
+          "profit_delta": 64.55
         }
       ]
     }

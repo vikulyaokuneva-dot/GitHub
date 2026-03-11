@@ -1,81 +1,81 @@
 {
   "opportunities": [
     {
-      "sku": "739384273",
-      "score": 1.432126,
-      "profit": 902.68,
-      "margin_pct": 0.918029,
+      "sku": "452102417",
+      "score": 1.582299,
+      "profit": 2348.76,
+      "margin_pct": 1.014294,
       "abc_class": "A",
       "health_status": "SCALE"
     },
     {
-      "sku": "452102417",
-      "score": 1.42513,
-      "profit": 2115.46,
-      "margin_pct": 0.913545,
+      "sku": "739384273",
+      "score": 1.543928,
+      "profit": 973.15,
+      "margin_pct": 0.989698,
       "abc_class": "A",
       "health_status": "SCALE"
     },
     {
       "sku": "453526507",
-      "score": 1.374088,
-      "profit": 2156.71,
-      "margin_pct": 0.880825,
+      "score": 1.506322,
+      "profit": 2364.26,
+      "margin_pct": 0.965591,
       "abc_class": "A",
       "health_status": "SCALE"
     },
     {
       "sku": "583470321",
-      "score": 1.198901,
-      "profit": 508.74,
-      "margin_pct": 0.922232,
+      "score": 1.337093,
+      "profit": 567.38,
+      "margin_pct": 1.028533,
       "abc_class": "B",
       "health_status": "SCALE"
     },
     {
       "sku": "590614192",
-      "score": 1.191863,
-      "profit": 444.18,
-      "margin_pct": 0.916818,
+      "score": 1.269491,
+      "profit": 473.11,
+      "margin_pct": 0.976532,
       "abc_class": "B",
       "health_status": "SCALE"
     },
     {
       "sku": "430679462",
-      "score": 1.173796,
-      "profit": 725.46,
-      "margin_pct": 0.90292,
+      "score": 1.247027,
+      "profit": 770.72,
+      "margin_pct": 0.959251,
       "abc_class": "B",
       "health_status": "SCALE"
     },
     {
       "sku": "414589567",
-      "score": 0.671432,
-      "profit": 179.56,
-      "margin_pct": 0.737837,
-      "abc_class": "C",
-      "health_status": "SCALE"
-    },
-    {
-      "sku": "584904841",
-      "score": 0.665384,
-      "profit": 397.68,
-      "margin_pct": 0.731191,
+      "score": 0.804551,
+      "profit": 215.16,
+      "margin_pct": 0.884122,
       "abc_class": "C",
       "health_status": "SCALE"
     },
     {
       "sku": "333615320",
-      "score": 0.554614,
-      "profit": 1071.62,
-      "margin_pct": 0.355521,
+      "score": 0.710721,
+      "profit": 1373.25,
+      "margin_pct": 0.455591,
       "abc_class": "A",
+      "health_status": "SCALE"
+    },
+    {
+      "sku": "584904841",
+      "score": 0.698161,
+      "profit": 417.27,
+      "margin_pct": 0.76721,
+      "abc_class": "C",
       "health_status": "SCALE"
     }
   ],
   "top_opportunities": [
-    "739384273",
     "452102417",
+    "739384273",
     "453526507",
     "583470321",
     "590614192"

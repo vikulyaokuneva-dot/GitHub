@@ -1,26 +1,27 @@
 {
   "strategy": {
     "scale": [
-      "739384273",
       "452102417",
+      "739384273",
       "453526507",
       "333615320"
     ],
     "fix": [],
     "watch": [
       "414589567",
-      "584904841"
+      "584904841",
+      "739377515"
     ],
     "liquidate": []
   },
   "tasks": [
     {
-      "sku": "739384273",
+      "sku": "452102417",
       "task": "increase_ads",
       "priority": "P1"
     },
     {
-      "sku": "452102417",
+      "sku": "739384273",
       "task": "increase_ads",
       "priority": "P1"
     },
@@ -35,12 +36,12 @@
       "priority": "P1"
     },
     {
-      "sku": "584904841",
+      "sku": "333615320",
       "task": "rebalance_stock",
       "priority": "P2"
     },
     {
-      "sku": "333615320",
+      "sku": "584904841",
       "task": "rebalance_stock",
       "priority": "P2"
     },
@@ -51,6 +52,11 @@
     },
     {
       "sku": "584904841",
+      "task": "monitor",
+      "priority": "P3"
+    },
+    {
+      "sku": "739377515",
       "task": "monitor",
       "priority": "P3"
     }

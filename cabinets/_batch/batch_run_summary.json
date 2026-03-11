@@ -10,43 +10,262 @@
       "mode": "daily",
       "run_date": "2026-03-11",
       "status": "partial_success",
-      "started_at": "2026-03-11T12:11:42Z",
-      "finished_at": "2026-03-11T12:11:43Z",
-      "error": "данные о продажах не получены",
+      "started_at": "2026-03-11T13:38:45Z",
+      "finished_at": "2026-03-11T13:38:48Z",
+      "error": "финансовая атрибуция частичная",
       "source_mode": "local_reports",
       "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
       "input_debug": {
         "input_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input",
+        "input_files_detected": 2,
         "discovered": {
-          "sales": [],
-          "ads": [],
+          "sales": [
+            "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx"
+          ],
+          "ads": [
+            "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Статистика (12).xlsx"
+          ],
           "stocks": [],
           "unknown": []
         },
-        "details": [],
-        "primary_sales_source": "",
-        "primary_sales_columns": {},
-        "ads_file_candidates_found": 0,
-        "ads_file_detected": false,
-        "ads_source_file": "",
-        "ads_sheet_found": "",
-        "ads_columns_detected": [],
-        "ads_rows_raw": 0,
-        "ads_rows_usable": 0,
+        "details": [
+          {
+            "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx",
+            "file": "Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx",
+            "type": "sales",
+            "source": "columns_overrode_name",
+            "detection_reason": "columns_overrode_name",
+            "name_scores": {
+              "sales": 1,
+              "ads": 0,
+              "stocks": 0
+            },
+            "sheet_scores": {
+              "sales": 0,
+              "ads": 0,
+              "stocks": 0
+            },
+            "column_scores": {
+              "sales": 5,
+              "ads": 3,
+              "stocks": 3
+            },
+            "columns": [
+              "№",
+              "Номер поставки",
+              "Предмет",
+              "Код номенклатуры",
+              "Бренд",
+              "Артикул поставщика",
+              "Название",
+              "Размер",
+              "Баркод",
+              "Тип документа",
+              "Обоснование для оплаты",
+              "Дата заказа покупателем",
+              "Дата продажи",
+              "Кол-во",
+              "Цена розничная",
+              "Вайлдберриз реализовал Товар (Пр)",
+              "Согласованный продуктовый дисконт, %",
+              "Промокод, %",
+              "Итоговая согласованная скидка, %",
+              "Цена розничная с учетом согласованной скидки",
+              "Размер снижения кВВ из-за рейтинга, %",
+              "Размер изменения кВВ из-за акции, %",
+              "Скидка постоянного Покупателя (СПП), %",
+              "Размер кВВ, %",
+              "Размер кВВ без НДС, % Базовый",
+              "Итоговый кВВ без НДС, %",
+              "Вознаграждение с продаж до вычета услуг поверенного, без НДС",
+              "Возмещение за выдачу и возврат товаров на ПВЗ",
+              "Эквайринг/Комиссии за организацию платежей",
+              "Размер комиссии за эквайринг/Комиссии за организацию платежей, %",
+              "Тип платежа за Эквайринг/Комиссии за организацию платежей",
+              "Вознаграждение Вайлдберриз (ВВ), без НДС",
+              "НДС с Вознаграждения Вайлдберриз",
+              "К перечислению Продавцу за реализованный Товар",
+              "Количество доставок",
+              "Количество возврата",
+              "Услуги по доставке товара покупателю",
+              "Дата начала действия фиксации",
+              "Дата конца действия фиксации",
+              "Признак услуги платной доставки",
+              "Общая сумма штрафов",
+              "Корректировка Вознаграждения Вайлдберриз (ВВ)",
+              "Виды логистики, штрафов и корректировок ВВ",
+              "Стикер МП",
+              "Наименование банка-эквайера",
+              "Номер офиса",
+              "Наименование офиса доставки",
+              "ИНН партнера",
+              "Партнер",
+              "Склад",
+              "Страна",
+              "Тип коробов",
+              "Номер таможенной декларации",
+              "Номер сборочного задания",
+              "Код маркировки",
+              "ШК",
+              "Srid",
+              "Возмещение издержек по перевозке/по складским операциям с товаром",
+              "Организатор перевозки",
+              "Хранение",
+              "Удержания",
+              "Операции на приемке",
+              "Фиксированный коэффициент склада по поставке",
+              "Признак продажи юридическому лицу",
+              "Номер короба для обработки товара",
+              "Скидка по программе софинансирования",
+              "Скидка Wibes, %",
+              "Компенсация скидки по программе лояльности",
+              "Стоимость участия в программе лояльности",
+              "Сумма удержанная за начисленные баллы программы лояльности",
+              "Id корзины заказа",
+              "Разовое изменение срока перечисления денежных средств",
+              "Id собственной акции продавца с дополнительной скидкой",
+              "Размер дополнительной скидки по собственной акции продавца, %",
+              "Способы продажи и тип товара",
+              "Уникальный идентификатор скидки лояльности от продавца",
+              "Размер скидки лояльности от продавца,%",
+              "Id промокода",
+              "Скидка за промокод, %"
+            ],
+            "sheet_names": [
+              "Sheet1"
+            ],
+            "ads_sheet_found": "",
+            "supplier_goods_sheet_found": "",
+            "supplier_goods_candidate": true,
+            "supplier_goods_reason": "name:ежедневный",
+            "ads_candidate": false,
+            "ads_candidate_reason": "",
+            "ads_spend_column_found": false,
+            "ads_spend_column_sheet": "",
+            "ads_name_hint": false,
+            "read_error": null
+          },
+          {
+            "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Статистика (12).xlsx",
+            "file": "Статистика (12).xlsx",
+            "type": "ads",
+            "source": "ads_name_hint",
+            "detection_reason": "ads_by_name:статистика",
+            "name_scores": {
+              "sales": 1,
+              "ads": 4,
+              "stocks": 0
+            },
+            "sheet_scores": {
+              "sales": 0,
+              "ads": 10,
+              "stocks": 0
+            },
+            "column_scores": {
+              "sales": 3,
+              "ads": 18,
+              "stocks": 1
+            },
+            "columns": [
+              "Название",
+              "Номенклатура",
+              "Затраты, RUB",
+              "Заказов на сумму, RUB",
+              "Показы",
+              "Клики",
+              "Добавлений в корзину",
+              "Заказанные товары, шт.",
+              "CTR(%)",
+              "CR (%)",
+              "CPM",
+              "CPC",
+              "CPO",
+              "Отмены",
+              "Средняя позиция",
+              "Номер мультикарточки",
+              "Тип конверсии"
+            ],
+            "sheet_names": [
+              "Статистика",
+              "Статистика по ключевым словам",
+              "Статистика по каталогу",
+              "Рекомендации"
+            ],
+            "ads_sheet_found": "Статистика",
+            "supplier_goods_sheet_found": "",
+            "supplier_goods_candidate": false,
+            "supplier_goods_reason": "",
+            "ads_candidate": true,
+            "ads_candidate_reason": "name:статистика, sheet:Статистика, workbook_column:Затраты, RUB@Статистика",
+            "ads_spend_column_found": true,
+            "ads_spend_column_sheet": "Статистика",
+            "ads_name_hint": true,
+            "read_error": null
+          }
+        ],
+        "supplier_goods_candidates": [
+          {
+            "file": "Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx",
+            "reason": "name:ежедневный"
+          }
+        ],
+        "ads_candidates": [
+          {
+            "file": "Статистика (12).xlsx",
+            "reason": "name:статистика, sheet:Статистика, workbook_column:Затраты, RUB@Статистика"
+          }
+        ],
+        "detection_reason": {
+          "Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx": "columns_overrode_name",
+          "Статистика (12).xlsx": "ads_by_name:статистика"
+        },
+        "primary_sales_source": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx",
+        "primary_sales_columns": {
+          "revenue": "к_перечислению_продавцу_за_реализованный_товар",
+          "orders": "кол_во",
+          "buys": "кол_во",
+          "sales_count": "кол_во",
+          "wb_commission": "вознаграждение_вайлдберриз_вв_без_ндс",
+          "logistics": "услуги_по_доставке_товара_покупателю",
+          "penalties": "общая_сумма_штрафов",
+          "storage": "хранение",
+          "deductions": "удержания",
+          "warehouse": "склад",
+          "seller_sku": "артикул_поставщика",
+          "sku": "код_номенклатуры"
+        },
+        "ads_file_candidates_found": 1,
+        "ads_file_detected": true,
+        "ads_source_file": "Статистика (12).xlsx",
+        "ads_sheet_found": "Статистика",
+        "ads_columns_detected": [
+          "ads_spend",
+          "clicks",
+          "conversion_type",
+          "cpc",
+          "cpo",
+          "ctr",
+          "impressions",
+          "orders",
+          "revenue",
+          "sku"
+        ],
+        "ads_rows_raw": 3,
+        "ads_rows_usable": 2,
         "ads_loader_error": "",
-        "ads_loaded_from_file": false,
-        "ads_sku_rows_count": 0,
-        "ads_campaign_total_rows": 0,
+        "ads_loaded_from_file": true,
+        "ads_sku_rows_count": 2,
+        "ads_campaign_total_rows": 1,
         "ads_campaign_totals": {
-          "ads_spend": 0.0,
-          "ads_revenue": 0.0,
-          "ads_orders": 0,
-          "ads_impressions": 0,
-          "ads_clicks": 0
+          "ads_spend": 643.91,
+          "ads_revenue": 1540.0,
+          "ads_orders": 2,
+          "ads_impressions": 1359,
+          "ads_clicks": 50
         },
         "loaded_rows": {
-          "sales": 0,
-          "ads": 0,
+          "sales": 19,
+          "ads": 3,
           "stocks": 0
         },
         "api_debug": {
@@ -59,10 +278,38 @@
           "date_to": "2026-03-11"
         },
         "supplier_goods_daily": {
-          "found": false
+          "source_file": "Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx",
+          "source_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx",
+          "rows_used": 0,
+          "matched_columns": {},
+          "orders_count": 0,
+          "orders_amount": 0.0,
+          "buyouts_count": 0,
+          "buyouts_amount": 0.0,
+          "kpi_confirmed": false,
+          "financial_columns_detected": [
+            "код_номенклатуры",
+            "к_перечислению_продавцу_за_реализованный_товар",
+            "вознаграждение_вайлдберриз",
+            "услуги_по_доставке_товара_покупателю",
+            "хранение",
+            "удержания",
+            "количество_возврата"
+          ],
+          "match_score": 9,
+          "detection_reason": "name:ежедневный, financial_columns:Sheet1",
+          "found": true,
+          "candidates_found": 1,
+          "input_files_detected": 2,
+          "supplier_goods_candidates": [
+            {
+              "file": "Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx",
+              "reason": "name:ежедневный, financial_columns:Sheet1"
+            }
+          ]
         },
-        "ads_rows": 0,
-        "ads_attribution_quality": "unknown"
+        "ads_rows": 2,
+        "ads_attribution_quality": "mixed_direct_and_associated"
       },
       "api_debug": {
         "sales_rows": 0,
@@ -77,29 +324,40 @@
       "daily_orders_amount": 0.0,
       "daily_buyouts_count": 0,
       "daily_buyouts_amount": 0.0,
-      "ads_rows": 0,
-      "ads_spend": 0.0,
-      "ads_loaded_from_file": false,
-      "ads_source_file": "",
-      "ads_file_candidates_found": 0,
-      "ads_file_detected": false,
-      "ads_sheet_found": "",
-      "ads_columns_detected": [],
-      "ads_rows_raw": 0,
-      "ads_rows_usable": 0,
+      "ads_rows": 2,
+      "ads_spend": 643.91,
+      "ads_loaded_from_file": true,
+      "ads_source_file": "Статистика (12).xlsx",
+      "ads_file_candidates_found": 1,
+      "ads_file_detected": true,
+      "ads_sheet_found": "Статистика",
+      "ads_columns_detected": [
+        "ads_spend",
+        "clicks",
+        "conversion_type",
+        "cpc",
+        "cpo",
+        "ctr",
+        "impressions",
+        "orders",
+        "revenue",
+        "sku"
+      ],
+      "ads_rows_raw": 3,
+      "ads_rows_usable": 2,
       "ads_loader_error": "",
-      "ads_attribution_quality": "unknown",
-      "data_source_orders": "metrics_totals_fallback",
-      "data_source_orders_count": "metrics_totals_fallback",
-      "data_source_orders_amount": "metrics_totals_fallback",
-      "data_source_buyouts": "metrics_totals_fallback",
-      "data_source_buyouts_count": "metrics_totals_fallback",
-      "data_source_buyouts_amount": "metrics_totals_fallback",
+      "ads_attribution_quality": "mixed_direct_and_associated",
+      "data_source_orders": "unknown",
+      "data_source_orders_count": "unknown",
+      "data_source_orders_amount": "unknown",
+      "data_source_buyouts": "unknown",
+      "data_source_buyouts_count": "unknown",
+      "data_source_buyouts_amount": "unknown",
       "orders_amount_confirmed": false,
       "buyouts_amount_confirmed": false,
-      "financial_completeness_pct": 100.0,
-      "financial_partial": false,
-      "data_quality": "degraded",
+      "financial_completeness_pct": 33.33,
+      "financial_partial": true,
+      "data_quality": "partial",
       "artifacts": [
         "job.json",
         "facts.json",
@@ -126,49 +384,51 @@
       "decision_outcomes_evaluated": 0,
       "decision_outcomes_file": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\memory\\outcomes\\2026-03-11_outcomes.json",
       "email_summary": {
-        "profit": 0.0,
-        "net_profit": 0.0,
-        "gross_profit": 0.0,
+        "profit": -291.37,
+        "net_profit": -291.37,
+        "gross_profit": 526.15,
         "cost_price": 0.0,
-        "wb_commission": 0.0,
-        "logistics": 0.0,
-        "storage": 0.0,
+        "wb_commission": -87.75,
+        "logistics": 128.0,
+        "storage": 45.61,
         "penalties": 0.0,
         "deductions": 0.0,
-        "ads_spend": 0.0,
-        "margin_pct": 0.0,
+        "ads_spend": 643.91,
+        "margin_pct": -66.46,
         "profitability_pct": 0.0,
-        "financial_completeness_pct": 100.0,
-        "financial_partial": false,
-        "ads_rows": 0,
-        "ads_impressions": 0,
-        "ads_clicks": 0,
-        "ads_orders": 0,
-        "ads_loaded_from_file": false,
-        "ads_source_file": "",
-        "ads_attribution_quality": "unknown",
-        "ads_applied_to_profit": false,
+        "financial_completeness_pct": 33.33,
+        "financial_partial": true,
+        "ads_rows": 2,
+        "ads_impressions": 1359,
+        "ads_clicks": 50,
+        "ads_orders": 2,
+        "ads_loaded_from_file": true,
+        "ads_source_file": "Статистика (12).xlsx",
+        "ads_attribution_quality": "mixed_direct_and_associated",
+        "ads_applied_to_profit": true,
         "revenue": 0.0,
-        "financial_revenue": 0.0,
+        "financial_revenue": 438.4,
         "orders": 0,
         "avg_check": 0.0,
         "daily_orders_count": 0,
         "daily_orders_amount": 0.0,
         "daily_buyouts_count": 0,
         "daily_buyouts_amount": 0.0,
-        "data_source_orders": "metrics_totals_fallback",
-        "data_source_orders_count": "metrics_totals_fallback",
-        "data_source_orders_amount": "metrics_totals_fallback",
-        "data_source_buyouts": "metrics_totals_fallback",
-        "data_source_buyouts_count": "metrics_totals_fallback",
-        "data_source_buyouts_amount": "metrics_totals_fallback",
+        "data_source_orders": "unknown",
+        "data_source_orders_count": "unknown",
+        "data_source_orders_amount": "unknown",
+        "data_source_buyouts": "unknown",
+        "data_source_buyouts_count": "unknown",
+        "data_source_buyouts_amount": "unknown",
         "key_insights": [
-          "В памяти AI уже накоплено 40 решений."
+          "2 SKU находится в зоне ликвидации.",
+          "3 строк расходов не привязаны к валидному SKU.",
+          "В памяти AI уже накоплено 48 решений."
         ],
         "recommendations": [
-          "Сохранить текущий курс и контролировать динамику KPI без резких изменений."
+          "По SKU из LIQUIDATE запустить сценарий ускоренной распродажи и очистки остатков."
         ],
-        "ai_day_conclusion": "На 2026-03-11 бизнес закрыл день с перечислением по выкупам 0.00 ₽ и чистой прибылью 0 ₽ (маржа 0.0 %). Получено 0 заказов, выкуплено 0 (средний чек по выкупу 0.00 ₽). Качество финансовой атрибуции находится на среднем уровне, поэтому решения AI опираются на подтвержденные данные дня. Главный сигнал: В памяти AI уже накоплено 40 решений; фокус следующего дня: Сохранить текущий курс и контролировать динамику KPI без резких изменений."
+        "ai_day_conclusion": "На 2026-03-11 бизнес закрыл день с перечислением по выкупам 0.00 ₽ и чистой прибылью -291 ₽ (маржа -66.5 %). Получено 0 заказов, выкуплено 0 (средний чек по выкупу 0.00 ₽). Качество финансовой атрибуции находится на низком уровне, поэтому решения AI опираются на подтвержденные данные дня. Главный сигнал: 2 SKU находится в зоне ликвидации; фокус следующего дня: По SKU из LIQUIDATE запустить сценарий ускоренной распродажи и очистки остатков."
       },
       "pdf_font": {
         "family": "arial",
@@ -192,31 +452,87 @@
       "warnings": [
         {
           "code": "input_files_found",
-          "message": "Input files found: total=0, sales=0, ads=0, stocks=0, unknown=0"
+          "message": "Input files found: total=2, sales=1, ads=1, stocks=0, unknown=0"
         },
         {
-          "code": "input_files_missing",
-          "message": "No local input files found in cabinets/seller_001/input"
+          "code": "input_file_detected_type",
+          "message": "Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx => sales (columns_overrode_name)"
         },
         {
-          "code": "sales_report_missing",
-          "message": "No valid sales report found in input/."
+          "code": "input_file_detected_type",
+          "message": "Статистика (12).xlsx => ads (ads_name_hint)"
         },
         {
-          "code": "ads_report_missing",
-          "message": "No valid ads report found in input/."
+          "code": "primary_sales_source",
+          "message": "Primary sales source: Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx"
+        },
+        {
+          "code": "primary_sales_matched_columns",
+          "message": "Primary sales matched columns: sku=код_номенклатуры, revenue=к_перечислению_продавцу_за_реализованный_товар, profit=, orders=кол_во, buys=кол_во"
+        },
+        {
+          "code": "ads_file_loaded",
+          "message": "Ads report loaded from file: Статистика (12).xlsx"
         },
         {
           "code": "stocks_report_missing",
           "message": "No valid stocks report found in input/."
         },
         {
-          "code": "weak_kpi_source",
-          "message": "Daily KPI derived from metrics totals fallback."
+          "code": "supplier_goods_report_detected",
+          "message": "Supplier goods report detected: Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx"
         },
         {
-          "code": "financial_data_missing",
-          "message": "данные о продажах не получены"
+          "code": "quantity_orders_fallback_blocked",
+          "message": "quantity column cannot be used as orders_count fallback"
+        },
+        {
+          "code": "invalid_sku_filtered",
+          "message": "Filtered invalid SKU rows: 3"
+        },
+        {
+          "code": "invalid_sku_reason_breakdown",
+          "message": "Invalid SKU reason breakdown: invalid_literal=3"
+        },
+        {
+          "code": "unassigned_costs_detected",
+          "message": "Part of costs is not assigned to SKU and stored in unassigned_costs."
+        },
+        {
+          "code": "sales_activity_zero_revenue",
+          "message": "sales activity exists but revenue attribution is zero: 333615320, 739384273, 590614192, 453526507, 414589567, 283212418"
+        },
+        {
+          "code": "cost_price_missing",
+          "message": "Cost price is missing; financial net profit is partial."
+        },
+        {
+          "code": "expense_attribution_partial",
+          "message": "Expense attribution is partial due to unassigned or invalid SKU rows."
+        },
+        {
+          "code": "net_profit_partial",
+          "message": "Net profit is partial due to missing or partially attributed financial components."
+        },
+        {
+          "code": "financial_margin_not_final",
+          "message": "Financial margin is not final because net profit is partial."
+        },
+        {
+          "code": "ads_file_loaded",
+          "message": "Ads report loaded from file: Статистика (12).xlsx"
+        },
+        {
+          "code": "ads_attribution_partial",
+          "message": "Ads attribution includes associated conversions (mixed_direct_and_associated)."
+        },
+        {
+          "code": "ads_spend_applied_to_profit",
+          "message": "Ads spend applied to net profit calculation."
+        },
+        {
+          "code": "net_profit_reduced_by_ads",
+          "message": "Net profit reduced by ads spend."
         },
         {
           "code": "low_total_profit",
@@ -225,6 +541,10 @@
         {
           "code": "territorial_distribution_built",
           "message": "Territorial distribution built for 0 SKU with KTR"
+        },
+        {
+          "code": "insufficient_warehouse_data",
+          "message": "Insufficient warehouse-level data for full territorial analysis"
         },
         {
           "code": "no_decisions_ready_for_outcome",
