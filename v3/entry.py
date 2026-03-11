@@ -841,6 +841,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     api_ads_rows: List[Dict[str, Any]] = []
     api_stocks_rows: List[Dict[str, Any]] = []
     local_financial_fallback_used = False
+    local_input_debug: Dict[str, Any] = {}
     ads_loaded_from_file = False
     ads_source_file = ""
     ads_rows_count = 0
@@ -880,7 +881,10 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                 }
             )
 
-        if not sales_rows:
+        need_local_sales = not sales_rows
+        need_local_ads = not ads_rows
+        need_local_stocks = not stocks_rows
+        if need_local_sales or need_local_ads or need_local_stocks:
             local_bundle = load_local_reports(seller_input_dir)
             discovered_files = local_bundle.get("files", discovered_files)
             local_sales_rows = list(local_bundle.get("sales_rows", []))
@@ -888,8 +892,10 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             local_stocks_rows = list(local_bundle.get("stocks_rows", []))
             local_warnings = list(local_bundle.get("warnings", []))
             local_debug = local_bundle.get("debug", {}) if isinstance(local_bundle.get("debug"), dict) else {}
+            if isinstance(local_debug, dict):
+                local_input_debug = local_debug
 
-            if local_sales_rows:
+            if need_local_sales and local_sales_rows:
                 sales_rows = local_sales_rows
                 local_financial_fallback_used = True
                 warnings.append(
@@ -898,17 +904,25 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                         "message": "WB API sales data is empty; local sales files were used as fallback.",
                     }
                 )
-            if not ads_rows and local_ads_rows:
-                ads_rows = local_ads_rows
-                ads_loaded_from_file = bool(local_debug.get("ads_loaded_from_file", len(local_ads_rows) > 0))
-                ads_source_file = str(local_debug.get("ads_source_file") or "")
-                warnings.append(
-                    {
-                        "code": "wb_local_ads_fallback_used",
-                        "message": "WB API ads data is empty; local ads files were used as fallback.",
-                    }
-                )
-            if not stocks_rows and local_stocks_rows:
+            if need_local_ads:
+                if local_ads_rows:
+                    ads_rows = local_ads_rows
+                    ads_loaded_from_file = bool(local_debug.get("ads_loaded_from_file", len(local_ads_rows) > 0))
+                    ads_source_file = str(local_debug.get("ads_source_file") or "")
+                    warnings.append(
+                        {
+                            "code": "wb_local_ads_fallback_used",
+                            "message": "WB API ads data is empty; local ads files were used as fallback.",
+                        }
+                    )
+                elif bool(local_debug.get("ads_file_detected", False)):
+                    warnings.append(
+                        {
+                            "code": "ads_file_detected_but_not_parsed",
+                            "message": f"Ads file detected but not parsed: {str(local_debug.get('ads_source_file') or 'local_input')}",
+                        }
+                    )
+            if need_local_stocks and local_stocks_rows:
                 stocks_rows = local_stocks_rows
                 warnings.append(
                     {
@@ -916,7 +930,26 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                         "message": "WB API stocks data is empty; local stocks files were used as fallback.",
                     }
                 )
-            warnings.extend(local_warnings)
+            if need_local_sales:
+                warnings.extend(local_warnings)
+            else:
+                for item in local_warnings:
+                    if not isinstance(item, dict):
+                        continue
+                    code = str(item.get("code") or "")
+                    message = str(item.get("message") or "").lower()
+                    include_ads = need_local_ads and (
+                        code.startswith("ads_")
+                        or "ads report" in message
+                        or " ads " in f" {message} "
+                    )
+                    include_stocks = need_local_stocks and (
+                        code.startswith("stocks_")
+                        or "stocks report" in message
+                        or " stocks " in f" {message} "
+                    )
+                    if include_ads or include_stocks:
+                        warnings.append(item)
 
         if not sales_rows:
             warnings.append(
@@ -948,6 +981,20 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             },
             "api_debug": api_debug,
         }
+        if isinstance(local_input_debug, dict) and local_input_debug:
+            for key in (
+                "ads_file_candidates_found",
+                "ads_file_detected",
+                "ads_source_file",
+                "ads_sheet_found",
+                "ads_columns_detected",
+                "ads_rows_raw",
+                "ads_rows_usable",
+                "ads_loader_error",
+                "ads_loaded_from_file",
+            ):
+                if key in local_input_debug:
+                    input_debug[key] = local_input_debug.get(key)
         if not sales_rows and not ads_rows and not stocks_rows:
             warnings.append(
                 {
@@ -981,6 +1028,24 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         input_debug = {}
     if "api_debug" not in input_debug:
         input_debug["api_debug"] = api_debug
+
+    ads_rows_usable_current = sum(
+        1
+        for row in ads_rows
+        if isinstance(row, dict) and not bool(row.get("_is_campaign_total", False))
+    )
+    ads_columns_detected = input_debug.get("ads_columns_detected", [])
+    if not isinstance(ads_columns_detected, list):
+        ads_columns_detected = []
+    ads_loader_error = str(input_debug.get("ads_loader_error") or "")
+    input_debug["ads_file_candidates_found"] = int(input_debug.get("ads_file_candidates_found", 0) or 0)
+    input_debug["ads_file_detected"] = bool(input_debug.get("ads_file_detected", False))
+    input_debug["ads_sheet_found"] = str(input_debug.get("ads_sheet_found") or "")
+    input_debug["ads_columns_detected"] = [str(item) for item in ads_columns_detected if str(item).strip()]
+    input_debug["ads_rows_raw"] = int(input_debug.get("ads_rows_raw", 0) or 0)
+    input_debug["ads_rows_usable"] = int(input_debug.get("ads_rows_usable", ads_rows_usable_current) or 0)
+    input_debug["ads_loader_error"] = ads_loader_error
+
     input_debug["supplier_goods_daily"] = supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {"found": False}
     input_debug["ads_loaded_from_file"] = bool(ads_loaded_from_file)
     input_debug["ads_source_file"] = ads_source_file
@@ -1032,14 +1097,40 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     ads_attribution_quality = str(
         ads_diagnostics.get("attribution_quality", ads_metrics.get("attribution_quality", "unknown")) or "unknown"
     )
+    ads_file_candidates_found = int(input_debug.get("ads_file_candidates_found", 0) or 0) if isinstance(input_debug, dict) else 0
+    ads_file_detected = bool(input_debug.get("ads_file_detected", False)) if isinstance(input_debug, dict) else False
+    ads_sheet_found = str(input_debug.get("ads_sheet_found") or "") if isinstance(input_debug, dict) else ""
+    ads_columns_detected = (
+        [str(item) for item in input_debug.get("ads_columns_detected", []) if str(item).strip()]
+        if isinstance(input_debug, dict) and isinstance(input_debug.get("ads_columns_detected"), list)
+        else []
+    )
+    ads_rows_raw = int(input_debug.get("ads_rows_raw", 0) or 0) if isinstance(input_debug, dict) else 0
+    ads_rows_usable = int(input_debug.get("ads_rows_usable", ads_rows_count) or 0) if isinstance(input_debug, dict) else ads_rows_count
+    ads_loader_error = str(input_debug.get("ads_loader_error") or "") if isinstance(input_debug, dict) else ""
+
     metrics["ads_ingestion"] = {
         "ads_rows": ads_rows_count,
         "ads_loaded_from_file": bool(ads_loaded_from_file),
         "ads_source_file": ads_source_file,
         "ads_attribution_quality": ads_attribution_quality,
+        "ads_file_candidates_found": ads_file_candidates_found,
+        "ads_file_detected": ads_file_detected,
+        "ads_sheet_found": ads_sheet_found,
+        "ads_columns_detected": ads_columns_detected,
+        "ads_rows_raw": ads_rows_raw,
+        "ads_rows_usable": ads_rows_usable,
+        "ads_loader_error": ads_loader_error,
     }
     if isinstance(input_debug, dict):
         input_debug["ads_rows"] = ads_rows_count
+        input_debug["ads_rows_raw"] = int(max(ads_rows_raw, ads_rows_usable))
+        input_debug["ads_rows_usable"] = int(max(ads_rows_usable, ads_rows_count))
+        input_debug["ads_file_candidates_found"] = ads_file_candidates_found
+        input_debug["ads_file_detected"] = ads_file_detected
+        input_debug["ads_sheet_found"] = ads_sheet_found
+        input_debug["ads_columns_detected"] = ads_columns_detected
+        input_debug["ads_loader_error"] = ads_loader_error
         input_debug["ads_attribution_quality"] = ads_attribution_quality
     metrics["daily_kpi"] = daily_kpi
     metrics["commerce_kpi"] = {
@@ -1250,6 +1341,17 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     facts["ads_spend"] = round(_safe_float(financial_kpi.get("ads_spend", 0.0)), 2)
     facts["ads_loaded_from_file"] = bool(ads_loaded_from_file)
     facts["ads_source_file"] = ads_source_file
+    facts["ads_file_candidates_found"] = int(input_debug.get("ads_file_candidates_found", 0) or 0) if isinstance(input_debug, dict) else 0
+    facts["ads_file_detected"] = bool(input_debug.get("ads_file_detected", False)) if isinstance(input_debug, dict) else False
+    facts["ads_sheet_found"] = str(input_debug.get("ads_sheet_found") or "") if isinstance(input_debug, dict) else ""
+    facts["ads_columns_detected"] = (
+        [str(item) for item in input_debug.get("ads_columns_detected", []) if str(item).strip()]
+        if isinstance(input_debug, dict) and isinstance(input_debug.get("ads_columns_detected"), list)
+        else []
+    )
+    facts["ads_rows_raw"] = int(input_debug.get("ads_rows_raw", 0) or 0) if isinstance(input_debug, dict) else 0
+    facts["ads_rows_usable"] = int(input_debug.get("ads_rows_usable", ads_rows_count) or 0) if isinstance(input_debug, dict) else ads_rows_count
+    facts["ads_loader_error"] = str(input_debug.get("ads_loader_error") or "") if isinstance(input_debug, dict) else ""
     facts["ads_attribution_quality"] = ads_attribution_quality
     if isinstance(facts.get("data_quality"), dict):
         fact_financial_status = str(facts["data_quality"].get("financial_status") or "ok")
@@ -1459,6 +1561,17 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "ads_spend": round(_safe_float(financial_kpi.get("ads_spend", 0.0)), 2),
         "ads_loaded_from_file": bool(ads_loaded_from_file),
         "ads_source_file": ads_source_file,
+        "ads_file_candidates_found": int(input_debug.get("ads_file_candidates_found", 0) or 0) if isinstance(input_debug, dict) else 0,
+        "ads_file_detected": bool(input_debug.get("ads_file_detected", False)) if isinstance(input_debug, dict) else False,
+        "ads_sheet_found": str(input_debug.get("ads_sheet_found") or "") if isinstance(input_debug, dict) else "",
+        "ads_columns_detected": (
+            [str(item) for item in input_debug.get("ads_columns_detected", []) if str(item).strip()]
+            if isinstance(input_debug, dict) and isinstance(input_debug.get("ads_columns_detected"), list)
+            else []
+        ),
+        "ads_rows_raw": int(input_debug.get("ads_rows_raw", 0) or 0) if isinstance(input_debug, dict) else 0,
+        "ads_rows_usable": int(input_debug.get("ads_rows_usable", ads_rows_count) or 0) if isinstance(input_debug, dict) else ads_rows_count,
+        "ads_loader_error": str(input_debug.get("ads_loader_error") or "") if isinstance(input_debug, dict) else "",
         "ads_attribution_quality": ads_attribution_quality,
         "data_source_orders": str(daily_kpi.get("data_source_orders") or _DAILY_SOURCE_FALLBACK),
         "data_source_orders_count": str(

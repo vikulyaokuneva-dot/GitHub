@@ -24,6 +24,30 @@
         "invalid_sku_rows": 0
       },
       "seller_id": "__missing_seller__"
+    },
+    {
+      "date": "2026-03-11",
+      "path": "daily/2026-03-11",
+      "files": [
+        "2026-03-11_outcomes.json",
+        "abc_analysis.json",
+        "decisions.json",
+        "facts.json",
+        "health_score.json",
+        "metrics.json",
+        "profit_contribution.json",
+        "warnings.json"
+      ],
+      "kpi": {
+        "revenue": 11388.49,
+        "profit": 6315.36,
+        "buyouts": 196,
+        "ads_spend": 1659.2,
+        "sku_count": 10,
+        "valid_sku_count": 10,
+        "invalid_sku_rows": 52
+      },
+      "seller_id": "__missing_seller__"
     }
   ]
 }

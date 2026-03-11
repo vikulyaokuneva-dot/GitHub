@@ -23,6 +23,10 @@ REPORT_NAME_KEYWORDS = {
     "stocks": ["остат", "склад", "stock", "inventory"],
 }
 
+ADS_FILE_NAME_KEYWORDS = ("статистика", "реклама", "advert", "ads")
+ADS_SHEET_KEYWORDS = ("статистика", "statistics")
+EXCEL_EXTENSIONS = {".xlsx", ".xls"}
+
 _SUPPLIER_GOODS_DAILY_FIELD_SYNONYMS = {
     "orders_count": (
         "шт",
@@ -96,6 +100,7 @@ FIELD_SYNONYMS = {
         "количество_заказов",
         "количество_заказов_шт",
         "заказанные_товары",
+        "заказанные_товары_шт",
         "заказано_шт",
         "заказов_на_сумму",
         "ordered_units",
@@ -120,7 +125,7 @@ FIELD_SYNONYMS = {
     "cpo": ["cpo", "стоимость_заказа", "cost_per_order"],
     "impressions": ["impressions", "показы", "показы_всего", "просмотры", "views"],
     "clicks": ["clicks", "клики", "переходы", "click"],
-    "ctr": ["ctr", "ctr_%", "кликабельность"],
+    "ctr": ["ctr", "ctr_%", "ctr(%)", "кликабельность"],
     "cpc": ["cpc", "цена_клика", "стоимость_клика"],
     "acos": ["acos", "acos_%", "ддр", "доля_рекламных_расходов"],
     "romi": ["romi", "roi", "окупаемость_рекламы", "рентабельность_рекламы"],
@@ -286,6 +291,39 @@ def _xlsx_shared_strings(zf: zipfile.ZipFile) -> List[str]:
         parts = [(t.text or "") for t in si.findall(".//x:t", ns)]
         out.append("".join(parts))
     return out
+
+
+def _xlsx_sheet_names(path: str) -> List[str]:
+    with zipfile.ZipFile(path, "r") as zf:
+        if "xl/workbook.xml" not in zf.namelist():
+            return []
+        wb = ET.fromstring(zf.read("xl/workbook.xml"))
+        ns = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+        out: List[str] = []
+        for sheet in wb.findall("x:sheets/x:sheet", ns):
+            name = str(sheet.attrib.get("name") or "").strip()
+            if name:
+                out.append(name)
+        return out
+
+
+def _excel_sheet_names(path: str) -> List[str]:
+    ext = os.path.splitext(path)[1].lower()
+    if ext == ".xlsx":
+        return _xlsx_sheet_names(path)
+    if ext == ".xls" and pd is not None:
+        workbook = pd.ExcelFile(path)
+        return [str(name).strip() for name in list(workbook.sheet_names or []) if str(name).strip()]
+    return []
+
+
+def _find_ads_sheet_name(sheet_names: List[str]) -> str:
+    normalized_tokens = tuple(_normalize_text(token) for token in ADS_SHEET_KEYWORDS)
+    for raw in sheet_names:
+        norm = _normalize_text(raw)
+        if any(token and token in norm for token in normalized_tokens):
+            return str(raw)
+    return ""
 
 
 def _xlsx_sheet_path(zf: zipfile.ZipFile) -> str:
@@ -655,22 +693,44 @@ def _is_ads_campaign_total_row(row: Dict[str, Any]) -> bool:
 def _detect_report_type(path: str) -> Dict[str, Any]:
     name = os.path.basename(path)
     norm_name = _normalize_text(name)
+    ext = os.path.splitext(name)[1].lower()
+    ads_name_hint = any(_normalize_text(token) in norm_name for token in ADS_FILE_NAME_KEYWORDS) if ext in EXCEL_EXTENSIONS else False
     name_scores = {"sales": 0, "ads": 0, "stocks": 0}
     for t, words in REPORT_NAME_KEYWORDS.items():
         for w in words:
             if _normalize_text(w) in norm_name:
                 name_scores[t] += 1
+    if ads_name_hint:
+        name_scores["ads"] += 3
+    if ext in EXCEL_EXTENSIONS and norm_name.startswith(_normalize_text("статистика")):
+        name_scores["ads"] += 1
     by_name = _pick_type(name_scores)
 
     col_scores = {"sales": 0, "ads": 0, "stocks": 0}
     by_cols = None
+    sheet_scores = {"sales": 0, "ads": 0, "stocks": 0}
+    by_sheet = None
+    sheet_names: List[str] = []
+    ads_sheet_found = ""
     read_error = None
     columns: List[str] = []
+
+    if ext in EXCEL_EXTENSIONS:
+        try:
+            sheet_names = _excel_sheet_names(path)
+            ads_sheet_found = _find_ads_sheet_name(sheet_names)
+            if ads_sheet_found:
+                sheet_scores["ads"] = 10
+                by_sheet = "ads"
+        except Exception:
+            sheet_names = []
+            ads_sheet_found = ""
+
     try:
         columns, _ = _read_table(path, max_rows=25)
         canon = _canonical_columns(columns)
         col_scores["sales"] = sum(1 for k in ["revenue", "profit", "orders", "buys", "sales_count", "margin", "margin_pct"] if k in canon)
-        col_scores["ads"] = sum(1 for k in ["ads_spend", "roi", "ddr", "cpo"] if k in canon)
+        col_scores["ads"] = sum(1 for k in ["ads_spend", "orders", "revenue", "impressions", "clicks", "ctr", "cpc", "cpo", "conversion_type", "roi", "ddr"] if k in canon)
         col_scores["stocks"] = sum(2 for k in ["stock"] if k in canon)
         if "sku" in canon:
             col_scores["sales"] += 1
@@ -682,7 +742,15 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
 
     chosen = by_name
     source = "name"
-    if by_cols and (not chosen or col_scores.get(by_cols, 0) > name_scores.get(chosen, 0)):
+    if by_sheet == "ads":
+        if by_name and by_name != "ads":
+            source = "sheet_overrode_name"
+        elif by_name == "ads":
+            source = "name+sheet"
+        else:
+            source = "sheet"
+        chosen = "ads"
+    elif by_cols and (not chosen or col_scores.get(by_cols, 0) > name_scores.get(chosen, 0)):
         chosen = by_cols
         source = "columns" if not by_name else "columns_overrode_name"
 
@@ -692,8 +760,12 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
         "type": chosen,
         "source": source if chosen else "unknown",
         "name_scores": name_scores,
+        "sheet_scores": sheet_scores,
         "column_scores": col_scores,
         "columns": columns,
+        "sheet_names": sheet_names,
+        "ads_sheet_found": ads_sheet_found,
+        "ads_name_hint": ads_name_hint,
         "read_error": read_error,
     }
 
@@ -811,6 +883,13 @@ def _rows_from_table(
     matched_columns = {field: canon[field] for field in useful + string_fields if field in canon}
     if "sku" in canon:
         matched_columns["sku"] = canon["sku"]
+    if report_type == "ads":
+        ads_metric_fields = ("ads_spend", "impressions", "clicks", "ctr", "cpc", "cpo", "orders", "revenue")
+        if not any(field in canon for field in ads_metric_fields):
+            missing = list(dict.fromkeys(missing + ["ads_metric_columns"]))
+        if missing:
+            return [], missing, matched_columns
+
     rows: List[Dict[str, Any]] = []
     for r in nrows:
         if report_type == "ads" and _is_ads_campaign_total_row(r):
@@ -896,11 +975,34 @@ def _rows_from_table(
     return rows, missing, matched_columns
 
 
-def _load_report(path: str, report_type: str) -> Tuple[List[Dict[str, Any]], List[str], Dict[str, str]]:
+def _load_report_with_diagnostics(
+    path: str, report_type: str
+) -> Tuple[List[Dict[str, Any]], List[str], Dict[str, str], Dict[str, Any]]:
     cols, recs = _read_table(path)
     if not cols and not recs:
-        return [], ["empty_table"], {}
-    return _rows_from_table(cols, recs, report_type)
+        return [], ["empty_table"], {}, {"rows_raw": 0, "rows_usable": 0, "columns_detected": []}
+
+    rows, missing, matched_columns = _rows_from_table(cols, recs, report_type)
+    rows_raw = len(recs)
+    if report_type == "ads":
+        rows_usable = sum(
+            1
+            for row in rows
+            if isinstance(row, dict) and not bool(row.get("_is_campaign_total", False))
+        )
+    else:
+        rows_usable = len(rows)
+    diagnostics = {
+        "rows_raw": rows_raw,
+        "rows_usable": int(rows_usable),
+        "columns_detected": sorted(str(key) for key in matched_columns.keys()),
+    }
+    return rows, missing, matched_columns, diagnostics
+
+
+def _load_report(path: str, report_type: str) -> Tuple[List[Dict[str, Any]], List[str], Dict[str, str]]:
+    rows, missing, matched_columns, _ = _load_report_with_diagnostics(path, report_type)
+    return rows, missing, matched_columns
 
 
 def load_sales_report(path: str) -> List[Dict[str, Any]]:
@@ -928,6 +1030,41 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
     primary_sales_source = ""
     primary_sales_columns: Dict[str, str] = {}
     loaded_files: Dict[str, List[str]] = {"sales": [], "ads": [], "stocks": []}
+    ads_columns_detected_set: set[str] = set()
+    ads_sheet_found = ""
+    ads_rows_raw = 0
+    ads_rows_usable = 0
+    ads_loader_issues: List[str] = []
+
+    ads_detected_initial = list(discovered.get("ads", []))
+
+    normalized_ads_name_tokens = tuple(_normalize_text(token) for token in ADS_FILE_NAME_KEYWORDS)
+
+    def _is_ads_candidate(detail: Dict[str, Any]) -> bool:
+        path = str(detail.get("path") or "")
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in EXCEL_EXTENSIONS:
+            return False
+        if str(detail.get("type") or "") == "ads":
+            return True
+        if bool(detail.get("ads_name_hint")):
+            return True
+        if str(detail.get("ads_sheet_found") or "").strip():
+            return True
+        norm_name = _normalize_text(str(detail.get("file") or ""))
+        return any(token and token in norm_name for token in normalized_ads_name_tokens)
+
+    ads_candidate_paths: List[str] = []
+    for detail in details:
+        if not _is_ads_candidate(detail):
+            continue
+        path = str(detail.get("path") or "")
+        if path and path not in ads_candidate_paths:
+            ads_candidate_paths.append(path)
+
+    if not discovered.get("ads") and ads_candidate_paths:
+        discovered["ads"] = list(ads_candidate_paths)
+        discovered["unknown"] = [path for path in discovered.get("unknown", []) if path not in set(discovered["ads"])]
 
     total = len(discovered["sales"]) + len(discovered["ads"]) + len(discovered["stocks"]) + len(discovered["unknown"])
     warnings.append({"code": "input_files_found", "message": f"Input files found: total={total}, sales={len(discovered['sales'])}, ads={len(discovered['ads'])}, stocks={len(discovered['stocks'])}, unknown={len(discovered['unknown'])}"})
@@ -944,6 +1081,15 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
             warnings.append({"code": "input_file_skipped", "message": f"Skipped {file_name}: report type is unknown"})
             if d.get("read_error"):
                 warnings.append({"code": "input_file_read_error", "message": f"Cannot inspect {file_name}: {d['read_error']}"})
+
+    if discovered.get("ads") and not ads_detected_initial:
+        for path in discovered["ads"]:
+            warnings.append(
+                {
+                    "code": "input_file_detected_type",
+                    "message": f"{os.path.basename(path)} => ads (name_or_sheet_fallback)",
+                }
+            )
 
     def _select_primary_sales(paths: List[str]) -> str:
         if not paths:
@@ -975,6 +1121,9 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
         return scored[0][1]
 
     def _read_many(paths: List[str], report_type: str, target: List[Dict[str, Any]], primary_only: str = "") -> Dict[str, str]:
+        nonlocal ads_sheet_found
+        nonlocal ads_rows_raw
+        nonlocal ads_rows_usable
         matched: Dict[str, str] = {}
         for p in paths:
             name = os.path.basename(p)
@@ -982,7 +1131,20 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
                 warnings.append({"code": "input_file_skipped", "message": f"Skipped {name}: non-primary sales source"})
                 continue
             try:
-                rows, missing, matched_columns = _load_report(p, report_type)
+                rows, missing, matched_columns, load_diag = _load_report_with_diagnostics(p, report_type)
+                if report_type == "ads":
+                    ads_rows_raw += int(load_diag.get("rows_raw", 0) or 0)
+                    ads_rows_usable += int(load_diag.get("rows_usable", 0) or 0)
+                    detected_cols = load_diag.get("columns_detected", [])
+                    if isinstance(detected_cols, list):
+                        for item in detected_cols:
+                            token = str(item).strip()
+                            if token:
+                                ads_columns_detected_set.add(token)
+                    detail = detail_by_path.get(p, {})
+                    sheet_name = str(detail.get("ads_sheet_found") or "").strip()
+                    if sheet_name and not ads_sheet_found:
+                        ads_sheet_found = sheet_name
                 if rows:
                     target.extend(rows)
                     loaded_files.setdefault(report_type, []).append(name)
@@ -990,11 +1152,17 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
                         matched = matched_columns
                 else:
                     warnings.append({"code": "input_file_skipped", "message": f"Skipped {name}: no usable rows for {report_type}"})
+                    if report_type == "ads":
+                        ads_loader_issues.append(f"{name}: no usable rows for ads")
                 if missing:
                     warnings.append({"code": "required_columns_missing", "message": f"{report_type} report missing required columns {', '.join(missing)} in {name}"})
+                    if report_type == "ads":
+                        ads_loader_issues.append(f"{name}: missing columns {', '.join(missing)}")
             except Exception as e:
                 warnings.append({"code": "input_file_read_error", "message": f"Cannot read {name}: {e}"})
                 warnings.append({"code": "input_file_skipped", "message": f"Skipped {name}: read error"})
+                if report_type == "ads":
+                    ads_loader_issues.append(f"{name}: {e}")
         return matched
 
     if discovered["sales"]:
@@ -1062,13 +1230,27 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
             continue
         ads_sku_rows_count += 1
 
-    ads_source_file = loaded_files.get("ads", [])[0] if loaded_files.get("ads") else ""
+    ads_rows_usable = ads_sku_rows_count
+    ads_detected_file = (
+        os.path.basename(discovered["ads"][0])
+        if discovered.get("ads")
+        else (os.path.basename(ads_candidate_paths[0]) if ads_candidate_paths else "")
+    )
+    ads_source_file = loaded_files.get("ads", [])[0] if loaded_files.get("ads") else ads_detected_file
     ads_loaded_from_file = bool(ads_sku_rows_count > 0)
+    ads_loader_error = "; ".join(list(dict.fromkeys(ads_loader_issues)))
     if ads_loaded_from_file:
         warnings.append(
             {
                 "code": "ads_file_loaded",
                 "message": f"Ads report loaded from file: {ads_source_file}",
+            }
+        )
+    elif discovered.get("ads"):
+        warnings.append(
+            {
+                "code": "ads_file_detected_but_not_parsed",
+                "message": f"Ads file detected but not parsed: {ads_source_file or os.path.basename(discovered['ads'][0])}",
             }
         )
 
@@ -1091,7 +1273,14 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
             "details": details,
             "primary_sales_source": primary_sales_source,
             "primary_sales_columns": primary_sales_columns,
+            "ads_file_candidates_found": len(ads_candidate_paths),
+            "ads_file_detected": bool(discovered.get("ads")),
             "ads_source_file": ads_source_file,
+            "ads_sheet_found": ads_sheet_found,
+            "ads_columns_detected": sorted(ads_columns_detected_set),
+            "ads_rows_raw": int(ads_rows_raw),
+            "ads_rows_usable": int(ads_rows_usable),
+            "ads_loader_error": ads_loader_error,
             "ads_loaded_from_file": ads_loaded_from_file,
             "ads_sku_rows_count": ads_sku_rows_count,
             "ads_campaign_total_rows": ads_campaign_total_rows,
