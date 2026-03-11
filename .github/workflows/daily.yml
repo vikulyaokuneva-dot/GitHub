@@ -2,7 +2,7 @@ name: WB Daily Report
 
 on:
   schedule:
-    # 05:00 UTC ~= 06:00 Europe/Berlin зимой (CET).
+    # 03:00 UTC ~= 04:00 Europe/Berlin зимой (CET).
     # Летом будет сдвиг. Для PoC ок, потом сделаем двойной cron или логику пропуска.
     - cron: "0 5 * * *"
   workflow_dispatch: {}
