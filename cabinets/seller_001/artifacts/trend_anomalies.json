@@ -1,22 +1,353 @@
 {
   "seller_id": "seller_001",
-  "run_date": "2026-03-10",
+  "run_date": "2026-03-11",
   "window_days": 7,
-  "snapshots_used": 1,
-  "kpi_anomalies": [],
-  "sku_anomalies": [],
+  "snapshots_used": 5,
+  "kpi_anomalies": [
+    {
+      "metric": "profit",
+      "start": 6315.36,
+      "current": -291.37,
+      "delta": -6606.73,
+      "delta_pct": -104.6137,
+      "direction": "down",
+      "severity": "high",
+      "type": "profit_down_high",
+      "message": "Прибыль снизилась более чем на 20%"
+    },
+    {
+      "metric": "buyouts",
+      "start": 196.0,
+      "current": 0.0,
+      "delta": -196.0,
+      "delta_pct": -100.0,
+      "direction": "down",
+      "severity": "medium",
+      "type": "buyouts_drop",
+      "message": "Выкупы снизились более чем на 15%"
+    },
+    {
+      "metric": "revenue",
+      "start": 11388.49,
+      "current": 438.4,
+      "delta": -10950.09,
+      "delta_pct": -96.1505,
+      "direction": "down",
+      "severity": "medium",
+      "type": "revenue_down_medium",
+      "message": "Выручка снизилась более чем на 15%"
+    },
+    {
+      "metric": "sku_count",
+      "start": 10.0,
+      "current": 8.0,
+      "delta": -2.0,
+      "delta_pct": -20.0,
+      "direction": "down",
+      "severity": "low",
+      "type": "sku_count_drop",
+      "message": "Количество активных SKU сократилось"
+    }
+  ],
+  "sku_anomalies": [
+    {
+      "sku": "333615320",
+      "severity": "high",
+      "type": "profit_drop_high",
+      "profit_start": 1071.62,
+      "profit_current": -640.54,
+      "profit_delta": -1712.16,
+      "profit_delta_pct": -159.7731,
+      "message": "Резкое падение прибыли по SKU"
+    },
+    {
+      "sku": "333615320",
+      "severity": "high",
+      "type": "zero_profit_with_spend",
+      "profit_current": -640.54,
+      "ads_current": 643.91,
+      "message": "Есть рекламные расходы при нулевой или отрицательной прибыли"
+    },
+    {
+      "sku": "414589567",
+      "severity": "high",
+      "type": "profit_drop_high",
+      "profit_start": 179.56,
+      "profit_current": 1.2,
+      "profit_delta": -178.36,
+      "profit_delta_pct": -99.3317,
+      "message": "Резкое падение прибыли по SKU"
+    },
+    {
+      "sku": "430679462",
+      "severity": "high",
+      "type": "profit_drop_high",
+      "profit_start": 725.46,
+      "profit_current": -89.0,
+      "profit_delta": -814.46,
+      "profit_delta_pct": -112.2681,
+      "message": "Резкое падение прибыли по SKU"
+    },
+    {
+      "sku": "452102417",
+      "severity": "high",
+      "type": "profit_drop_high",
+      "profit_start": 2115.46,
+      "profit_current": 461.88,
+      "profit_delta": -1653.58,
+      "profit_delta_pct": -78.1665,
+      "message": "Резкое падение прибыли по SKU"
+    },
+    {
+      "sku": "453526507",
+      "severity": "high",
+      "type": "profit_drop_high",
+      "profit_start": 2156.71,
+      "profit_current": 0.55,
+      "profit_delta": -2156.16,
+      "profit_delta_pct": -99.9745,
+      "message": "Резкое падение прибыли по SKU"
+    },
+    {
+      "sku": "583470321",
+      "severity": "high",
+      "type": "profit_drop_high",
+      "profit_start": 508.74,
+      "profit_current": 0.0,
+      "profit_delta": -508.74,
+      "profit_delta_pct": -100.0,
+      "message": "Резкое падение прибыли по SKU"
+    },
+    {
+      "sku": "584904841",
+      "severity": "high",
+      "type": "profit_drop_high",
+      "profit_start": 397.68,
+      "profit_current": 0.0,
+      "profit_delta": -397.68,
+      "profit_delta_pct": -100.0,
+      "message": "Резкое падение прибыли по SKU"
+    },
+    {
+      "sku": "590614192",
+      "severity": "high",
+      "type": "profit_drop_high",
+      "profit_start": 444.18,
+      "profit_current": 1.16,
+      "profit_delta": -443.02,
+      "profit_delta_pct": -99.7388,
+      "message": "Резкое падение прибыли по SKU"
+    },
+    {
+      "sku": "739384273",
+      "severity": "high",
+      "type": "profit_drop_high",
+      "profit_start": 902.68,
+      "profit_current": 1.39,
+      "profit_delta": -901.29,
+      "profit_delta_pct": -99.846,
+      "message": "Резкое падение прибыли по SKU"
+    },
+    {
+      "sku": "333615320",
+      "severity": "medium",
+      "type": "margin_drop",
+      "margin_pct_start": 35.55,
+      "margin_pct_current": 0.0,
+      "message": "Маржинальность снизилась более чем на 10 п.п."
+    },
+    {
+      "sku": "333615320",
+      "severity": "medium",
+      "type": "revenue_drop_medium",
+      "revenue_start": 3014.22,
+      "revenue_current": 0.0,
+      "revenue_delta": -3014.22,
+      "revenue_delta_pct": -100.0,
+      "message": "Снижение выручки по SKU более чем на 20%"
+    },
+    {
+      "sku": "414589567",
+      "severity": "medium",
+      "type": "margin_drop",
+      "margin_pct_start": 73.78,
+      "margin_pct_current": 0.0,
+      "message": "Маржинальность снизилась более чем на 10 п.п."
+    },
+    {
+      "sku": "414589567",
+      "severity": "medium",
+      "type": "revenue_drop_medium",
+      "revenue_start": 243.36,
+      "revenue_current": 0.0,
+      "revenue_delta": -243.36,
+      "revenue_delta_pct": -100.0,
+      "message": "Снижение выручки по SKU более чем на 20%"
+    },
+    {
+      "sku": "430679462",
+      "severity": "medium",
+      "type": "margin_drop",
+      "margin_pct_start": 90.29,
+      "margin_pct_current": 0.0,
+      "message": "Маржинальность снизилась более чем на 10 п.п."
+    },
+    {
+      "sku": "430679462",
+      "severity": "medium",
+      "type": "new_zero_sales_sku",
+      "buys_start": 10.0,
+      "buys_current": 0.0,
+      "message": "SKU перешел в нулевые продажи"
+    },
+    {
+      "sku": "430679462",
+      "severity": "medium",
+      "type": "revenue_drop_medium",
+      "revenue_start": 803.46,
+      "revenue_current": 0.0,
+      "revenue_delta": -803.46,
+      "revenue_delta_pct": -100.0,
+      "message": "Снижение выручки по SKU более чем на 20%"
+    },
+    {
+      "sku": "452102417",
+      "severity": "medium",
+      "type": "revenue_drop_medium",
+      "revenue_start": 2315.66,
+      "revenue_current": 438.4,
+      "revenue_delta": -1877.26,
+      "revenue_delta_pct": -81.068,
+      "message": "Снижение выручки по SKU более чем на 20%"
+    },
+    {
+      "sku": "453526507",
+      "severity": "medium",
+      "type": "margin_drop",
+      "margin_pct_start": 88.08,
+      "margin_pct_current": 0.0,
+      "message": "Маржинальность снизилась более чем на 10 п.п."
+    },
+    {
+      "sku": "453526507",
+      "severity": "medium",
+      "type": "revenue_drop_medium",
+      "revenue_start": 2448.51,
+      "revenue_current": 0.0,
+      "revenue_delta": -2448.51,
+      "revenue_delta_pct": -100.0,
+      "message": "Снижение выручки по SKU более чем на 20%"
+    },
+    {
+      "sku": "583470321",
+      "severity": "medium",
+      "type": "margin_drop",
+      "margin_pct_start": 92.22,
+      "margin_pct_current": 0.0,
+      "message": "Маржинальность снизилась более чем на 10 п.п."
+    },
+    {
+      "sku": "583470321",
+      "severity": "medium",
+      "type": "new_zero_sales_sku",
+      "buys_start": 11.0,
+      "buys_current": 0.0,
+      "message": "SKU перешел в нулевые продажи"
+    },
+    {
+      "sku": "583470321",
+      "severity": "medium",
+      "type": "revenue_drop_medium",
+      "revenue_start": 551.64,
+      "revenue_current": 0.0,
+      "revenue_delta": -551.64,
+      "revenue_delta_pct": -100.0,
+      "message": "Снижение выручки по SKU более чем на 20%"
+    },
+    {
+      "sku": "584904841",
+      "severity": "medium",
+      "type": "margin_drop",
+      "margin_pct_start": 73.12,
+      "margin_pct_current": 0.0,
+      "message": "Маржинальность снизилась более чем на 10 п.п."
+    },
+    {
+      "sku": "584904841",
+      "severity": "medium",
+      "type": "new_zero_sales_sku",
+      "buys_start": 3.0,
+      "buys_current": 0.0,
+      "message": "SKU перешел в нулевые продажи"
+    },
+    {
+      "sku": "584904841",
+      "severity": "medium",
+      "type": "revenue_drop_medium",
+      "revenue_start": 543.88,
+      "revenue_current": 0.0,
+      "revenue_delta": -543.88,
+      "revenue_delta_pct": -100.0,
+      "message": "Снижение выручки по SKU более чем на 20%"
+    },
+    {
+      "sku": "590614192",
+      "severity": "medium",
+      "type": "margin_drop",
+      "margin_pct_start": 91.68,
+      "margin_pct_current": 0.0,
+      "message": "Маржинальность снизилась более чем на 10 п.п."
+    },
+    {
+      "sku": "590614192",
+      "severity": "medium",
+      "type": "revenue_drop_medium",
+      "revenue_start": 484.48,
+      "revenue_current": 0.0,
+      "revenue_delta": -484.48,
+      "revenue_delta_pct": -100.0,
+      "message": "Снижение выручки по SKU более чем на 20%"
+    },
+    {
+      "sku": "739377515",
+      "severity": "medium",
+      "type": "new_zero_sales_sku",
+      "buys_start": 2.0,
+      "buys_current": 0.0,
+      "message": "SKU перешел в нулевые продажи"
+    },
+    {
+      "sku": "739384273",
+      "severity": "medium",
+      "type": "margin_drop",
+      "margin_pct_start": 91.8,
+      "margin_pct_current": 0.0,
+      "message": "Маржинальность снизилась более чем на 10 п.п."
+    },
+    {
+      "sku": "739384273",
+      "severity": "medium",
+      "type": "revenue_drop_medium",
+      "revenue_start": 983.28,
+      "revenue_current": 0.0,
+      "revenue_delta": -983.28,
+      "revenue_delta_pct": -100.0,
+      "message": "Снижение выручки по SKU более чем на 20%"
+    }
+  ],
   "summary": {
-    "total_anomalies": 0,
-    "high": 0,
-    "medium": 0,
-    "low": 0
+    "total_anomalies": 35,
+    "high": 11,
+    "medium": 23,
+    "low": 1
   },
   "insights": [
-    "Истории пока недостаточно для надежного поиска аномалий: доступно 1 snapshot.",
-    "Значимых аномалий не обнаружено."
+    "Обнаружено 11 аномалий высокого приоритета.",
+    "Обнаружено 23 аномалий среднего приоритета.",
+    "Прибыль кабинета снизилась на 104.6%."
   ],
   "data_quality": {
-    "snapshots_available": 1,
-    "enough_for_detection": false
+    "snapshots_available": 5,
+    "enough_for_detection": true
   }
 }

@@ -11,30 +11,50 @@ from .analytics.abc_analysis import compute_abc
 from .analytics.growth_simulator import simulate_growth
 from .analytics.logistics_ktr import build_logistics_ktr
 from .analytics.opportunity_engine import compute_opportunity_scores
-from .analytics.profit_contribution import build_profit_contribution, save_profit_contribution
+from .analytics.profit_contribution import build_profit_contribution
 from .analytics.sku_health import compute_sku_health
-from .analytics.territorial_distribution import build_territorial_distribution, save_territorial_distribution
+from .analytics.territorial_distribution import build_territorial_distribution
 from .config import load_seller_config
 from .decisions import build_decisions_layer
 from .history.history_store import save_daily_history_snapshot
 from .history.trend_anomalies import build_trend_anomalies, save_trend_anomalies
 from .history.weekly_intelligence import build_weekly_intelligence, save_weekly_intelligence
-from .daily_kpi_resolver import (
-    DAILY_SOURCE_FALLBACK as _DAILY_SOURCE_FALLBACK,
-    DAILY_SOURCE_ORDERS_API as _DAILY_SOURCE_ORDERS_API,
-    DAILY_SOURCE_REALIZATION_API as _DAILY_SOURCE_REALIZATION_API,
-    DAILY_SOURCE_SALES_API as _DAILY_SOURCE_SALES_API,
-    resolve_daily_kpi,
-)
+from .daily_kpi_resolver import resolve_daily_kpi
 from .domain.source_policy import SOURCE_UNKNOWN as _SOURCE_UNKNOWN
-from .domain.source_policy import resolve_source_policy
-from .metrics import build_metrics_from_normalized
+from .metrics import (
+    assemble_ads_summary,
+    assemble_daily_kpi,
+    assemble_financial_kpi,
+    build_metrics_from_normalized,
+)
 from .memory.decision_logger import log_decisions
 from .memory.decision_outcomes import evaluate_decision_outcomes, save_outcomes
 from .normalization import normalize_raw_bundle
 from .orchestrator import discover_sellers, run_audit
+from .outputs.artifacts_writer import (
+    write_daily_ai_artifacts,
+    write_daily_metrics_artifacts,
+    write_facts_and_warnings,
+    write_job,
+    write_report_meta,
+    write_weekly_facts_and_warnings,
+)
+from .outputs.email_summary_builder import build_email_summary
 from .paths import artifacts_dir, cabinet_root, input_dir, reports_dir
 from .pdf_render import write_text_pdf
+from .pipeline.facts_payload_builder import (
+    apply_facts_data_quality_patch,
+    build_decision_memory_summary,
+    build_facts_runtime_patch,
+    build_history_summary,
+    build_logistics_ktr_summary,
+    build_profit_contribution_summary,
+    build_territorial_distribution_summary,
+)
+from .pipeline.input_debug_builder import build_input_debug
+from .pipeline.job_payload_builder import build_daily_job_payload
+from .pipeline.run_summary_builder import build_run_summary
+from .pipeline.warnings_collector import WarningsCollector
 from .raw import build_raw_bundle
 from .sources.wb_reports_loader import (
     build_facts_from_reports,
@@ -195,60 +215,6 @@ def _safe_float(value: Any) -> float:
         return 0.0
 
 
-def _build_financial_kpi(totals: Dict[str, Any], data_quality: Dict[str, Any]) -> Dict[str, Any]:
-    revenue = _safe_float(totals.get("total_revenue", totals.get("revenue", 0.0)))
-    cost_price = _safe_float(totals.get("cost_price", 0.0))
-    wb_commission = _safe_float(totals.get("wb_commission", 0.0))
-    logistics = _safe_float(totals.get("logistics", 0.0))
-    storage = _safe_float(totals.get("storage", 0.0))
-    penalties = _safe_float(totals.get("penalties", 0.0))
-    deductions = _safe_float(totals.get("deductions", 0.0))
-    ads_spend = _safe_float(totals.get("ads_spend_total", totals.get("ads_spend", 0.0)))
-
-    gross_profit = revenue - cost_price - wb_commission
-    net_profit = revenue - cost_price - wb_commission - logistics - storage - penalties - deductions - ads_spend
-    margin_pct = (net_profit / revenue * 100.0) if revenue > 0 else 0.0
-    profitability_pct = (net_profit / cost_price * 100.0) if cost_price > 0 else 0.0
-
-    invalid_rows = int(_safe_float(data_quality.get("invalid_sku_rows", 0))) if isinstance(data_quality, dict) else 0
-    unassigned_present = bool(data_quality.get("unassigned_costs_present", False)) if isinstance(data_quality, dict) else False
-
-    has_financial_activity = bool(revenue > 0 or abs(logistics) > 0 or abs(storage) > 0 or abs(penalties) > 0 or abs(deductions) > 0)
-    cost_price_missing = bool(has_financial_activity and abs(cost_price) <= 1e-9)
-    wb_commission_missing = bool(has_financial_activity and abs(wb_commission) <= 1e-9)
-    expense_attribution_partial = bool(invalid_rows > 0 or unassigned_present)
-    net_profit_partial = bool(cost_price_missing or wb_commission_missing or expense_attribution_partial)
-    financial_margin_not_final = net_profit_partial
-    completeness_checks = (
-        not cost_price_missing,
-        not wb_commission_missing,
-        not expense_attribution_partial,
-    )
-    completeness_pct = (sum(1 for ok in completeness_checks if ok) / len(completeness_checks) * 100.0)
-
-    return {
-        "revenue": round(revenue, 2),
-        "cost_price": round(cost_price, 2),
-        "wb_commission": round(wb_commission, 2),
-        "logistics": round(logistics, 2),
-        "storage": round(storage, 2),
-        "penalties": round(penalties, 2),
-        "deductions": round(deductions, 2),
-        "ads_spend": round(ads_spend, 2),
-        "gross_profit": round(gross_profit, 2),
-        "net_profit": round(net_profit, 2),
-        "margin_pct": round(margin_pct, 2),
-        "profitability_pct": round(profitability_pct, 2),
-        "cost_price_missing": cost_price_missing,
-        "wb_commission_missing": wb_commission_missing,
-        "expense_attribution_partial": expense_attribution_partial,
-        "net_profit_partial": net_profit_partial,
-        "financial_margin_not_final": financial_margin_not_final,
-        "completeness_pct": round(completeness_pct, 2),
-        "is_partial": net_profit_partial,
-    }
-
-
 def _daily_relative_diff_pct(actual: float, expected: float) -> float:
     denominator = abs(expected)
     if denominator <= 1e-9:
@@ -257,7 +223,7 @@ def _daily_relative_diff_pct(actual: float, expected: float) -> float:
 
 
 def _append_daily_kpi_mismatch_warning(
-    warnings: List[Dict[str, Any]],
+    warnings_collector: WarningsCollector,
     summary_daily_kpi: Dict[str, Any],
     supplier_goods_daily: Dict[str, Any],
 ) -> None:
@@ -301,12 +267,14 @@ def _append_daily_kpi_mismatch_warning(
             mismatch_detected = True
 
     if mismatch_detected:
-        warnings.append(
-            {
-                "code": "daily_kpi_mismatch_with_supplier_goods_report",
-                "message": "daily KPI mismatch with WB supplier goods report",
-                "debug": debug,
-            }
+        warnings_collector.extend_warnings(
+            [
+                {
+                    "code": "daily_kpi_mismatch_with_supplier_goods_report",
+                    "message": "daily KPI mismatch with WB supplier goods report",
+                    "debug": debug,
+                }
+            ]
         )
 
 
@@ -823,14 +791,26 @@ def _apply_email_result(
     email_to: str,
     error: str | None,
 ) -> Dict[str, Any]:
-    job["email_attempted"] = attempted
-    job["email_sent"] = sent
-    job["email_to"] = email_to
-    job["email_error"] = error
-
-    if attempted and not sent and str(job.get("status") or "") == "success":
-        job["status"] = "partial_success"
-        job["error"] = error or "Email sending failed"
+    summary_patch = build_run_summary(
+        seller_id=str(job.get("seller_id") or ""),
+        mode=str(job.get("mode") or ""),
+        run_date=str(job.get("run_date") or ""),
+        started_at=str(job.get("started_at") or ""),
+        finished_at=str(job.get("finished_at") or ""),
+        source_mode=str(job.get("source_mode") or ""),
+        artifacts_dir=str(job.get("artifacts_dir") or ""),
+        status=str(job.get("status") or ""),
+        error=job.get("error") if isinstance(job.get("error"), str) or job.get("error") is None else str(job.get("error")),
+        financial_partial=bool(job.get("financial_partial", False)) if "financial_partial" in job else None,
+        data_quality=str(job.get("data_quality")) if job.get("data_quality") is not None else None,
+        artifacts=job.get("artifacts") if isinstance(job.get("artifacts"), list) else None,
+        email_attempted=attempted,
+        email_sent=sent,
+        email_to=email_to,
+        email_error=error,
+    )
+    for key, value in summary_patch.items():
+        job[key] = value
     return job
 
 
@@ -848,7 +828,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     discovered_files: Dict[str, List[str]] = {"sales": [], "ads": [], "stocks": [], "unknown": []}
     input_debug: Dict[str, Any] = {}
     api_debug: Dict[str, Any] = {}
-    warnings: List[Dict[str, Any]] = []
+    warnings_collector = WarningsCollector()
     sales_rows: List[Dict[str, Any]] = []
     ads_rows: List[Dict[str, Any]] = []
     stocks_rows: List[Dict[str, Any]] = []
@@ -952,11 +932,9 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             if isinstance(item, dict) and not bool(item.get("success", False))
         ]
         if failed_endpoints:
-            warnings.append(
-                {
-                    "code": "wb_api_endpoint_failed",
-                    "message": "WB API endpoint failed: " + ", ".join(failed_endpoints),
-                }
+            warnings_collector.add_warning(
+                "wb_api_endpoint_failed",
+                "WB API endpoint failed: " + ", ".join(failed_endpoints),
             )
 
         ads_rows = list(api_ads_rows)
@@ -966,11 +944,9 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         sales_rows = list(api_realization_rows) if api_realization_rows else list(api_sales_rows)
 
         if not api_sales_rows and not api_realization_rows:
-            warnings.append(
-                {
-                    "code": "wb_api_zero_sales_rows",
-                    "message": "WB API returned zero sales rows for selected period",
-                }
+            warnings_collector.add_warning(
+                "wb_api_zero_sales_rows",
+                "WB API returned zero sales rows for selected period",
             )
 
         need_local_sales = not sales_rows
@@ -990,40 +966,32 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             if need_local_sales and local_sales_rows:
                 sales_rows = local_sales_rows
                 local_financial_fallback_used = True
-                warnings.append(
-                    {
-                        "code": "wb_local_sales_fallback_used",
-                        "message": "WB API sales data is empty; local sales files were used as fallback.",
-                    }
+                warnings_collector.add_warning(
+                    "wb_local_sales_fallback_used",
+                    "WB API sales data is empty; local sales files were used as fallback.",
                 )
             if need_local_ads:
                 if local_ads_rows:
                     ads_rows = local_ads_rows
                     ads_loaded_from_file = bool(local_debug.get("ads_loaded_from_file", len(local_ads_rows) > 0))
                     ads_source_file = str(local_debug.get("ads_source_file") or "")
-                    warnings.append(
-                        {
-                            "code": "wb_local_ads_fallback_used",
-                            "message": "WB API ads data is empty; local ads files were used as fallback.",
-                        }
+                    warnings_collector.add_warning(
+                        "wb_local_ads_fallback_used",
+                        "WB API ads data is empty; local ads files were used as fallback.",
                     )
                 elif bool(local_debug.get("ads_file_detected", False)):
-                    warnings.append(
-                        {
-                            "code": "ads_file_detected_but_not_parsed",
-                            "message": f"Ads file detected but not parsed: {str(local_debug.get('ads_source_file') or 'local_input')}",
-                        }
+                    warnings_collector.add_warning(
+                        "ads_file_detected_but_not_parsed",
+                        f"Ads file detected but not parsed: {str(local_debug.get('ads_source_file') or 'local_input')}",
                     )
             if need_local_stocks and local_stocks_rows:
                 stocks_rows = local_stocks_rows
-                warnings.append(
-                    {
-                        "code": "wb_local_stocks_fallback_used",
-                        "message": "WB API stocks data is empty; local stocks files were used as fallback.",
-                    }
+                warnings_collector.add_warning(
+                    "wb_local_stocks_fallback_used",
+                    "WB API stocks data is empty; local stocks files were used as fallback.",
                 )
             if need_local_sales:
-                warnings.extend(local_warnings)
+                warnings_collector.extend_warnings(local_warnings)
             else:
                 for item in local_warnings:
                     if not isinstance(item, dict):
@@ -1041,15 +1009,10 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                         or " stocks " in f" {message} "
                     )
                     if include_ads or include_stocks:
-                        warnings.append(item)
+                        warnings_collector.extend_warnings([item])
 
         if not sales_rows:
-            warnings.append(
-                {
-                    "code": "financial_data_missing",
-                    "message": "данные о продажах не получены",
-                }
-            )
+            warnings_collector.add_warning("financial_data_missing", "данные о продажах не получены")
 
         api_debug = {
             "sales_rows": len(api_sales_rows),
@@ -1089,18 +1052,15 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
                 if key in local_input_debug:
                     input_debug[key] = local_input_debug.get(key)
         if not sales_rows and not ads_rows and not stocks_rows:
-            warnings.append(
-                {
-                    "code": "wb_api_empty",
-                    "message": "WB API returned no rows",
-                }
-            )
+            warnings_collector.add_warning("wb_api_empty", "WB API returned no rows")
     else:
         source_mode = "local_reports"
         local_bundle = load_local_reports(seller_input_dir)
         discovered_files = local_bundle.get("files", discovered_files)
         input_debug = local_bundle.get("debug", {})
-        warnings = list(local_bundle.get("warnings", []))
+        warnings_collector.extend_warnings(
+            list(local_bundle.get("warnings", [])) if isinstance(local_bundle.get("warnings"), list) else []
+        )
         sales_rows = list(local_bundle.get("sales_rows", []))
         ads_rows = list(local_bundle.get("ads_rows", []))
         stocks_rows = list(local_bundle.get("stocks_rows", []))
@@ -1118,50 +1078,29 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
             "date_to": run_date,
         }
 
+    input_debug_bundle = build_input_debug(
+        source_mode=source_mode,
+        input_debug=input_debug if isinstance(input_debug, dict) else {},
+        local_input_debug=local_input_debug if isinstance(local_input_debug, dict) else {},
+        discovered_files=discovered_files if isinstance(discovered_files, dict) else {},
+        api_debug=api_debug if isinstance(api_debug, dict) else {},
+        supplier_goods_daily=supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {"found": False},
+        sales_rows_count=len(sales_rows),
+        ads_rows=ads_rows if isinstance(ads_rows, list) else [],
+        ads_rows_count=len(ads_rows),
+        stocks_rows_count=len(stocks_rows),
+        ads_loaded_from_file=bool(ads_loaded_from_file),
+        ads_source_file=str(ads_source_file or ""),
+    )
+    input_debug = input_debug_bundle.get("input_debug", {}) if isinstance(input_debug_bundle, dict) else {}
     if not isinstance(input_debug, dict):
         input_debug = {}
-    if "api_debug" not in input_debug:
-        input_debug["api_debug"] = api_debug
-
-    ads_rows_usable_current = sum(
-        1
-        for row in ads_rows
-        if isinstance(row, dict) and not bool(row.get("_is_campaign_total", False))
+    input_debug_warning_additions = (
+        input_debug_bundle.get("warnings_additions", [])
+        if isinstance(input_debug_bundle, dict) and isinstance(input_debug_bundle.get("warnings_additions"), list)
+        else []
     )
-    ads_columns_detected = input_debug.get("ads_columns_detected", [])
-    if not isinstance(ads_columns_detected, list):
-        ads_columns_detected = []
-    ads_loader_error = str(input_debug.get("ads_loader_error") or "")
-    input_debug["ads_file_candidates_found"] = int(input_debug.get("ads_file_candidates_found", 0) or 0)
-    input_debug["ads_file_detected"] = bool(input_debug.get("ads_file_detected", False))
-    input_debug["ads_sheet_found"] = str(input_debug.get("ads_sheet_found") or "")
-    input_debug["ads_columns_detected"] = [str(item) for item in ads_columns_detected if str(item).strip()]
-    input_debug["ads_rows_raw"] = int(input_debug.get("ads_rows_raw", 0) or 0)
-    input_debug["ads_rows_usable"] = int(input_debug.get("ads_rows_usable", ads_rows_usable_current) or 0)
-    input_debug["ads_loader_error"] = ads_loader_error
-
-    input_debug["source_priority"] = {
-        "sales": "api.realization -> api.sales -> local.sales",
-        "orders_kpi_count": "supplier_goods_confirmed_count -> api.orders -> api.sales -> unknown",
-        "buyouts_kpi_count": "supplier_goods_confirmed_count -> api.sales -> api.realization -> unknown",
-        "stocks": "api.stocks -> local.stocks",
-        "ads": "api.ads_legacy -> local.ads",
-        "supplier_goods_daily": "local_excel_financial_source",
-    }
-
-    input_debug["supplier_goods_daily"] = supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {"found": False}
-    input_debug["ads_loaded_from_file"] = bool(ads_loaded_from_file)
-    input_debug["ads_source_file"] = ads_source_file
-    if isinstance(supplier_goods_daily, dict) and bool(supplier_goods_daily.get("found")):
-        warnings.append(
-            {
-                "code": "supplier_goods_report_detected",
-                "message": (
-                    "Supplier goods report detected: "
-                    + str(supplier_goods_daily.get("source_file") or "")
-                ),
-            }
-        )
+    warnings_collector.extend_warnings(input_debug_warning_additions)
 
     raw_bundle = build_raw_bundle(
         source_mode=source_mode,
@@ -1203,236 +1142,128 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
     if not isinstance(metrics_data_quality, dict):
         metrics_data_quality = {}
-    financial_kpi = _build_financial_kpi(totals_for_daily, metrics_data_quality)
-    metrics["financial_kpi"] = financial_kpi
-    ads_diagnostics = metrics.get("ads_diagnostics", {}) if isinstance(metrics, dict) else {}
-    if not isinstance(ads_diagnostics, dict):
-        ads_diagnostics = {}
-    ads_metrics = metrics.get("ads", {}) if isinstance(metrics, dict) else {}
-    if not isinstance(ads_metrics, dict):
-        ads_metrics = {}
-    ads_rows_count = int(ads_diagnostics.get("rows", ads_metrics.get("rows", len(ads_rows))) or 0)
-    if not ads_source_file:
-        ads_source_file = str(
-            input_debug.get("ads_source_file")
-            if isinstance(input_debug, dict)
-            else ""
-        )
-    if not ads_loaded_from_file:
-        ads_loaded_from_file = bool(
-            (isinstance(input_debug, dict) and input_debug.get("ads_loaded_from_file", False))
-            or (source_mode == "local_reports" and ads_rows_count > 0)
-        )
-    ads_attribution_quality = str(
-        ads_diagnostics.get("attribution_quality", ads_metrics.get("attribution_quality", "unknown")) or "unknown"
+    financial_assembly = assemble_financial_kpi(
+        totals=totals_for_daily if isinstance(totals_for_daily, dict) else {},
+        data_quality=metrics_data_quality if isinstance(metrics_data_quality, dict) else {},
     )
-    ads_file_candidates_found = int(input_debug.get("ads_file_candidates_found", 0) or 0) if isinstance(input_debug, dict) else 0
-    ads_file_detected = bool(input_debug.get("ads_file_detected", False)) if isinstance(input_debug, dict) else False
-    ads_sheet_found = str(input_debug.get("ads_sheet_found") or "") if isinstance(input_debug, dict) else ""
+    financial_kpi = financial_assembly.get("financial_kpi", {}) if isinstance(financial_assembly, dict) else {}
+    if not isinstance(financial_kpi, dict):
+        financial_kpi = {}
+    metrics["financial_kpi"] = financial_kpi
+    ads_assembly = assemble_ads_summary(
+        metrics=metrics if isinstance(metrics, dict) else {},
+        input_debug=input_debug if isinstance(input_debug, dict) else {},
+        ads_rows=ads_rows if isinstance(ads_rows, list) else [],
+        source_mode=source_mode,
+        ads_loaded_from_file=bool(ads_loaded_from_file),
+        ads_source_file=str(ads_source_file or ""),
+        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+        has_ads_report_missing_warning=any(
+            str(item.get("code") or "") == "ads_report_missing"
+            for item in warnings_collector.export_warnings()
+            if isinstance(item, dict)
+        ),
+    )
+    ads_summary = ads_assembly.get("ads_summary", {}) if isinstance(ads_assembly, dict) else {}
+    if not isinstance(ads_summary, dict):
+        ads_summary = {}
+    ads_diagnostics_summary = ads_assembly.get("ads_diagnostics", {}) if isinstance(ads_assembly, dict) else {}
+    if not isinstance(ads_diagnostics_summary, dict):
+        ads_diagnostics_summary = {}
+    ads_rows_count = int(ads_summary.get("ads_rows", 0) or 0)
+    ads_loaded_from_file = bool(ads_summary.get("ads_loaded_from_file", False))
+    ads_source_file = str(ads_summary.get("ads_source_file") or "")
+    ads_attribution_quality = str(ads_summary.get("ads_attribution_quality") or "unknown")
+    ads_file_candidates_found = int(ads_summary.get("ads_file_candidates_found", 0) or 0)
+    ads_file_detected = bool(ads_summary.get("ads_file_detected", False))
+    ads_sheet_found = str(ads_summary.get("ads_sheet_found") or "")
     ads_columns_detected = (
-        [str(item) for item in input_debug.get("ads_columns_detected", []) if str(item).strip()]
-        if isinstance(input_debug, dict) and isinstance(input_debug.get("ads_columns_detected"), list)
+        [str(item) for item in ads_summary.get("ads_columns_detected", []) if str(item).strip()]
+        if isinstance(ads_summary.get("ads_columns_detected"), list)
         else []
     )
-    ads_rows_raw = int(input_debug.get("ads_rows_raw", 0) or 0) if isinstance(input_debug, dict) else 0
-    ads_rows_usable = int(input_debug.get("ads_rows_usable", ads_rows_count) or 0) if isinstance(input_debug, dict) else ads_rows_count
-    ads_loader_error = str(input_debug.get("ads_loader_error") or "") if isinstance(input_debug, dict) else ""
-    source_policy = resolve_source_policy(
-        source_mode=source_mode,
+    ads_rows_raw = int(ads_summary.get("ads_rows_raw", 0) or 0)
+    ads_rows_usable = int(ads_summary.get("ads_rows_usable", ads_rows_count) or 0)
+    ads_loader_error = str(ads_summary.get("ads_loader_error") or "")
+    daily_kpi_assembly = assemble_daily_kpi(
         daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
+        totals=totals_for_daily if isinstance(totals_for_daily, dict) else {},
         financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
         supplier_goods_daily=supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {},
         api_debug=api_debug if isinstance(api_debug, dict) else {},
         input_debug=input_debug if isinstance(input_debug, dict) else {},
+        source_mode=source_mode,
         ads_loaded_from_file=bool(ads_loaded_from_file),
         ads_rows_count=int(ads_rows_count),
     )
-    source_map = source_policy.get("sources", {}) if isinstance(source_policy, dict) else {}
+    daily_kpi = daily_kpi_assembly.get("daily_kpi", {}) if isinstance(daily_kpi_assembly, dict) else {}
+    if not isinstance(daily_kpi, dict):
+        daily_kpi = {}
+    totals_for_daily = daily_kpi_assembly.get("totals", totals_for_daily) if isinstance(daily_kpi_assembly, dict) else totals_for_daily
+    if not isinstance(totals_for_daily, dict):
+        totals_for_daily = {}
+    metrics["totals"] = totals_for_daily
+
+    source_policy = daily_kpi_assembly.get("source_policy", {}) if isinstance(daily_kpi_assembly, dict) else {}
+    if not isinstance(source_policy, dict):
+        source_policy = {}
+    source_map = daily_kpi_assembly.get("source_map", {}) if isinstance(daily_kpi_assembly, dict) else {}
     if not isinstance(source_map, dict):
         source_map = {}
-    source_flags = source_policy.get("source_flags", {}) if isinstance(source_policy, dict) else {}
+    source_flags = daily_kpi_assembly.get("source_flags", {}) if isinstance(daily_kpi_assembly, dict) else {}
     if not isinstance(source_flags, dict):
         source_flags = {}
-    data_source_orders_count = str(source_map.get("orders_count") or _SOURCE_UNKNOWN)
-    data_source_buyouts_count = str(source_map.get("buyouts_count") or _SOURCE_UNKNOWN)
-    data_source_orders_amount = str(source_map.get("orders_amount") or _SOURCE_UNKNOWN)
-    data_source_buyouts_amount = str(source_map.get("buyouts_amount") or _SOURCE_UNKNOWN)
-    data_source_revenue = str(source_map.get("revenue") or _SOURCE_UNKNOWN)
-    data_source_wb_commission = str(source_map.get("wb_commission") or _SOURCE_UNKNOWN)
-    data_source_logistics = str(source_map.get("logistics") or _SOURCE_UNKNOWN)
-    data_source_storage = str(source_map.get("storage") or _SOURCE_UNKNOWN)
-    data_source_ads_spend = str(source_map.get("ads_spend") or _SOURCE_UNKNOWN)
-    orders_count_confirmed = bool(daily_kpi.get("orders_count_confirmed", False))
-    buyouts_count_confirmed = bool(daily_kpi.get("buyouts_count_confirmed", False))
-    confirmed_orders_total = int(daily_kpi.get("daily_orders_count", 0) or 0) if orders_count_confirmed else 0
-    confirmed_buyouts_total = int(daily_kpi.get("daily_buyouts_count", 0) or 0) if buyouts_count_confirmed else 0
+    daily_data_sources = daily_kpi_assembly.get("data_sources", {}) if isinstance(daily_kpi_assembly, dict) else {}
+    if not isinstance(daily_data_sources, dict):
+        daily_data_sources = {}
+    data_source_orders_count = str(daily_data_sources.get("orders_count") or _SOURCE_UNKNOWN)
+    data_source_buyouts_count = str(daily_data_sources.get("buyouts_count") or _SOURCE_UNKNOWN)
+    data_source_orders_amount = str(daily_data_sources.get("orders_amount") or _SOURCE_UNKNOWN)
+    data_source_buyouts_amount = str(daily_data_sources.get("buyouts_amount") or _SOURCE_UNKNOWN)
+    data_source_revenue = str(daily_data_sources.get("revenue") or _SOURCE_UNKNOWN)
+    data_source_wb_commission = str(daily_data_sources.get("wb_commission") or _SOURCE_UNKNOWN)
+    data_source_logistics = str(daily_data_sources.get("logistics") or _SOURCE_UNKNOWN)
+    data_source_storage = str(daily_data_sources.get("storage") or _SOURCE_UNKNOWN)
+    data_source_ads_spend = str(daily_data_sources.get("ads_spend") or _SOURCE_UNKNOWN)
 
-    daily_kpi["data_source_orders_count"] = data_source_orders_count
-    daily_kpi["data_source_buyouts_count"] = data_source_buyouts_count
-    daily_kpi["data_source_orders_amount"] = data_source_orders_amount
-    daily_kpi["data_source_buyouts_amount"] = data_source_buyouts_amount
-    daily_kpi["data_source_orders"] = str(daily_kpi.get("data_source_orders_count") or _SOURCE_UNKNOWN)
-    daily_kpi["data_source_buyouts"] = str(daily_kpi.get("data_source_buyouts_count") or _SOURCE_UNKNOWN)
-    if isinstance(totals_for_daily, dict):
-        totals_for_daily["orders"] = int(confirmed_orders_total)
-        totals_for_daily["buys"] = int(confirmed_buyouts_total)
-        totals_for_daily["orders_confirmed"] = bool(orders_count_confirmed)
-        totals_for_daily["buys_confirmed"] = bool(buyouts_count_confirmed)
-        totals_for_daily["data_source_orders"] = data_source_orders_count
-        totals_for_daily["data_source_buys"] = data_source_buyouts_count
-        totals_for_daily["orders_unconfirmed"] = not bool(orders_count_confirmed)
-        totals_for_daily["buys_unconfirmed"] = not bool(buyouts_count_confirmed)
-    sales_activity_qty_hint = int(totals_for_daily.get("sales_activity_qty", 0) or 0) if isinstance(totals_for_daily, dict) else 0
-    item_qty_hint = int(totals_for_daily.get("item_qty", sales_activity_qty_hint) or 0) if isinstance(totals_for_daily, dict) else 0
-    sku_activity_count = int(totals_for_daily.get("sku_activity_count", 0) or 0) if isinstance(totals_for_daily, dict) else 0
-
-    metrics["ads_ingestion"] = {
-        "ads_rows": ads_rows_count,
-        "ads_loaded_from_file": bool(ads_loaded_from_file),
-        "ads_source_file": ads_source_file,
-        "ads_attribution_quality": ads_attribution_quality,
-        "ads_file_candidates_found": ads_file_candidates_found,
-        "ads_file_detected": ads_file_detected,
-        "ads_sheet_found": ads_sheet_found,
-        "ads_columns_detected": ads_columns_detected,
-        "ads_rows_raw": ads_rows_raw,
-        "ads_rows_usable": ads_rows_usable,
-        "ads_loader_error": ads_loader_error,
-    }
+    metrics["ads_ingestion"] = dict(ads_summary)
+    metrics["ads_diagnostics_summary"] = dict(ads_diagnostics_summary)
     metrics["source_policy"] = source_policy if isinstance(source_policy, dict) else {}
     metrics["data_sources"] = source_map
     metrics["source_flags"] = source_flags
-    metrics["commerce_activity"] = {
-        "item_qty": int(item_qty_hint),
-        "sales_activity_qty": int(sales_activity_qty_hint),
-        "sku_activity_count": int(sku_activity_count),
-        "confirmed_daily_orders_count": int(confirmed_orders_total),
-        "confirmed_daily_buyouts_count": int(confirmed_buyouts_total),
-        "orders_gap_vs_activity": int(sales_activity_qty_hint - confirmed_orders_total),
-        "buyouts_gap_vs_activity": int(sales_activity_qty_hint - confirmed_buyouts_total),
-    }
+    metrics["commerce_activity"] = (
+        daily_kpi_assembly.get("commerce_activity", {})
+        if isinstance(daily_kpi_assembly, dict) and isinstance(daily_kpi_assembly.get("commerce_activity"), dict)
+        else {}
+    )
     if isinstance(metrics.get("funnel"), dict):
-        metrics["funnel"]["orders"] = int(confirmed_orders_total)
-        metrics["funnel"]["buys"] = int(confirmed_buyouts_total)
-        metrics["funnel"]["orders_confirmed"] = bool(orders_count_confirmed)
-        metrics["funnel"]["buys_confirmed"] = bool(buyouts_count_confirmed)
-        metrics["funnel"]["item_qty"] = int(item_qty_hint)
-        metrics["funnel"]["sales_activity_qty"] = int(sales_activity_qty_hint)
-        metrics["funnel"]["sku_activity_count"] = int(sku_activity_count)
+        metrics["funnel"]["orders"] = int(totals_for_daily.get("orders", 0) or 0)
+        metrics["funnel"]["buys"] = int(totals_for_daily.get("buys", 0) or 0)
+        metrics["funnel"]["orders_confirmed"] = bool(totals_for_daily.get("orders_confirmed", False))
+        metrics["funnel"]["buys_confirmed"] = bool(totals_for_daily.get("buys_confirmed", False))
+        metrics["funnel"]["item_qty"] = int(totals_for_daily.get("item_qty", 0) or 0)
+        metrics["funnel"]["sales_activity_qty"] = int(totals_for_daily.get("sales_activity_qty", 0) or 0)
+        metrics["funnel"]["sku_activity_count"] = int(totals_for_daily.get("sku_activity_count", 0) or 0)
     if isinstance(input_debug, dict):
-        input_debug["ads_rows"] = ads_rows_count
-        input_debug["ads_rows_raw"] = int(max(ads_rows_raw, ads_rows_usable))
-        input_debug["ads_rows_usable"] = int(max(ads_rows_usable, ads_rows_count))
-        input_debug["ads_file_candidates_found"] = ads_file_candidates_found
-        input_debug["ads_file_detected"] = ads_file_detected
-        input_debug["ads_sheet_found"] = ads_sheet_found
-        input_debug["ads_columns_detected"] = ads_columns_detected
-        input_debug["ads_loader_error"] = ads_loader_error
-        input_debug["ads_attribution_quality"] = ads_attribution_quality
+        input_debug_patch = ads_assembly.get("input_debug_patch", {}) if isinstance(ads_assembly, dict) else {}
+        if isinstance(input_debug_patch, dict):
+            for key, value in input_debug_patch.items():
+                input_debug[key] = value
         input_debug["source_policy"] = source_policy if isinstance(source_policy, dict) else {}
     metrics["daily_kpi"] = daily_kpi
-    metrics["commerce_kpi"] = {
-        "daily_orders_count": int(daily_kpi.get("daily_orders_count", 0) or 0),
-        "daily_orders_amount": round(_safe_float(daily_kpi.get("daily_orders_amount", 0.0)), 2),
-        "daily_buyouts_count": int(daily_kpi.get("daily_buyouts_count", 0) or 0),
-        "daily_buyouts_amount": round(_safe_float(daily_kpi.get("daily_buyouts_amount", 0.0)), 2),
-        "avg_check": round(
-            (
-                _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
-                / _safe_float(daily_kpi.get("daily_buyouts_count", 0))
-            )
-            if _safe_float(daily_kpi.get("daily_buyouts_count", 0)) > 0
-            else 0.0,
-            2,
-        ),
-        "data_source_orders_count": data_source_orders_count,
-        "data_source_orders_amount": data_source_orders_amount,
-        "data_source_buyouts_count": data_source_buyouts_count,
-        "data_source_buyouts_amount": data_source_buyouts_amount,
-        "orders_count_confirmed": bool(daily_kpi.get("orders_count_confirmed", False)),
-        "buyouts_count_confirmed": bool(daily_kpi.get("buyouts_count_confirmed", False)),
-        "orders_amount_confirmed": bool(daily_kpi.get("orders_amount_confirmed", False)),
-        "buyouts_amount_confirmed": bool(daily_kpi.get("buyouts_amount_confirmed", False)),
-    }
-
-    orders_sources = {data_source_orders_count, data_source_orders_amount}
-    buyouts_sources = {data_source_buyouts_count, data_source_buyouts_amount}
-    kpi_sources = {source for source in (orders_sources | buyouts_sources) if source}
-    api_sources = {
-        _DAILY_SOURCE_ORDERS_API,
-        _DAILY_SOURCE_SALES_API,
-        _DAILY_SOURCE_REALIZATION_API,
-    }
-    if any(source in api_sources for source in kpi_sources):
-        warnings.append(
-            {
-                "code": "daily_kpi_fallback_used",
-                "message": "Supplier goods report not found, using API fallback.",
-            }
-        )
-    if _DAILY_SOURCE_FALLBACK in kpi_sources:
-        warnings.append(
-            {
-                "code": "weak_kpi_source",
-                "message": "Daily KPI derived from metrics totals fallback.",
-            }
-        )
-    if bool(daily_kpi.get("quantity_fallback_blocked", False)):
-        warnings.append(
-            {
-                "code": "quantity_orders_fallback_blocked",
-                "message": "quantity column cannot be used as orders_count fallback",
-            }
-        )
-    if (
-        (
-            data_source_orders_count == _SOURCE_UNKNOWN
-            or data_source_buyouts_count == _SOURCE_UNKNOWN
-        )
-        and sales_activity_qty_hint > 0
-    ):
-        warnings.append(
-            {
-                "code": "totals_orders_buys_not_confirmed",
-                "message": (
-                    "totals orders/buys not confirmed; keeping totals.orders/totals.buys at 0 "
-                    f"while sales_activity_qty={sales_activity_qty_hint}"
-                ),
-            }
-        )
-    orders_unknown_reason = str(daily_kpi.get("orders_count_unknown_reason") or "").strip()
-    buyouts_unknown_reason = str(daily_kpi.get("buyouts_count_unknown_reason") or "").strip()
-    if data_source_orders_count == _SOURCE_UNKNOWN:
-        warnings.append(
-            {
-                "code": "daily_orders_count_unknown",
-                "message": (
-                    f"daily_orders_count is unknown: {orders_unknown_reason}"
-                    if orders_unknown_reason
-                    else "daily_orders_count is unknown: no confirmed source"
-                ),
-            }
-        )
-    if data_source_buyouts_count == _SOURCE_UNKNOWN:
-        warnings.append(
-            {
-                "code": "daily_buyouts_count_unknown",
-                "message": (
-                    f"daily_buyouts_count is unknown: {buyouts_unknown_reason}"
-                    if buyouts_unknown_reason
-                    else "daily_buyouts_count is unknown: no confirmed source"
-                ),
-            }
-        )
-    if data_source_orders_count == _SOURCE_UNKNOWN and data_source_buyouts_count == _SOURCE_UNKNOWN:
-        warnings.append(
-            {
-                "code": "daily_kpi_unknown",
-                "message": "daily orders/buyouts counts remain unknown because no confirmed source is available",
-            }
-        )
+    metrics["commerce_kpi"] = (
+        daily_kpi_assembly.get("commerce_kpi", {})
+        if isinstance(daily_kpi_assembly, dict) and isinstance(daily_kpi_assembly.get("commerce_kpi"), dict)
+        else {}
+    )
+    warning_additions = (
+        daily_kpi_assembly.get("warning_additions", [])
+        if isinstance(daily_kpi_assembly, dict) and isinstance(daily_kpi_assembly.get("warning_additions"), list)
+        else []
+    )
+    warnings_collector.extend_warnings(warning_additions)
     _append_daily_kpi_mismatch_warning(
-        warnings=warnings,
+        warnings_collector=warnings_collector,
         summary_daily_kpi=daily_kpi,
         supplier_goods_daily=supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {},
     )
@@ -1441,126 +1272,50 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         financial_debug = []
     invalid_rows = int(metrics_data_quality.get("invalid_sku_rows", 0) or 0)
     if invalid_rows > 0:
-        warnings.append(
-            {
-                "code": "invalid_sku_filtered",
-                "message": f"Filtered invalid SKU rows: {invalid_rows}",
-            }
-        )
+        warnings_collector.add_warning("invalid_sku_filtered", f"Filtered invalid SKU rows: {invalid_rows}")
         invalid_reason_counts = metrics_data_quality.get("invalid_sku_reason_counts", {})
         if isinstance(invalid_reason_counts, dict) and invalid_reason_counts:
             breakdown = ", ".join(f"{k}={int(v)}" for k, v in sorted(invalid_reason_counts.items(), key=lambda x: str(x[0])))
-            warnings.append(
-                {
-                    "code": "invalid_sku_reason_breakdown",
-                    "message": f"Invalid SKU reason breakdown: {breakdown}",
-                }
-            )
+            warnings_collector.add_warning("invalid_sku_reason_breakdown", f"Invalid SKU reason breakdown: {breakdown}")
     if bool(metrics_data_quality.get("unassigned_costs_present", False)):
-        warnings.append(
-            {
-                "code": "unassigned_costs_detected",
-                "message": "Part of costs is not assigned to SKU and stored in unassigned_costs.",
-            }
+        warnings_collector.add_warning(
+            "unassigned_costs_detected",
+            "Part of costs is not assigned to SKU and stored in unassigned_costs.",
         )
     zero_revenue_activity_skus = metrics_data_quality.get("zero_revenue_activity_skus", [])
     if isinstance(zero_revenue_activity_skus, list) and zero_revenue_activity_skus:
-        warnings.append(
-            {
-                "code": "sales_activity_zero_revenue",
-                "message": (
-                    "sales activity exists but revenue attribution is zero: "
-                    + ", ".join(str(sku) for sku in zero_revenue_activity_skus[:10])
-                ),
-            }
+        warnings_collector.add_warning(
+            "sales_activity_zero_revenue",
+            "sales activity exists but revenue attribution is zero: "
+            + ", ".join(str(sku) for sku in zero_revenue_activity_skus[:10]),
         )
-    if bool(financial_kpi.get("cost_price_missing", False)):
-        warnings.append(
-            {
-                "code": "cost_price_missing",
-                "message": "Cost price is missing; financial net profit is partial.",
-            }
-        )
-    if bool(financial_kpi.get("wb_commission_missing", False)):
-        warnings.append(
-            {
-                "code": "wb_commission_missing",
-                "message": "WB commission is missing; financial net profit is partial.",
-            }
-        )
-    if bool(financial_kpi.get("expense_attribution_partial", False)):
-        warnings.append(
-            {
-                "code": "expense_attribution_partial",
-                "message": "Expense attribution is partial due to unassigned or invalid SKU rows.",
-            }
-        )
-    if bool(financial_kpi.get("net_profit_partial", False)):
-        warnings.append(
-            {
-                "code": "net_profit_partial",
-                "message": "Net profit is partial due to missing or partially attributed financial components.",
-            }
-        )
-    if bool(financial_kpi.get("financial_margin_not_final", False)):
-        warnings.append(
-            {
-                "code": "financial_margin_not_final",
-                "message": "Financial margin is not final because net profit is partial.",
-            }
-        )
-    if ads_loaded_from_file:
-        warnings.append(
-            {
-                "code": "ads_file_loaded",
-                "message": f"Ads report loaded from file: {ads_source_file or 'local_input'}",
-            }
-        )
-    if ads_rows_count <= 0 and not any(str(item.get("code") or "") == "ads_report_missing" for item in warnings if isinstance(item, dict)):
-        warnings.append(
-            {
-                "code": "ads_report_missing",
-                "message": "Ads report is missing or has zero usable rows.",
-            }
-        )
-    if ads_attribution_quality in {"mixed_direct_and_associated", "associated_only"}:
-        warnings.append(
-            {
-                "code": "ads_attribution_partial",
-                "message": f"Ads attribution includes associated conversions ({ads_attribution_quality}).",
-            }
-        )
-    if _safe_float(financial_kpi.get("ads_spend", 0.0)) > 0:
-        warnings.append(
-            {
-                "code": "ads_spend_applied_to_profit",
-                "message": "Ads spend applied to net profit calculation.",
-            }
-        )
-        warnings.append(
-            {
-                "code": "net_profit_reduced_by_ads",
-                "message": "Net profit reduced by ads spend.",
-            }
-        )
+    financial_warning_additions = (
+        financial_assembly.get("warning_additions", [])
+        if isinstance(financial_assembly, dict) and isinstance(financial_assembly.get("warning_additions"), list)
+        else []
+    )
+    warnings_collector.extend_warnings(financial_warning_additions)
+    ads_warning_additions = (
+        ads_assembly.get("warnings_additions", [])
+        if isinstance(ads_assembly, dict) and isinstance(ads_assembly.get("warnings_additions"), list)
+        else []
+    )
+    warnings_collector.extend_warnings(ads_warning_additions)
     api_financial_empty = bool(token and not api_realization_rows and not api_sales_rows)
     financial_data_missing_flag = len(sales_rows) == 0
     financial_data_degraded_flag = False
     if financial_data_missing_flag:
-        if not any(str(item.get("code") or "") == "financial_data_missing" for item in warnings if isinstance(item, dict)):
-            warnings.append(
-                {
-                    "code": "financial_data_missing",
-                    "message": "данные о продажах не получены",
-                }
-            )
+        if not any(
+            str(item.get("code") or "") == "financial_data_missing"
+            for item in warnings_collector.export_warnings()
+            if isinstance(item, dict)
+        ):
+            warnings_collector.add_warning("financial_data_missing", "данные о продажах не получены")
         financial_data_degraded_flag = True
     elif api_financial_empty:
-        warnings.append(
-            {
-                "code": "wb_api_financial_degraded",
-                "message": "WB API financial datasets are empty; local fallback data was used.",
-            }
+        warnings_collector.add_warning(
+            "wb_api_financial_degraded",
+            "WB API financial datasets are empty; local fallback data was used.",
         )
         financial_data_degraded_flag = True
 
@@ -1570,54 +1325,42 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         seller_name=seller_name,
         metrics=metrics,
         discovered_files=discovered_files,
-        warnings=warnings,
+        warnings=warnings_collector.export_warnings(),
         source_mode=source_mode,
     )
-    facts["source_mode"] = source_mode
-    facts["api_debug"] = api_debug
-    facts["commerce_kpi"] = metrics.get("commerce_kpi", {})
-    facts["financial_kpi"] = metrics.get("financial_kpi", {})
-    facts["ads_rows"] = ads_rows_count
-    facts["ads_spend"] = round(_safe_float(financial_kpi.get("ads_spend", 0.0)), 2)
-    facts["ads_loaded_from_file"] = bool(ads_loaded_from_file)
-    facts["ads_source_file"] = ads_source_file
-    facts["ads_file_candidates_found"] = int(input_debug.get("ads_file_candidates_found", 0) or 0) if isinstance(input_debug, dict) else 0
-    facts["ads_file_detected"] = bool(input_debug.get("ads_file_detected", False)) if isinstance(input_debug, dict) else False
-    facts["ads_sheet_found"] = str(input_debug.get("ads_sheet_found") or "") if isinstance(input_debug, dict) else ""
-    facts["ads_columns_detected"] = (
-        [str(item) for item in input_debug.get("ads_columns_detected", []) if str(item).strip()]
-        if isinstance(input_debug, dict) and isinstance(input_debug.get("ads_columns_detected"), list)
-        else []
+    facts.update(
+        build_facts_runtime_patch(
+            source_mode=source_mode,
+            api_debug=api_debug if isinstance(api_debug, dict) else {},
+            metrics=metrics if isinstance(metrics, dict) else {},
+            ads_summary=ads_summary if isinstance(ads_summary, dict) else {},
+            ads_rows_count=ads_rows_count,
+            financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+            ads_loaded_from_file=bool(ads_loaded_from_file),
+            ads_source_file=ads_source_file,
+            ads_attribution_quality=ads_attribution_quality,
+            data_source_orders_count=data_source_orders_count,
+            data_source_buyouts_count=data_source_buyouts_count,
+            data_source_orders_amount=data_source_orders_amount,
+            data_source_buyouts_amount=data_source_buyouts_amount,
+            daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
+            data_source_revenue=data_source_revenue,
+            data_source_wb_commission=data_source_wb_commission,
+            data_source_logistics=data_source_logistics,
+            data_source_storage=data_source_storage,
+            data_source_ads_spend=data_source_ads_spend,
+            source_flags=source_flags if isinstance(source_flags, dict) else {},
+            source_policy=source_policy if isinstance(source_policy, dict) else {},
+        )
     )
-    facts["ads_rows_raw"] = int(input_debug.get("ads_rows_raw", 0) or 0) if isinstance(input_debug, dict) else 0
-    facts["ads_rows_usable"] = int(input_debug.get("ads_rows_usable", ads_rows_count) or 0) if isinstance(input_debug, dict) else ads_rows_count
-    facts["ads_loader_error"] = str(input_debug.get("ads_loader_error") or "") if isinstance(input_debug, dict) else ""
-    facts["ads_attribution_quality"] = ads_attribution_quality
-    facts["data_source_orders_count"] = data_source_orders_count
-    facts["data_source_buyouts_count"] = data_source_buyouts_count
-    facts["data_source_orders_amount"] = data_source_orders_amount
-    facts["data_source_buyouts_amount"] = data_source_buyouts_amount
-    facts["orders_count_confirmed"] = bool(daily_kpi.get("orders_count_confirmed", False))
-    facts["buyouts_count_confirmed"] = bool(daily_kpi.get("buyouts_count_confirmed", False))
-    facts["data_source_revenue"] = data_source_revenue
-    facts["data_source_wb_commission"] = data_source_wb_commission
-    facts["data_source_logistics"] = data_source_logistics
-    facts["data_source_storage"] = data_source_storage
-    facts["data_source_ads_spend"] = data_source_ads_spend
-    facts["sku_activity_orders_hint"] = int(daily_kpi.get("sku_activity_orders_hint", 0) or 0)
-    facts["sku_activity_buyouts_hint"] = int(daily_kpi.get("sku_activity_buyouts_hint", 0) or 0)
-    facts["commerce_activity"] = metrics.get("commerce_activity", {}) if isinstance(metrics.get("commerce_activity"), dict) else {}
-    facts["orders_count_unknown_reason"] = str(daily_kpi.get("orders_count_unknown_reason") or "")
-    facts["buyouts_count_unknown_reason"] = str(daily_kpi.get("buyouts_count_unknown_reason") or "")
-    facts["source_flags"] = source_flags
-    facts["source_policy"] = source_policy if isinstance(source_policy, dict) else {}
-    if isinstance(facts.get("data_quality"), dict):
-        fact_financial_status = str(facts["data_quality"].get("financial_status") or "ok")
-        facts["data_quality"]["ads_attribution_quality"] = ads_attribution_quality
-        if bool(financial_kpi.get("is_partial", False)):
-            facts["data_quality"]["financial_status"] = "partial"
-        elif financial_data_degraded_flag and fact_financial_status == "ok":
-            facts["data_quality"]["financial_status"] = "degraded"
+    patched_data_quality = apply_facts_data_quality_patch(
+        current_data_quality=facts.get("data_quality"),
+        ads_attribution_quality=ads_attribution_quality,
+        financial_partial=bool(financial_kpi.get("is_partial", False)),
+        financial_data_degraded_flag=financial_data_degraded_flag,
+    )
+    if isinstance(patched_data_quality, dict):
+        facts["data_quality"] = patched_data_quality
 
     confidence = str(facts.get("data_confidence", "low"))
     input_summary = facts.get("input_summary", {}) if isinstance(facts, dict) else {}
@@ -1642,32 +1385,24 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     total_profit_overall = float(totals_payload.get("total_profit", totals_payload.get("profit", 0.0)) or 0.0)
 
     if total_profit_overall <= 0:
-        warnings.append(
-            {
-                "code": "low_total_profit",
-                "message": "Total financial profit is non-positive; financial attribution may be incomplete.",
-            }
+        warnings_collector.add_warning(
+            "low_total_profit",
+            "Total financial profit is non-positive; financial attribution may be incomplete.",
         )
     if isinstance(top_profit_rows, list) and top_profit_rows:
         top_share = float((top_profit_rows[0] or {}).get("profit_share", 0.0) or 0.0)
         if top_share > 0.5:
-            warnings.append(
-                {
-                    "code": "profit_concentration_high",
-                    "message": f"Top SKU contributes {round(top_share, 4)} of total profit.",
-                }
+            warnings_collector.add_warning(
+                "profit_concentration_high",
+                f"Top SKU contributes {round(top_share, 4)} of total profit.",
             )
 
-    facts["profit_contribution_summary"] = {
-        "p1_count": len(p1_rows) if isinstance(p1_rows, list) else 0,
-        "p2_count": len(p2_rows) if isinstance(p2_rows, list) else 0,
-        "p3_count": len(p3_rows) if isinstance(p3_rows, list) else 0,
-        "top_profit_skus": [
-            str(item.get("sku"))
-            for item in (top_profit_rows if isinstance(top_profit_rows, list) else [])
-            if isinstance(item, dict) and str(item.get("sku") or "").strip()
-        ][:5],
-    }
+    facts["profit_contribution_summary"] = build_profit_contribution_summary(
+        p1_rows=p1_rows if isinstance(p1_rows, list) else [],
+        p2_rows=p2_rows if isinstance(p2_rows, list) else [],
+        p3_rows=p3_rows if isinstance(p3_rows, list) else [],
+        top_profit_rows=top_profit_rows if isinstance(top_profit_rows, list) else [],
+    )
 
     territorial_input: Dict[str, Any] = dict(metrics if isinstance(metrics, dict) else {})
     territorial_input["sales_rows"] = sales_rows
@@ -1683,97 +1418,38 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     )
     if not isinstance(territorial_summary, dict):
         territorial_summary = {}
-    sku_total = int(territorial_summary.get("sku_total", territorial_summary.get("sku_analyzed", 0)) or 0)
-    sku_with_ktr = int(
-        territorial_summary.get(
-            "sku_with_ktr",
-            int(territorial_summary.get("balanced_count", 0) or 0)
-            + int(territorial_summary.get("moderate_mismatch_count", 0) or 0)
-            + int(territorial_summary.get("misallocated_count", 0) or 0),
-        )
-        or 0
-    )
-    insufficient_distribution_data_count = int(
-        territorial_summary.get("insufficient_distribution_data_count", territorial_summary.get("insufficient_data_count", 0))
-        or 0
-    )
-    no_stock_data_count = int(territorial_summary.get("no_stock_data_count", 0) or 0)
-    insufficient_total_count = int(
-        territorial_summary.get("insufficient_total_count", territorial_summary.get("insufficient_data_count", 0)) or 0
-    )
-    facts["territorial_distribution_summary"] = {
-        "sku_total": sku_total,
-        "sku_with_ktr": sku_with_ktr,
-        "balanced_count": int(territorial_summary.get("balanced_count", 0) or 0),
-        "moderate_mismatch_count": int(territorial_summary.get("moderate_mismatch_count", 0) or 0),
-        "misallocated_count": int(territorial_summary.get("misallocated_count", 0) or 0),
-        "insufficient_distribution_data_count": insufficient_distribution_data_count,
-        "no_stock_data_count": no_stock_data_count,
-        "insufficient_total_count": insufficient_total_count,
-        "avg_ktr": float(territorial_summary.get("avg_ktr", 0.0) or 0.0),
-        "top_misaligned_skus": (
-            [
-                str(value)
-                for value in territorial_summary.get("top_misaligned_skus", [])
-                if str(value or "").strip()
-            ][:5]
-            if isinstance(territorial_summary.get("top_misaligned_skus"), list)
-            else []
-        ),
-    }
+    territorial_distribution_summary = build_territorial_distribution_summary(territorial_summary)
+    facts["territorial_distribution_summary"] = territorial_distribution_summary
+    sku_with_ktr = int(territorial_distribution_summary.get("sku_with_ktr", 0) or 0)
+    insufficient_total_count = int(territorial_distribution_summary.get("insufficient_total_count", 0) or 0)
 
-    warnings.append(
-        {
-            "code": "territorial_distribution_built",
-            "message": f"Territorial distribution built for {sku_with_ktr} SKU with KTR",
-        }
+    warnings_collector.add_warning(
+        "territorial_distribution_built",
+        f"Territorial distribution built for {sku_with_ktr} SKU with KTR",
     )
     if insufficient_total_count > 0:
-        warnings.append(
-            {
-                "code": "insufficient_warehouse_data",
-                "message": "Insufficient warehouse-level data for full territorial analysis",
-            }
+        warnings_collector.add_warning(
+            "insufficient_warehouse_data",
+            "Insufficient warehouse-level data for full territorial analysis",
         )
     high_ktr_count = int(territorial_summary.get("misallocated_count", 0) or 0)
     if high_ktr_count > 0:
-        warnings.append(
-            {
-                "code": "high_ktr_detected",
-                "message": f"High KTR detected for {high_ktr_count} SKU",
-            }
-        )
+        warnings_collector.add_warning("high_ktr_detected", f"High KTR detected for {high_ktr_count} SKU")
 
-    write_json(os.path.join(out_dir, "metrics.json"), metrics)
-    write_json(os.path.join(out_dir, "financial_debug.json"), financial_debug)
-    write_json(os.path.join(out_dir, "abc_analysis.json"), abc_rows)
-    save_profit_contribution(os.path.join(out_dir, "profit_contribution.json"), profit_contribution)
-    save_territorial_distribution(Path(out_dir) / "territorial_distribution.json", territorial_distribution)
+    write_daily_metrics_artifacts(
+        out_dir=out_dir,
+        metrics=metrics if isinstance(metrics, dict) else {},
+        financial_debug=financial_debug if isinstance(financial_debug, list) else [],
+        abc_rows=abc_rows if isinstance(abc_rows, list) else [],
+        profit_contribution=profit_contribution if isinstance(profit_contribution, dict) else {},
+        territorial_distribution=territorial_distribution if isinstance(territorial_distribution, dict) else {},
+    )
 
     logistics_ktr = build_logistics_ktr(seller_id=seller_id, run_date=run_date, repo_root=repo_root)
     logistics_summary = logistics_ktr.get("summary", {}) if isinstance(logistics_ktr, dict) else {}
     if not isinstance(logistics_summary, dict):
         logistics_summary = {}
-    facts["logistics_ktr_summary"] = {
-        "sku_total": int(logistics_summary.get("sku_total", 0) or 0),
-        "sku_with_ktr": int(logistics_summary.get("sku_with_ktr", 0) or 0),
-        "efficient_count": int(logistics_summary.get("efficient_count", 0) or 0),
-        "acceptable_count": int(logistics_summary.get("acceptable_count", 0) or 0),
-        "inefficient_count": int(logistics_summary.get("inefficient_count", 0) or 0),
-        "critical_count": int(logistics_summary.get("critical_count", 0) or 0),
-        "low_confidence_count": int(logistics_summary.get("low_confidence_count", 0) or 0),
-        "avg_ktr": float(logistics_summary.get("avg_ktr", 0.0) or 0.0),
-        "avg_locality_score": float(logistics_summary.get("avg_locality_score", 0.0) or 0.0),
-        "top_critical_skus": (
-            [
-                str(value)
-                for value in logistics_summary.get("top_critical_skus", [])
-                if str(value or "").strip()
-            ][:5]
-            if isinstance(logistics_summary.get("top_critical_skus"), list)
-            else []
-        ),
-    }
+    facts["logistics_ktr_summary"] = build_logistics_ktr_summary(logistics_summary)
 
     health_payload = compute_sku_health(facts, metrics)
     health_summary = health_payload.get("summary", {}) if isinstance(health_payload, dict) else {}
@@ -1800,97 +1476,78 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     if not isinstance(director_strategy, dict):
         director_strategy = {}
 
+    artifacts_list = [
+        "job.json",
+        "facts.json",
+        "metrics.json",
+        "api_debug.json",
+        "financial_debug.json",
+        "warnings.json",
+        "abc_analysis.json",
+        "profit_contribution.json",
+        "territorial_distribution.json",
+        "logistics_ktr.json",
+        "health_score.json",
+        "decisions.json",
+        "growth_simulation.json",
+        "opportunity_scores.json",
+        "director_strategy.json",
+        "memory/decision_memory.jsonl",
+        f"memory/outcomes/{run_date}_outcomes.json",
+        f"history/daily/{run_date}/",
+        "history/history_index.json",
+        "report_meta.json",
+        "report.pdf",
+    ]
     job = {
-        "seller_id": seller_id,
-        "mode": "daily",
-        "run_date": run_date,
-        "status": "partial_success" if (financial_data_missing_flag or facts_financial_status == "partial") else "success",
-        "started_at": started_at,
-        "finished_at": _utc_now_iso(),
-        "error": (
-            "данные о продажах не получены"
-            if financial_data_missing_flag
-            else ("финансовая атрибуция частичная" if facts_financial_status == "partial" else None)
+        **build_run_summary(
+            seller_id=seller_id,
+            mode="daily",
+            run_date=run_date,
+            started_at=started_at,
+            finished_at=_utc_now_iso(),
+            source_mode=source_mode,
+            artifacts_dir=out_dir,
+            financial_data_missing_flag=financial_data_missing_flag,
+            facts_financial_status=facts_financial_status,
+            financial_partial=bool(financial_kpi.get("is_partial", False)),
+            data_quality=facts_financial_status,
+            artifacts=artifacts_list,
         ),
-        "source_mode": source_mode,
-        "artifacts_dir": out_dir,
-        "input_debug": input_debug,
-        "api_debug": api_debug,
-        "daily_orders_count": int(daily_kpi.get("daily_orders_count", 0) or 0),
-        "daily_orders_amount": round(_safe_float(daily_kpi.get("daily_orders_amount", 0.0)), 2),
-        "daily_buyouts_count": int(daily_kpi.get("daily_buyouts_count", 0) or 0),
-        "daily_buyouts_amount": round(_safe_float(daily_kpi.get("daily_buyouts_amount", 0.0)), 2),
-        "ads_rows": ads_rows_count,
-        "ads_spend": round(_safe_float(financial_kpi.get("ads_spend", 0.0)), 2),
-        "ads_loaded_from_file": bool(ads_loaded_from_file),
-        "ads_source_file": ads_source_file,
-        "ads_file_candidates_found": int(input_debug.get("ads_file_candidates_found", 0) or 0) if isinstance(input_debug, dict) else 0,
-        "ads_file_detected": bool(input_debug.get("ads_file_detected", False)) if isinstance(input_debug, dict) else False,
-        "ads_sheet_found": str(input_debug.get("ads_sheet_found") or "") if isinstance(input_debug, dict) else "",
-        "ads_columns_detected": (
-            [str(item) for item in input_debug.get("ads_columns_detected", []) if str(item).strip()]
-            if isinstance(input_debug, dict) and isinstance(input_debug.get("ads_columns_detected"), list)
-            else []
+        **build_daily_job_payload(
+            input_debug=input_debug if isinstance(input_debug, dict) else {},
+            api_debug=api_debug if isinstance(api_debug, dict) else {},
+            daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
+            ads_summary=ads_summary if isinstance(ads_summary, dict) else {},
+            ads_rows_count=ads_rows_count,
+            financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+            ads_loaded_from_file=bool(ads_loaded_from_file),
+            ads_source_file=ads_source_file,
+            ads_attribution_quality=ads_attribution_quality,
+            data_source_orders_count=data_source_orders_count,
+            data_source_buyouts_count=data_source_buyouts_count,
+            data_source_orders_amount=data_source_orders_amount,
+            data_source_buyouts_amount=data_source_buyouts_amount,
+            data_source_revenue=data_source_revenue,
+            data_source_wb_commission=data_source_wb_commission,
+            data_source_logistics=data_source_logistics,
+            data_source_storage=data_source_storage,
+            data_source_ads_spend=data_source_ads_spend,
+            source_flags=source_flags if isinstance(source_flags, dict) else {},
+            facts_financial_status=facts_financial_status,
+            metrics=metrics if isinstance(metrics, dict) else {},
         ),
-        "ads_rows_raw": int(input_debug.get("ads_rows_raw", 0) or 0) if isinstance(input_debug, dict) else 0,
-        "ads_rows_usable": int(input_debug.get("ads_rows_usable", ads_rows_count) or 0) if isinstance(input_debug, dict) else ads_rows_count,
-        "ads_loader_error": str(input_debug.get("ads_loader_error") or "") if isinstance(input_debug, dict) else "",
-        "ads_attribution_quality": ads_attribution_quality,
-        "data_source_orders": data_source_orders_count,
-        "data_source_orders_count": data_source_orders_count,
-        "data_source_orders_amount": data_source_orders_amount,
-        "data_source_buyouts": data_source_buyouts_count,
-        "data_source_buyouts_count": data_source_buyouts_count,
-        "data_source_buyouts_amount": data_source_buyouts_amount,
-        "orders_count_confirmed": bool(daily_kpi.get("orders_count_confirmed", False)),
-        "buyouts_count_confirmed": bool(daily_kpi.get("buyouts_count_confirmed", False)),
-        "sku_activity_orders_hint": int(daily_kpi.get("sku_activity_orders_hint", 0) or 0),
-        "sku_activity_buyouts_hint": int(daily_kpi.get("sku_activity_buyouts_hint", 0) or 0),
-        "orders_count_unknown_reason": str(daily_kpi.get("orders_count_unknown_reason") or ""),
-        "buyouts_count_unknown_reason": str(daily_kpi.get("buyouts_count_unknown_reason") or ""),
-        "commerce_activity": metrics.get("commerce_activity", {}) if isinstance(metrics.get("commerce_activity"), dict) else {},
-        "data_source_revenue": data_source_revenue,
-        "data_source_wb_commission": data_source_wb_commission,
-        "data_source_logistics": data_source_logistics,
-        "data_source_storage": data_source_storage,
-        "data_source_ads_spend": data_source_ads_spend,
-        "source_flags": source_flags,
-        "orders_amount_confirmed": bool(daily_kpi.get("orders_amount_confirmed", False)),
-        "buyouts_amount_confirmed": bool(daily_kpi.get("buyouts_amount_confirmed", False)),
-        "financial_completeness_pct": round(_safe_float(financial_kpi.get("completeness_pct", 0.0)), 2),
-        "financial_partial": bool(financial_kpi.get("is_partial", False)),
-        "data_quality": facts_financial_status,
-        "artifacts": [
-            "job.json",
-            "facts.json",
-            "metrics.json",
-            "api_debug.json",
-            "financial_debug.json",
-            "warnings.json",
-            "abc_analysis.json",
-            "profit_contribution.json",
-            "territorial_distribution.json",
-            "logistics_ktr.json",
-            "health_score.json",
-            "decisions.json",
-            "growth_simulation.json",
-            "opportunity_scores.json",
-            "director_strategy.json",
-            "memory/decision_memory.jsonl",
-            f"memory/outcomes/{run_date}_outcomes.json",
-            f"history/daily/{run_date}/",
-            "history/history_index.json",
-            "report_meta.json",
-            "report.pdf",
-        ],
     }
 
-    write_json(os.path.join(out_dir, "health_score.json"), health_payload)
-    write_json(os.path.join(out_dir, "decisions.json"), decisions_payload)
-    write_json(os.path.join(out_dir, "growth_simulation.json"), growth_simulation)
-    write_json(os.path.join(out_dir, "opportunity_scores.json"), opportunity_scores)
-    write_json(os.path.join(out_dir, "director_strategy.json"), director_strategy)
-    write_json(os.path.join(out_dir, "api_debug.json"), api_debug if isinstance(api_debug, dict) else {})
+    write_daily_ai_artifacts(
+        out_dir=out_dir,
+        health_payload=health_payload if isinstance(health_payload, dict) else {},
+        decisions_payload=decisions_payload if isinstance(decisions_payload, dict) else {},
+        growth_simulation=growth_simulation if isinstance(growth_simulation, dict) else {},
+        opportunity_scores=opportunity_scores if isinstance(opportunity_scores, dict) else {},
+        director_strategy=director_strategy if isinstance(director_strategy, dict) else {},
+        api_debug=api_debug if isinstance(api_debug, dict) else {},
+    )
 
     decision_rows_added = log_decisions(
         seller_id=seller_id,
@@ -1900,11 +1557,9 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         artifacts_dir=Path(out_dir),
     )
     if decision_rows_added > 0:
-        warnings.append(
-            {
-                "code": "decision_memory_updated",
-                "message": f"Decision memory updated: added {decision_rows_added} records.",
-            }
+        warnings_collector.add_warning(
+            "decision_memory_updated",
+            f"Decision memory updated: added {decision_rows_added} records.",
         )
     job["decision_memory_added"] = decision_rows_added
 
@@ -1923,35 +1578,25 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     )
     outcomes_evaluated = int(outcomes_payload.get("evaluated", 0) or 0)
     if outcomes_evaluated > 0:
-        warnings.append(
-            {
-                "code": "decision_outcomes_evaluated",
-                "message": f"Decision outcomes evaluated: {outcomes_evaluated}",
-            }
-        )
+        warnings_collector.add_warning("decision_outcomes_evaluated", f"Decision outcomes evaluated: {outcomes_evaluated}")
     else:
-        warnings.append(
-            {
-                "code": "no_decisions_ready_for_outcome",
-                "message": "No decisions are ready for outcome evaluation yet",
-            }
+        warnings_collector.add_warning(
+            "no_decisions_ready_for_outcome",
+            "No decisions are ready for outcome evaluation yet",
         )
 
     decision_memory_summary = outcomes_payload.get("decision_memory_summary", {})
     if not isinstance(decision_memory_summary, dict):
         decision_memory_summary = {}
-    facts["decision_memory_summary"] = {
-        "total_logged": int(decision_memory_summary.get("total_logged", 0) or 0),
-        "pending": int(decision_memory_summary.get("pending", 0) or 0),
-        "success": int(decision_memory_summary.get("success", 0) or 0),
-        "fail": int(decision_memory_summary.get("fail", 0) or 0),
-        "neutral": int(decision_memory_summary.get("neutral", 0) or 0),
-    }
+    facts["decision_memory_summary"] = build_decision_memory_summary(decision_memory_summary)
     job["decision_outcomes_evaluated"] = outcomes_evaluated
     job["decision_outcomes_file"] = str(outcomes_file)
 
-    write_json(os.path.join(out_dir, "facts.json"), facts)
-    write_json(os.path.join(out_dir, "warnings.json"), warnings)
+    write_facts_and_warnings(
+        out_dir=out_dir,
+        facts=facts if isinstance(facts, dict) else {},
+        warnings=warnings_collector.export_warnings(),
+    )
     totals = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
     profit_rows = _top_profit_rows(
         profit_contribution=profit_contribution if isinstance(profit_contribution, dict) else {},
@@ -1966,7 +1611,17 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     )
     financial_kpi = metrics.get("financial_kpi", {}) if isinstance(metrics, dict) else {}
     if not isinstance(financial_kpi, dict):
-        financial_kpi = _build_financial_kpi(totals if isinstance(totals, dict) else {}, data_quality if isinstance(data_quality, dict) else {})
+        fallback_financial_assembly = assemble_financial_kpi(
+            totals=totals if isinstance(totals, dict) else {},
+            data_quality=data_quality if isinstance(data_quality, dict) else {},
+        )
+        financial_kpi = (
+            fallback_financial_assembly.get("financial_kpi", {})
+            if isinstance(fallback_financial_assembly, dict)
+            else {}
+        )
+        if not isinstance(financial_kpi, dict):
+            financial_kpi = {}
     revenue_total = _safe_float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))))
     profit_total = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
     daily_orders_count = int(round(_safe_float(daily_kpi.get("daily_orders_count", 0))))
@@ -2266,61 +1921,43 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     page_1.extend(["", "## КРАТКИЕ РЕКОМЕНДАЦИИ"])
     page_1.extend(f"- {item}" for item in short_recommendations)
 
-    job["email_summary"] = {
-        "profit": round(net_profit, 2),
-        "net_profit": round(net_profit, 2),
-        "gross_profit": round(gross_profit_total, 2),
-        "cost_price": round(cost_price_total, 2),
-        "wb_commission": round(wb_commission, 2),
-        "logistics": round(logistics_total, 2),
-        "storage": round(storage_total, 2),
-        "penalties": round(penalties_total, 2),
-        "deductions": round(deductions_total, 2),
-        "ads_spend": round(ads_spend_total, 2),
-        "margin_pct": round(margin_pct_total, 2),
-        "profitability_pct": round(profitability_pct_total, 2),
-        "financial_completeness_pct": round(financial_completeness_pct, 2),
-        "financial_partial": financial_partial,
-        "ads_rows": ads_rows_count,
-        "ads_spend": round(ads_spend_total, 2),
-        "ads_impressions": ads_impressions,
-        "ads_clicks": ads_clicks,
-        "ads_orders": ads_orders,
-        "ads_loaded_from_file": bool(ads_loaded_from_file),
-        "ads_source_file": ads_source_file,
-        "ads_attribution_quality": ads_attribution_quality,
-        "ads_applied_to_profit": bool(ads_spend_total > 0),
-        "revenue": round(daily_buyouts_amount, 2),
-        "financial_revenue": round(revenue_total, 2),
-        "orders": daily_orders_count,
-        "avg_check": round(avg_check, 2),
-        "daily_orders_count": daily_orders_count,
-        "daily_orders_amount": round(daily_orders_amount, 2),
-        "daily_buyouts_count": daily_buyouts_count,
-        "daily_buyouts_amount": round(daily_buyouts_amount, 2),
-        "data_source_orders": str(daily_kpi.get("data_source_orders") or _SOURCE_UNKNOWN),
-        "data_source_orders_count": str(
-            daily_kpi.get("data_source_orders_count")
-            or daily_kpi.get("data_source_orders")
-            or _SOURCE_UNKNOWN
-        ),
-        "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _SOURCE_UNKNOWN),
-        "data_source_buyouts": str(daily_kpi.get("data_source_buyouts") or _SOURCE_UNKNOWN),
-        "data_source_buyouts_count": str(
-            daily_kpi.get("data_source_buyouts_count")
-            or daily_kpi.get("data_source_buyouts")
-            or _SOURCE_UNKNOWN
-        ),
-        "data_source_buyouts_amount": str(daily_kpi.get("data_source_buyouts_amount") or _SOURCE_UNKNOWN),
-        "orders_count_confirmed": bool(daily_kpi.get("orders_count_confirmed", False)),
-        "buyouts_count_confirmed": bool(daily_kpi.get("buyouts_count_confirmed", False)),
-        "key_insights": key_insights[:3],
-        "recommendations": short_recommendations,
-        "ai_day_conclusion": ai_day_conclusion,
-    }
+    job["email_summary"] = build_email_summary(
+        daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
+        ads_summary=ads_summary if isinstance(ads_summary, dict) else {},
+        net_profit=net_profit,
+        gross_profit=gross_profit_total,
+        cost_price=cost_price_total,
+        wb_commission=wb_commission,
+        logistics=logistics_total,
+        storage=storage_total,
+        penalties=penalties_total,
+        deductions=deductions_total,
+        ads_spend_total=ads_spend_total,
+        margin_pct=margin_pct_total,
+        profitability_pct=profitability_pct_total,
+        financial_completeness_pct=financial_completeness_pct,
+        financial_partial=financial_partial,
+        ads_rows=ads_rows_count,
+        ads_impressions=ads_impressions,
+        ads_clicks=ads_clicks,
+        ads_orders=ads_orders,
+        ads_loaded_from_file=bool(ads_loaded_from_file),
+        ads_source_file=ads_source_file,
+        ads_attribution_quality=ads_attribution_quality,
+        daily_revenue=daily_buyouts_amount,
+        financial_revenue=revenue_total,
+        daily_orders_count=daily_orders_count,
+        avg_check=avg_check,
+        daily_orders_amount=daily_orders_amount,
+        daily_buyouts_count=daily_buyouts_count,
+        daily_buyouts_amount=daily_buyouts_amount,
+        key_insights=key_insights,
+        recommendations=short_recommendations,
+        ai_day_conclusion=ai_day_conclusion,
+    )
 
     memory_summary = facts.get("decision_memory_summary", {}) if isinstance(facts, dict) else {}
-    important_warnings = _important_warnings(warnings)
+    important_warnings = _important_warnings(warnings_collector.export_warnings())
 
     page_3: List[str] = [
         "# ОБУЧЕНИЕ AI И КАЧЕСТВО ДАННЫХ",
@@ -2441,7 +2078,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         {"page": page_idx + 1, "lines": page[:30]} for page_idx, page in enumerate(report_pages)
     ]
 
-    write_json(os.path.join(out_dir, "report_meta.json"), report_meta)
+    write_report_meta(out_dir=out_dir, report_meta=report_meta)
     history_dir = Path(out_dir).parent / "history"
     history_snapshot = save_daily_history_snapshot(
         seller_id=seller_id,
@@ -2453,19 +2090,14 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     if not isinstance(history_summary, dict):
         history_summary = {}
 
-    facts["history_summary"] = {
-        "snapshots_count": int(history_summary.get("snapshots_count", 0) or 0),
-        "latest_snapshot_date": str(history_summary.get("latest_snapshot_date") or run_date),
-    }
+    facts["history_summary"] = build_history_summary(history_summary, run_date)
 
-    warnings.append(
-        {
-            "code": "history_snapshot_saved",
-            "message": f"History snapshot saved for {run_date}",
-        }
+    warnings_collector.add_warning("history_snapshot_saved", f"History snapshot saved for {run_date}")
+    write_facts_and_warnings(
+        out_dir=out_dir,
+        facts=facts if isinstance(facts, dict) else {},
+        warnings=warnings_collector.export_warnings(),
     )
-    write_json(os.path.join(out_dir, "facts.json"), facts)
-    write_json(os.path.join(out_dir, "warnings.json"), warnings)
 
     history_snapshot_final = save_daily_history_snapshot(
         seller_id=seller_id,
@@ -2478,8 +2110,8 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         "path": str((history_snapshot_final or {}).get("snapshot_path", "")),
         "files": (history_snapshot_final or {}).get("files", []),
     }
-    job["warnings"] = [item for item in warnings if isinstance(item, dict)]
-    write_json(os.path.join(out_dir, "job.json"), job)
+    job["warnings"] = warnings_collector.export_warnings()
+    write_job(out_dir=out_dir, job=job)
 
     return job
 
@@ -2600,7 +2232,7 @@ def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str |
 
             job_path = os.path.join(str(result.get("artifacts_dir") or ""), "job.json")
             if str(result.get("artifacts_dir") or "").strip():
-                write_json(job_path, result)
+                write_job(out_dir=str(result.get("artifacts_dir") or ""), job=result if isinstance(result, dict) else {})
 
         status = str(result.get("status") or "")
         if status == "success":
@@ -2689,29 +2321,24 @@ def _run_weekly_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dic
 
     snapshots_used = int(weekly_data.get("snapshots_used", 0) or 0)
     anomaly_snapshots_used = int(trend_data.get("snapshots_used", 0) or 0)
-    warnings: List[Dict[str, Any]] = [
-        {
-            "code": "weekly_intelligence_built",
-            "message": f"Weekly intelligence built from {snapshots_used} snapshots",
-        },
-        {
-            "code": "trend_anomalies_built",
-            "message": f"Trend anomalies built from {anomaly_snapshots_used} snapshots",
-        }
-    ]
+    warnings_collector = WarningsCollector()
+    warnings_collector.add_warning(
+        "weekly_intelligence_built",
+        f"Weekly intelligence built from {snapshots_used} snapshots",
+    )
+    warnings_collector.add_warning(
+        "trend_anomalies_built",
+        f"Trend anomalies built from {anomaly_snapshots_used} snapshots",
+    )
     if snapshots_used < 7:
-        warnings.append(
-            {
-                "code": "insufficient_history_for_full_weekly",
-                "message": f"Only {snapshots_used} snapshots available; full 7-day analysis is limited",
-            }
+        warnings_collector.add_warning(
+            "insufficient_history_for_full_weekly",
+            f"Only {snapshots_used} snapshots available; full 7-day analysis is limited",
         )
     if anomaly_snapshots_used < 3:
-        warnings.append(
-            {
-                "code": "insufficient_history_for_anomaly_detection",
-                "message": f"Only {anomaly_snapshots_used} snapshots available; anomaly detection is limited",
-            }
+        warnings_collector.add_warning(
+            "insufficient_history_for_anomaly_detection",
+            f"Only {anomaly_snapshots_used} snapshots available; anomaly detection is limited",
         )
 
     kpi_trends = weekly_data.get("kpi_trends", {}) if isinstance(weekly_data, dict) else {}
@@ -2739,8 +2366,11 @@ def _run_weekly_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dic
         },
     }
 
-    write_json(os.path.join(out_dir, "weekly_facts.json"), weekly_facts)
-    write_json(os.path.join(out_dir, "warnings.json"), warnings)
+    write_weekly_facts_and_warnings(
+        out_dir=out_dir,
+        weekly_facts=weekly_facts,
+        warnings=warnings_collector.export_warnings(),
+    )
 
     sku_trends = weekly_data.get("sku_trends", {}) if isinstance(weekly_data, dict) else {}
     if not isinstance(sku_trends, dict):
@@ -2844,27 +2474,29 @@ def _run_weekly_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dic
     write_text_pdf(os.path.join(out_dir, "weekly_report.pdf"), weekly_pdf_lines)
 
     job = {
-        "seller_id": seller_id,
-        "mode": "weekly",
-        "run_date": run_date,
-        "status": "success",
-        "started_at": started_at,
-        "finished_at": _utc_now_iso(),
-        "error": None,
-        "artifacts_dir": out_dir,
-        "artifacts": [
-            "job.json",
-            "weekly_intelligence.json",
-            "trend_anomalies.json",
-            "weekly_facts.json",
-            "warnings.json",
-            "weekly_report.pdf",
-        ],
+        **build_run_summary(
+            seller_id=seller_id,
+            mode="weekly",
+            run_date=run_date,
+            started_at=started_at,
+            finished_at=_utc_now_iso(),
+            artifacts_dir=out_dir,
+            status="success",
+            error=None,
+            artifacts=[
+                "job.json",
+                "weekly_intelligence.json",
+                "trend_anomalies.json",
+                "weekly_facts.json",
+                "warnings.json",
+                "weekly_report.pdf",
+            ],
+        ),
         "weekly_intelligence_path": str(weekly_path),
         "trend_anomalies_path": str(trend_path),
         "snapshots_used": snapshots_used,
     }
-    write_json(os.path.join(out_dir, "job.json"), job)
+    write_job(out_dir=out_dir, job=job)
     return job
 
 

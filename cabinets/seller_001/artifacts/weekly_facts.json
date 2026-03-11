@@ -1,17 +1,17 @@
 {
   "seller_id": "seller_001",
-  "run_date": "2026-03-10",
+  "run_date": "2026-03-11",
   "window_days": 7,
-  "snapshots_used": 1,
+  "snapshots_used": 5,
   "weekly_summary": {
-    "revenue_delta_pct": 0.0,
-    "profit_delta_pct": 0.0,
-    "buyouts_delta_pct": 0.0
+    "revenue_delta_pct": -96.1505,
+    "profit_delta_pct": -104.6137,
+    "buyouts_delta_pct": -100.0
   },
   "anomaly_summary": {
-    "total_anomalies": 0,
-    "high": 0,
-    "medium": 0,
-    "low": 0
+    "total_anomalies": 35,
+    "high": 11,
+    "medium": 23,
+    "low": 1
   }
 }

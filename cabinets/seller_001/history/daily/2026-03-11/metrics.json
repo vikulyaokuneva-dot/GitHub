@@ -834,9 +834,9 @@
   },
   "ads_ingestion": {
     "ads_rows": 2,
+    "ads_spend": 643.91,
     "ads_loaded_from_file": true,
     "ads_source_file": "Статистика (12).xlsx",
-    "ads_attribution_quality": "mixed_direct_and_associated",
     "ads_file_candidates_found": 1,
     "ads_file_detected": true,
     "ads_sheet_found": "Статистика",
@@ -854,7 +854,61 @@
     ],
     "ads_rows_raw": 3,
     "ads_rows_usable": 2,
-    "ads_loader_error": ""
+    "ads_loader_error": "",
+    "ads_attribution_quality": "mixed_direct_and_associated",
+    "ads_campaign_totals": {
+      "ads_spend": 643.91,
+      "ads_revenue": 1540.0,
+      "ads_orders": 2,
+      "ads_impressions": 1359,
+      "ads_clicks": 50
+    }
+  },
+  "ads_diagnostics_summary": {
+    "rows": 2,
+    "campaign_total_rows": 1,
+    "campaign_totals": {
+      "ads_spend": 643.91,
+      "ads_revenue": 1540.0,
+      "ads_orders": 2,
+      "ads_impressions": 1359,
+      "ads_clicks": 50
+    },
+    "derived_totals": {
+      "ads_spend": 643.91,
+      "ads_revenue": 1540.0,
+      "ads_orders": 2,
+      "ads_impressions": 1359,
+      "ads_clicks": 50
+    },
+    "selected_totals": {
+      "ads_spend": 643.91,
+      "ads_revenue": 1540.0,
+      "ads_orders": 2,
+      "ads_impressions": 1359,
+      "ads_clicks": 50
+    },
+    "conversion_breakdown": {
+      "direct": {
+        "rows": 1,
+        "ads_spend": 643.91,
+        "ads_revenue": 700.0,
+        "ads_orders": 1
+      },
+      "associated": {
+        "rows": 1,
+        "ads_spend": 0.0,
+        "ads_revenue": 840.0,
+        "ads_orders": 1
+      },
+      "unknown": {
+        "rows": 0,
+        "ads_spend": 0.0,
+        "ads_revenue": 0.0,
+        "ads_orders": 0
+      }
+    },
+    "attribution_quality": "mixed_direct_and_associated"
   },
   "source_policy": {
     "policy_version": "wb_source_policy_v1",
