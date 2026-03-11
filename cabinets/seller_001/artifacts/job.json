@@ -3,8 +3,8 @@
   "mode": "daily",
   "run_date": "2026-03-11",
   "status": "partial_success",
-  "started_at": "2026-03-11T11:57:02Z",
-  "finished_at": "2026-03-11T11:57:02Z",
+  "started_at": "2026-03-11T12:11:42Z",
+  "finished_at": "2026-03-11T12:11:43Z",
   "error": "данные о продажах не получены",
   "source_mode": "local_reports",
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
@@ -229,7 +229,7 @@
     }
   ],
   "email_attempted": true,
-  "email_sent": false,
-  "email_to": "",
-  "email_error": "Missing required env vars: YANDEX_SMTP_USER, YANDEX_SMTP_APP_PASS, EMAIL_TO"
+  "email_sent": true,
+  "email_to": "vi***@yandex.ru",
+  "email_error": null
 }
