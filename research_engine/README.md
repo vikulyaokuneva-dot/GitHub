@@ -11,9 +11,9 @@ It is intentionally independent from `v3`:
 
 Skeleton only, with stub logic:
 - collect research input from scenario config
-- create seed niche candidates
-- run stub demand/competition/economics/risk scoring
-- build shortlist
+- build stub niche universe
+- generate candidate pool with scenario filters
+- pass candidates to scoring stage placeholder
 - save artifacts
 
 ## Input Scenarios

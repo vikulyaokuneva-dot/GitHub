@@ -41,7 +41,14 @@ class ArtifactWriter:
             "job_id": context.job.job_id,
             "warnings": context.warnings,
         }
-        candidates_payload = context.scored_niches if context.scored_niches else context.candidates
+        candidates_payload = context.candidate_pool if context.candidate_pool is not None else {
+            "generated_at": None,
+            "scenario_name": context.input_data.scenario_name,
+            "total_candidates": 0,
+            "filtered_candidates": 0,
+            "candidates": [],
+            "warnings": context.warnings,
+        }
 
         outputs = {
             "research_job": self.write_json("research_job.json", context.job),

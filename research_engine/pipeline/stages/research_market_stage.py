@@ -1,37 +1,26 @@
-from research_engine.builders import NicheCandidateBuilder
-from research_engine.domain.contracts import CandidateSnapshots, ResearchContext
-from research_engine.engines import CompetitionEngine, DemandEngine, RiskEngine, UnitEconomicsEngine
+from research_engine.builders import CandidatePoolBuilder
+from research_engine.domain.contracts import ResearchContext
+from research_engine.engines import NicheUniverseEngine
 
 
 class ResearchMarketStage:
     def __init__(
         self,
-        candidate_builder: NicheCandidateBuilder | None = None,
-        demand_engine: DemandEngine | None = None,
-        competition_engine: CompetitionEngine | None = None,
-        unit_economics_engine: UnitEconomicsEngine | None = None,
-        risk_engine: RiskEngine | None = None,
+        niche_universe_engine: NicheUniverseEngine | None = None,
+        candidate_pool_builder: CandidatePoolBuilder | None = None,
     ):
-        self.candidate_builder = candidate_builder or NicheCandidateBuilder()
-        self.demand_engine = demand_engine or DemandEngine()
-        self.competition_engine = competition_engine or CompetitionEngine()
-        self.unit_economics_engine = unit_economics_engine or UnitEconomicsEngine()
-        self.risk_engine = risk_engine or RiskEngine()
+        self.niche_universe_engine = niche_universe_engine or NicheUniverseEngine()
+        self.candidate_pool_builder = candidate_pool_builder or CandidatePoolBuilder()
 
     def run(self, context: ResearchContext) -> ResearchContext:
         if context.input_data is None:
             raise ValueError("ResearchMarketStage requires input_data from previous stage.")
 
-        candidates = self.candidate_builder.build_seed_candidates(context.input_data)
-        context.candidates = candidates
-        context.snapshots_by_niche = {}
-
-        for candidate in candidates:
-            context.snapshots_by_niche[candidate.niche_id] = CandidateSnapshots(
-                demand=self.demand_engine.evaluate(candidate),
-                competition=self.competition_engine.evaluate(candidate),
-                economics=self.unit_economics_engine.evaluate(candidate, context.input_data),
-                risk=self.risk_engine.evaluate(candidate, context.input_data),
-            )
+        context.niche_universe = self.niche_universe_engine.get_stub_universe()
+        context.candidate_pool = self.candidate_pool_builder.build(
+            research_input=context.input_data,
+            niches=context.niche_universe,
+        )
+        context.warnings.extend(context.candidate_pool.warnings)
 
         return context

@@ -28,6 +28,47 @@ class ResearchJob:
 
 
 @dataclass
+class NicheRecord:
+    niche_id: str
+    category: str
+    subgroup: str
+    title: str
+    avg_price: float
+    monthly_revenue: float
+    monthly_orders: int
+    competition_index: float
+    growth_rate: float
+    seasonality: str
+
+
+@dataclass
+class SubjectCandidate:
+    candidate_id: str
+    subject_name: str
+    niche_id: str
+    category: str
+    subgroup: str
+    avg_price: float
+    estimated_demand: str
+    competition_level: str
+    fit_price_range: bool
+    fit_budget: bool
+    fit_category: bool
+    notes: str = ""
+    status: str = "new"
+
+
+@dataclass
+class CandidatePool:
+    generated_at: datetime
+    scenario_name: str
+    total_candidates: int
+    filtered_candidates: int
+    candidates: list[SubjectCandidate] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
 class NicheCandidate:
     niche_id: str
     title: str
@@ -88,8 +129,7 @@ class ScoredNiche:
 class ResearchResult:
     generated_at: datetime
     input_summary: dict[str, Any]
-    candidates_count: int
-    shortlisted_count: int
-    shortlist: list[ScoredNiche] = field(default_factory=list)
+    total_candidates: int
+    filtered_candidates: int
     warnings: list[str] = field(default_factory=list)
     artifact_paths: dict[str, str] = field(default_factory=dict)

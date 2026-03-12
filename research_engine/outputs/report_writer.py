@@ -12,12 +12,13 @@ class ReportWriter:
         path = self.artifacts_dir / "research_report.txt"
         lines = [
             f"generated_at: {result.generated_at.isoformat()}",
-            f"candidates_count: {result.candidates_count}",
-            f"shortlisted_count: {result.shortlisted_count}",
-            "top_shortlist:",
+            f"total_candidates: {result.total_candidates}",
+            f"filtered_candidates: {result.filtered_candidates}",
         ]
-        for scored in result.shortlist:
-            lines.append(f"- {scored.candidate.niche_id} | {scored.candidate.title} | score={scored.final_score}")
+        if result.warnings:
+            lines.append("warnings:")
+            for warning in result.warnings:
+                lines.append(f"- {warning}")
         with path.open("w", encoding="utf-8") as report_file:
             report_file.write("\n".join(lines))
         return str(path)

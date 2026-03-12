@@ -1,202 +1,294 @@
-[
-  {
-    "candidate": {
-      "niche_id": "niche-002",
-      "title": "Silicone feeding kit",
-      "keyword": "feeding kit",
-      "category": "kids",
-      "avg_price": 1280.0,
-      "demand_score": 74.36,
-      "competition_score": 31.26,
-      "economics_score": 26.4,
-      "risk_score": 40.5,
-      "final_score": 46.52,
-      "status": "shortlisted"
-    },
-    "demand_snapshot": {
-      "niche_id": "niche-002",
-      "monthly_searches": 3980,
-      "growth_pct": 7.0,
-      "demand_score": 74.36
-    },
-    "competition_snapshot": {
-      "niche_id": "niche-002",
-      "competitor_count": 38,
-      "concentration_index": 0.62,
-      "competition_score": 31.26
-    },
-    "unit_economics_snapshot": {
-      "niche_id": "niche-002",
-      "estimated_cogs": 665.6,
-      "estimated_margin_pct": 48.0,
-      "economics_score": 26.4
-    },
-    "risk_snapshot": {
-      "niche_id": "niche-002",
-      "return_rate_pct": 7.0,
-      "compliance_risk_level": "low",
-      "risk_score": 40.5
-    },
-    "final_score": 46.52
-  },
-  {
-    "candidate": {
+{
+  "generated_at": "2026-03-12T21:57:16.212865+00:00",
+  "scenario_name": "default_research_scenario",
+  "total_candidates": 24,
+  "filtered_candidates": 19,
+  "candidates": [
+    {
+      "candidate_id": "niche-001-subject",
+      "subject_name": "Thermos 1L",
       "niche_id": "niche-001",
-      "title": "Compact organizer set",
-      "keyword": "organizer set",
+      "category": "kitchen",
+      "subgroup": "thermos",
+      "avg_price": 1200,
+      "estimated_demand": "high",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=8.2%, seasonality=low",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-002-subject",
+      "subject_name": "Spice Organizer",
+      "niche_id": "niche-002",
+      "category": "kitchen",
+      "subgroup": "organizers",
+      "avg_price": 890,
+      "estimated_demand": "medium",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=7.5%, seasonality=low",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-004-subject",
+      "subject_name": "Soap Dispenser",
+      "niche_id": "niche-004",
+      "category": "bathroom",
+      "subgroup": "dispensers",
+      "avg_price": 760,
+      "estimated_demand": "medium",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=6.7%, seasonality=low",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-005-subject",
+      "subject_name": "Storage Containers",
+      "niche_id": "niche-005",
+      "category": "kitchen",
+      "subgroup": "containers",
+      "avg_price": 980,
+      "estimated_demand": "medium",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=9.3%, seasonality=low",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-006-subject",
+      "subject_name": "Phone Holder",
+      "niche_id": "niche-006",
+      "category": "auto",
+      "subgroup": "holders",
+      "avg_price": 1300,
+      "estimated_demand": "medium",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=4.4%, seasonality=medium",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-007-subject",
+      "subject_name": "Anti-Slip Bowl",
+      "niche_id": "niche-007",
+      "category": "pets",
+      "subgroup": "bowls",
+      "avg_price": 740,
+      "estimated_demand": "medium",
+      "competition_level": "low",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=6.1%, seasonality=low",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-008-subject",
+      "subject_name": "Garden Tool Set",
+      "niche_id": "niche-008",
+      "category": "garden",
+      "subgroup": "tools",
+      "avg_price": 2100,
+      "estimated_demand": "low",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=10.5%, seasonality=high",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-010-subject",
+      "subject_name": "Oil Bottle",
+      "niche_id": "niche-010",
+      "category": "kitchen",
+      "subgroup": "bottles",
+      "avg_price": 820,
+      "estimated_demand": "low",
+      "competition_level": "low",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=6.0%, seasonality=low",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-011-subject",
+      "subject_name": "Storage Box",
+      "niche_id": "niche-011",
+      "category": "storage",
+      "subgroup": "boxes",
+      "avg_price": 1450,
+      "estimated_demand": "medium",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=7.8%, seasonality=low",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-012-subject",
+      "subject_name": "Corner Shelf",
+      "niche_id": "niche-012",
+      "category": "bathroom",
+      "subgroup": "shelves",
+      "avg_price": 1690,
+      "estimated_demand": "low",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=8.8%, seasonality=low",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-014-subject",
+      "subject_name": "Trunk Organizer",
+      "niche_id": "niche-014",
+      "category": "auto",
+      "subgroup": "organizers",
+      "avg_price": 1990,
+      "estimated_demand": "low",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=7.1%, seasonality=medium",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-015-subject",
+      "subject_name": "Cutting Board Set",
+      "niche_id": "niche-015",
+      "category": "kitchen",
+      "subgroup": "cutting_boards",
+      "avg_price": 1590,
+      "estimated_demand": "low",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=5.9%, seasonality=low",
+      "status": "filtered_in"
+    },
+    {
+      "candidate_id": "niche-016-subject",
+      "subject_name": "Sensor Night Light",
+      "niche_id": "niche-016",
       "category": "home",
-      "avg_price": 1440.0,
-      "demand_score": 83.25,
-      "competition_score": 28.11,
-      "economics_score": 26.4,
-      "risk_score": 23.5,
-      "final_score": 46.29,
-      "status": "shortlisted"
+      "subgroup": "lighting",
+      "avg_price": 990,
+      "estimated_demand": "medium",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=11.2%, seasonality=medium",
+      "status": "filtered_in"
     },
-    "demand_snapshot": {
-      "niche_id": "niche-001",
-      "monthly_searches": 4340,
-      "growth_pct": 8.5,
-      "demand_score": 83.25
+    {
+      "candidate_id": "niche-017-subject",
+      "subject_name": "Water Sprayer",
+      "niche_id": "niche-017",
+      "category": "garden",
+      "subgroup": "watering",
+      "avg_price": 870,
+      "estimated_demand": "low",
+      "competition_level": "low",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=12.7%, seasonality=high",
+      "status": "filtered_in"
     },
-    "competition_snapshot": {
-      "niche_id": "niche-001",
-      "competitor_count": 40,
-      "concentration_index": 0.64,
-      "competition_score": 28.11
-    },
-    "unit_economics_snapshot": {
-      "niche_id": "niche-001",
-      "estimated_cogs": 748.8,
-      "estimated_margin_pct": 48.0,
-      "economics_score": 26.4
-    },
-    "risk_snapshot": {
-      "niche_id": "niche-001",
-      "return_rate_pct": 9.0,
-      "compliance_risk_level": "medium",
-      "risk_score": 23.5
-    },
-    "final_score": 46.29
-  },
-  {
-    "candidate": {
-      "niche_id": "niche-005",
-      "title": "Drawer divider blocks",
-      "keyword": "drawer divider",
-      "category": "home",
-      "avg_price": 1520.0,
-      "demand_score": 85.82,
-      "competition_score": 26.53,
-      "economics_score": 26.4,
-      "risk_score": 15.0,
-      "final_score": 45.52,
-      "status": "shortlisted"
-    },
-    "demand_snapshot": {
-      "niche_id": "niche-005",
-      "monthly_searches": 4520,
-      "growth_pct": 8.5,
-      "demand_score": 85.82
-    },
-    "competition_snapshot": {
-      "niche_id": "niche-005",
-      "competitor_count": 41,
-      "concentration_index": 0.64,
-      "competition_score": 26.53
-    },
-    "unit_economics_snapshot": {
-      "niche_id": "niche-005",
-      "estimated_cogs": 790.4,
-      "estimated_margin_pct": 48.0,
-      "economics_score": 26.4
-    },
-    "risk_snapshot": {
-      "niche_id": "niche-005",
-      "return_rate_pct": 10.0,
-      "compliance_risk_level": "high",
-      "risk_score": 15.0
-    },
-    "final_score": 45.52
-  },
-  {
-    "candidate": {
-      "niche_id": "niche-003",
-      "title": "Hair styling brush",
-      "keyword": "hair styling brush",
+    {
+      "candidate_id": "niche-019-subject",
+      "subject_name": "Styling Brush",
+      "niche_id": "niche-019",
       "category": "beauty",
-      "avg_price": 1760.0000000000002,
-      "demand_score": 84.86,
-      "competition_score": 21.79,
-      "economics_score": 26.4,
-      "risk_score": 23.5,
-      "final_score": 45.27,
-      "status": "analyzed"
+      "subgroup": "styling",
+      "avg_price": 1350,
+      "estimated_demand": "low",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=8.0%, seasonality=low",
+      "status": "filtered_in"
     },
-    "demand_snapshot": {
-      "niche_id": "niche-003",
-      "monthly_searches": 5240,
-      "growth_pct": 4.0,
-      "demand_score": 84.86
+    {
+      "candidate_id": "niche-020-subject",
+      "subject_name": "Drawer Dividers",
+      "niche_id": "niche-020",
+      "category": "storage",
+      "subgroup": "drawer_dividers",
+      "avg_price": 930,
+      "estimated_demand": "medium",
+      "competition_level": "low",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=6.4%, seasonality=low",
+      "status": "filtered_in"
     },
-    "competition_snapshot": {
-      "niche_id": "niche-003",
-      "competitor_count": 44,
-      "concentration_index": 0.66,
-      "competition_score": 21.79
+    {
+      "candidate_id": "niche-021-subject",
+      "subject_name": "Leakproof Lunch Box",
+      "niche_id": "niche-021",
+      "category": "kitchen",
+      "subgroup": "lunch_boxes",
+      "avg_price": 1100,
+      "estimated_demand": "medium",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=7.3%, seasonality=medium",
+      "status": "filtered_in"
     },
-    "unit_economics_snapshot": {
-      "niche_id": "niche-003",
-      "estimated_cogs": 915.2,
-      "estimated_margin_pct": 48.0,
-      "economics_score": 26.4
+    {
+      "candidate_id": "niche-022-subject",
+      "subject_name": "Anti-Slip Bath Mat",
+      "niche_id": "niche-022",
+      "category": "bathroom",
+      "subgroup": "mats",
+      "avg_price": 1250,
+      "estimated_demand": "low",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=4.6%, seasonality=low",
+      "status": "filtered_in"
     },
-    "risk_snapshot": {
-      "niche_id": "niche-003",
-      "return_rate_pct": 9.0,
-      "compliance_risk_level": "medium",
-      "risk_score": 23.5
-    },
-    "final_score": 45.27
-  },
-  {
-    "candidate": {
-      "niche_id": "niche-004",
-      "title": "Travel bottle set",
-      "keyword": "travel bottles",
-      "category": "beauty",
-      "avg_price": 1120.0,
-      "demand_score": 93.32,
-      "competition_score": 13.9,
-      "economics_score": 26.4,
-      "risk_score": 15.0,
-      "final_score": 44.99,
-      "status": "analyzed"
-    },
-    "demand_snapshot": {
-      "niche_id": "niche-004",
-      "monthly_searches": 4520,
-      "growth_pct": 11.5,
-      "demand_score": 93.32
-    },
-    "competition_snapshot": {
-      "niche_id": "niche-004",
-      "competitor_count": 49,
-      "concentration_index": 0.7,
-      "competition_score": 13.9
-    },
-    "unit_economics_snapshot": {
-      "niche_id": "niche-004",
-      "estimated_cogs": 582.4,
-      "estimated_margin_pct": 48.0,
-      "economics_score": 26.4
-    },
-    "risk_snapshot": {
-      "niche_id": "niche-004",
-      "return_rate_pct": 10.0,
-      "compliance_risk_level": "high",
-      "risk_score": 15.0
-    },
-    "final_score": 44.99
-  }
-]
+    {
+      "candidate_id": "niche-024-subject",
+      "subject_name": "Seat Cover",
+      "niche_id": "niche-024",
+      "category": "auto",
+      "subgroup": "seat_covers",
+      "avg_price": 1750,
+      "estimated_demand": "low",
+      "competition_level": "medium",
+      "fit_price_range": true,
+      "fit_budget": true,
+      "fit_category": true,
+      "notes": "growth_rate=5.5%, seasonality=medium",
+      "status": "filtered_in"
+    }
+  ],
+  "warnings": []
+}

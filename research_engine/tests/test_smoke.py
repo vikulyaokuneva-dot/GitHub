@@ -21,7 +21,7 @@ class TestResearchEngineSmoke(unittest.TestCase):
                 "target_price_min": 800,
                 "target_price_max": 2600,
                 "target_margin_pct": 24,
-                "preferred_categories": ["home"],
+                "preferred_categories": [],
                 "excluded_categories": ["fragile"],
                 "max_competition_level": "medium",
                 "notes": "scenario for smoke test",
@@ -41,8 +41,8 @@ class TestResearchEngineSmoke(unittest.TestCase):
 
             result = runner.run()
 
-            self.assertGreaterEqual(result.candidates_count, 3)
-            self.assertEqual(result.shortlisted_count, 2)
+            self.assertGreaterEqual(result.total_candidates, 20)
+            self.assertGreaterEqual(result.filtered_candidates, 1)
             expected_files = [
                 "research_job.json",
                 "research_input.json",
@@ -55,13 +55,20 @@ class TestResearchEngineSmoke(unittest.TestCase):
 
             summary_path = settings.artifacts_dir / "research_summary.json"
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
-            self.assertIn("shortlisted_count", summary)
-            self.assertEqual(summary["shortlisted_count"], 2)
+            self.assertIn("total_candidates", summary)
+            self.assertIn("filtered_candidates", summary)
+            self.assertGreaterEqual(summary["total_candidates"], summary["filtered_candidates"])
 
             input_path = settings.artifacts_dir / "research_input.json"
             input_payload = json.loads(input_path.read_text(encoding="utf-8"))
             self.assertEqual(input_payload["scenario_name"], "smoke_scenario")
             self.assertEqual(input_payload["budget_total"], 210000.0)
+
+            candidates_path = settings.artifacts_dir / "research_candidates.json"
+            candidates_payload = json.loads(candidates_path.read_text(encoding="utf-8"))
+            self.assertEqual(candidates_payload["scenario_name"], "smoke_scenario")
+            self.assertGreaterEqual(candidates_payload["total_candidates"], 20)
+            self.assertGreaterEqual(candidates_payload["filtered_candidates"], 1)
 
 
 if __name__ == "__main__":

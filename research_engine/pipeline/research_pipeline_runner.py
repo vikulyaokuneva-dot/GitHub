@@ -24,7 +24,7 @@ class ResearchPipelineRunner:
         self.stages = [
             ResearchInputStage(settings=self.settings, scenario_path=self.default_scenario_path),
             ResearchMarketStage(),
-            ResearchScoringStage(config=self.research_config),
+            ResearchScoringStage(),
             ResearchOutputStage(settings=self.settings, config=self.research_config),
         ]
 

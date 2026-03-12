@@ -26,12 +26,12 @@ def main() -> None:
         raise SystemExit(2) from None
 
     print(f"Research run completed at: {result.generated_at.isoformat()}")
-    print(f"Candidates analyzed: {result.candidates_count}")
-    print(f"Shortlisted: {result.shortlisted_count}")
-    print("Top niches:")
-    for scored in result.shortlist:
-        candidate = scored.candidate
-        print(f" - {candidate.niche_id}: {candidate.title} (score={scored.final_score})")
+    print(f"Total generated candidates: {result.total_candidates}")
+    print(f"Filtered candidates: {result.filtered_candidates}")
+    if result.warnings:
+        print("Warnings:")
+        for warning in result.warnings:
+            print(f" - {warning}")
     print("Artifacts:")
     for name, path in result.artifact_paths.items():
         print(f" - {name}: {path}")

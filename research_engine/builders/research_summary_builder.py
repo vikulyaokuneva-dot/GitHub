@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from research_engine.domain.models import ResearchInput, ResearchResult, ScoredNiche
+from research_engine.domain.models import CandidatePool, ResearchInput, ResearchResult
 
 
 class ResearchSummaryBuilder:
@@ -21,18 +21,17 @@ class ResearchSummaryBuilder:
     @staticmethod
     def build_result(
         input_data: ResearchInput,
-        scored_niches: list[ScoredNiche],
-        shortlist_size: int,
+        candidate_pool: CandidatePool | None,
         warnings: list[str],
         artifact_paths: dict[str, str],
     ) -> ResearchResult:
-        shortlist = scored_niches[:shortlist_size]
+        total_candidates = candidate_pool.total_candidates if candidate_pool is not None else 0
+        filtered_candidates = candidate_pool.filtered_candidates if candidate_pool is not None else 0
         return ResearchResult(
             generated_at=datetime.now(timezone.utc),
             input_summary=ResearchSummaryBuilder.build_input_summary(input_data),
-            candidates_count=len(scored_niches),
-            shortlisted_count=len(shortlist),
-            shortlist=shortlist,
+            total_candidates=total_candidates,
+            filtered_candidates=filtered_candidates,
             warnings=warnings,
             artifact_paths=artifact_paths,
         )

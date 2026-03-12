@@ -17,8 +17,7 @@ class ResearchOutputStage:
 
         result = ResearchSummaryBuilder.build_result(
             input_data=context.input_data,
-            scored_niches=context.scored_niches,
-            shortlist_size=self.config.shortlist_size,
+            candidate_pool=context.candidate_pool,
             warnings=context.warnings,
             artifact_paths=context.artifacts,
         )
