@@ -715,15 +715,17 @@
     "ads_spend": 643.91,
     "gross_profit": 526.15,
     "net_profit": -291.37,
-    "margin_pct": -66.46,
-    "profitability_pct": 0.0,
+    "margin_pct": null,
+    "profitability_pct": null,
     "cost_price_missing": true,
     "wb_commission_missing": false,
     "expense_attribution_partial": true,
     "net_profit_partial": true,
     "financial_margin_not_final": true,
     "completeness_pct": 33.33,
-    "is_partial": true
+    "is_partial": true,
+    "date": "2026-03-11",
+    "confirmed": false
   },
   "ads_diagnostics": {
     "rows": 2,
@@ -1115,5 +1117,102 @@
     "buyouts_count_confirmed": false,
     "orders_amount_confirmed": false,
     "buyouts_amount_confirmed": false
+  },
+  "event_date_model": {
+    "report_date": "2026-03-11",
+    "operational_date": "2026-03-11",
+    "orders_date": "2026-03-11",
+    "buyouts_date": "2026-03-11",
+    "financial_date": "2026-03-11",
+    "shifted_to_previous_day": false,
+    "timezone": "Europe/Moscow"
+  },
+  "order_kpi": {
+    "date": "2026-03-11",
+    "orders_count": null,
+    "orders_amount": null,
+    "orders_count_confirmed": false,
+    "orders_amount_confirmed": false,
+    "source_count": "unknown",
+    "source_amount": "unknown"
+  },
+  "buyout_kpi": {
+    "date": "2026-03-11",
+    "buyouts_count": null,
+    "buyouts_amount": null,
+    "buyouts_count_confirmed": false,
+    "buyouts_amount_confirmed": false,
+    "source_count": "unknown",
+    "source_amount": "unknown"
+  },
+  "financial_kpi_legacy": {
+    "revenue": 438.4,
+    "cost_price": 0.0,
+    "wb_commission": -87.75,
+    "logistics": 128.0,
+    "storage": 45.61,
+    "penalties": 0.0,
+    "deductions": 0.0,
+    "ads_spend": 643.91,
+    "gross_profit": 526.15,
+    "net_profit": -291.37,
+    "margin_pct": -66.46,
+    "profitability_pct": 0.0,
+    "cost_price_missing": true,
+    "wb_commission_missing": false,
+    "expense_attribution_partial": true,
+    "net_profit_partial": true,
+    "financial_margin_not_final": true,
+    "completeness_pct": 33.33,
+    "is_partial": true
+  },
+  "daily_status_matrix": {
+    "orders": "not_confirmed",
+    "buyouts": "not_confirmed",
+    "financials": "partial",
+    "ads": "confirmed",
+    "ai_reliability": "low"
+  },
+  "render_kpi": {
+    "orders_count": null,
+    "orders_amount": null,
+    "buyouts_count": null,
+    "buyouts_amount": null,
+    "avg_check": null,
+    "revenue": 438.4,
+    "gross_profit": 526.15,
+    "net_profit": -291.37,
+    "margin_pct": null,
+    "profitability_pct": null
+  },
+  "event_ledger": {
+    "report_date": "2026-03-11",
+    "operational_date": "2026-03-11",
+    "events": [
+      {
+        "event_type": "orders_snapshot",
+        "event_date": "2026-03-11",
+        "source": "unknown",
+        "confirmed": false,
+        "rows": 0,
+        "amount": null
+      },
+      {
+        "event_type": "buyouts_snapshot",
+        "event_date": "2026-03-11",
+        "source": "unknown",
+        "confirmed": false,
+        "rows": 0,
+        "amount": null
+      },
+      {
+        "event_type": "financial_snapshot",
+        "event_date": "2026-03-11",
+        "source": "local.supplier_goods",
+        "confirmed": false,
+        "rows": 0,
+        "amount": null
+      }
+    ]
   }
 }

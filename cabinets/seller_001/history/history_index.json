@@ -104,10 +104,14 @@
         "2026-03-11_outcomes.json",
         "abc_analysis.json",
         "decisions.json",
+        "event_ledger.json",
         "facts.json",
         "health_score.json",
         "metrics.json",
         "profit_contribution.json",
+        "sku_alerts.json",
+        "sku_daily_dynamics.json",
+        "sku_watchlists.json",
         "warnings.json"
       ],
       "kpi": {

@@ -5,13 +5,13 @@
     "regular": "C:\\Windows\\Fonts\\arial.ttf",
     "bold": "C:\\Windows\\Fonts\\arialbd.ttf"
   },
-  "pages": 6,
+  "pages": 7,
   "daily_commerce_kpi": {
-    "daily_orders_count": 0,
-    "daily_orders_amount": 0.0,
-    "daily_buyouts_count": 0,
-    "daily_buyouts_amount": 0.0,
-    "avg_check": 0.0,
+    "daily_orders_count": null,
+    "daily_orders_amount": null,
+    "daily_buyouts_count": null,
+    "daily_buyouts_amount": null,
+    "avg_check": null,
     "data_source_orders": "unknown",
     "data_source_orders_count": "unknown",
     "data_source_orders_amount": "unknown",
@@ -19,7 +19,14 @@
     "data_source_buyouts_count": "unknown",
     "data_source_buyouts_amount": "unknown",
     "orders_count_confirmed": false,
-    "buyouts_count_confirmed": false
+    "buyouts_count_confirmed": false,
+    "display": {
+      "daily_orders_count": "не подтверждено",
+      "daily_orders_amount": "не подтверждено",
+      "daily_buyouts_count": "не подтверждено",
+      "daily_buyouts_amount": "не подтверждено",
+      "avg_check": "не подтверждено"
+    }
   },
   "daily_financial_kpi": {
     "revenue": 438.4,
@@ -35,111 +42,488 @@
     "ads_attribution_quality": "mixed_direct_and_associated",
     "gross_profit": 526.15,
     "net_profit": -291.37,
-    "margin_pct": -66.46,
-    "profitability_pct": 0.0,
+    "margin_pct": null,
+    "profitability_pct": null,
     "financial_completeness_pct": 33.33,
-    "financial_partial": true
+    "financial_partial": true,
+    "display": {
+      "revenue": "438 ?",
+      "net_profit": "-291 ?",
+      "margin_pct": "не подтверждено",
+      "profitability_pct": "не подтверждено"
+    }
   },
+  "event_date_model": {
+    "report_date": "2026-03-11",
+    "operational_date": "2026-03-11",
+    "orders_date": "2026-03-11",
+    "buyouts_date": "2026-03-11",
+    "financial_date": "2026-03-11",
+    "shifted_to_previous_day": false,
+    "timezone": "Europe/Moscow"
+  },
+  "daily_status_matrix": {
+    "orders": "not_confirmed",
+    "buyouts": "not_confirmed",
+    "financials": "partial",
+    "ads": "confirmed",
+    "ai_reliability": "low"
+  },
+  "order_kpi": {
+    "date": "2026-03-11",
+    "orders_count": null,
+    "orders_amount": null,
+    "orders_count_confirmed": false,
+    "orders_amount_confirmed": false,
+    "source_count": "unknown",
+    "source_amount": "unknown"
+  },
+  "buyout_kpi": {
+    "date": "2026-03-11",
+    "buyouts_count": null,
+    "buyouts_amount": null,
+    "buyouts_count_confirmed": false,
+    "buyouts_amount_confirmed": false,
+    "source_count": "unknown",
+    "source_amount": "unknown"
+  },
+  "event_ledger_preview": [
+    {
+      "event_type": "orders_snapshot",
+      "event_date": "2026-03-11",
+      "source": "unknown",
+      "confirmed": false,
+      "rows": 0,
+      "amount": null
+    },
+    {
+      "event_type": "buyouts_snapshot",
+      "event_date": "2026-03-11",
+      "source": "unknown",
+      "confirmed": false,
+      "rows": 0,
+      "amount": null
+    },
+    {
+      "event_type": "financial_snapshot",
+      "event_date": "2026-03-11",
+      "source": "local.supplier_goods",
+      "confirmed": false,
+      "rows": 0,
+      "amount": null
+    }
+  ],
+  "funnel_snapshot": {
+    "date": "2026-03-11",
+    "funnel": {
+      "impressions": 1359,
+      "clicks": 50,
+      "ctr": 3.68,
+      "cart_count": null,
+      "cart_conversion_pct": null,
+      "orders": null,
+      "click_to_order_conversion_pct": null,
+      "buyouts": null,
+      "order_to_buyout_conversion_pct": null
+    },
+    "data_sources": {
+      "impressions": "ads_diagnostics.selected_totals",
+      "clicks": "ads_diagnostics.selected_totals",
+      "orders": "unknown",
+      "buyouts": "unknown",
+      "ctr": "derived",
+      "click_to_order_conversion_pct": "unknown",
+      "order_to_buyout_conversion_pct": "unknown"
+    },
+    "status": {
+      "traffic": "confirmed",
+      "conversion": "unknown",
+      "buyout_stage": "unknown"
+    }
+  },
+  "sku_watchlists_preview": {
+    "top_growth": [
+      {
+        "sku": "414589567",
+        "attention_score": 47,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 4.0,
+          "buyouts": 4.0,
+          "revenue": 0.0,
+          "net_profit": 1.2,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": 100.0,
+          "buyouts_vs_prev_pct": 33.33,
+          "buyouts_vs_7d_pct": 33.33,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -99.33
+        }
+      }
+    ],
+    "top_risk": [
+      {
+        "sku": "333615320",
+        "attention_score": 131,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 4.0,
+          "buyouts": 4.0,
+          "revenue": 0.0,
+          "net_profit": -640.54,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -82.35,
+          "buyouts_vs_prev_pct": -88.24,
+          "buyouts_vs_7d_pct": -88.24,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -159.77
+        }
+      },
+      {
+        "sku": "430679462",
+        "attention_score": 112,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 0.0,
+          "buyouts": 0.0,
+          "revenue": 0.0,
+          "net_profit": -89.0,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": 0.0,
+          "orders_vs_7d_pct": -100.0,
+          "buyouts_vs_prev_pct": -100.0,
+          "buyouts_vs_7d_pct": -100.0,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -112.27
+        }
+      },
+      {
+        "sku": "453526507",
+        "attention_score": 105,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 2.0,
+          "revenue": 0.0,
+          "net_profit": 0.55,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -85.71,
+          "buyouts_vs_prev_pct": -90.48,
+          "buyouts_vs_7d_pct": -90.48,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -99.97
+        }
+      },
+      {
+        "sku": "590614192",
+        "attention_score": 105,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 2.0,
+          "revenue": 0.0,
+          "net_profit": 1.16,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -66.67,
+          "buyouts_vs_prev_pct": -77.78,
+          "buyouts_vs_7d_pct": -77.78,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -99.74
+        }
+      },
+      {
+        "sku": "739384273",
+        "attention_score": 105,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 2.0,
+          "revenue": 0.0,
+          "net_profit": 1.39,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -81.25,
+          "buyouts_vs_prev_pct": -87.5,
+          "buyouts_vs_7d_pct": -87.5,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -99.85
+        }
+      }
+    ],
+    "dead_stock": [],
+    "ad_inefficiency": [
+      {
+        "sku": "333615320",
+        "attention_score": 131,
+        "reason": "Риск неэффективной рекламы",
+        "metrics": {
+          "orders": 4.0,
+          "buyouts": 4.0,
+          "revenue": 0.0,
+          "net_profit": -640.54,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -82.35,
+          "buyouts_vs_prev_pct": -88.24,
+          "buyouts_vs_7d_pct": -88.24,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -159.77
+        }
+      }
+    ],
+    "conversion_drop": [
+      {
+        "sku": "333615320",
+        "attention_score": 131,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 4.0,
+          "buyouts": 4.0,
+          "revenue": 0.0,
+          "net_profit": -640.54,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -82.35,
+          "buyouts_vs_prev_pct": -88.24,
+          "buyouts_vs_7d_pct": -88.24,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -159.77
+        }
+      },
+      {
+        "sku": "430679462",
+        "attention_score": 112,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 0.0,
+          "buyouts": 0.0,
+          "revenue": 0.0,
+          "net_profit": -89.0,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": 0.0,
+          "orders_vs_7d_pct": -100.0,
+          "buyouts_vs_prev_pct": -100.0,
+          "buyouts_vs_7d_pct": -100.0,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -112.27
+        }
+      },
+      {
+        "sku": "453526507",
+        "attention_score": 105,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 2.0,
+          "revenue": 0.0,
+          "net_profit": 0.55,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -85.71,
+          "buyouts_vs_prev_pct": -90.48,
+          "buyouts_vs_7d_pct": -90.48,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -99.97
+        }
+      },
+      {
+        "sku": "590614192",
+        "attention_score": 105,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 2.0,
+          "revenue": 0.0,
+          "net_profit": 1.16,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -66.67,
+          "buyouts_vs_prev_pct": -77.78,
+          "buyouts_vs_7d_pct": -77.78,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -99.74
+        }
+      },
+      {
+        "sku": "739384273",
+        "attention_score": 105,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 2.0,
+          "revenue": 0.0,
+          "net_profit": 1.39,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -81.25,
+          "buyouts_vs_prev_pct": -87.5,
+          "buyouts_vs_7d_pct": -87.5,
+          "revenue_vs_7d_pct": -100.0,
+          "net_profit_vs_7d_pct": -99.85
+        }
+      }
+    ],
+    "logistics_risk": []
+  },
+  "funnel_section_preview": [
+    "",
+    "## FUNNEL KPI — ВСЕГО КАБИНЕТ",
+    "- Показы: 1 359, клики: 50, CTR: 3.7 %",
+    "- Корзина: не подтверждено, заказы: не подтверждено, выкупы: не подтверждено",
+    "- Конверсия click→order: не подтверждено, order→buyout: не подтверждено",
+    "- Δ orders vs yesterday: не подтверждено, vs 7d: не подтверждено",
+    "- Δ buyouts vs yesterday: не подтверждено, vs 7d: не подтверждено",
+    "- Статусы: traffic=confirmed, conversion=unknown, buyout_stage=unknown",
+    "- Alert summary: unknown"
+  ],
+  "sku_monitor_section_preview": [
+    "",
+    "## SKU MONITOR — ФОКУС ДНЯ",
+    "### TOP GROWTH",
+    "- SKU 414589567 | attention 47, Δ7d=-99.3 %, Рост относительно 7d baseline",
+    "### TOP RISK",
+    "- SKU 333615320 | attention 131, Δ7d=-159.8 %, Высокий attention_score по совокупности сигналов",
+    "- SKU 430679462 | attention 112, Δ7d=-112.3 %, Высокий attention_score по совокупности сигналов",
+    "- SKU 453526507 | attention 105, Δ7d=-100.0 %, Высокий attention_score по совокупности сигналов",
+    "- SKU 590614192 | attention 105, Δ7d=-99.7 %, Высокий attention_score по совокупности сигналов",
+    "- SKU 739384273 | attention 105, Δ7d=-99.8 %, Высокий attention_score по совокупности сигналов",
+    "### AD INEFFICIENCY",
+    "- SKU 333615320 | attention 131, Δ7d=-159.8 %, Риск неэффективной рекламы",
+    "### CONVERSION DROP",
+    "- SKU 333615320 | attention 131, Δ7d=-159.8 %, Падение конверсии/продажной воронки",
+    "- SKU 430679462 | attention 112, Δ7d=-112.3 %, Падение конверсии/продажной воронки",
+    "- SKU 453526507 | attention 105, Δ7d=-100.0 %, Падение конверсии/продажной воронки",
+    "- SKU 590614192 | attention 105, Δ7d=-99.7 %, Падение конверсии/продажной воронки",
+    "- SKU 739384273 | attention 105, Δ7d=-99.8 %, Падение конверсии/продажной воронки"
+  ],
   "page_previews": [
     {
       "page": 1,
       "lines": [
-        "# WB AI Agent вЂ” РћС‚С‡РµС‚ РїРѕ РєР°Р±РёРЅРµС‚Сѓ",
-        "### РљР°Р±РёРЅРµС‚: seller_001",
-        "### Р”Р°С‚Р° РѕС‚С‡РµС‚Р°: 2026-03-11",
-        "### РЈРІРµСЂРµРЅРЅРѕСЃС‚СЊ РґР°РЅРЅС‹С…: низкая",
+        "# WB AI Agent РІР‚вЂќ Р С›РЎвЂљРЎвЂЎР ВµРЎвЂљ Р С—Р С• Р С”Р В°Р В±Р С‘Р Р…Р ВµРЎвЂљРЎС“",
+        "### Р С™Р В°Р В±Р С‘Р Р…Р ВµРЎвЂљ: seller_001",
+        "### Р вЂќР В°РЎвЂљР В° Р С•РЎвЂљРЎвЂЎР ВµРЎвЂљР В°: 2026-03-11",
+        "### Р Р€Р Р†Р ВµРЎР‚Р ВµР Р…Р Р…Р С•РЎРѓРЎвЂљРЎРЉ Р Т‘Р В°Р Р…Р Р…РЎвЂ№РЎвЂ¦: низкая",
         "",
         "## COMMERCE KPI",
-        "РџРѕРєР°Р·Р°С‚РµР»СЊ | Р—РЅР°С‡РµРЅРёРµ",
-        "РљРѕР»РёС‡РµСЃС‚РІРѕ Р·Р°РєР°Р·РѕРІ | 0",
-        "РЎСѓРјРјР° Р·Р°РєР°Р·РѕРІ (РјРёРЅСѓСЃ РєРѕРјРёСЃСЃРёСЏ WB) | 0.00 ?",
-        "Р’С‹РєСѓРїС‹ | 0",
-        "Рљ РїРµСЂРµС‡РёСЃР»РµРЅРёСЋ РїРѕ РІС‹РєСѓРїР°Рј | 0.00 ?",
-        "РЎСЂРµРґРЅРёР№ С‡РµРє РїРѕ РІС‹РєСѓРїСѓ | 0.00 ?",
-        "РСЃС‚РѕС‡РЅРёРє orders_count | unknown",
-        "РСЃС‚РѕС‡РЅРёРє orders_amount | unknown",
-        "РСЃС‚РѕС‡РЅРёРє buyouts_count | unknown",
-        "РСЃС‚РѕС‡РЅРёРє buyouts_amount | unknown",
-        "Orders count РїРѕРґС‚РІРµСЂР¶РґРµРЅ | РќРµС‚",
-        "Buyouts count РїРѕРґС‚РІРµСЂР¶РґРµРЅ | РќРµС‚",
-        "Orders amount РїРѕРґС‚РІРµСЂР¶РґРµРЅ | РќРµС‚",
-        "Buyouts amount РїРѕРґС‚РІРµСЂР¶РґРµРЅ | РќРµС‚",
-        "РљРѕР»РёС‡РµСЃС‚РІРѕ SKU | 8",
-        "Р Р°СЃС…РѕРґС‹ РЅР° СЂРµРєР»Р°РјСѓ | 644 ?",
+        "Р СџР С•Р С”Р В°Р В·Р В°РЎвЂљР ВµР В»РЎРЉ | Р вЂ”Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ",
+        "Р С™Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р С• Р В·Р В°Р С”Р В°Р В·Р С•Р Р† | не подтверждено",
+        "Р РЋРЎС“Р СР СР В° Р В·Р В°Р С”Р В°Р В·Р С•Р Р† (Р СР С‘Р Р…РЎС“РЎРѓ Р С”Р С•Р СР С‘РЎРѓРЎРѓР С‘РЎРЏ WB) | не подтверждено",
+        "Р вЂ™РЎвЂ№Р С”РЎС“Р С—РЎвЂ№ | не подтверждено",
+        "Р С™ Р С—Р ВµРЎР‚Р ВµРЎвЂЎР С‘РЎРѓР В»Р ВµР Р…Р С‘РЎР‹ Р С—Р С• Р Р†РЎвЂ№Р С”РЎС“Р С—Р В°Р С | не подтверждено",
+        "Р РЋРЎР‚Р ВµР Т‘Р Р…Р С‘Р в„– РЎвЂЎР ВµР С” Р С—Р С• Р Р†РЎвЂ№Р С”РЎС“Р С—РЎС“ | не подтверждено",
+        "Р ВРЎРѓРЎвЂљР С•РЎвЂЎР Р…Р С‘Р С” orders_count | unknown",
+        "Р ВРЎРѓРЎвЂљР С•РЎвЂЎР Р…Р С‘Р С” orders_amount | unknown",
+        "Р ВРЎРѓРЎвЂљР С•РЎвЂЎР Р…Р С‘Р С” buyouts_count | unknown",
+        "Р ВРЎРѓРЎвЂљР С•РЎвЂЎР Р…Р С‘Р С” buyouts_amount | unknown",
+        "Orders count Р С—Р С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р В¶Р Т‘Р ВµР Р… | Р СњР ВµРЎвЂљ",
+        "Buyouts count Р С—Р С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р В¶Р Т‘Р ВµР Р… | Р СњР ВµРЎвЂљ",
+        "Orders amount Р С—Р С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р В¶Р Т‘Р ВµР Р… | Р СњР ВµРЎвЂљ",
+        "Buyouts amount Р С—Р С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р В¶Р Т‘Р ВµР Р… | Р СњР ВµРЎвЂљ",
+        "Event status matrix | orders=not_confirmed, buyouts=not_confirmed, financials=partial, ads=confirmed",
+        "Р С™Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р С• SKU | 8",
+        "Р В Р В°РЎРѓРЎвЂ¦Р С•Р Т‘РЎвЂ№ Р Р…Р В° РЎР‚Р ВµР С”Р В»Р В°Р СРЎС“ | 644 ?",
         "",
         "## FINANCIAL KPI",
-        "РџРѕРєР°Р·Р°С‚РµР»СЊ | Р—РЅР°С‡РµРЅРёРµ",
-        "Р’С‹СЂСѓС‡РєР° (РїРѕРґС‚РІРµСЂР¶РґРµРЅРЅР°СЏ С„РёРЅР°РЅСЃРѕРІС‹РјРё СЃС‚СЂРѕРєР°РјРё) | 438 ?",
-        "РЎРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ | 0 ?",
-        "РљРѕРјРёСЃСЃРёСЏ WB | -88 ?",
-        "Р›РѕРіРёСЃС‚РёРєР° | 128 ?",
-        "РҐСЂР°РЅРµРЅРёРµ | 46 ?"
+        "Р СџР С•Р С”Р В°Р В·Р В°РЎвЂљР ВµР В»РЎРЉ | Р вЂ”Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ",
+        "Р вЂ™РЎвЂ№РЎР‚РЎС“РЎвЂЎР С”Р В° (Р С—Р С•Р Т‘РЎвЂљР Р†Р ВµРЎР‚Р В¶Р Т‘Р ВµР Р…Р Р…Р В°РЎРЏ РЎвЂћР С‘Р Р…Р В°Р Р…РЎРѓР С•Р Р†РЎвЂ№Р СР С‘ РЎРѓРЎвЂљРЎР‚Р С•Р С”Р В°Р СР С‘) | 438 ?",
+        "Р РЋР ВµР В±Р ВµРЎРѓРЎвЂљР С•Р С‘Р СР С•РЎРѓРЎвЂљРЎРЉ | 0 ?",
+        "Р С™Р С•Р СР С‘РЎРѓРЎРѓР С‘РЎРЏ WB | -88 ?",
+        "Р вЂєР С•Р С–Р С‘РЎРѓРЎвЂљР С‘Р С”Р В° | 128 ?"
       ]
     },
     {
       "page": 2,
       "lines": [
-        "# РЎРўРђРўРЈРЎ SKU Р Р Р•РЁР•РќРРЇ AI",
-        "## РЎРўРђРўРЈРЎ SKU",
-        "- РњРђРЎРЁРўРђР‘РР РћР’РђРўР¬ (SCALE): 0 вЂ” —",
-        "- РРЎРџР РђР’РРўР¬ (FIX): 0 вЂ” —",
-        "- РќРђР‘Р›Р®Р”РђРўР¬ (WATCH): 7 вЂ” 452102417, 283212418, 739384273, 414589567, 590614192, 453526507, 333615320",
-        "- Р›РРљР’РР”РР РћР’РђРўР¬ (LIQUIDATE): 1 вЂ” 430679462",
+        "# Р РЋР СћР С’Р СћР Р€Р РЋ SKU Р В Р В Р вЂўР РЃР вЂўР СњР ВР Р‡ AI",
+        "## Р РЋР СћР С’Р СћР Р€Р РЋ SKU",
+        "- Р СљР С’Р РЋР РЃР СћР С’Р вЂР ВР В Р С›Р вЂ™Р С’Р СћР В¬ (SCALE): 0 РІР‚вЂќ —",
+        "- Р ВР РЋР СџР В Р С’Р вЂ™Р ВР СћР В¬ (FIX): 0 РІР‚вЂќ —",
+        "- Р СњР С’Р вЂР вЂєР В®Р вЂќР С’Р СћР В¬ (WATCH): 7 РІР‚вЂќ 452102417, 283212418, 739384273, 414589567, 590614192, 453526507, 333615320",
+        "- Р вЂєР ВР С™Р вЂ™Р ВР вЂќР ВР В Р С›Р вЂ™Р С’Р СћР В¬ (LIQUIDATE): 1 РІР‚вЂќ 430679462",
         "",
-        "## Р Р•РЁР•РќРРЇ AI",
-        "### РњРђРЎРЁРўРђР‘РР РћР’РђРўР¬ (SCALE)",
-        "- РќРµС‚ SKU РІ СЌС‚РѕР№ РіСЂСѓРїРїРµ.",
+        "## Р В Р вЂўР РЃР вЂўР СњР ВР Р‡ AI",
         "",
-        "### РРЎРџР РђР’РРўР¬ (FIX)",
-        "- РќРµС‚ SKU РІ СЌС‚РѕР№ РіСЂСѓРїРїРµ.",
+        "## SKU MONITOR — ФОКУС ДНЯ",
+        "### TOP GROWTH",
+        "- SKU 414589567 | attention 47, Δ7d=-99.3 %, Рост относительно 7d baseline",
+        "### TOP RISK",
+        "- SKU 333615320 | attention 131, Δ7d=-159.8 %, Высокий attention_score по совокупности сигналов",
+        "- SKU 430679462 | attention 112, Δ7d=-112.3 %, Высокий attention_score по совокупности сигналов",
+        "- SKU 453526507 | attention 105, Δ7d=-100.0 %, Высокий attention_score по совокупности сигналов",
+        "- SKU 590614192 | attention 105, Δ7d=-99.7 %, Высокий attention_score по совокупности сигналов",
+        "- SKU 739384273 | attention 105, Δ7d=-99.8 %, Высокий attention_score по совокупности сигналов",
+        "### AD INEFFICIENCY",
+        "- SKU 333615320 | attention 131, Δ7d=-159.8 %, Риск неэффективной рекламы",
+        "### CONVERSION DROP",
+        "- SKU 333615320 | attention 131, Δ7d=-159.8 %, Падение конверсии/продажной воронки",
+        "- SKU 430679462 | attention 112, Δ7d=-112.3 %, Падение конверсии/продажной воронки",
+        "- SKU 453526507 | attention 105, Δ7d=-100.0 %, Падение конверсии/продажной воронки",
+        "- SKU 590614192 | attention 105, Δ7d=-99.7 %, Падение конверсии/продажной воронки",
+        "- SKU 739384273 | attention 105, Δ7d=-99.8 %, Падение конверсии/продажной воронки",
+        "### Р СљР С’Р РЋР РЃР СћР С’Р вЂР ВР В Р С›Р вЂ™Р С’Р СћР В¬ (SCALE)",
+        "- Р СњР ВµРЎвЂљ SKU Р Р† РЎРЊРЎвЂљР С•Р в„– Р С–РЎР‚РЎС“Р С—Р С—Р Вµ.",
         "",
-        "### РќРђР‘Р›Р®Р”РђРўР¬ (WATCH)",
-        "- SKU 452102417 вЂ” РїСЂРёР±С‹Р»СЊ 462 ? вЂ” watch: наблюдать и тестировать",
-        "- SKU 283212418 вЂ” РїСЂРёР±С‹Р»СЊ 14 ? вЂ” data_issue: проверить финансовую атрибуцию перед экономическим решением",
-        "- SKU 739384273 вЂ” РїСЂРёР±С‹Р»СЊ 1 ? вЂ” data_issue: проверить финансовую атрибуцию перед экономическим решением",
-        "- SKU 414589567 вЂ” РїСЂРёР±С‹Р»СЊ 1 ? вЂ” data_issue: проверить финансовую атрибуцию перед экономическим решением",
-        "- SKU 590614192 вЂ” РїСЂРёР±С‹Р»СЊ 1 ? вЂ” data_issue: проверить финансовую атрибуцию перед экономическим решением",
-        "- SKU 453526507 вЂ” РїСЂРёР±С‹Р»СЊ 1 ? вЂ” data_issue: проверить финансовую атрибуцию перед экономическим решением",
-        "- SKU 333615320 вЂ” РїСЂРёР±С‹Р»СЊ -641 ? вЂ” data_issue: проверить финансовую атрибуцию перед экономическим решением",
-        "",
-        "### Р›РРљР’РР”РР РћР’РђРўР¬ (LIQUIDATE)",
-        "- SKU 430679462 вЂ” РїСЂРёР±С‹Р»СЊ -89 ? вЂ” liquidate: ликвидировать остатки или отключить рекламу",
-        "",
-        "## РЎРўР РђРўР•Р“РРЇ AI Р”РР Р•РљРўРћР Рђ",
-        "### РњРђРЎРЁРўРђР‘РР РћР’РђРўР¬ (SCALE)",
-        "- РќРµС‚ SKU РІ СЌС‚РѕР№ РіСЂСѓРїРїРµ.",
-        "### РРЎРџР РђР’РРўР¬ (FIX)"
+        "### Р ВР РЋР СџР В Р С’Р вЂ™Р ВР СћР В¬ (FIX)"
       ]
     },
     {
       "page": 3,
       "lines": [
-        "# РћР‘РЈР§Р•РќРР• AI Р РљРђР§Р•РЎРўР’Рћ Р”РђРќРќР«РҐ",
-        "## РџРђРњРЇРўР¬ Р Р•РЁР•РќРР™ AI",
-        "РџРѕРєР°Р·Р°С‚РµР»СЊ | Р—РЅР°С‡РµРЅРёРµ",
-        "Р’СЃРµРіРѕ СЂРµС€РµРЅРёР№ | 48",
-        "РћР¶РёРґР°СЋС‚ РѕС†РµРЅРєРё | 18",
-        "РЈСЃРїРµС€РЅС‹С… | 3",
-        "РќРµСѓРґР°С‡РЅС‹С… | 12",
-        "РќРµР№С‚СЂР°Р»СЊРЅС‹С… | 15",
+        "# Р С›Р вЂР Р€Р В§Р вЂўР СњР ВР вЂў AI Р В Р С™Р С’Р В§Р вЂўР РЋР СћР вЂ™Р С› Р вЂќР С’Р СњР СњР В«Р Тђ",
+        "## Р СџР С’Р СљР Р‡Р СћР В¬ Р В Р вЂўР РЃР вЂўР СњР ВР в„ў AI",
+        "Р СџР С•Р С”Р В°Р В·Р В°РЎвЂљР ВµР В»РЎРЉ | Р вЂ”Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ",
+        "Р вЂ™РЎРѓР ВµР С–Р С• РЎР‚Р ВµРЎв‚¬Р ВµР Р…Р С‘Р в„– | 48",
+        "Р С›Р В¶Р С‘Р Т‘Р В°РЎР‹РЎвЂљ Р С•РЎвЂ Р ВµР Р…Р С”Р С‘ | 18",
+        "Р Р€РЎРѓР С—Р ВµРЎв‚¬Р Р…РЎвЂ№РЎвЂ¦ | 3",
+        "Р СњР ВµРЎС“Р Т‘Р В°РЎвЂЎР Р…РЎвЂ№РЎвЂ¦ | 12",
+        "Р СњР ВµР в„–РЎвЂљРЎР‚Р В°Р В»РЎРЉР Р…РЎвЂ№РЎвЂ¦ | 15",
         "",
-        "## РљРђР§Р•РЎРўР’Рћ Р”РђРќРќР«РҐ",
-        "РџРѕРєР°Р·Р°С‚РµР»СЊ | Р—РЅР°С‡РµРЅРёРµ",
-        "Р’Р°Р»РёРґРЅС‹Рµ SKU | 8",
-        "РќРµРІР°Р»РёРґРЅС‹Рµ СЃС‚СЂРѕРєРё | 3",
-        "Р Р°СЃС…РѕРґС‹ Р±РµР· SKU | Р”Р°",
-        "- Р§Р°СЃС‚СЊ СЂР°СЃС…РѕРґРѕРІ РЅРµ РїСЂРёРІСЏР·Р°РЅР° Рє SKU Рё СѓС‡С‚РµРЅР° РѕС‚РґРµР»СЊРЅРѕ.",
+        "## Р С™Р С’Р В§Р вЂўР РЋР СћР вЂ™Р С› Р вЂќР С’Р СњР СњР В«Р Тђ",
+        "Р СџР С•Р С”Р В°Р В·Р В°РЎвЂљР ВµР В»РЎРЉ | Р вЂ”Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ",
+        "Р вЂ™Р В°Р В»Р С‘Р Т‘Р Р…РЎвЂ№Р Вµ SKU | 8",
+        "Р СњР ВµР Р†Р В°Р В»Р С‘Р Т‘Р Р…РЎвЂ№Р Вµ РЎРѓРЎвЂљРЎР‚Р С•Р С”Р С‘ | 3",
+        "Р В Р В°РЎРѓРЎвЂ¦Р С•Р Т‘РЎвЂ№ Р В±Р ВµР В· SKU | Р вЂќР В°",
+        "- Р В§Р В°РЎРѓРЎвЂљРЎРЉ РЎР‚Р В°РЎРѓРЎвЂ¦Р С•Р Т‘Р С•Р Р† Р Р…Р Вµ Р С—РЎР‚Р С‘Р Р†РЎРЏР В·Р В°Р Р…Р В° Р С” SKU Р С‘ РЎС“РЎвЂЎРЎвЂљР ВµР Р…Р В° Р С•РЎвЂљР Т‘Р ВµР В»РЎРЉР Р…Р С•.",
         "",
-        "## РљРђР§Р•РЎРўР’Рћ Р¤РРќРђРќРЎРћР’РћР™ РђРўР РР‘РЈР¦РР",
-        "РџРѕРєР°Р·Р°С‚РµР»СЊ | Р—РЅР°С‡РµРЅРёРµ",
-        "Р’Р°Р»РёРґРЅС‹С… SKU | 8",
-        "РќРµСЂР°СЃРїСЂРµРґРµР»РµРЅРЅС‹С… СЃС‚СЂРѕРє | 3",
-        "РќРµСЂР°СЃРїСЂРµРґРµР»РµРЅРЅС‹Рµ СЂР°СЃС…РѕРґС‹ | -42 ?",
-        "РџРѕР»РЅРѕС‚Р° С„РёРЅР°РЅСЃРѕРІС‹С… РґР°РЅРЅС‹С… | 33.3 %",
-        "Р¤РёРЅР°РЅСЃРѕРІС‹Р№ РєРѕРЅС‚СѓСЂ С„РёРЅР°Р»СЊРЅС‹Р№ | РќРµС‚",
-        "Р”РѕСЃС‚РѕРІРµСЂРЅРѕСЃС‚СЊ AI-СЂРµС€РµРЅРёР№ | низкая",
+        "## Р С™Р С’Р В§Р вЂўР РЋР СћР вЂ™Р С› Р В¤Р ВР СњР С’Р СњР РЋР С›Р вЂ™Р С›Р в„ў Р С’Р СћР В Р ВР вЂР Р€Р В¦Р ВР В",
+        "Р СџР С•Р С”Р В°Р В·Р В°РЎвЂљР ВµР В»РЎРЉ | Р вЂ”Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р Вµ",
+        "Р вЂ™Р В°Р В»Р С‘Р Т‘Р Р…РЎвЂ№РЎвЂ¦ SKU | 8",
+        "Р СњР ВµРЎР‚Р В°РЎРѓР С—РЎР‚Р ВµР Т‘Р ВµР В»Р ВµР Р…Р Р…РЎвЂ№РЎвЂ¦ РЎРѓРЎвЂљРЎР‚Р С•Р С” | 3",
+        "Р СњР ВµРЎР‚Р В°РЎРѓР С—РЎР‚Р ВµР Т‘Р ВµР В»Р ВµР Р…Р Р…РЎвЂ№Р Вµ РЎР‚Р В°РЎРѓРЎвЂ¦Р С•Р Т‘РЎвЂ№ | -42 ?",
+        "Р СџР С•Р В»Р Р…Р С•РЎвЂљР В° РЎвЂћР С‘Р Р…Р В°Р Р…РЎРѓР С•Р Р†РЎвЂ№РЎвЂ¦ Р Т‘Р В°Р Р…Р Р…РЎвЂ№РЎвЂ¦ | 33.3 %",
+        "Р В¤Р С‘Р Р…Р В°Р Р…РЎРѓР С•Р Р†РЎвЂ№Р в„– Р С”Р С•Р Р…РЎвЂљРЎС“РЎР‚ РЎвЂћР С‘Р Р…Р В°Р В»РЎРЉР Р…РЎвЂ№Р в„– | Р СњР ВµРЎвЂљ",
+        "Р вЂќР С•РЎРѓРЎвЂљР С•Р Р†Р ВµРЎР‚Р Р…Р С•РЎРѓРЎвЂљРЎРЉ AI-РЎР‚Р ВµРЎв‚¬Р ВµР Р…Р С‘Р в„– | низкая",
         "",
-        "## РџР Р•Р”РЈРџР Р•Р–Р”Р•РќРРЇ РЎРРЎРўР•РњР«",
+        "## Р СџР В Р вЂўР вЂќР Р€Р СџР В Р вЂўР вЂ“Р вЂќР вЂўР СњР ВР Р‡ Р РЋР ВР РЋР СћР вЂўР СљР В«",
         "- Рекламный файл успешно загружен.",
         "- Не найден валидный отчет остатков.",
         "- Колонка quantity не может использоваться как fallback для orders/buyouts count.",

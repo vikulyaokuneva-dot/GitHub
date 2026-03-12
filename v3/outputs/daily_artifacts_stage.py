@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+import os
 from typing import Any, Dict
 
+from ..domain.event_model import build_render_kpi_values
 from ..pipeline.daily_stage_support import sync_from_entry
 
 
@@ -9,6 +12,20 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     sync_from_entry(globals())
 
     payload: Dict[str, Any] = dict(context or {})
+
+    def _read_optional_artifact(name: str) -> Dict[str, Any]:
+        out_dir_local = str(payload.get("out_dir") or "")
+        if not out_dir_local:
+            return {}
+        path = os.path.join(out_dir_local, name)
+        if not os.path.isfile(path):
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            return {}
+        return data if isinstance(data, dict) else {}
     warnings_collector = payload.get("warnings_collector")
     if not isinstance(warnings_collector, WarningsCollector):
         warnings_collector = WarningsCollector()
@@ -43,6 +60,18 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     outcomes_payload = payload.get("outcomes_payload", {})
     if not isinstance(outcomes_payload, dict):
         outcomes_payload = {}
+    cabinet_funnel = payload.get("cabinet_funnel", {})
+    if not isinstance(cabinet_funnel, dict) or not cabinet_funnel:
+        cabinet_funnel = _read_optional_artifact("cabinet_funnel.json")
+    funnel_alerts = payload.get("funnel_alerts", {})
+    if not isinstance(funnel_alerts, dict) or not funnel_alerts:
+        funnel_alerts = _read_optional_artifact("funnel_alerts.json")
+    sku_alerts = payload.get("sku_alerts", {})
+    if not isinstance(sku_alerts, dict) or not sku_alerts:
+        sku_alerts = _read_optional_artifact("sku_alerts.json")
+    sku_watchlists = payload.get("sku_watchlists", {})
+    if not isinstance(sku_watchlists, dict) or not sku_watchlists:
+        sku_watchlists = _read_optional_artifact("sku_watchlists.json")
 
     decision_rows_added = int(payload.get("decision_rows_added", 0) or 0)
     outcomes_evaluated = int(payload.get("outcomes_evaluated", 0) or 0)
@@ -76,6 +105,32 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     totals = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
     if not isinstance(totals, dict):
         totals = {}
+    event_date_model = payload.get("event_date_model", metrics.get("event_date_model", facts.get("event_date_model", {})))
+    if not isinstance(event_date_model, dict):
+        event_date_model = {}
+    order_kpi = payload.get("order_kpi", metrics.get("order_kpi", facts.get("order_kpi", {})))
+    if not isinstance(order_kpi, dict):
+        order_kpi = {}
+    buyout_kpi = payload.get("buyout_kpi", metrics.get("buyout_kpi", facts.get("buyout_kpi", {})))
+    if not isinstance(buyout_kpi, dict):
+        buyout_kpi = {}
+    daily_status_matrix = payload.get(
+        "daily_status_matrix",
+        metrics.get("daily_status_matrix", facts.get("daily_status_matrix", {})),
+    )
+    if not isinstance(daily_status_matrix, dict):
+        daily_status_matrix = {}
+    event_ledger = payload.get("event_ledger", metrics.get("event_ledger", facts.get("event_ledger", {})))
+    if not isinstance(event_ledger, dict):
+        event_ledger = {}
+    render_kpi = payload.get("render_kpi", metrics.get("render_kpi", facts.get("render_kpi", {})))
+    if not isinstance(render_kpi, dict) or not render_kpi:
+        render_kpi = build_render_kpi_values(
+            order_kpi=order_kpi if isinstance(order_kpi, dict) else {},
+            buyout_kpi=buyout_kpi if isinstance(buyout_kpi, dict) else {},
+            financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+            daily_status_matrix=daily_status_matrix if isinstance(daily_status_matrix, dict) else {},
+        )
 
     ads_rows_count = int(payload.get("ads_rows_count", 0) or 0)
     ads_loaded_from_file = bool(payload.get("ads_loaded_from_file", False))
@@ -94,25 +149,77 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         )
         if not isinstance(financial_kpi, dict):
             financial_kpi = {}
-    revenue_total = _safe_float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))))
+    revenue_total_legacy = _safe_float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))))
     profit_total = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
-    daily_orders_count = int(round(_safe_float(daily_kpi.get("daily_orders_count", 0))))
-    daily_orders_amount = _safe_float(daily_kpi.get("daily_orders_amount", 0.0))
-    daily_buyouts_count = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", 0))))
-    daily_buyouts_amount = _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
-    avg_check = (daily_buyouts_amount / daily_buyouts_count) if (daily_buyouts_amount > 0 and daily_buyouts_count > 0) else 0.0
+    daily_orders_count_legacy = int(round(_safe_float(daily_kpi.get("daily_orders_count", 0))))
+    daily_orders_amount_legacy = _safe_float(daily_kpi.get("daily_orders_amount", 0.0))
+    daily_buyouts_count_legacy = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", 0))))
+    daily_buyouts_amount_legacy = _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
+    avg_check_legacy = (
+        (daily_buyouts_amount_legacy / daily_buyouts_count_legacy)
+        if (daily_buyouts_amount_legacy > 0 and daily_buyouts_count_legacy > 0)
+        else 0.0
+    )
 
-    cost_price_total = _safe_float(financial_kpi.get("cost_price", totals.get("cost_price", 0.0)))
-    wb_commission = _safe_float(financial_kpi.get("wb_commission", totals.get("wb_commission", 0.0)))
-    logistics_total = _safe_float(financial_kpi.get("logistics", totals.get("logistics", 0.0)))
-    storage_total = _safe_float(financial_kpi.get("storage", totals.get("storage", 0.0)))
-    penalties_total = _safe_float(financial_kpi.get("penalties", totals.get("penalties", 0.0)))
-    deductions_total = _safe_float(financial_kpi.get("deductions", totals.get("deductions", 0.0)))
-    ads_spend_total = _safe_float(financial_kpi.get("ads_spend", totals.get("ads_spend", 0.0)))
-    gross_profit_total = _safe_float(financial_kpi.get("gross_profit", revenue_total - cost_price_total - wb_commission))
-    net_profit = _safe_float(financial_kpi.get("net_profit", totals.get("net_profit", profit_total)))
-    margin_pct_total = _safe_float(financial_kpi.get("margin_pct", (net_profit / revenue_total * 100.0) if revenue_total > 0 else 0.0))
-    profitability_pct_total = _safe_float(financial_kpi.get("profitability_pct", (net_profit / cost_price_total * 100.0) if cost_price_total > 0 else 0.0))
+    daily_orders_count = render_kpi.get("orders_count")
+    daily_orders_amount = render_kpi.get("orders_amount")
+    daily_buyouts_count = render_kpi.get("buyouts_count")
+    daily_buyouts_amount = render_kpi.get("buyouts_amount")
+    avg_check = render_kpi.get("avg_check")
+
+    cost_price_total = financial_kpi.get("cost_price")
+    wb_commission = financial_kpi.get("wb_commission")
+    logistics_total = financial_kpi.get("logistics")
+    storage_total = financial_kpi.get("storage")
+    penalties_total = financial_kpi.get("penalties")
+    deductions_total = financial_kpi.get("deductions")
+    ads_spend_total = financial_kpi.get("ads_spend")
+    revenue_total = render_kpi.get("revenue")
+    gross_profit_total = render_kpi.get("gross_profit")
+    net_profit = render_kpi.get("net_profit")
+    margin_pct_total = render_kpi.get("margin_pct")
+    profitability_pct_total = render_kpi.get("profitability_pct")
+
+    financial_status = str(daily_status_matrix.get("financials") or "unknown")
+    if financial_status in {"confirmed", "partial"}:
+        if revenue_total is None:
+            revenue_total = _safe_float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))))
+        if cost_price_total is None:
+            cost_price_total = _safe_float(financial_kpi.get("cost_price", totals.get("cost_price", 0.0)))
+        if wb_commission is None:
+            wb_commission = _safe_float(financial_kpi.get("wb_commission", totals.get("wb_commission", 0.0)))
+        if logistics_total is None:
+            logistics_total = _safe_float(financial_kpi.get("logistics", totals.get("logistics", 0.0)))
+        if storage_total is None:
+            storage_total = _safe_float(financial_kpi.get("storage", totals.get("storage", 0.0)))
+        if penalties_total is None:
+            penalties_total = _safe_float(financial_kpi.get("penalties", totals.get("penalties", 0.0)))
+        if deductions_total is None:
+            deductions_total = _safe_float(financial_kpi.get("deductions", totals.get("deductions", 0.0)))
+        if ads_spend_total is None:
+            ads_spend_total = _safe_float(financial_kpi.get("ads_spend", totals.get("ads_spend", 0.0)))
+        if gross_profit_total is None:
+            gross_profit_total = _safe_float(
+                financial_kpi.get(
+                    "gross_profit",
+                    _safe_float(revenue_total) - _safe_float(cost_price_total) - _safe_float(wb_commission),
+                )
+            )
+        if net_profit is None:
+            net_profit = _safe_float(financial_kpi.get("net_profit", totals.get("net_profit", profit_total)))
+
+    margin_pct_total_legacy = _safe_float(
+        financial_kpi.get(
+            "margin_pct",
+            (_safe_float(net_profit) / _safe_float(revenue_total) * 100.0) if _safe_float(revenue_total) > 0 else 0.0,
+        )
+    )
+    profitability_pct_total_legacy = _safe_float(
+        financial_kpi.get(
+            "profitability_pct",
+            (_safe_float(net_profit) / _safe_float(cost_price_total) * 100.0) if _safe_float(cost_price_total) > 0 else 0.0,
+        )
+    )
     financial_completeness_pct = _safe_float(financial_kpi.get("completeness_pct", 0.0))
     financial_partial = bool(financial_kpi.get("is_partial", False))
 
@@ -144,6 +251,10 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "director_strategy": director_strategy,
             "health_summary": health_summary,
             "outcomes_payload": outcomes_payload,
+            "cabinet_funnel": cabinet_funnel,
+            "funnel_alerts": funnel_alerts,
+            "sku_alerts": sku_alerts,
+            "sku_watchlists": sku_watchlists,
             "decision_rows_added": decision_rows_added,
             "outcomes_evaluated": outcomes_evaluated,
             "confidence": confidence,
@@ -156,17 +267,29 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "unassigned_costs": unassigned_costs,
             "financial_kpi": financial_kpi,
             "totals": totals,
+            "event_date_model": event_date_model,
+            "order_kpi": order_kpi,
+            "buyout_kpi": buyout_kpi,
+            "daily_status_matrix": daily_status_matrix,
+            "render_kpi": render_kpi,
+            "event_ledger": event_ledger,
             "ads_rows_count": ads_rows_count,
             "ads_loaded_from_file": ads_loaded_from_file,
             "ads_source_file": ads_source_file,
             "ads_attribution_quality": ads_attribution_quality,
             "revenue_total": revenue_total,
+            "revenue_total_legacy": revenue_total_legacy,
             "profit_total": profit_total,
             "daily_orders_count": daily_orders_count,
+            "daily_orders_count_legacy": daily_orders_count_legacy,
             "daily_orders_amount": daily_orders_amount,
+            "daily_orders_amount_legacy": daily_orders_amount_legacy,
             "daily_buyouts_count": daily_buyouts_count,
+            "daily_buyouts_count_legacy": daily_buyouts_count_legacy,
             "daily_buyouts_amount": daily_buyouts_amount,
+            "daily_buyouts_amount_legacy": daily_buyouts_amount_legacy,
             "avg_check": avg_check,
+            "avg_check_legacy": avg_check_legacy,
             "cost_price_total": cost_price_total,
             "wb_commission": wb_commission,
             "logistics_total": logistics_total,
@@ -177,7 +300,9 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "gross_profit_total": gross_profit_total,
             "net_profit": net_profit,
             "margin_pct_total": margin_pct_total,
+            "margin_pct_total_legacy": margin_pct_total_legacy,
             "profitability_pct_total": profitability_pct_total,
+            "profitability_pct_total_legacy": profitability_pct_total_legacy,
             "financial_completeness_pct": financial_completeness_pct,
             "financial_partial": financial_partial,
             "ads_impressions": ads_impressions,

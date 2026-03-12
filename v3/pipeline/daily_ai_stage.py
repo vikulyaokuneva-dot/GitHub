@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict
 
+from ..metrics.sku_alerts_builder import build_sku_alerts
+from ..metrics.sku_watchlists_builder import build_sku_watchlists
 from .daily_stage_support import sync_from_entry
 
 
@@ -46,6 +48,18 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     financial_kpi = ctx.get("financial_kpi", {})
     if not isinstance(financial_kpi, dict):
         financial_kpi = {}
+    sku_daily_dynamics = ctx.get("sku_daily_dynamics", {})
+    if not isinstance(sku_daily_dynamics, dict):
+        sku_daily_dynamics = {}
+    cabinet_funnel = ctx.get("cabinet_funnel", {})
+    if not isinstance(cabinet_funnel, dict):
+        cabinet_funnel = {}
+    funnel_alerts = ctx.get("funnel_alerts", {})
+    if not isinstance(funnel_alerts, dict):
+        funnel_alerts = {}
+    logistics_ktr = ctx.get("logistics_ktr", {})
+    if not isinstance(logistics_ktr, dict):
+        logistics_ktr = {}
     facts_financial_status = str(ctx.get("facts_financial_status") or "ok")
     financial_data_missing_flag = bool(ctx.get("financial_data_missing_flag", False))
     ads_rows_count = int(ctx.get("ads_rows_count", 0) or 0)
@@ -67,6 +81,20 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
 
     health_payload = compute_sku_health(facts, metrics)
     health_summary = health_payload.get("summary", {}) if isinstance(health_payload, dict) else {}
+    sku_alerts = build_sku_alerts(
+        run_date=run_date,
+        sku_daily_dynamics=sku_daily_dynamics if isinstance(sku_daily_dynamics, dict) else {},
+        logistics_ktr=logistics_ktr if isinstance(logistics_ktr, dict) else {},
+        health_payload=health_payload if isinstance(health_payload, dict) else {},
+        history_root=(Path(out_dir).parent / "history") if out_dir else None,
+    )
+    sku_watchlists = build_sku_watchlists(
+        run_date=run_date,
+        sku_daily_dynamics=sku_daily_dynamics if isinstance(sku_daily_dynamics, dict) else {},
+        sku_alerts=sku_alerts if isinstance(sku_alerts, dict) else {},
+        logistics_ktr=logistics_ktr if isinstance(logistics_ktr, dict) else {},
+        limit_per_group=5,
+    )
     growth_simulation = simulate_growth(metrics if isinstance(metrics, dict) else {})
     opportunity_scores = compute_opportunity_scores(
         metrics if isinstance(metrics, dict) else {},
@@ -129,6 +157,8 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         opportunity_scores=opportunity_scores if isinstance(opportunity_scores, dict) else {},
         director_strategy=director_strategy if isinstance(director_strategy, dict) else {},
         api_debug=api_debug if isinstance(api_debug, dict) else {},
+        sku_alerts=sku_alerts if isinstance(sku_alerts, dict) else {},
+        sku_watchlists=sku_watchlists if isinstance(sku_watchlists, dict) else {},
     )
 
     decision_rows_added = log_decisions(
@@ -191,12 +221,16 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "warnings_collector": warnings_collector,
             "health_payload": health_payload,
             "health_summary": health_summary,
+            "sku_alerts": sku_alerts,
+            "sku_watchlists": sku_watchlists,
             "growth_simulation": growth_simulation,
             "opportunity_scores": opportunity_scores,
             "decisions_layer_payload": decisions_layer_payload,
             "decisions_payload": decisions_payload,
             "decisions_summary": decisions_summary,
             "director_strategy": director_strategy,
+            "cabinet_funnel": cabinet_funnel,
+            "funnel_alerts": funnel_alerts,
             "decision_rows_added": decision_rows_added,
             "outcomes_payload": outcomes_payload,
             "outcomes_file": outcomes_file,

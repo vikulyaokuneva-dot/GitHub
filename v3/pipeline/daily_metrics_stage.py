@@ -1,7 +1,19 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List
 
+from ..domain.event_model import (
+    build_buyout_kpi,
+    build_daily_status_matrix,
+    build_event_date_model,
+    build_event_ledger,
+    build_financial_kpi_contract,
+    build_order_kpi,
+    build_render_kpi_values,
+)
+from ..metrics.cabinet_funnel_builder import build_cabinet_funnel_core
+from ..metrics.sku_daily_dynamics_builder import build_sku_daily_dynamics
 from .daily_stage_support import sync_from_entry
 
 
@@ -155,6 +167,32 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     data_source_logistics = str(daily_unpack.get("data_source_logistics") or _SOURCE_UNKNOWN)
     data_source_storage = str(daily_unpack.get("data_source_storage") or _SOURCE_UNKNOWN)
     data_source_ads_spend = str(daily_unpack.get("data_source_ads_spend") or _SOURCE_UNKNOWN)
+    data_sources = daily_unpack.get("data_sources", {})
+    if not isinstance(data_sources, dict):
+        data_sources = {}
+
+    event_date_model = ctx.get("event_date_model", {})
+    if not isinstance(event_date_model, dict) or not event_date_model:
+        event_date_model = build_event_date_model(
+            run_date=run_date,
+            api_debug=api_debug if isinstance(api_debug, dict) else {},
+            timezone=str((ctx.get("cfg", {}) if isinstance(ctx.get("cfg"), dict) else {}).get("timezone") or "Europe/Berlin"),
+        )
+    order_kpi = build_order_kpi(
+        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+        daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
+    )
+    buyout_kpi = build_buyout_kpi(
+        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+        daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
+    )
+    financial_kpi_legacy = dict(financial_kpi if isinstance(financial_kpi, dict) else {})
+    financial_contract = build_financial_kpi_contract(
+        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+        data_sources=data_sources if isinstance(data_sources, dict) else {},
+    )
+    financial_kpi.update(financial_contract if isinstance(financial_contract, dict) else {})
 
     metrics = apply_metrics_assembly_patches(
         metrics=metrics if isinstance(metrics, dict) else {},
@@ -167,6 +205,48 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         commerce_activity=daily_unpack.get("commerce_activity", {}),
         daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
         commerce_kpi=daily_unpack.get("commerce_kpi", {}),
+    )
+    daily_status_matrix = build_daily_status_matrix(
+        order_kpi=order_kpi if isinstance(order_kpi, dict) else {},
+        buyout_kpi=buyout_kpi if isinstance(buyout_kpi, dict) else {},
+        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+        ads_summary=ads_summary if isinstance(ads_summary, dict) else {},
+        data_quality=metrics_data_quality if isinstance(metrics_data_quality, dict) else {},
+    )
+    render_kpi = build_render_kpi_values(
+        order_kpi=order_kpi if isinstance(order_kpi, dict) else {},
+        buyout_kpi=buyout_kpi if isinstance(buyout_kpi, dict) else {},
+        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+        daily_status_matrix=daily_status_matrix if isinstance(daily_status_matrix, dict) else {},
+    )
+    event_ledger = build_event_ledger(
+        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+        order_kpi=order_kpi if isinstance(order_kpi, dict) else {},
+        buyout_kpi=buyout_kpi if isinstance(buyout_kpi, dict) else {},
+        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+        api_debug=api_debug if isinstance(api_debug, dict) else {},
+        data_sources=data_sources if isinstance(data_sources, dict) else {},
+    )
+    metrics["event_date_model"] = event_date_model if isinstance(event_date_model, dict) else {}
+    metrics["order_kpi"] = order_kpi if isinstance(order_kpi, dict) else {}
+    metrics["buyout_kpi"] = buyout_kpi if isinstance(buyout_kpi, dict) else {}
+    metrics["financial_kpi"] = financial_kpi if isinstance(financial_kpi, dict) else {}
+    metrics["financial_kpi_legacy"] = financial_kpi_legacy
+    metrics["daily_status_matrix"] = daily_status_matrix if isinstance(daily_status_matrix, dict) else {}
+    metrics["render_kpi"] = render_kpi if isinstance(render_kpi, dict) else {}
+    metrics["event_ledger"] = event_ledger if isinstance(event_ledger, dict) else {}
+    cabinet_funnel = build_cabinet_funnel_core(
+        run_date=run_date,
+        metrics=metrics if isinstance(metrics, dict) else {},
+        ads_diagnostics=ads_diagnostics_summary if isinstance(ads_diagnostics_summary, dict) else {},
+    )
+    sku_daily_dynamics = build_sku_daily_dynamics(
+        run_date=run_date,
+        metrics=metrics if isinstance(metrics, dict) else {},
+        sales_rows=sales_rows if isinstance(sales_rows, list) else [],
+        ads_rows=ads_rows if isinstance(ads_rows, list) else [],
+        stocks_rows=stocks_rows if isinstance(stocks_rows, list) else [],
+        history_root=(Path(out_dir).parent / "history") if out_dir else None,
     )
     if isinstance(input_debug, dict):
         input_debug = apply_input_debug_assembly_patches(
@@ -254,6 +334,12 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         source_flags=source_flags if isinstance(source_flags, dict) else {},
         source_policy=source_policy if isinstance(source_policy, dict) else {},
         financial_data_degraded_flag=financial_data_degraded_flag,
+        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+        order_kpi=order_kpi if isinstance(order_kpi, dict) else {},
+        buyout_kpi=buyout_kpi if isinstance(buyout_kpi, dict) else {},
+        daily_status_matrix=daily_status_matrix if isinstance(daily_status_matrix, dict) else {},
+        event_ledger=event_ledger if isinstance(event_ledger, dict) else {},
+        render_kpi=render_kpi if isinstance(render_kpi, dict) else {},
     )
 
     confidence = str(facts.get("data_confidence", "low"))
@@ -341,6 +427,9 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         abc_rows=abc_rows if isinstance(abc_rows, list) else [],
         profit_contribution=profit_contribution if isinstance(profit_contribution, dict) else {},
         territorial_distribution=territorial_distribution if isinstance(territorial_distribution, dict) else {},
+        event_ledger=event_ledger if isinstance(event_ledger, dict) else {},
+        cabinet_funnel=cabinet_funnel if isinstance(cabinet_funnel, dict) else {},
+        sku_daily_dynamics=sku_daily_dynamics if isinstance(sku_daily_dynamics, dict) else {},
     )
 
     logistics_ktr = build_logistics_ktr(seller_id=seller_id, run_date=run_date, repo_root=repo_root)
@@ -376,6 +465,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "source_policy": source_policy,
             "source_map": source_map,
             "source_flags": source_flags,
+            "data_sources": data_sources,
             "data_source_orders_count": data_source_orders_count,
             "data_source_buyouts_count": data_source_buyouts_count,
             "data_source_orders_amount": data_source_orders_amount,
@@ -387,6 +477,14 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "data_source_ads_spend": data_source_ads_spend,
             "financial_data_missing_flag": financial_data_missing_flag,
             "financial_data_degraded_flag": financial_data_degraded_flag,
+            "event_date_model": event_date_model,
+            "order_kpi": order_kpi,
+            "buyout_kpi": buyout_kpi,
+            "daily_status_matrix": daily_status_matrix,
+            "render_kpi": render_kpi,
+            "event_ledger": event_ledger,
+            "cabinet_funnel": cabinet_funnel,
+            "sku_daily_dynamics": sku_daily_dynamics,
             "facts": facts,
             "confidence": confidence,
             "input_summary": input_summary,

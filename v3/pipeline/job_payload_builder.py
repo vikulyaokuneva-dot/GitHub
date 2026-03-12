@@ -40,6 +40,24 @@ def build_daily_job_payload(
     safe_ads_summary = ads_summary if isinstance(ads_summary, dict) else {}
     safe_financial_kpi = financial_kpi if isinstance(financial_kpi, dict) else {}
     safe_metrics = metrics if isinstance(metrics, dict) else {}
+    event_date_model = safe_metrics.get("event_date_model", {})
+    if not isinstance(event_date_model, dict):
+        event_date_model = {}
+    order_kpi = safe_metrics.get("order_kpi", {})
+    if not isinstance(order_kpi, dict):
+        order_kpi = {}
+    buyout_kpi = safe_metrics.get("buyout_kpi", {})
+    if not isinstance(buyout_kpi, dict):
+        buyout_kpi = {}
+    daily_status_matrix = safe_metrics.get("daily_status_matrix", {})
+    if not isinstance(daily_status_matrix, dict):
+        daily_status_matrix = {}
+    render_kpi = safe_metrics.get("render_kpi", {})
+    if not isinstance(render_kpi, dict):
+        render_kpi = {}
+    event_ledger = safe_metrics.get("event_ledger", {})
+    if not isinstance(event_ledger, dict):
+        event_ledger = {}
     return {
         "input_debug": input_debug,
         "api_debug": api_debug,
@@ -87,4 +105,10 @@ def build_daily_job_payload(
         "financial_completeness_pct": round(_safe_float(safe_financial_kpi.get("completeness_pct", 0.0)), 2),
         "financial_partial": bool(safe_financial_kpi.get("is_partial", False)),
         "data_quality": facts_financial_status,
+        "event_date_model": event_date_model,
+        "order_kpi": order_kpi,
+        "buyout_kpi": buyout_kpi,
+        "daily_status_matrix": daily_status_matrix,
+        "render_kpi": render_kpi,
+        "event_ledger": event_ledger,
     }

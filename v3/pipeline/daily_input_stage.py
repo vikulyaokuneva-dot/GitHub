@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
+from ..domain.event_model import build_event_date_model
 from .daily_stage_support import sync_from_entry
 
 
@@ -34,6 +35,7 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     api_stocks_rows: List[Dict[str, Any]] = []
     local_financial_fallback_used = False
     local_input_debug: Dict[str, Any] = {}
+    event_date_model: Dict[str, Any] = {}
     ads_loaded_from_file = False
     ads_source_file = ""
     ads_rows_count = 0
@@ -223,6 +225,11 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "shifted_to_previous_day": bool(period.get("shifted_to_previous_day")),
             "local_financial_fallback_used": local_financial_fallback_used,
         }
+        event_date_model = build_event_date_model(
+            run_date=run_date,
+            api_debug=api_debug,
+            timezone=str(period.get("timezone") or report_timezone),
+        )
         input_debug = {
             "source_mode": source_mode,
             "loaded_rows": {
@@ -271,7 +278,15 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "endpoints": [],
             "date_from": run_date,
             "date_to": run_date,
+            "run_date_requested": run_date,
+            "timezone": _resolve_report_timezone(cfg),
+            "shifted_to_previous_day": False,
         }
+        event_date_model = build_event_date_model(
+            run_date=run_date,
+            api_debug=api_debug,
+            timezone=str(api_debug.get("timezone") or "Europe/Berlin"),
+        )
 
     input_debug_bundle = build_input_debug(
         source_mode=source_mode,
@@ -312,6 +327,7 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         "discovered_files": discovered_files,
         "input_debug": input_debug,
         "api_debug": api_debug,
+        "event_date_model": event_date_model,
         "sales_rows": sales_rows,
         "ads_rows": ads_rows,
         "stocks_rows": stocks_rows,

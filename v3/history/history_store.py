@@ -87,6 +87,7 @@ def save_daily_history_snapshot(seller_id: str, run_date: str, artifacts_dir: Pa
 
     required_files = [
         "metrics.json",
+        "event_ledger.json",
         "facts.json",
         "warnings.json",
         "abc_analysis.json",
@@ -96,6 +97,9 @@ def save_daily_history_snapshot(seller_id: str, run_date: str, artifacts_dir: Pa
     ]
     optional_artifacts = [
         "case_similarity.json",
+        "sku_daily_dynamics.json",
+        "sku_alerts.json",
+        "sku_watchlists.json",
     ]
 
     copied_files: List[str] = []
@@ -159,4 +163,3 @@ def save_daily_history_snapshot(seller_id: str, run_date: str, artifacts_dir: Pa
         },
         "snapshot_meta": snapshot_meta,
     }
-

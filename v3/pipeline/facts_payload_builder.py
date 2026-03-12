@@ -35,11 +35,23 @@ def build_facts_runtime_patch(
     data_source_ads_spend: str,
     source_flags: Dict[str, Any],
     source_policy: Dict[str, Any],
+    event_date_model: Dict[str, Any],
+    order_kpi: Dict[str, Any],
+    buyout_kpi: Dict[str, Any],
+    daily_status_matrix: Dict[str, Any],
+    event_ledger: Dict[str, Any],
+    render_kpi: Dict[str, Any],
 ) -> Dict[str, Any]:
     safe_metrics = metrics if isinstance(metrics, dict) else {}
     safe_ads_summary = ads_summary if isinstance(ads_summary, dict) else {}
     safe_financial_kpi = financial_kpi if isinstance(financial_kpi, dict) else {}
     safe_daily_kpi = daily_kpi if isinstance(daily_kpi, dict) else {}
+    safe_event_date_model = event_date_model if isinstance(event_date_model, dict) else {}
+    safe_order_kpi = order_kpi if isinstance(order_kpi, dict) else {}
+    safe_buyout_kpi = buyout_kpi if isinstance(buyout_kpi, dict) else {}
+    safe_status_matrix = daily_status_matrix if isinstance(daily_status_matrix, dict) else {}
+    safe_event_ledger = event_ledger if isinstance(event_ledger, dict) else {}
+    safe_render_kpi = render_kpi if isinstance(render_kpi, dict) else {}
 
     ads_columns_detected = (
         [str(item) for item in safe_ads_summary.get("ads_columns_detected", []) if str(item).strip()]
@@ -82,6 +94,12 @@ def build_facts_runtime_patch(
         "buyouts_count_unknown_reason": str(safe_daily_kpi.get("buyouts_count_unknown_reason") or ""),
         "source_flags": source_flags,
         "source_policy": source_policy if isinstance(source_policy, dict) else {},
+        "event_date_model": safe_event_date_model,
+        "order_kpi": safe_order_kpi,
+        "buyout_kpi": safe_buyout_kpi,
+        "daily_status_matrix": safe_status_matrix,
+        "event_ledger": safe_event_ledger,
+        "render_kpi": safe_render_kpi,
     }
 
 

@@ -43,6 +43,12 @@ def build_daily_facts_base(
     source_flags: Dict[str, Any],
     source_policy: Dict[str, Any],
     financial_data_degraded_flag: bool,
+    event_date_model: Dict[str, Any],
+    order_kpi: Dict[str, Any],
+    buyout_kpi: Dict[str, Any],
+    daily_status_matrix: Dict[str, Any],
+    event_ledger: Dict[str, Any],
+    render_kpi: Dict[str, Any],
 ) -> Dict[str, Any]:
     facts = build_facts_from_reports(
         seller_id=seller_id,
@@ -78,6 +84,12 @@ def build_daily_facts_base(
             data_source_ads_spend=str(data_source_ads_spend),
             source_flags=source_flags if isinstance(source_flags, dict) else {},
             source_policy=source_policy if isinstance(source_policy, dict) else {},
+            event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+            order_kpi=order_kpi if isinstance(order_kpi, dict) else {},
+            buyout_kpi=buyout_kpi if isinstance(buyout_kpi, dict) else {},
+            daily_status_matrix=daily_status_matrix if isinstance(daily_status_matrix, dict) else {},
+            event_ledger=event_ledger if isinstance(event_ledger, dict) else {},
+            render_kpi=render_kpi if isinstance(render_kpi, dict) else {},
         )
     )
     patched_data_quality = apply_facts_data_quality_patch(

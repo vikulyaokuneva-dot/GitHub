@@ -3,6 +3,120 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from ..pipeline.daily_stage_support import sync_from_entry
+from .render_policy import format_int_or_unknown, format_pct_or_unknown
+
+
+def _safe_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _top_watchlist_rows(sku_watchlists: Dict[str, Any], group: str, limit: int = 5) -> List[Dict[str, Any]]:
+    watchlists = sku_watchlists.get("watchlists", {}) if isinstance(sku_watchlists, dict) else {}
+    rows = watchlists.get(group, []) if isinstance(watchlists, dict) else []
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)][: max(0, int(limit))]
+
+
+def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dict[str, Any]) -> List[str]:
+    funnel = cabinet_funnel.get("funnel", {}) if isinstance(cabinet_funnel, dict) else {}
+    status = cabinet_funnel.get("status", {}) if isinstance(cabinet_funnel, dict) else {}
+    if not isinstance(funnel, dict):
+        funnel = {}
+    if not isinstance(status, dict):
+        status = {}
+
+    impressions = funnel.get("impressions")
+    clicks = funnel.get("clicks")
+    ctr = funnel.get("ctr")
+    orders = funnel.get("orders")
+    buyouts = funnel.get("buyouts")
+    line_1 = (
+        "показы="
+        + format_int_or_unknown(impressions)
+        + ", клики="
+        + format_int_or_unknown(clicks)
+        + ", CTR="
+        + format_pct_or_unknown(ctr)
+        + ", заказы="
+        + format_int_or_unknown(orders)
+        + ", выкупы="
+        + format_int_or_unknown(buyouts)
+    )
+    line_2 = (
+        "статусы: traffic="
+        + str(status.get("traffic") or "unknown")
+        + ", conversion="
+        + str(status.get("conversion") or "unknown")
+        + ", buyout_stage="
+        + str(status.get("buyout_stage") or "unknown")
+    )
+
+    alerts_summary = ""
+    if isinstance(funnel_alerts, dict) and funnel_alerts:
+        if isinstance(funnel_alerts.get("summary"), dict):
+            summary = funnel_alerts.get("summary", {})
+            alerts_summary = (
+                "alerts: warning="
+                + str(summary.get("warning_count", 0))
+                + ", critical="
+                + str(summary.get("critical_count", 0))
+            )
+        else:
+            alerts = funnel_alerts.get("alerts", [])
+            if isinstance(alerts, list):
+                warning_count = 0
+                critical_count = 0
+                for row in alerts:
+                    if not isinstance(row, dict):
+                        continue
+                    row_status = str(row.get("status") or "").strip()
+                    if row_status == "warning":
+                        warning_count += 1
+                    elif row_status == "critical":
+                        critical_count += 1
+                alerts_summary = f"alerts: warning={warning_count}, critical={critical_count}"
+    return [line_1, line_2] + ([alerts_summary] if alerts_summary else [])
+
+
+def _build_sku_monitor_email_brief(sku_watchlists: Dict[str, Any]) -> List[str]:
+    groups = [
+        ("top_growth", "рост"),
+        ("top_risk", "риск"),
+        ("dead_stock", "dead_stock"),
+        ("ad_inefficiency", "ad_ineff"),
+        ("conversion_drop", "conv_drop"),
+    ]
+    lines: List[str] = []
+    for key, label in groups:
+        rows = _top_watchlist_rows(sku_watchlists, key, limit=5)
+        if not rows:
+            continue
+        compact = []
+        for row in rows:
+            sku = str(row.get("sku") or "").strip()
+            if not sku:
+                continue
+            compact.append(f"{sku}({int(float(row.get('attention_score', 0) or 0))})")
+        if compact:
+            lines.append(f"{label}: " + ", ".join(compact[:5]))
+    return lines
+
+
+def _extend_ai_conclusion_with_monitoring(base_text: str, funnel_lines: List[str], sku_lines: List[str]) -> str:
+    chunks = [str(base_text or "").strip()]
+    if funnel_lines:
+        chunks.append("FUNNEL KPI:")
+        chunks.extend(f"- {line}" for line in funnel_lines[:3])
+    if sku_lines:
+        chunks.append("SKU MONITOR:")
+        chunks.extend(f"- {line}" for line in sku_lines[:5])
+    return "\n".join([line for line in chunks if str(line).strip()])
 
 
 def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -30,6 +144,36 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     data_quality = data.get("data_quality", {})
     if not isinstance(data_quality, dict):
         data_quality = {}
+    event_date_model = data.get("event_date_model", {})
+    if not isinstance(event_date_model, dict):
+        event_date_model = {}
+    order_kpi = data.get("order_kpi", {})
+    if not isinstance(order_kpi, dict):
+        order_kpi = {}
+    buyout_kpi = data.get("buyout_kpi", {})
+    if not isinstance(buyout_kpi, dict):
+        buyout_kpi = {}
+    financial_kpi = data.get("financial_kpi", {})
+    if not isinstance(financial_kpi, dict):
+        financial_kpi = {}
+    daily_status_matrix = data.get("daily_status_matrix", {})
+    if not isinstance(daily_status_matrix, dict):
+        daily_status_matrix = {}
+    render_kpi = data.get("render_kpi", {})
+    if not isinstance(render_kpi, dict):
+        render_kpi = {}
+    cabinet_funnel = data.get("cabinet_funnel", {})
+    if not isinstance(cabinet_funnel, dict):
+        cabinet_funnel = {}
+    funnel_alerts = data.get("funnel_alerts", {})
+    if not isinstance(funnel_alerts, dict):
+        funnel_alerts = {}
+    sku_watchlists = data.get("sku_watchlists", {})
+    if not isinstance(sku_watchlists, dict):
+        sku_watchlists = {}
+    sku_alerts = data.get("sku_alerts", {})
+    if not isinstance(sku_alerts, dict):
+        sku_alerts = {}
 
     decision_groups: Dict[str, List[Dict[str, Any]]] = {}
     if isinstance(decisions_summary, dict):
@@ -43,29 +187,57 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         decision_groups=decision_groups,
         logistics_summary=logistics_summary if isinstance(logistics_summary, dict) else {},
     )
-    ai_day_conclusion = _build_ai_day_conclusion(
+    base_ai_day_conclusion = _build_ai_day_conclusion(
         run_date=str(data.get("run_date") or ""),
         totals=totals if isinstance(totals, dict) else {},
         daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
         data_quality=data_quality if isinstance(data_quality, dict) else {},
         key_insights=data.get("key_insights", []),
         recommendations=short_recommendations,
+        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+        order_kpi=order_kpi if isinstance(order_kpi, dict) else {},
+        buyout_kpi=buyout_kpi if isinstance(buyout_kpi, dict) else {},
+        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+        daily_status_matrix=daily_status_matrix if isinstance(daily_status_matrix, dict) else {},
     )
+    funnel_brief_lines = _build_funnel_email_brief(
+        cabinet_funnel=cabinet_funnel if isinstance(cabinet_funnel, dict) else {},
+        funnel_alerts=funnel_alerts if isinstance(funnel_alerts, dict) else {},
+    )
+    sku_monitor_brief_lines = _build_sku_monitor_email_brief(
+        sku_watchlists=sku_watchlists if isinstance(sku_watchlists, dict) else {},
+    )
+    ai_day_conclusion_email = _extend_ai_conclusion_with_monitoring(
+        base_text=base_ai_day_conclusion,
+        funnel_lines=funnel_brief_lines,
+        sku_lines=sku_monitor_brief_lines,
+    )
+    key_insights_enhanced = data.get("key_insights", [])
+    if not isinstance(key_insights_enhanced, list):
+        key_insights_enhanced = []
+    if sku_monitor_brief_lines:
+        key_insights_enhanced = list(key_insights_enhanced) + [
+            "SKU monitor сформирован: фокус по risk/growth/ad/conversion группам.",
+        ]
+    if funnel_brief_lines:
+        key_insights_enhanced = list(key_insights_enhanced) + [
+            "Funnel KPI добавлен в управленческую выжимку.",
+        ]
 
     job["email_summary"] = build_email_summary(
         daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
         ads_summary=ads_summary if isinstance(ads_summary, dict) else {},
-        net_profit=float(data.get("net_profit", 0.0) or 0.0),
-        gross_profit=float(data.get("gross_profit_total", 0.0) or 0.0),
-        cost_price=float(data.get("cost_price_total", 0.0) or 0.0),
-        wb_commission=float(data.get("wb_commission", 0.0) or 0.0),
-        logistics=float(data.get("logistics_total", 0.0) or 0.0),
-        storage=float(data.get("storage_total", 0.0) or 0.0),
-        penalties=float(data.get("penalties_total", 0.0) or 0.0),
-        deductions=float(data.get("deductions_total", 0.0) or 0.0),
-        ads_spend_total=float(data.get("ads_spend_total", 0.0) or 0.0),
-        margin_pct=float(data.get("margin_pct_total", 0.0) or 0.0),
-        profitability_pct=float(data.get("profitability_pct_total", 0.0) or 0.0),
+        net_profit=data.get("net_profit"),
+        gross_profit=data.get("gross_profit_total"),
+        cost_price=data.get("cost_price_total"),
+        wb_commission=data.get("wb_commission"),
+        logistics=data.get("logistics_total"),
+        storage=data.get("storage_total"),
+        penalties=data.get("penalties_total"),
+        deductions=data.get("deductions_total"),
+        ads_spend_total=data.get("ads_spend_total"),
+        margin_pct=data.get("margin_pct_total"),
+        profitability_pct=data.get("profitability_pct_total"),
         financial_completeness_pct=float(data.get("financial_completeness_pct", 0.0) or 0.0),
         financial_partial=bool(data.get("financial_partial", False)),
         ads_rows=int(data.get("ads_rows_count", 0) or 0),
@@ -75,16 +247,25 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         ads_loaded_from_file=bool(data.get("ads_loaded_from_file", False)),
         ads_source_file=str(data.get("ads_source_file") or ""),
         ads_attribution_quality=str(data.get("ads_attribution_quality") or "unknown"),
-        daily_revenue=float(data.get("daily_buyouts_amount", 0.0) or 0.0),
-        financial_revenue=float(data.get("revenue_total", 0.0) or 0.0),
-        daily_orders_count=int(data.get("daily_orders_count", 0) or 0),
-        avg_check=float(data.get("avg_check", 0.0) or 0.0),
-        daily_orders_amount=float(data.get("daily_orders_amount", 0.0) or 0.0),
-        daily_buyouts_count=int(data.get("daily_buyouts_count", 0) or 0),
-        daily_buyouts_amount=float(data.get("daily_buyouts_amount", 0.0) or 0.0),
-        key_insights=data.get("key_insights", []),
+        daily_revenue=render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount")),
+        financial_revenue=render_kpi.get("revenue", data.get("revenue_total")),
+        daily_orders_count=render_kpi.get("orders_count", data.get("daily_orders_count")),
+        avg_check=render_kpi.get("avg_check", data.get("avg_check")),
+        daily_orders_amount=render_kpi.get("orders_amount", data.get("daily_orders_amount")),
+        daily_buyouts_count=render_kpi.get("buyouts_count", data.get("daily_buyouts_count")),
+        daily_buyouts_amount=render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount")),
+        key_insights=key_insights_enhanced,
         recommendations=short_recommendations,
-        ai_day_conclusion=ai_day_conclusion,
+        ai_day_conclusion=ai_day_conclusion_email,
+        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+        order_kpi=order_kpi if isinstance(order_kpi, dict) else {},
+        buyout_kpi=buyout_kpi if isinstance(buyout_kpi, dict) else {},
+        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+        daily_status_matrix=daily_status_matrix if isinstance(daily_status_matrix, dict) else {},
+        render_kpi=render_kpi if isinstance(render_kpi, dict) else {},
+        funnel_snapshot=cabinet_funnel if isinstance(cabinet_funnel, dict) else {},
+        sku_watchlists=sku_watchlists if isinstance(sku_watchlists, dict) else {},
+        sku_alerts=sku_alerts if isinstance(sku_alerts, dict) else {},
     )
 
     data.update(
@@ -92,7 +273,9 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "job": job,
             "decision_groups": decision_groups,
             "short_recommendations": short_recommendations,
-            "ai_day_conclusion": ai_day_conclusion,
+            "ai_day_conclusion": base_ai_day_conclusion,
+            "funnel_brief_lines": funnel_brief_lines,
+            "sku_monitor_brief_lines": sku_monitor_brief_lines,
         }
     )
     return data

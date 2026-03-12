@@ -43,6 +43,7 @@ from .outputs.artifact_writer import (
 )
 from .outputs.email_summary_builder import build_email_summary
 from .outputs.email_sender_orchestrator import orchestrate_daily_email_send
+from .outputs.render_policy import format_int_or_unknown, format_money_or_unknown, format_pct_or_unknown
 from .outputs.facts_builder import (
     attach_daily_facts_sections,
     attach_decision_memory_summary_to_facts,
@@ -591,32 +592,81 @@ def _build_ai_day_conclusion(
     data_quality: Dict[str, Any],
     key_insights: List[str],
     recommendations: List[str],
+    event_date_model: Dict[str, Any] | None = None,
+    order_kpi: Dict[str, Any] | None = None,
+    buyout_kpi: Dict[str, Any] | None = None,
+    financial_kpi: Dict[str, Any] | None = None,
+    daily_status_matrix: Dict[str, Any] | None = None,
 ) -> str:
-    buyouts_revenue = _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0))
-    financial_revenue = _safe_float(totals.get("total_revenue", totals.get("revenue", 0.0)))
-    profit = _safe_float(totals.get("net_profit", totals.get("profit", totals.get("total_profit", 0.0))))
-    orders = int(round(_safe_float(daily_kpi.get("daily_orders_count", 0))))
-    buyouts = int(round(_safe_float(daily_kpi.get("daily_buyouts_count", 0))))
-    avg_buyout_check = buyouts_revenue / buyouts if (buyouts_revenue > 0 and buyouts > 0) else 0.0
-    margin_pct = (profit / financial_revenue * 100.0) if financial_revenue > 0 else 0.0
+    safe_event_date_model = event_date_model if isinstance(event_date_model, dict) else {}
+    safe_order_kpi = order_kpi if isinstance(order_kpi, dict) else {}
+    safe_buyout_kpi = buyout_kpi if isinstance(buyout_kpi, dict) else {}
+    safe_financial_kpi = financial_kpi if isinstance(financial_kpi, dict) else {}
+    safe_status_matrix = daily_status_matrix if isinstance(daily_status_matrix, dict) else {}
+    if not safe_order_kpi:
+        safe_order_kpi = {
+            "orders_count": int(round(_safe_float(daily_kpi.get("daily_orders_count", 0)))),
+            "orders_count_confirmed": bool(daily_kpi.get("orders_count_confirmed", False)),
+        }
+    if not safe_buyout_kpi:
+        safe_buyout_kpi = {
+            "buyouts_count": int(round(_safe_float(daily_kpi.get("daily_buyouts_count", 0)))),
+            "buyouts_count_confirmed": bool(daily_kpi.get("buyouts_count_confirmed", False)),
+            "buyouts_amount": _safe_float(daily_kpi.get("daily_buyouts_amount", 0.0)),
+            "buyouts_amount_confirmed": bool(daily_kpi.get("buyouts_amount_confirmed", False)),
+        }
+    if not safe_financial_kpi:
+        safe_financial_kpi = {
+            "revenue": _safe_float(totals.get("total_revenue", totals.get("revenue", 0.0))),
+            "net_profit": _safe_float(totals.get("net_profit", totals.get("profit", totals.get("total_profit", 0.0)))),
+            "margin_pct": _safe_float(totals.get("margin_pct", 0.0)),
+            "is_partial": str(data_quality.get("financial_status", "ok") or "ok") == "partial",
+            "confirmed": str(data_quality.get("financial_status", "ok") or "ok") == "ok",
+        }
+    if not safe_status_matrix:
+        financial_status = str(data_quality.get("financial_status", "ok") or "ok")
+        safe_status_matrix = {
+            "orders": "confirmed" if bool(safe_order_kpi.get("orders_count_confirmed", False)) else "not_confirmed",
+            "buyouts": "confirmed" if bool(safe_buyout_kpi.get("buyouts_count_confirmed", False)) else "not_confirmed",
+            "financials": "confirmed" if financial_status == "ok" else ("partial" if financial_status == "partial" else "not_confirmed"),
+        }
 
-    quality_code = str(data_quality.get("financial_status", "ok") or "ok")
-    quality_label = {
-        "ok": "высоком",
-        "degraded": "среднем",
-        "partial": "низком",
-    }.get(quality_code, "среднем")
+    operational_date = str(safe_event_date_model.get("operational_date") or run_date)
+    orders_status = str(safe_status_matrix.get("orders") or "unknown")
+    buyouts_status = str(safe_status_matrix.get("buyouts") or "unknown")
+    financial_status = str(safe_status_matrix.get("financials") or "unknown")
+    financial_partial = bool(safe_financial_kpi.get("is_partial", False))
 
+    orders = safe_order_kpi.get("orders_count") if bool(safe_order_kpi.get("orders_count_confirmed", False)) else None
+    buyouts = safe_buyout_kpi.get("buyouts_count") if bool(safe_buyout_kpi.get("buyouts_count_confirmed", False)) else None
+    buyouts_revenue = safe_buyout_kpi.get("buyouts_amount") if bool(safe_buyout_kpi.get("buyouts_amount_confirmed", False)) else None
+    financial_revenue = safe_financial_kpi.get("revenue")
+    profit = safe_financial_kpi.get("net_profit")
+    margin_pct = safe_financial_kpi.get("margin_pct") if financial_status == "confirmed" and not financial_partial else None
     main_insight = (key_insights[0] if key_insights else "Критичных отклонений по KPI не выявлено").rstrip(".")
     focus = (recommendations[0] if recommendations else "Сохранить текущую операционную стратегию").rstrip(".")
 
+    if orders_status == "confirmed" and (financial_status != "confirmed" or financial_partial):
+        return (
+            f"За операционный день {operational_date} зафиксировано {format_int_or_unknown(orders)} заказов. "
+            "Подтвержденных выкупов и полного финансового контура за период не получено, "
+            "поэтому выручка, прибыль и производные финансовые KPI не интерпретируются как окончательные значения дня. "
+            f"Главный сигнал: {main_insight}; фокус следующего дня: {focus}."
+        )
+    if orders_status != "confirmed":
+        return (
+            f"За операционный день {operational_date} данные по заказам пока не подтверждены. "
+            "До подтверждения операционного и финансового контуров итоговые KPI дня считаются предварительными. "
+            f"Главный сигнал: {main_insight}; фокус следующего дня: {focus}."
+        )
+
     return (
-        f"На {run_date} бизнес закрыл день с перечислением по выкупам {_format_money_2(buyouts_revenue)} "
-        f"и чистой прибылью {_format_money(profit)} "
-        f"(маржа {_format_pct(margin_pct)}). "
-        f"Получено {_format_int(orders)} заказов, выкуплено {_format_int(buyouts)} "
-        f"(средний чек по выкупу {_format_money_2(avg_buyout_check)}). "
-        f"Качество финансовой атрибуции находится на {quality_label} уровне, поэтому решения AI опираются на подтвержденные данные дня. "
+        f"За операционный день {operational_date} получено {format_int_or_unknown(orders)} заказов, "
+        f"выкуплено {format_int_or_unknown(buyouts)} на сумму {format_money_or_unknown(buyouts_revenue)}. "
+        f"Финансовая выручка: {format_money_or_unknown(financial_revenue, decimals=0)}, "
+        f"чистая прибыль: {format_money_or_unknown(profit, decimals=0)}, "
+        f"маржа: {format_pct_or_unknown(margin_pct)}. "
+        f"Статусы контуров: orders={orders_status}, buyouts={buyouts_status}, financials={financial_status}. "
         f"Главный сигнал: {main_insight}; фокус следующего дня: {focus}."
     )
 
@@ -656,6 +706,25 @@ def _build_management_email_body(
     orders_count_source = str(summary.get("data_source_orders_count") or summary.get("data_source_orders") or _SOURCE_UNKNOWN)
     orders_amount_source = str(summary.get("data_source_orders_amount") or _SOURCE_UNKNOWN)
     buyouts_source = str(summary.get("data_source_buyouts_count") or summary.get("data_source_buyouts") or _SOURCE_UNKNOWN)
+    display = summary.get("display", {})
+    if not isinstance(display, dict):
+        display = {}
+    event_date_model = summary.get("event_date_model", {})
+    if not isinstance(event_date_model, dict):
+        event_date_model = {}
+    daily_status_matrix = summary.get("daily_status_matrix", {})
+    if not isinstance(daily_status_matrix, dict):
+        daily_status_matrix = {}
+    operational_date = str(event_date_model.get("operational_date") or run_date)
+    orders_display = str(display.get("orders_count") or format_int_or_unknown(summary.get("daily_orders_count")))
+    orders_amount_display = str(display.get("orders_amount") or format_money_or_unknown(summary.get("daily_orders_amount")))
+    buyouts_display = str(display.get("buyouts_count") or format_int_or_unknown(summary.get("daily_buyouts_count")))
+    buyouts_amount_display = str(display.get("buyouts_amount") or format_money_or_unknown(summary.get("daily_buyouts_amount")))
+    avg_check_display = str(display.get("avg_check") or format_money_or_unknown(summary.get("avg_check")))
+    revenue_display = str(display.get("financial_revenue") or format_money_or_unknown(summary.get("financial_revenue"), decimals=0))
+    net_profit_display = str(display.get("net_profit") or format_money_or_unknown(summary.get("net_profit"), decimals=0))
+    margin_display = str(display.get("margin_pct") or format_pct_or_unknown(summary.get("margin_pct")))
+    profitability_display = str(display.get("profitability_pct") or format_pct_or_unknown(summary.get("profitability_pct")))
     insights_raw = summary.get("key_insights", [])
     recommendations_raw = summary.get("recommendations", [])
     day_conclusion = str(summary.get("ai_day_conclusion", "")).strip()
@@ -669,25 +738,26 @@ def _build_management_email_body(
 
     lines: List[str] = [
         f"Управленческое резюме WB AI Agent v3 — кабинет {seller_id}",
-        f"Дата: {run_date}",
+        f"Дата отчета: {run_date}",
+        f"Операционный день: {operational_date}",
         "",
         "COMMERCE KPI",
-        f"- Заказы: {_format_int(daily_orders_count)}",
-        f"- Выкупы: {_format_int(daily_buyouts_count)}",
-        f"- К перечислению по выкупам: {_format_money_2(daily_buyouts_amount)}",
-        f"- Сумма заказов (минус комиссия WB): {_format_money_2(daily_orders_amount)}",
+        f"- Заказы: {orders_display}",
+        f"- Выкупы: {buyouts_display}",
+        f"- К перечислению по выкупам: {buyouts_amount_display}",
+        f"- Сумма заказов (минус комиссия WB): {orders_amount_display}",
         f"- Источник orders_count: {orders_count_source}",
         f"- Источник orders_amount: {orders_amount_source}",
         f"- Источник buyouts: {buyouts_source}",
         "",
         "FINANCIAL KPI",
-        f"- Выручка (финансовая агрегация): {_format_money(revenue)}",
+        f"- Выручка (финансовая агрегация): {revenue_display}",
         f"- Себестоимость: {_format_money(cost_price)}",
         f"- Комиссия WB: {_format_money(wb_commission)}",
         f"- Валовая прибыль: {_format_money(gross_profit)}",
-        f"- Чистая прибыль: {_format_money(net_profit)}",
-        f"- Маржа: {_format_pct(margin_pct)}",
-        f"- Рентабельность: {_format_pct(profitability_pct)}",
+        f"- Чистая прибыль: {net_profit_display}",
+        f"- Маржа: {margin_display}",
+        f"- Рентабельность: {profitability_display}",
         f"- Логистика: {_format_money(logistics)}",
         f"- Хранение: {_format_money(storage)}",
         f"- Штрафы: {_format_money(penalties)}",
@@ -702,7 +772,8 @@ def _build_management_email_body(
         f"- Источник рекламы: {ads_source_file or ('local_file' if ads_loaded_from_file else 'api_or_missing')}",
         f"- Атрибуция рекламы: {ads_attribution_quality}",
         f"- Реклама учтена в прибыли: {'Да' if ads_applied_to_profit else 'Нет'}",
-        f"- Средний чек: {_format_money(avg_check)}",
+        f"- Средний чек: {avg_check_display}",
+        f"- Статусы контуров: orders={str(daily_status_matrix.get('orders') or 'unknown')}, buyouts={str(daily_status_matrix.get('buyouts') or 'unknown')}, financials={str(daily_status_matrix.get('financials') or 'unknown')}",
         "",
         "КЛЮЧЕВЫЕ ВЫВОДЫ AI",
     ]
