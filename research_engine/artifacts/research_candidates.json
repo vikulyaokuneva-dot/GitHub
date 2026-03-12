@@ -1,0 +1,202 @@
+[
+  {
+    "candidate": {
+      "niche_id": "niche-002",
+      "title": "Silicone feeding kit",
+      "keyword": "feeding kit",
+      "category": "kids",
+      "avg_price": 1640.0,
+      "demand_score": 74.36,
+      "competition_score": 31.26,
+      "economics_score": 36.0,
+      "risk_score": 40.5,
+      "final_score": 48.92,
+      "status": "shortlisted"
+    },
+    "demand_snapshot": {
+      "niche_id": "niche-002",
+      "monthly_searches": 3980,
+      "growth_pct": 7.0,
+      "demand_score": 74.36
+    },
+    "competition_snapshot": {
+      "niche_id": "niche-002",
+      "competitor_count": 38,
+      "concentration_index": 0.62,
+      "competition_score": 31.26
+    },
+    "unit_economics_snapshot": {
+      "niche_id": "niche-002",
+      "estimated_cogs": 852.8,
+      "estimated_margin_pct": 48.0,
+      "economics_score": 36.0
+    },
+    "risk_snapshot": {
+      "niche_id": "niche-002",
+      "return_rate_pct": 7.0,
+      "compliance_risk_level": "low",
+      "risk_score": 40.5
+    },
+    "final_score": 48.92
+  },
+  {
+    "candidate": {
+      "niche_id": "niche-001",
+      "title": "Compact organizer set",
+      "keyword": "organizer set",
+      "category": "home",
+      "avg_price": 1845.0,
+      "demand_score": 83.25,
+      "competition_score": 28.11,
+      "economics_score": 36.0,
+      "risk_score": 23.5,
+      "final_score": 48.69,
+      "status": "shortlisted"
+    },
+    "demand_snapshot": {
+      "niche_id": "niche-001",
+      "monthly_searches": 4340,
+      "growth_pct": 8.5,
+      "demand_score": 83.25
+    },
+    "competition_snapshot": {
+      "niche_id": "niche-001",
+      "competitor_count": 40,
+      "concentration_index": 0.64,
+      "competition_score": 28.11
+    },
+    "unit_economics_snapshot": {
+      "niche_id": "niche-001",
+      "estimated_cogs": 959.4,
+      "estimated_margin_pct": 48.0,
+      "economics_score": 36.0
+    },
+    "risk_snapshot": {
+      "niche_id": "niche-001",
+      "return_rate_pct": 9.0,
+      "compliance_risk_level": "medium",
+      "risk_score": 23.5
+    },
+    "final_score": 48.69
+  },
+  {
+    "candidate": {
+      "niche_id": "niche-005",
+      "title": "Drawer divider blocks",
+      "keyword": "drawer divider",
+      "category": "home",
+      "avg_price": 1947.5,
+      "demand_score": 85.82,
+      "competition_score": 26.53,
+      "economics_score": 36.0,
+      "risk_score": 15.0,
+      "final_score": 47.92,
+      "status": "shortlisted"
+    },
+    "demand_snapshot": {
+      "niche_id": "niche-005",
+      "monthly_searches": 4520,
+      "growth_pct": 8.5,
+      "demand_score": 85.82
+    },
+    "competition_snapshot": {
+      "niche_id": "niche-005",
+      "competitor_count": 41,
+      "concentration_index": 0.64,
+      "competition_score": 26.53
+    },
+    "unit_economics_snapshot": {
+      "niche_id": "niche-005",
+      "estimated_cogs": 1012.7,
+      "estimated_margin_pct": 48.0,
+      "economics_score": 36.0
+    },
+    "risk_snapshot": {
+      "niche_id": "niche-005",
+      "return_rate_pct": 10.0,
+      "compliance_risk_level": "high",
+      "risk_score": 15.0
+    },
+    "final_score": 47.92
+  },
+  {
+    "candidate": {
+      "niche_id": "niche-003",
+      "title": "Hair styling brush",
+      "keyword": "hair styling brush",
+      "category": "beauty",
+      "avg_price": 2255.0,
+      "demand_score": 84.86,
+      "competition_score": 21.79,
+      "economics_score": 36.0,
+      "risk_score": 23.5,
+      "final_score": 47.67,
+      "status": "analyzed"
+    },
+    "demand_snapshot": {
+      "niche_id": "niche-003",
+      "monthly_searches": 5240,
+      "growth_pct": 4.0,
+      "demand_score": 84.86
+    },
+    "competition_snapshot": {
+      "niche_id": "niche-003",
+      "competitor_count": 44,
+      "concentration_index": 0.66,
+      "competition_score": 21.79
+    },
+    "unit_economics_snapshot": {
+      "niche_id": "niche-003",
+      "estimated_cogs": 1172.6,
+      "estimated_margin_pct": 48.0,
+      "economics_score": 36.0
+    },
+    "risk_snapshot": {
+      "niche_id": "niche-003",
+      "return_rate_pct": 9.0,
+      "compliance_risk_level": "medium",
+      "risk_score": 23.5
+    },
+    "final_score": 47.67
+  },
+  {
+    "candidate": {
+      "niche_id": "niche-004",
+      "title": "Travel bottle set",
+      "keyword": "travel bottles",
+      "category": "beauty",
+      "avg_price": 1435.0,
+      "demand_score": 93.32,
+      "competition_score": 13.9,
+      "economics_score": 36.0,
+      "risk_score": 15.0,
+      "final_score": 47.39,
+      "status": "analyzed"
+    },
+    "demand_snapshot": {
+      "niche_id": "niche-004",
+      "monthly_searches": 4520,
+      "growth_pct": 11.5,
+      "demand_score": 93.32
+    },
+    "competition_snapshot": {
+      "niche_id": "niche-004",
+      "competitor_count": 49,
+      "concentration_index": 0.7,
+      "competition_score": 13.9
+    },
+    "unit_economics_snapshot": {
+      "niche_id": "niche-004",
+      "estimated_cogs": 746.2,
+      "estimated_margin_pct": 48.0,
+      "economics_score": 36.0
+    },
+    "risk_snapshot": {
+      "niche_id": "niche-004",
+      "return_rate_pct": 10.0,
+      "compliance_risk_level": "high",
+      "risk_score": 15.0
+    },
+    "final_score": 47.39
+  }
+]

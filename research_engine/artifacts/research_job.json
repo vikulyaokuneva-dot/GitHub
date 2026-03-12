@@ -1,0 +1,20 @@
+{
+  "job_id": "research-6267a208f7",
+  "created_at": "2026-03-12T19:11:15.464599+00:00",
+  "input_data": {
+    "budget_total": 300000.0,
+    "target_price_min": 900.0,
+    "target_price_max": 3200.0,
+    "target_margin_pct": 28.0,
+    "excluded_categories": [
+      "fragile"
+    ],
+    "preferred_categories": [
+      "home",
+      "beauty",
+      "kids"
+    ],
+    "notes": "Default bootstrap input for local smoke runs."
+  },
+  "status": "created"
+}

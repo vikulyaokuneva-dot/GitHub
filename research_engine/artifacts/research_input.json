@@ -1,0 +1,15 @@
+{
+  "budget_total": 300000.0,
+  "target_price_min": 900.0,
+  "target_price_max": 3200.0,
+  "target_margin_pct": 28.0,
+  "excluded_categories": [
+    "fragile"
+  ],
+  "preferred_categories": [
+    "home",
+    "beauty",
+    "kids"
+  ],
+  "notes": "Default bootstrap input for local smoke runs."
+}
