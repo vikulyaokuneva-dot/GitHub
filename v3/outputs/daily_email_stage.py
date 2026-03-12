@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List
 
@@ -31,25 +31,37 @@ def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dic
     if not isinstance(status, dict):
         status = {}
 
-    impressions = funnel.get("impressions")
-    clicks = funnel.get("clicks")
-    ctr = funnel.get("ctr")
+    views = funnel.get("views", funnel.get("impressions"))
+    add_to_cart = funnel.get("add_to_cart", funnel.get("cart_count"))
     orders = funnel.get("orders")
     buyouts = funnel.get("buyouts")
+    view_to_order = funnel.get("view_to_order_conversion", funnel.get("click_to_order_conversion_pct"))
+    cart_to_order = funnel.get("cart_to_order", funnel.get("cart_conversion_pct"))
+    buyout_rate = funnel.get("buyout_rate", funnel.get("order_to_buyout_conversion_pct"))
+    cpo = funnel.get("cpo", funnel.get("CPO"))
+
     line_1 = (
-        "показы="
-        + format_int_or_unknown(impressions)
-        + ", клики="
-        + format_int_or_unknown(clicks)
-        + ", CTR="
-        + format_pct_or_unknown(ctr)
-        + ", заказы="
+        "views="
+        + format_int_or_unknown(views)
+        + ", add_to_cart="
+        + format_int_or_unknown(add_to_cart)
+        + ", orders="
         + format_int_or_unknown(orders)
-        + ", выкупы="
+        + ", buyouts="
         + format_int_or_unknown(buyouts)
     )
+    line_1b = (
+        "view→order="
+        + format_pct_or_unknown(view_to_order)
+        + ", cart→order="
+        + format_pct_or_unknown(cart_to_order)
+        + ", order→buyout="
+        + format_pct_or_unknown(buyout_rate)
+        + ", CPO="
+        + (f"{round(float(cpo), 2):.2f}" if _safe_float(cpo) is not None else "unknown")
+    )
     line_2 = (
-        "статусы: traffic="
+        "statuses: traffic="
         + str(status.get("traffic") or "unknown")
         + ", conversion="
         + str(status.get("conversion") or "unknown")
@@ -81,13 +93,12 @@ def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dic
                     elif row_status == "critical":
                         critical_count += 1
                 alerts_summary = f"alerts: warning={warning_count}, critical={critical_count}"
-    return [line_1, line_2] + ([alerts_summary] if alerts_summary else [])
-
+    return [line_1, line_1b, line_2] + ([alerts_summary] if alerts_summary else [])
 
 def _build_sku_monitor_email_brief(sku_watchlists: Dict[str, Any]) -> List[str]:
     groups = [
-        ("top_growth", "рост"),
-        ("top_risk", "риск"),
+        ("top_growth", "СЂРѕСЃС‚"),
+        ("top_risk", "СЂРёСЃРє"),
         ("dead_stock", "dead_stock"),
         ("ad_inefficiency", "ad_ineff"),
         ("conversion_drop", "conv_drop"),
@@ -217,11 +228,11 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         key_insights_enhanced = []
     if sku_monitor_brief_lines:
         key_insights_enhanced = list(key_insights_enhanced) + [
-            "SKU monitor сформирован: фокус по risk/growth/ad/conversion группам.",
+            "SKU monitor СЃС„РѕСЂРјРёСЂРѕРІР°РЅ: С„РѕРєСѓСЃ РїРѕ risk/growth/ad/conversion РіСЂСѓРїРїР°Рј.",
         ]
     if funnel_brief_lines:
         key_insights_enhanced = list(key_insights_enhanced) + [
-            "Funnel KPI добавлен в управленческую выжимку.",
+            "Funnel KPI РґРѕР±Р°РІР»РµРЅ РІ СѓРїСЂР°РІР»РµРЅС‡РµСЃРєСѓСЋ РІС‹Р¶РёРјРєСѓ.",
         ]
 
     job["email_summary"] = build_email_summary(

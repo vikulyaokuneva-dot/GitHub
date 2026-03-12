@@ -1879,6 +1879,7 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
                 "_ddr": [],
                 "_cpo": [],
                 "_conversion_types": {},
+                "_ads_rows": 0,
             }
         return bucket[s]
 
@@ -1909,6 +1910,7 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         item["clicks"] += float(row.get("clicks") or 0.0)
         item["ads_orders"] += float(row.get("orders") or 0.0)
         item["ads_revenue"] += float(row.get("revenue") or 0.0)
+        item["_ads_rows"] += 1
         if row.get("roi") is not None:
             item["_roi"].append(float(row["roi"]))
         if row.get("romi") is not None:
@@ -1947,6 +1949,7 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         cpc = row["_cpc"]
         ddr = row["_ddr"]
         cpo = row["_cpo"]
+        ads_rows_present = int(row.get("_ads_rows", 0) or 0) > 0
         conversion_map = row["_conversion_types"] if isinstance(row.get("_conversion_types"), dict) else {}
         if conversion_map:
             non_unknown = [key for key, value in conversion_map.items() if key != "unknown" and int(value or 0) > 0]
@@ -1962,6 +1965,18 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         orders_value = int(round(float(row["orders"])))
         buys_value = int(round(float(row["buys"]) if float(row["buys"]) > 0 else float(row["sales_count"])))
         sales_count_value = int(round(float(row["sales_count"]) if float(row["sales_count"]) > 0 else float(row["buys"])))
+        views_value = int(round(float(row["impressions"]))) if ads_rows_present else None
+        add_to_cart_value = None
+        view_to_order_conversion = (
+            round(float(orders_value) / float(views_value) * 100.0, 2)
+            if views_value is not None and views_value > 0
+            else None
+        )
+        cart_rate = None
+        cart_to_order = None
+        buyout_rate = round(float(buys_value) / float(orders_value) * 100.0, 2) if orders_value > 0 else None
+        cpo_reported = round(sum(cpo) / len(cpo), 2) if cpo else None
+        cpo_orders_based = round(ads_spend / float(orders_value), 2) if orders_value > 0 else None
         has_sales_activity = bool(orders_value > 0 or buys_value > 0 or sales_count_value > 0)
         revenue_attribution_zero = bool(has_sales_activity and abs(revenue) < 1e-9)
         if revenue_attribution_zero:
@@ -1982,6 +1997,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
                 "clicks": int(round(float(row["clicks"]))),
                 "ads_orders": int(round(float(row["ads_orders"]))),
                 "ads_revenue": round(float(row["ads_revenue"]), 2),
+                "views": views_value,
+                "add_to_cart": add_to_cart_value,
                 "cost_price": round(float(row["cost_price"]), 2),
                 "wb_commission": round(float(row["wb_commission"]), 2),
                 "logistics": round(float(row["logistics"]), 2),
@@ -1989,13 +2006,18 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
                 "storage": round(float(row["storage"]), 2),
                 "deductions": round(float(row["deductions"]), 2),
                 "margin_pct": round(margin_pct, 2),
+                "view_to_order_conversion": view_to_order_conversion,
+                "cart_rate": cart_rate,
+                "cart_to_order": cart_to_order,
+                "buyout_rate": buyout_rate,
                 "roi": round(sum(roi) / len(roi), 2) if roi else None,
                 "romi": round(sum(romi) / len(romi), 2) if romi else None,
                 "acos": round(sum(acos) / len(acos), 2) if acos else None,
                 "ctr": round(sum(ctr) / len(ctr), 2) if ctr else None,
                 "cpc": round(sum(cpc) / len(cpc), 2) if cpc else None,
                 "ddr": round(sum(ddr) / len(ddr), 2) if ddr else None,
-                "cpo": round(sum(cpo) / len(cpo), 2) if cpo else None,
+                "cpo": cpo_orders_based,
+                "cpo_reported": cpo_reported,
                 "conversion_type": conversion_type,
                 "has_sales_activity": has_sales_activity,
                 "revenue_attribution_zero": revenue_attribution_zero,
@@ -2115,6 +2137,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "ads_orders_total": int(round(total_ads_orders)),
         "ads_revenue": round(total_ads_revenue, 2),
         "ads_revenue_total": round(total_ads_revenue, 2),
+        "views": int(round(total_ads_impressions)) if ads_rows else None,
+        "add_to_cart": None,
         "ads_acos": round(
             (total_ads_spend / total_ads_revenue * 100.0)
             if total_ads_revenue > 0

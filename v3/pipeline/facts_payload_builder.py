@@ -52,6 +52,12 @@ def build_facts_runtime_patch(
     safe_status_matrix = daily_status_matrix if isinstance(daily_status_matrix, dict) else {}
     safe_event_ledger = event_ledger if isinstance(event_ledger, dict) else {}
     safe_render_kpi = render_kpi if isinstance(render_kpi, dict) else {}
+    safe_sales_funnel = safe_metrics.get("sales_funnel", {})
+    if not isinstance(safe_sales_funnel, dict):
+        safe_sales_funnel = {}
+    safe_sales_funnel_core = safe_sales_funnel.get("funnel", {})
+    if not isinstance(safe_sales_funnel_core, dict):
+        safe_sales_funnel_core = {}
 
     ads_columns_detected = (
         [str(item) for item in safe_ads_summary.get("ads_columns_detected", []) if str(item).strip()]
@@ -100,6 +106,19 @@ def build_facts_runtime_patch(
         "daily_status_matrix": safe_status_matrix,
         "event_ledger": safe_event_ledger,
         "render_kpi": safe_render_kpi,
+        "conversion_view_to_order": safe_sales_funnel_core.get(
+            "view_to_order_conversion",
+            (safe_metrics.get("commerce_kpi", {}) if isinstance(safe_metrics.get("commerce_kpi"), dict) else {}).get("view_to_order_conversion"),
+        ),
+        "buyout_rate": safe_sales_funnel_core.get(
+            "buyout_rate",
+            (safe_metrics.get("commerce_kpi", {}) if isinstance(safe_metrics.get("commerce_kpi"), dict) else {}).get("buyout_rate"),
+        ),
+        "CPO": safe_sales_funnel_core.get(
+            "cpo",
+            (safe_metrics.get("commerce_kpi", {}) if isinstance(safe_metrics.get("commerce_kpi"), dict) else {}).get("cpo"),
+        ),
+        "sales_funnel": safe_sales_funnel,
     }
 
 

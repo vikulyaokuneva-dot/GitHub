@@ -10,6 +10,7 @@ from ..daily_kpi_resolver import (
 )
 from ..domain.source_policy import SOURCE_UNKNOWN
 from ..domain.source_policy import resolve_source_policy
+from .sales_funnel_assembler import calculate_funnel_metrics
 
 
 def _safe_float(value: Any) -> float:
@@ -19,6 +20,15 @@ def _safe_float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _safe_int_or_none(value: Any) -> int | None:
+    try:
+        if value is None:
+            return None
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return None
 
 
 def assemble_daily_kpi(
@@ -90,6 +100,46 @@ def assemble_daily_kpi(
     safe_totals["orders_unconfirmed"] = not bool(orders_count_confirmed)
     safe_totals["buys_unconfirmed"] = not bool(buyouts_count_confirmed)
 
+    views = _safe_int_or_none(
+        safe_totals.get(
+            "views",
+            safe_totals.get("card_views", safe_totals.get("ads_impressions")),
+        )
+    )
+    add_to_cart = _safe_int_or_none(safe_totals.get("add_to_cart", safe_totals.get("cart_count")))
+    funnel_orders = int(confirmed_orders_total) if orders_count_confirmed else None
+    funnel_buyouts = int(confirmed_buyouts_total) if buyouts_count_confirmed else None
+    ads_spend_value = _safe_float(safe_financial_kpi.get("ads_spend", safe_totals.get("ads_spend_total", 0.0)))
+    funnel_metrics = calculate_funnel_metrics(
+        views=views,
+        add_to_cart=add_to_cart,
+        orders=funnel_orders,
+        buyouts=funnel_buyouts,
+        ads_spend=ads_spend_value,
+        revenue=_safe_float(safe_financial_kpi.get("revenue", safe_totals.get("total_revenue"))),
+        commission=_safe_float(safe_financial_kpi.get("wb_commission", safe_totals.get("wb_commission"))),
+        logistics=_safe_float(safe_financial_kpi.get("logistics", safe_totals.get("logistics"))),
+        tax=_safe_float(safe_financial_kpi.get("tax", safe_totals.get("tax"))),
+        cogs=_safe_float(safe_financial_kpi.get("cost_price", safe_totals.get("cost_price"))),
+        profit=_safe_float(safe_financial_kpi.get("net_profit", safe_totals.get("net_profit"))),
+    )
+
+    safe_daily_kpi["views"] = funnel_metrics.get("views")
+    safe_daily_kpi["add_to_cart"] = funnel_metrics.get("add_to_cart")
+    safe_daily_kpi["orders"] = funnel_metrics.get("orders")
+    safe_daily_kpi["buyouts"] = funnel_metrics.get("buyouts")
+    safe_daily_kpi["view_to_order_conversion"] = funnel_metrics.get("view_to_order_conversion")
+    safe_daily_kpi["cart_rate"] = funnel_metrics.get("cart_rate")
+    safe_daily_kpi["cart_to_order"] = funnel_metrics.get("cart_to_order")
+    safe_daily_kpi["buyout_rate"] = funnel_metrics.get("buyout_rate")
+    safe_daily_kpi["ads_spend"] = funnel_metrics.get("ads_spend")
+    safe_daily_kpi["cpo"] = funnel_metrics.get("cpo")
+
+    safe_totals["views"] = funnel_metrics.get("views")
+    safe_totals["add_to_cart"] = funnel_metrics.get("add_to_cart")
+    safe_totals["buyout_rate"] = funnel_metrics.get("buyout_rate")
+    safe_totals["cpo"] = funnel_metrics.get("cpo")
+
     sales_activity_qty_hint = int(safe_totals.get("sales_activity_qty", 0) or 0)
     item_qty_hint = int(safe_totals.get("item_qty", sales_activity_qty_hint) or 0)
     sku_activity_count = int(safe_totals.get("sku_activity_count", 0) or 0)
@@ -126,6 +176,18 @@ def assemble_daily_kpi(
         "buyouts_count_confirmed": bool(safe_daily_kpi.get("buyouts_count_confirmed", False)),
         "orders_amount_confirmed": bool(safe_daily_kpi.get("orders_amount_confirmed", False)),
         "buyouts_amount_confirmed": bool(safe_daily_kpi.get("buyouts_amount_confirmed", False)),
+        "views": funnel_metrics.get("views"),
+        "add_to_cart": funnel_metrics.get("add_to_cart"),
+        "orders": funnel_metrics.get("orders"),
+        "buyouts": funnel_metrics.get("buyouts"),
+        "view_to_order_conversion": funnel_metrics.get("view_to_order_conversion"),
+        "cart_rate": funnel_metrics.get("cart_rate"),
+        "cart_to_order": funnel_metrics.get("cart_to_order"),
+        "buyout_rate": funnel_metrics.get("buyout_rate"),
+        "ads_spend": funnel_metrics.get("ads_spend"),
+        "cpo": funnel_metrics.get("cpo"),
+        "marketing_layer": funnel_metrics.get("marketing_layer"),
+        "financial_layer": funnel_metrics.get("financial_layer"),
     }
 
     warning_additions: List[Dict[str, Any]] = []

@@ -526,7 +526,43 @@ def _build_key_insights(
     outcomes_payload: Dict[str, Any],
     decision_rows_added: int,
 ) -> List[str]:
+    def _as_float_or_none(value: Any) -> float | None:
+        try:
+            if value is None:
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
     insights: List[str] = []
+    conversion_view_to_order = _as_float_or_none(
+        facts.get("conversion_view_to_order")
+        if isinstance(facts, dict)
+        else None
+    )
+    buyout_rate = _as_float_or_none(
+        facts.get("buyout_rate")
+        if isinstance(facts, dict)
+        else None
+    )
+    cpo_value = _as_float_or_none(facts.get("CPO")) if isinstance(facts, dict) else None
+    if cpo_value is None and isinstance(facts, dict):
+        cpo_value = _as_float_or_none(facts.get("cpo"))
+
+    if conversion_view_to_order is not None:
+        if conversion_view_to_order < 1.0:
+            insights.append(
+                "Конверсия карточки ниже 1%: вероятны проблемы первого фото, цены, рейтинга или отзывов."
+            )
+        elif conversion_view_to_order > 3.0:
+            insights.append("Конверсия карточки выше 3%: карточка товара работает сильно.")
+    if buyout_rate is not None and buyout_rate < 50.0:
+        insights.append(
+            "Доля выкупа ниже 50%: проверьте логистику, ожидания клиента и соответствие карточки товару."
+        )
+    if cpo_value is not None:
+        insights.append(f"CPO по заказам: {round(cpo_value, 2)}.")
+
     profit_summary = facts.get("profit_contribution_summary", {}) if isinstance(facts, dict) else {}
     p1_count = int((profit_summary or {}).get("p1_count", 0) or 0)
     if p1_count > 0:

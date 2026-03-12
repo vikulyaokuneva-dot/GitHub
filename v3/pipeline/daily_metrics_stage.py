@@ -240,6 +240,9 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         metrics=metrics if isinstance(metrics, dict) else {},
         ads_diagnostics=ads_diagnostics_summary if isinstance(ads_diagnostics_summary, dict) else {},
     )
+    metrics["sales_funnel"] = cabinet_funnel if isinstance(cabinet_funnel, dict) else {}
+    if isinstance(cabinet_funnel, dict) and isinstance(cabinet_funnel.get("sku_funnel"), list):
+        metrics["sku_sales_funnel"] = cabinet_funnel.get("sku_funnel", [])
     sku_daily_dynamics = build_sku_daily_dynamics(
         run_date=run_date,
         metrics=metrics if isinstance(metrics, dict) else {},

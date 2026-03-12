@@ -23,6 +23,7 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
     storage = _safe_float(safe_totals.get("storage", 0.0))
     penalties = _safe_float(safe_totals.get("penalties", 0.0))
     deductions = _safe_float(safe_totals.get("deductions", 0.0))
+    tax = _safe_float(safe_totals.get("tax", 0.0))
     ads_spend = _safe_float(safe_totals.get("ads_spend_total", safe_totals.get("ads_spend", 0.0)))
 
     gross_profit = revenue - cost_price - wb_commission
@@ -60,6 +61,8 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
         "storage": round(storage, 2),
         "penalties": round(penalties, 2),
         "deductions": round(deductions, 2),
+        "tax": round(tax, 2),
+        "cogs": round(cost_price, 2),
         "ads_spend": round(ads_spend, 2),
         "gross_profit": round(gross_profit, 2),
         "net_profit": round(net_profit, 2),
@@ -72,6 +75,7 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
         "financial_margin_not_final": financial_margin_not_final,
         "completeness_pct": round(completeness_pct, 2),
         "is_partial": net_profit_partial,
+        "basis": "buyouts",
     }
 
     warning_additions: List[Dict[str, Any]] = []
