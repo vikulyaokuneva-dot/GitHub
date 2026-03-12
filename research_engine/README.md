@@ -10,11 +10,28 @@ It is intentionally independent from `v3`:
 ## Current Scope
 
 Skeleton only, with stub logic:
-- collect research input
+- collect research input from scenario config
 - create seed niche candidates
 - run stub demand/competition/economics/risk scoring
 - build shortlist
 - save artifacts
+
+## Input Scenarios
+
+Pipeline uses scenario-based input:
+- default config path: `research_engine/config/scenarios/default_research_scenario.json`
+- loaded and validated by: `research_engine/config/research_input_loader.py`
+
+Input parameters:
+- `scenario_name`
+- `budget_total`
+- `target_price_min`
+- `target_price_max`
+- `target_margin_pct`
+- `preferred_categories`
+- `excluded_categories`
+- `max_competition_level`
+- `notes`
 
 ## Pipeline Stages
 
@@ -36,6 +53,12 @@ Saved into `research_engine/artifacts/`:
 
 ```bash
 python -m research_engine.entry
+```
+
+Optional custom scenario:
+
+```bash
+python -m research_engine.entry --scenario path/to/scenario.json
 ```
 
 ## Smoke Test

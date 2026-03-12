@@ -1,19 +1,15 @@
 {
-  "generated_at": "2026-03-12T19:11:15.467596+00:00",
+  "generated_at": "2026-03-12T20:47:25.978738+00:00",
   "input_summary": {
-    "budget_total": 300000.0,
-    "target_price_min": 900.0,
-    "target_price_max": 3200.0,
-    "target_margin_pct": 28.0,
-    "preferred_categories": [
-      "home",
-      "beauty",
-      "kids"
-    ],
-    "excluded_categories": [
-      "fragile"
-    ],
-    "notes": "Default bootstrap input for local smoke runs."
+    "scenario_name": "default_research_scenario",
+    "budget_total": 150000.0,
+    "target_price_min": 700.0,
+    "target_price_max": 2500.0,
+    "target_margin_pct": 25.0,
+    "preferred_categories": [],
+    "excluded_categories": [],
+    "max_competition_level": "medium",
+    "notes": "default scenario"
   },
   "candidates_count": 5,
   "shortlisted_count": 3,
@@ -24,12 +20,12 @@
         "title": "Silicone feeding kit",
         "keyword": "feeding kit",
         "category": "kids",
-        "avg_price": 1640.0,
+        "avg_price": 1280.0,
         "demand_score": 74.36,
         "competition_score": 31.26,
-        "economics_score": 36.0,
+        "economics_score": 26.4,
         "risk_score": 40.5,
-        "final_score": 48.92,
+        "final_score": 46.52,
         "status": "shortlisted"
       },
       "demand_snapshot": {
@@ -46,9 +42,9 @@
       },
       "unit_economics_snapshot": {
         "niche_id": "niche-002",
-        "estimated_cogs": 852.8,
+        "estimated_cogs": 665.6,
         "estimated_margin_pct": 48.0,
-        "economics_score": 36.0
+        "economics_score": 26.4
       },
       "risk_snapshot": {
         "niche_id": "niche-002",
@@ -56,7 +52,7 @@
         "compliance_risk_level": "low",
         "risk_score": 40.5
       },
-      "final_score": 48.92
+      "final_score": 46.52
     },
     {
       "candidate": {
@@ -64,12 +60,12 @@
         "title": "Compact organizer set",
         "keyword": "organizer set",
         "category": "home",
-        "avg_price": 1845.0,
+        "avg_price": 1440.0,
         "demand_score": 83.25,
         "competition_score": 28.11,
-        "economics_score": 36.0,
+        "economics_score": 26.4,
         "risk_score": 23.5,
-        "final_score": 48.69,
+        "final_score": 46.29,
         "status": "shortlisted"
       },
       "demand_snapshot": {
@@ -86,9 +82,9 @@
       },
       "unit_economics_snapshot": {
         "niche_id": "niche-001",
-        "estimated_cogs": 959.4,
+        "estimated_cogs": 748.8,
         "estimated_margin_pct": 48.0,
-        "economics_score": 36.0
+        "economics_score": 26.4
       },
       "risk_snapshot": {
         "niche_id": "niche-001",
@@ -96,7 +92,7 @@
         "compliance_risk_level": "medium",
         "risk_score": 23.5
       },
-      "final_score": 48.69
+      "final_score": 46.29
     },
     {
       "candidate": {
@@ -104,12 +100,12 @@
         "title": "Drawer divider blocks",
         "keyword": "drawer divider",
         "category": "home",
-        "avg_price": 1947.5,
+        "avg_price": 1520.0,
         "demand_score": 85.82,
         "competition_score": 26.53,
-        "economics_score": 36.0,
+        "economics_score": 26.4,
         "risk_score": 15.0,
-        "final_score": 47.92,
+        "final_score": 45.52,
         "status": "shortlisted"
       },
       "demand_snapshot": {
@@ -126,9 +122,9 @@
       },
       "unit_economics_snapshot": {
         "niche_id": "niche-005",
-        "estimated_cogs": 1012.7,
+        "estimated_cogs": 790.4,
         "estimated_margin_pct": 48.0,
-        "economics_score": 36.0
+        "economics_score": 26.4
       },
       "risk_snapshot": {
         "niche_id": "niche-005",
@@ -136,7 +132,7 @@
         "compliance_risk_level": "high",
         "risk_score": 15.0
       },
-      "final_score": 47.92
+      "final_score": 45.52
     }
   ],
   "warnings": [],

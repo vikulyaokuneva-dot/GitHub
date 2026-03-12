@@ -5,12 +5,12 @@
       "title": "Silicone feeding kit",
       "keyword": "feeding kit",
       "category": "kids",
-      "avg_price": 1640.0,
+      "avg_price": 1280.0,
       "demand_score": 74.36,
       "competition_score": 31.26,
-      "economics_score": 36.0,
+      "economics_score": 26.4,
       "risk_score": 40.5,
-      "final_score": 48.92,
+      "final_score": 46.52,
       "status": "shortlisted"
     },
     "demand_snapshot": {
@@ -27,9 +27,9 @@
     },
     "unit_economics_snapshot": {
       "niche_id": "niche-002",
-      "estimated_cogs": 852.8,
+      "estimated_cogs": 665.6,
       "estimated_margin_pct": 48.0,
-      "economics_score": 36.0
+      "economics_score": 26.4
     },
     "risk_snapshot": {
       "niche_id": "niche-002",
@@ -37,7 +37,7 @@
       "compliance_risk_level": "low",
       "risk_score": 40.5
     },
-    "final_score": 48.92
+    "final_score": 46.52
   },
   {
     "candidate": {
@@ -45,12 +45,12 @@
       "title": "Compact organizer set",
       "keyword": "organizer set",
       "category": "home",
-      "avg_price": 1845.0,
+      "avg_price": 1440.0,
       "demand_score": 83.25,
       "competition_score": 28.11,
-      "economics_score": 36.0,
+      "economics_score": 26.4,
       "risk_score": 23.5,
-      "final_score": 48.69,
+      "final_score": 46.29,
       "status": "shortlisted"
     },
     "demand_snapshot": {
@@ -67,9 +67,9 @@
     },
     "unit_economics_snapshot": {
       "niche_id": "niche-001",
-      "estimated_cogs": 959.4,
+      "estimated_cogs": 748.8,
       "estimated_margin_pct": 48.0,
-      "economics_score": 36.0
+      "economics_score": 26.4
     },
     "risk_snapshot": {
       "niche_id": "niche-001",
@@ -77,7 +77,7 @@
       "compliance_risk_level": "medium",
       "risk_score": 23.5
     },
-    "final_score": 48.69
+    "final_score": 46.29
   },
   {
     "candidate": {
@@ -85,12 +85,12 @@
       "title": "Drawer divider blocks",
       "keyword": "drawer divider",
       "category": "home",
-      "avg_price": 1947.5,
+      "avg_price": 1520.0,
       "demand_score": 85.82,
       "competition_score": 26.53,
-      "economics_score": 36.0,
+      "economics_score": 26.4,
       "risk_score": 15.0,
-      "final_score": 47.92,
+      "final_score": 45.52,
       "status": "shortlisted"
     },
     "demand_snapshot": {
@@ -107,9 +107,9 @@
     },
     "unit_economics_snapshot": {
       "niche_id": "niche-005",
-      "estimated_cogs": 1012.7,
+      "estimated_cogs": 790.4,
       "estimated_margin_pct": 48.0,
-      "economics_score": 36.0
+      "economics_score": 26.4
     },
     "risk_snapshot": {
       "niche_id": "niche-005",
@@ -117,7 +117,7 @@
       "compliance_risk_level": "high",
       "risk_score": 15.0
     },
-    "final_score": 47.92
+    "final_score": 45.52
   },
   {
     "candidate": {
@@ -125,12 +125,12 @@
       "title": "Hair styling brush",
       "keyword": "hair styling brush",
       "category": "beauty",
-      "avg_price": 2255.0,
+      "avg_price": 1760.0000000000002,
       "demand_score": 84.86,
       "competition_score": 21.79,
-      "economics_score": 36.0,
+      "economics_score": 26.4,
       "risk_score": 23.5,
-      "final_score": 47.67,
+      "final_score": 45.27,
       "status": "analyzed"
     },
     "demand_snapshot": {
@@ -147,9 +147,9 @@
     },
     "unit_economics_snapshot": {
       "niche_id": "niche-003",
-      "estimated_cogs": 1172.6,
+      "estimated_cogs": 915.2,
       "estimated_margin_pct": 48.0,
-      "economics_score": 36.0
+      "economics_score": 26.4
     },
     "risk_snapshot": {
       "niche_id": "niche-003",
@@ -157,7 +157,7 @@
       "compliance_risk_level": "medium",
       "risk_score": 23.5
     },
-    "final_score": 47.67
+    "final_score": 45.27
   },
   {
     "candidate": {
@@ -165,12 +165,12 @@
       "title": "Travel bottle set",
       "keyword": "travel bottles",
       "category": "beauty",
-      "avg_price": 1435.0,
+      "avg_price": 1120.0,
       "demand_score": 93.32,
       "competition_score": 13.9,
-      "economics_score": 36.0,
+      "economics_score": 26.4,
       "risk_score": 15.0,
-      "final_score": 47.39,
+      "final_score": 44.99,
       "status": "analyzed"
     },
     "demand_snapshot": {
@@ -187,9 +187,9 @@
     },
     "unit_economics_snapshot": {
       "niche_id": "niche-004",
-      "estimated_cogs": 746.2,
+      "estimated_cogs": 582.4,
       "estimated_margin_pct": 48.0,
-      "economics_score": 36.0
+      "economics_score": 26.4
     },
     "risk_snapshot": {
       "niche_id": "niche-004",
@@ -197,6 +197,6 @@
       "compliance_risk_level": "high",
       "risk_score": 15.0
     },
-    "final_score": 47.39
+    "final_score": 44.99
   }
 ]

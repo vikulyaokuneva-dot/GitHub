@@ -7,20 +7,23 @@ from .enums import CandidateStatus
 
 @dataclass
 class ResearchInput:
+    scenario_name: str
     budget_total: float
     target_price_min: float
     target_price_max: float
     target_margin_pct: float
-    excluded_categories: list[str] = field(default_factory=list)
     preferred_categories: list[str] = field(default_factory=list)
+    excluded_categories: list[str] = field(default_factory=list)
+    max_competition_level: str = "medium"
     notes: str = ""
 
 
 @dataclass
 class ResearchJob:
     job_id: str
+    scenario_name: str
     created_at: datetime
-    input_data: ResearchInput
+    input_summary: dict[str, Any]
     status: str = "created"
 
 

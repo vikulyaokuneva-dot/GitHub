@@ -1,7 +1,7 @@
-generated_at: 2026-03-12T19:11:15.467596+00:00
+generated_at: 2026-03-12T20:47:25.978738+00:00
 candidates_count: 5
 shortlisted_count: 3
 top_shortlist:
-- niche-002 | Silicone feeding kit | score=48.92
-- niche-001 | Compact organizer set | score=48.69
-- niche-005 | Drawer divider blocks | score=47.92
+- niche-002 | Silicone feeding kit | score=46.52
+- niche-001 | Compact organizer set | score=46.29
+- niche-005 | Drawer divider blocks | score=45.52

@@ -7,12 +7,14 @@ class ResearchSummaryBuilder:
     @staticmethod
     def build_input_summary(input_data: ResearchInput) -> dict[str, object]:
         return {
+            "scenario_name": input_data.scenario_name,
             "budget_total": input_data.budget_total,
             "target_price_min": input_data.target_price_min,
             "target_price_max": input_data.target_price_max,
             "target_margin_pct": input_data.target_margin_pct,
             "preferred_categories": input_data.preferred_categories,
             "excluded_categories": input_data.excluded_categories,
+            "max_competition_level": input_data.max_competition_level,
             "notes": input_data.notes,
         }
 

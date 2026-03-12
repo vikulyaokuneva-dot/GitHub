@@ -12,9 +12,27 @@ class TestResearchEngineSmoke(unittest.TestCase):
     def test_pipeline_starts_and_saves_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
+            scenarios_dir = tmp_path / "config" / "scenarios"
+            scenarios_dir.mkdir(parents=True, exist_ok=True)
+            scenario_path = scenarios_dir / "default_research_scenario.json"
+            scenario_payload = {
+                "scenario_name": "smoke_scenario",
+                "budget_total": 210000,
+                "target_price_min": 800,
+                "target_price_max": 2600,
+                "target_margin_pct": 24,
+                "preferred_categories": ["home"],
+                "excluded_categories": ["fragile"],
+                "max_competition_level": "medium",
+                "notes": "scenario for smoke test",
+            }
+            scenario_path.write_text(json.dumps(scenario_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
             settings = ResearchEngineSettings(
                 project_root=tmp_path,
                 artifacts_dir=tmp_path / "artifacts",
+                scenarios_dir=scenarios_dir,
+                default_scenario_path=scenario_path,
             )
             runner = ResearchPipelineRunner(
                 settings=settings,
@@ -39,6 +57,11 @@ class TestResearchEngineSmoke(unittest.TestCase):
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
             self.assertIn("shortlisted_count", summary)
             self.assertEqual(summary["shortlisted_count"], 2)
+
+            input_path = settings.artifacts_dir / "research_input.json"
+            input_payload = json.loads(input_path.read_text(encoding="utf-8"))
+            self.assertEqual(input_payload["scenario_name"], "smoke_scenario")
+            self.assertEqual(input_payload["budget_total"], 210000.0)
 
 
 if __name__ == "__main__":

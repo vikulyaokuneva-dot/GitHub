@@ -1,20 +1,16 @@
 {
-  "job_id": "research-6267a208f7",
-  "created_at": "2026-03-12T19:11:15.464599+00:00",
-  "input_data": {
-    "budget_total": 300000.0,
-    "target_price_min": 900.0,
-    "target_price_max": 3200.0,
-    "target_margin_pct": 28.0,
-    "excluded_categories": [
-      "fragile"
-    ],
-    "preferred_categories": [
-      "home",
-      "beauty",
-      "kids"
-    ],
-    "notes": "Default bootstrap input for local smoke runs."
+  "job_id": "research-eb0e6b4b94",
+  "scenario_name": "default_research_scenario",
+  "created_at": "2026-03-12T20:47:25.977739+00:00",
+  "input_summary": {
+    "scenario_name": "default_research_scenario",
+    "budget_total": 150000.0,
+    "target_price_min": 700.0,
+    "target_price_max": 2500.0,
+    "target_margin_pct": 25.0,
+    "preferred_categories": [],
+    "excluded_categories": [],
+    "max_competition_level": "medium"
   },
   "status": "created"
 }
