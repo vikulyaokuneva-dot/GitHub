@@ -22,6 +22,15 @@ def _safe_float(value: Any) -> float:
         return 0.0
 
 
+def _safe_float_or_none(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _safe_int_or_none(value: Any) -> int | None:
     try:
         if value is None:
@@ -109,19 +118,23 @@ def assemble_daily_kpi(
     add_to_cart = _safe_int_or_none(safe_totals.get("add_to_cart", safe_totals.get("cart_count")))
     funnel_orders = int(confirmed_orders_total) if orders_count_confirmed else None
     funnel_buyouts = int(confirmed_buyouts_total) if buyouts_count_confirmed else None
-    ads_spend_value = _safe_float(safe_financial_kpi.get("ads_spend", safe_totals.get("ads_spend_total", 0.0)))
+    ads_spend_value: float | None = _safe_float_or_none(
+        safe_financial_kpi.get("ads_spend", safe_totals.get("ads_spend_total", safe_totals.get("ads_spend")))
+    )
+    if data_sources["ads_spend"] == SOURCE_UNKNOWN:
+        ads_spend_value = None
     funnel_metrics = calculate_funnel_metrics(
         views=views,
         add_to_cart=add_to_cart,
         orders=funnel_orders,
         buyouts=funnel_buyouts,
         ads_spend=ads_spend_value,
-        revenue=_safe_float(safe_financial_kpi.get("revenue", safe_totals.get("total_revenue"))),
-        commission=_safe_float(safe_financial_kpi.get("wb_commission", safe_totals.get("wb_commission"))),
-        logistics=_safe_float(safe_financial_kpi.get("logistics", safe_totals.get("logistics"))),
-        tax=_safe_float(safe_financial_kpi.get("tax", safe_totals.get("tax"))),
-        cogs=_safe_float(safe_financial_kpi.get("cost_price", safe_totals.get("cost_price"))),
-        profit=_safe_float(safe_financial_kpi.get("net_profit", safe_totals.get("net_profit"))),
+        revenue=_safe_float_or_none(safe_financial_kpi.get("revenue", safe_totals.get("total_revenue"))),
+        commission=_safe_float_or_none(safe_financial_kpi.get("wb_commission", safe_totals.get("wb_commission"))),
+        logistics=_safe_float_or_none(safe_financial_kpi.get("logistics", safe_totals.get("logistics"))),
+        tax=_safe_float_or_none(safe_financial_kpi.get("tax", safe_totals.get("tax"))),
+        cogs=_safe_float_or_none(safe_financial_kpi.get("cost_price", safe_totals.get("cost_price"))),
+        profit=_safe_float_or_none(safe_financial_kpi.get("net_profit", safe_totals.get("net_profit"))),
     )
 
     safe_daily_kpi["views"] = funnel_metrics.get("views")

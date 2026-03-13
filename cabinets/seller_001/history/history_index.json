@@ -2,6 +2,34 @@
   "seller_id": "seller_001",
   "snapshots": [
     {
+      "date": "2026-03-05",
+      "path": "daily/2026-03-05",
+      "files": [
+        "2026-03-05_outcomes.json",
+        "abc_analysis.json",
+        "decisions.json",
+        "event_ledger.json",
+        "facts.json",
+        "health_score.json",
+        "metrics.json",
+        "profit_contribution.json",
+        "sku_alerts.json",
+        "sku_daily_dynamics.json",
+        "sku_watchlists.json",
+        "warnings.json"
+      ],
+      "kpi": {
+        "revenue": 438.4,
+        "profit": -291.37,
+        "buyouts": 0,
+        "ads_spend": 643.91,
+        "sku_count": 8,
+        "valid_sku_count": 8,
+        "invalid_sku_rows": 3
+      },
+      "seller_id": "seller_001"
+    },
+    {
       "date": "2026-03-07",
       "path": "daily/2026-03-07",
       "files": [

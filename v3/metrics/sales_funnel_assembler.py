@@ -199,6 +199,8 @@ def assemble_sales_funnel(
             selected_totals.get("ads_spend"),
         )
     )
+    if str(safe_data_sources.get("ads_spend") or "").strip().lower() == "unknown":
+        ads_spend = None
     revenue = _to_float_or_none(
         _first_present(
             safe_financial_kpi.get("revenue"),
@@ -296,7 +298,8 @@ def assemble_sales_funnel(
         "clicks": clicks,
         "ctr": ctr,
         "cart_count": cabinet_metrics["add_to_cart"],
-        "cart_conversion_pct": cabinet_metrics["cart_rate"],
+        "cart_conversion_pct": cabinet_metrics["cart_to_order"],
+        "cart_rate_pct": cabinet_metrics["cart_rate"],
         "click_to_order_conversion_pct": _pct(
             float(cabinet_metrics["orders"]) if cabinet_metrics["orders"] is not None else None,
             float(clicks) if clicks is not None else None,

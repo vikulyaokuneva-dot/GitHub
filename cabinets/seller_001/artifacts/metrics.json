@@ -787,7 +787,7 @@
     "completeness_pct": 33.33,
     "is_partial": true,
     "basis": "buyouts",
-    "date": "2026-03-11",
+    "date": "2026-03-05",
     "confirmed": false
   },
   "ads_diagnostics": {
@@ -1218,16 +1218,16 @@
     }
   },
   "event_date_model": {
-    "report_date": "2026-03-11",
-    "operational_date": "2026-03-11",
-    "orders_date": "2026-03-11",
-    "buyouts_date": "2026-03-11",
-    "financial_date": "2026-03-11",
+    "report_date": "2026-03-05",
+    "operational_date": "2026-03-05",
+    "orders_date": "2026-03-05",
+    "buyouts_date": "2026-03-05",
+    "financial_date": "2026-03-05",
     "shifted_to_previous_day": false,
     "timezone": "Europe/Moscow"
   },
   "order_kpi": {
-    "date": "2026-03-11",
+    "date": "2026-03-05",
     "orders_count": null,
     "orders_amount": null,
     "orders_count_confirmed": false,
@@ -1236,7 +1236,7 @@
     "source_amount": "unknown"
   },
   "buyout_kpi": {
-    "date": "2026-03-11",
+    "date": "2026-03-05",
     "buyouts_count": null,
     "buyouts_amount": null,
     "buyouts_count_confirmed": false,
@@ -1288,12 +1288,12 @@
     "profitability_pct": null
   },
   "event_ledger": {
-    "report_date": "2026-03-11",
-    "operational_date": "2026-03-11",
+    "report_date": "2026-03-05",
+    "operational_date": "2026-03-05",
     "events": [
       {
         "event_type": "orders_snapshot",
-        "event_date": "2026-03-11",
+        "event_date": "2026-03-05",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -1301,7 +1301,7 @@
       },
       {
         "event_type": "buyouts_snapshot",
-        "event_date": "2026-03-11",
+        "event_date": "2026-03-05",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -1309,7 +1309,7 @@
       },
       {
         "event_type": "financial_snapshot",
-        "event_date": "2026-03-11",
+        "event_date": "2026-03-05",
         "source": "local.supplier_goods",
         "confirmed": false,
         "rows": 0,
@@ -1318,7 +1318,7 @@
     ]
   },
   "sales_funnel": {
-    "date": "2026-03-11",
+    "date": "2026-03-05",
     "funnel": {
       "views": 1359,
       "add_to_cart": null,
@@ -1335,6 +1335,7 @@
       "ctr": 3.68,
       "cart_count": null,
       "cart_conversion_pct": null,
+      "cart_rate_pct": null,
       "click_to_order_conversion_pct": null,
       "order_to_buyout_conversion_pct": null,
       "marketing_layer": {
