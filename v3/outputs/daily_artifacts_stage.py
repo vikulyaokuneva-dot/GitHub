@@ -39,6 +39,9 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     metrics = payload.get("metrics", {})
     if not isinstance(metrics, dict):
         metrics = {}
+    analytics = payload.get("analytics", {})
+    if not isinstance(analytics, dict):
+        analytics = {}
     data_quality = payload.get("data_quality", {})
     if not isinstance(data_quality, dict):
         data_quality = {}
@@ -54,7 +57,22 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     director_strategy = payload.get("director_strategy", {})
     if not isinstance(director_strategy, dict):
         director_strategy = {}
+    health_payload = payload.get("health_payload", {})
+    if not isinstance(health_payload, dict):
+        health_payload = {}
+    if not health_payload and isinstance(analytics, dict):
+        health_from_analytics = analytics.get("health_score")
+        if isinstance(health_from_analytics, dict):
+            health_payload = health_from_analytics
+    if not health_payload:
+        health_payload = _read_optional_artifact("health_score.json")
+    if not health_payload and isinstance(metrics, dict):
+        health_from_metrics = metrics.get("health_score")
+        if isinstance(health_from_metrics, dict):
+            health_payload = health_from_metrics
     health_summary = payload.get("health_summary", {})
+    if not isinstance(health_summary, dict) or not health_summary:
+        health_summary = health_payload.get("summary", {}) if isinstance(health_payload, dict) else {}
     if not isinstance(health_summary, dict):
         health_summary = {}
     outcomes_payload = payload.get("outcomes_payload", {})
@@ -100,6 +118,17 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     profit_contribution = payload.get("profit_contribution", {})
     if not isinstance(profit_contribution, dict):
         profit_contribution = {}
+    if not profit_contribution and isinstance(analytics, dict):
+        profit_from_analytics = analytics.get("profit_contribution")
+        if isinstance(profit_from_analytics, dict):
+            profit_contribution = profit_from_analytics
+    if not profit_contribution:
+        profit_contribution = _read_optional_artifact("profit_contribution.json")
+    if not profit_contribution and isinstance(metrics, dict):
+        profit_from_metrics = metrics.get("profit_contribution")
+        if isinstance(profit_from_metrics, dict):
+            profit_contribution = profit_from_metrics
+    analytics["profit_contribution"] = profit_contribution if isinstance(profit_contribution, dict) else {}
     territorial_distribution = payload.get("territorial_distribution", {})
     if not isinstance(territorial_distribution, dict):
         territorial_distribution = {}
@@ -259,7 +288,7 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         top_issue_type = str(top_group.get("issue_type") or "").strip()
         top_issue_count = int(top_group.get("count", 0) or 0)
         if top_issue_type and top_issue_count > 0:
-            key_insights = list(key_insights) + [f"SKU funnel: топ-проблема {top_issue_type} ({top_issue_count} SKU)."]
+            key_insights = list(key_insights) + [f"SKU funnel: top problem {top_issue_type} ({top_issue_count} SKU)."]
 
     payload.update(
         {
@@ -267,11 +296,13 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "facts": facts,
             "job": job,
             "metrics": metrics,
+            "analytics": analytics,
             "data_quality": data_quality,
             "daily_kpi": daily_kpi,
             "ads_summary": ads_summary,
             "decisions_summary": decisions_summary,
             "director_strategy": director_strategy,
+            "health_payload": health_payload,
             "health_summary": health_summary,
             "outcomes_payload": outcomes_payload,
             "cabinet_funnel": cabinet_funnel,

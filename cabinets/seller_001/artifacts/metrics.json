@@ -787,7 +787,7 @@
     "completeness_pct": 33.33,
     "is_partial": true,
     "basis": "buyouts",
-    "date": "2026-03-05",
+    "date": "2026-03-11",
     "confirmed": false
   },
   "ads_diagnostics": {
@@ -1218,16 +1218,16 @@
     }
   },
   "event_date_model": {
-    "report_date": "2026-03-05",
-    "operational_date": "2026-03-05",
-    "orders_date": "2026-03-05",
-    "buyouts_date": "2026-03-05",
-    "financial_date": "2026-03-05",
+    "report_date": "2026-03-11",
+    "operational_date": "2026-03-11",
+    "orders_date": "2026-03-11",
+    "buyouts_date": "2026-03-11",
+    "financial_date": "2026-03-11",
     "shifted_to_previous_day": false,
     "timezone": "Europe/Moscow"
   },
   "order_kpi": {
-    "date": "2026-03-05",
+    "date": "2026-03-11",
     "orders_count": null,
     "orders_amount": null,
     "orders_count_confirmed": false,
@@ -1236,7 +1236,7 @@
     "source_amount": "unknown"
   },
   "buyout_kpi": {
-    "date": "2026-03-05",
+    "date": "2026-03-11",
     "buyouts_count": null,
     "buyouts_amount": null,
     "buyouts_count_confirmed": false,
@@ -1288,12 +1288,12 @@
     "profitability_pct": null
   },
   "event_ledger": {
-    "report_date": "2026-03-05",
-    "operational_date": "2026-03-05",
+    "report_date": "2026-03-11",
+    "operational_date": "2026-03-11",
     "events": [
       {
         "event_type": "orders_snapshot",
-        "event_date": "2026-03-05",
+        "event_date": "2026-03-11",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -1301,7 +1301,7 @@
       },
       {
         "event_type": "buyouts_snapshot",
-        "event_date": "2026-03-05",
+        "event_date": "2026-03-11",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -1309,7 +1309,7 @@
       },
       {
         "event_type": "financial_snapshot",
-        "event_date": "2026-03-05",
+        "event_date": "2026-03-11",
         "source": "local.supplier_goods",
         "confirmed": false,
         "rows": 0,
@@ -1318,7 +1318,7 @@
     ]
   },
   "sales_funnel": {
-    "date": "2026-03-05",
+    "date": "2026-03-11",
     "funnel": {
       "views": 1359,
       "add_to_cart": null,
@@ -1617,6 +1617,408 @@
         },
         "sku": "333615320"
       }
+    ],
+    "sku_diagnostics": {
+      "date": "2026-03-11",
+      "status": "partial_success",
+      "thresholds": {
+        "min_views_for_analysis": 50.0,
+        "low_cart_rate": 0.03,
+        "low_conversion": 0.01,
+        "low_cart_to_order": 0.25,
+        "low_buyout_rate": 0.8,
+        "min_ads_spend_for_efficiency": 1.0,
+        "max_orders_for_ads_efficiency_problem": 0.0,
+        "weak_conversion_for_ads_efficiency": 0.005
+      },
+      "items": [
+        {
+          "sku": "452102417",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 7,
+          "buyouts": 7,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "283212418",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 4,
+          "buyouts": 4,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "739384273",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 2,
+          "buyouts": 2,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "414589567",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 4,
+          "buyouts": 4,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "590614192",
+          "views": 0,
+          "add_to_cart": null,
+          "orders": 2,
+          "buyouts": 2,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "traffic_problem",
+          "issue_reason_ru": "Низкий трафик: товар получает слишком мало просмотров."
+        },
+        {
+          "sku": "453526507",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 2,
+          "buyouts": 2,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "430679462",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 0,
+          "buyouts": 0,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": null,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": false,
+          "has_buyouts": false,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "333615320",
+          "views": 1359,
+          "add_to_cart": null,
+          "orders": 4,
+          "buyouts": 4,
+          "ads_spend": 643.91,
+          "conversion": 0.0029,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": true,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "ads_efficiency_problem",
+          "issue_reason_ru": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+        }
+      ],
+      "summary": {
+        "sku_count": 8,
+        "analyzed_sku_count": 2,
+        "issue_counts": {
+          "traffic_problem": 1,
+          "card_problem": 0,
+          "price_or_offer_problem": 0,
+          "buyout_problem": 0,
+          "ads_efficiency_problem": 1,
+          "healthy_funnel": 0,
+          "insufficient_data": 6
+        },
+        "top_problem_groups": [
+          {
+            "issue_type": "ads_efficiency_problem",
+            "count": 1
+          },
+          {
+            "issue_type": "traffic_problem",
+            "count": 1
+          }
+        ],
+        "top_problem_skus": [
+          {
+            "sku": "590614192",
+            "issue_type": "traffic_problem",
+            "reason": "Низкий трафик: товар получает слишком мало просмотров."
+          },
+          {
+            "sku": "333615320",
+            "issue_type": "ads_efficiency_problem",
+            "reason": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+          }
+        ]
+      },
+      "warnings": [
+        {
+          "code": "sales_funnel_insufficient_data",
+          "message": "Insufficient funnel data for 6 SKU."
+        }
+      ]
+    }
+  },
+  "sales_funnel_diagnostics": {
+    "date": "2026-03-11",
+    "status": "partial_success",
+    "thresholds": {
+      "min_views_for_analysis": 50.0,
+      "low_cart_rate": 0.03,
+      "low_conversion": 0.01,
+      "low_cart_to_order": 0.25,
+      "low_buyout_rate": 0.8,
+      "min_ads_spend_for_efficiency": 1.0,
+      "max_orders_for_ads_efficiency_problem": 0.0,
+      "weak_conversion_for_ads_efficiency": 0.005
+    },
+    "items": [
+      {
+        "sku": "452102417",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 7,
+        "buyouts": 7,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 1.0,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": true,
+        "has_buyouts": true,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "283212418",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 4,
+        "buyouts": 4,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 1.0,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": true,
+        "has_buyouts": true,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "739384273",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 2,
+        "buyouts": 2,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 1.0,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": true,
+        "has_buyouts": true,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "414589567",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 4,
+        "buyouts": 4,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 1.0,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": true,
+        "has_buyouts": true,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "590614192",
+        "views": 0,
+        "add_to_cart": null,
+        "orders": 2,
+        "buyouts": 2,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 1.0,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": true,
+        "has_buyouts": true,
+        "issue_type": "traffic_problem",
+        "issue_reason_ru": "Низкий трафик: товар получает слишком мало просмотров."
+      },
+      {
+        "sku": "453526507",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 2,
+        "buyouts": 2,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 1.0,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": true,
+        "has_buyouts": true,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "430679462",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 0,
+        "buyouts": 0,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": null,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": false,
+        "has_buyouts": false,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "333615320",
+        "views": 1359,
+        "add_to_cart": null,
+        "orders": 4,
+        "buyouts": 4,
+        "ads_spend": 643.91,
+        "conversion": 0.0029,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 1.0,
+        "has_views": true,
+        "has_cart": false,
+        "has_orders": true,
+        "has_buyouts": true,
+        "issue_type": "ads_efficiency_problem",
+        "issue_reason_ru": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+      }
+    ],
+    "summary": {
+      "sku_count": 8,
+      "analyzed_sku_count": 2,
+      "issue_counts": {
+        "traffic_problem": 1,
+        "card_problem": 0,
+        "price_or_offer_problem": 0,
+        "buyout_problem": 0,
+        "ads_efficiency_problem": 1,
+        "healthy_funnel": 0,
+        "insufficient_data": 6
+      },
+      "top_problem_groups": [
+        {
+          "issue_type": "ads_efficiency_problem",
+          "count": 1
+        },
+        {
+          "issue_type": "traffic_problem",
+          "count": 1
+        }
+      ],
+      "top_problem_skus": [
+        {
+          "sku": "590614192",
+          "issue_type": "traffic_problem",
+          "reason": "Низкий трафик: товар получает слишком мало просмотров."
+        },
+        {
+          "sku": "333615320",
+          "issue_type": "ads_efficiency_problem",
+          "reason": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "code": "sales_funnel_insufficient_data",
+        "message": "Insufficient funnel data for 6 SKU."
+      }
     ]
   },
   "sku_sales_funnel": [
@@ -1852,5 +2254,432 @@
       },
       "sku": "333615320"
     }
-  ]
+  ],
+  "profit_contribution": {
+    "status": "ok",
+    "warnings": [
+      "total_profit_non_positive"
+    ],
+    "summary": {
+      "sku_count": 8,
+      "profit_sku_count": 5,
+      "loss_sku_count": 2,
+      "total_profit": -249.16,
+      "top_profit_sku": [
+        {
+          "sku": "452102417",
+          "revenue": 438.4,
+          "profit": 461.88,
+          "profit_share": null,
+          "profit_rank": 1,
+          "profit_group": "P1",
+          "status": "ok",
+          "warnings": [
+            "total_profit_non_positive"
+          ],
+          "cumulative_profit_share": 0.962591,
+          "class": "P1"
+        },
+        {
+          "sku": "283212418",
+          "revenue": 0.0,
+          "profit": 14.2,
+          "profit_share": null,
+          "profit_rank": 2,
+          "profit_group": "P2",
+          "status": "ok",
+          "warnings": [
+            "total_profit_non_positive"
+          ],
+          "cumulative_profit_share": 0.992185,
+          "class": "P2"
+        },
+        {
+          "sku": "739384273",
+          "revenue": 0.0,
+          "profit": 1.39,
+          "profit_share": null,
+          "profit_rank": 3,
+          "profit_group": "P2",
+          "status": "ok",
+          "warnings": [
+            "total_profit_non_positive"
+          ],
+          "cumulative_profit_share": 0.995082,
+          "class": "P2"
+        },
+        {
+          "sku": "414589567",
+          "revenue": 0.0,
+          "profit": 1.2,
+          "profit_share": null,
+          "profit_rank": 4,
+          "profit_group": "P2",
+          "status": "ok",
+          "warnings": [
+            "total_profit_non_positive"
+          ],
+          "cumulative_profit_share": 0.997582,
+          "class": "P2"
+        },
+        {
+          "sku": "590614192",
+          "revenue": 0.0,
+          "profit": 1.16,
+          "profit_share": null,
+          "profit_rank": 5,
+          "profit_group": "P2",
+          "status": "ok",
+          "warnings": [
+            "total_profit_non_positive"
+          ],
+          "cumulative_profit_share": 1.0,
+          "class": "P2"
+        }
+      ],
+      "top_loss_sku": [
+        {
+          "sku": "333615320",
+          "revenue": 0.0,
+          "profit": -640.54,
+          "profit_share": null,
+          "profit_rank": 8,
+          "profit_group": "P4",
+          "status": "ok",
+          "warnings": [
+            "total_profit_non_positive"
+          ],
+          "cumulative_profit_share": 1.0,
+          "class": "P4"
+        },
+        {
+          "sku": "430679462",
+          "revenue": 0.0,
+          "profit": -89.0,
+          "profit_share": null,
+          "profit_rank": 7,
+          "profit_group": "P4",
+          "status": "ok",
+          "warnings": [
+            "total_profit_non_positive"
+          ],
+          "cumulative_profit_share": 1.0,
+          "class": "P4"
+        }
+      ],
+      "profit_concentration": "high",
+      "top_20_profit_share": 0.962591,
+      "status": "ok"
+    },
+    "items": [
+      {
+        "sku": "452102417",
+        "revenue": 438.4,
+        "profit": 461.88,
+        "profit_share": null,
+        "profit_rank": 1,
+        "profit_group": "P1",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.962591,
+        "class": "P1"
+      },
+      {
+        "sku": "283212418",
+        "revenue": 0.0,
+        "profit": 14.2,
+        "profit_share": null,
+        "profit_rank": 2,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.992185,
+        "class": "P2"
+      },
+      {
+        "sku": "739384273",
+        "revenue": 0.0,
+        "profit": 1.39,
+        "profit_share": null,
+        "profit_rank": 3,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.995082,
+        "class": "P2"
+      },
+      {
+        "sku": "414589567",
+        "revenue": 0.0,
+        "profit": 1.2,
+        "profit_share": null,
+        "profit_rank": 4,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.997582,
+        "class": "P2"
+      },
+      {
+        "sku": "590614192",
+        "revenue": 0.0,
+        "profit": 1.16,
+        "profit_share": null,
+        "profit_rank": 5,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 1.0,
+        "class": "P2"
+      },
+      {
+        "sku": "453526507",
+        "revenue": 0.0,
+        "profit": 0.55,
+        "profit_share": null,
+        "profit_rank": 6,
+        "profit_group": "P3",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 1.0,
+        "class": "P3"
+      },
+      {
+        "sku": "430679462",
+        "revenue": 0.0,
+        "profit": -89.0,
+        "profit_share": null,
+        "profit_rank": 7,
+        "profit_group": "P4",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 1.0,
+        "class": "P4"
+      },
+      {
+        "sku": "333615320",
+        "revenue": 0.0,
+        "profit": -640.54,
+        "profit_share": null,
+        "profit_rank": 8,
+        "profit_group": "P4",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 1.0,
+        "class": "P4"
+      }
+    ],
+    "p1": [
+      {
+        "sku": "452102417",
+        "revenue": 438.4,
+        "profit": 461.88,
+        "profit_share": null,
+        "profit_rank": 1,
+        "profit_group": "P1",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.962591,
+        "class": "P1"
+      }
+    ],
+    "p2": [
+      {
+        "sku": "283212418",
+        "revenue": 0.0,
+        "profit": 14.2,
+        "profit_share": null,
+        "profit_rank": 2,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.992185,
+        "class": "P2"
+      },
+      {
+        "sku": "739384273",
+        "revenue": 0.0,
+        "profit": 1.39,
+        "profit_share": null,
+        "profit_rank": 3,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.995082,
+        "class": "P2"
+      },
+      {
+        "sku": "414589567",
+        "revenue": 0.0,
+        "profit": 1.2,
+        "profit_share": null,
+        "profit_rank": 4,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.997582,
+        "class": "P2"
+      },
+      {
+        "sku": "590614192",
+        "revenue": 0.0,
+        "profit": 1.16,
+        "profit_share": null,
+        "profit_rank": 5,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 1.0,
+        "class": "P2"
+      }
+    ],
+    "p3": [
+      {
+        "sku": "453526507",
+        "revenue": 0.0,
+        "profit": 0.55,
+        "profit_share": null,
+        "profit_rank": 6,
+        "profit_group": "P3",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 1.0,
+        "class": "P3"
+      }
+    ],
+    "p4": [
+      {
+        "sku": "430679462",
+        "revenue": 0.0,
+        "profit": -89.0,
+        "profit_share": null,
+        "profit_rank": 7,
+        "profit_group": "P4",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 1.0,
+        "class": "P4"
+      },
+      {
+        "sku": "333615320",
+        "revenue": 0.0,
+        "profit": -640.54,
+        "profit_share": null,
+        "profit_rank": 8,
+        "profit_group": "P4",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 1.0,
+        "class": "P4"
+      }
+    ],
+    "top_profit_skus": [
+      {
+        "sku": "452102417",
+        "revenue": 438.4,
+        "profit": 461.88,
+        "profit_share": null,
+        "profit_rank": 1,
+        "profit_group": "P1",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.962591,
+        "class": "P1"
+      },
+      {
+        "sku": "283212418",
+        "revenue": 0.0,
+        "profit": 14.2,
+        "profit_share": null,
+        "profit_rank": 2,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.992185,
+        "class": "P2"
+      },
+      {
+        "sku": "739384273",
+        "revenue": 0.0,
+        "profit": 1.39,
+        "profit_share": null,
+        "profit_rank": 3,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.995082,
+        "class": "P2"
+      },
+      {
+        "sku": "414589567",
+        "revenue": 0.0,
+        "profit": 1.2,
+        "profit_share": null,
+        "profit_rank": 4,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 0.997582,
+        "class": "P2"
+      },
+      {
+        "sku": "590614192",
+        "revenue": 0.0,
+        "profit": 1.16,
+        "profit_share": null,
+        "profit_rank": 5,
+        "profit_group": "P2",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": 1.0,
+        "class": "P2"
+      }
+    ],
+    "meta": {
+      "total_profit": -249.16,
+      "sku_count": 8
+    }
+  }
 }

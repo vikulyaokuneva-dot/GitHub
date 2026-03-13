@@ -32,6 +32,10 @@
     "message": "Supplier goods report detected: Ежедневный детализированный отчет №429772020260310_4297720 - 1.xlsx"
   },
   {
+    "code": "sales_funnel_insufficient_data",
+    "message": "Insufficient funnel data for 6 SKU."
+  },
+  {
     "code": "quantity_orders_fallback_blocked",
     "message": "quantity column cannot be used as orders_count fallback"
   },

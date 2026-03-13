@@ -21,6 +21,9 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     metrics = ctx.get("metrics", {})
     if not isinstance(metrics, dict):
         metrics = {}
+    analytics = ctx.get("analytics", {})
+    if not isinstance(analytics, dict):
+        analytics = {}
     abc_rows = ctx.get("abc_rows", [])
     if not isinstance(abc_rows, list):
         abc_rows = []
@@ -54,6 +57,11 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     cabinet_funnel = ctx.get("cabinet_funnel", {})
     if not isinstance(cabinet_funnel, dict):
         cabinet_funnel = {}
+    sales_funnel_diagnostics = ctx.get("sales_funnel_diagnostics", {})
+    if not isinstance(sales_funnel_diagnostics, dict):
+        sales_funnel_diagnostics = {}
+    if not sales_funnel_diagnostics and isinstance(cabinet_funnel.get("sku_diagnostics"), dict):
+        sales_funnel_diagnostics = cabinet_funnel.get("sku_diagnostics", {})
     funnel_alerts = ctx.get("funnel_alerts", {})
     if not isinstance(funnel_alerts, dict):
         funnel_alerts = {}
@@ -79,8 +87,36 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(warnings_collector, WarningsCollector):
         warnings_collector = WarningsCollector()
 
-    health_payload = compute_sku_health(facts, metrics)
+    profit_contribution = ctx.get("profit_contribution", {})
+    if not isinstance(profit_contribution, dict):
+        profit_contribution = {}
+    if not profit_contribution and isinstance(metrics, dict):
+        profit_from_metrics = metrics.get("profit_contribution")
+        if isinstance(profit_from_metrics, dict):
+            profit_contribution = profit_from_metrics
+    if isinstance(metrics, dict):
+        metrics["profit_contribution"] = profit_contribution if isinstance(profit_contribution, dict) else {}
+    analytics["profit_contribution"] = profit_contribution if isinstance(profit_contribution, dict) else {}
+    health_payload = compute_sku_health(
+        facts,
+        metrics,
+        sku_rows=ctx.get("sku_metrics"),
+        sales_funnel_diagnostics=sales_funnel_diagnostics,
+    )
     health_summary = health_payload.get("summary", {}) if isinstance(health_payload, dict) else {}
+    if not isinstance(health_summary, dict):
+        health_summary = {}
+    if isinstance(metrics, dict):
+        metrics["health_score"] = health_payload if isinstance(health_payload, dict) else {}
+        metrics["health_summary"] = health_summary
+    analytics["health_score"] = health_payload if isinstance(health_payload, dict) else {}
+    analytics["health_summary"] = health_summary
+    health_status = str(health_summary.get("status") or "").strip().lower()
+    if health_status in {"partial", "insufficient_data"}:
+        warnings_collector.add_warning(
+            "sku_health_partial_data",
+            f"SKU health score computed with status={health_status}.",
+        )
     sku_alerts = build_sku_alerts(
         run_date=run_date,
         sku_daily_dynamics=sku_daily_dynamics if isinstance(sku_daily_dynamics, dict) else {},
@@ -219,6 +255,8 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     ctx.update(
         {
             "warnings_collector": warnings_collector,
+            "analytics": analytics,
+            "profit_contribution": profit_contribution,
             "health_payload": health_payload,
             "health_summary": health_summary,
             "sku_alerts": sku_alerts,
@@ -230,6 +268,7 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "decisions_summary": decisions_summary,
             "director_strategy": director_strategy,
             "cabinet_funnel": cabinet_funnel,
+            "sales_funnel_diagnostics": sales_funnel_diagnostics,
             "funnel_alerts": funnel_alerts,
             "decision_rows_added": decision_rows_added,
             "outcomes_payload": outcomes_payload,

@@ -121,8 +121,8 @@ def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dic
 
 def _build_sku_monitor_email_brief(sku_watchlists: Dict[str, Any]) -> List[str]:
     groups = [
-        ("top_growth", "СЂРѕСЃС‚"),
-        ("top_risk", "СЂРёСЃРє"),
+        ("top_growth", "рост"),
+        ("top_risk", "риск"),
         ("dead_stock", "dead_stock"),
         ("ad_inefficiency", "ad_ineff"),
         ("conversion_drop", "conv_drop"),
@@ -252,11 +252,11 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         key_insights_enhanced = []
     if sku_monitor_brief_lines:
         key_insights_enhanced = list(key_insights_enhanced) + [
-            "SKU monitor СЃС„РѕСЂРјРёСЂРѕРІР°РЅ: С„РѕРєСѓСЃ РїРѕ risk/growth/ad/conversion РіСЂСѓРїРїР°Рј.",
+            "SKU monitor сформирован: фокус по risk/growth/ad/conversion группам.",
         ]
     if funnel_brief_lines:
         key_insights_enhanced = list(key_insights_enhanced) + [
-            "Funnel KPI РґРѕР±Р°РІР»РµРЅ РІ СѓРїСЂР°РІР»РµРЅС‡РµСЃРєСѓСЋ РІС‹Р¶РёРјРєСѓ.",
+            "Funnel KPI добавлен в управленческую выжимку.",
         ]
 
     job["email_summary"] = build_email_summary(

@@ -52,6 +52,9 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     warnings_collector = ctx.get("warnings_collector")
     if not isinstance(warnings_collector, WarningsCollector):
         warnings_collector = WarningsCollector()
+    analytics = ctx.get("analytics", {})
+    if not isinstance(analytics, dict):
+        analytics = {}
     ads_loaded_from_file = bool(ctx.get("ads_loaded_from_file", False))
     ads_source_file = str(ctx.get("ads_source_file") or "")
 
@@ -310,7 +313,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             for item in warnings_collector.export_warnings()
             if isinstance(item, dict)
         ):
-            warnings_collector.add_warning("financial_data_missing", "данные о продажах не получены")
+            warnings_collector.add_warning("financial_data_missing", "sales data not received")
         financial_data_degraded_flag = True
     elif api_financial_empty:
         warnings_collector.add_warning(
@@ -370,6 +373,14 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             abc_summary[cls] += 1
 
     profit_contribution = build_profit_contribution(metrics if isinstance(metrics, dict) else {})
+    metrics["profit_contribution"] = profit_contribution if isinstance(profit_contribution, dict) else {}
+    analytics["profit_contribution"] = profit_contribution if isinstance(profit_contribution, dict) else {}
+    profit_contribution_status = str((profit_contribution.get("status") if isinstance(profit_contribution, dict) else "") or "").strip().lower()
+    if profit_contribution_status in {"partial", "insufficient_data"}:
+        warnings_collector.add_warning(
+            "profit_contribution_partial_data",
+            f"Profit contribution computed with status={profit_contribution_status}.",
+        )
     p1_rows = profit_contribution.get("p1", []) if isinstance(profit_contribution, dict) else []
     p2_rows = profit_contribution.get("p2", []) if isinstance(profit_contribution, dict) else []
     p3_rows = profit_contribution.get("p3", []) if isinstance(profit_contribution, dict) else []
@@ -462,6 +473,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     ctx.update(
         {
             "warnings_collector": warnings_collector,
+            "analytics": analytics,
             "source_mode": source_mode,
             "input_debug": input_debug,
             "api_debug": api_debug,
@@ -519,3 +531,4 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
     return ctx
+
