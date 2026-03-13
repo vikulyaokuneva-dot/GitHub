@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, List
 
@@ -69,6 +69,30 @@ def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dic
         + str(status.get("buyout_stage") or "unknown")
     )
 
+    sku_diag_summary = (
+        cabinet_funnel.get("sku_diagnostics", {}).get("summary", {})
+        if isinstance(cabinet_funnel.get("sku_diagnostics"), dict)
+        else {}
+    )
+    if not isinstance(sku_diag_summary, dict):
+        sku_diag_summary = {}
+    top_problem_groups = sku_diag_summary.get("top_problem_groups", [])
+    if not isinstance(top_problem_groups, list):
+        top_problem_groups = []
+    top_problem_groups_text = ", ".join(
+        f"{str(item.get('issue_type') or '')}:{int(item.get('count', 0) or 0)}"
+        for item in top_problem_groups[:3]
+        if isinstance(item, dict) and str(item.get("issue_type") or "").strip()
+    )
+    line_3 = (
+        "sku_funnel: analyzed="
+        + str(int(sku_diag_summary.get("analyzed_sku_count", 0) or 0))
+        + "/"
+        + str(int(sku_diag_summary.get("sku_count", 0) or 0))
+        + ", top_issues="
+        + (top_problem_groups_text or "none")
+    )
+
     alerts_summary = ""
     if isinstance(funnel_alerts, dict) and funnel_alerts:
         if isinstance(funnel_alerts.get("summary"), dict):
@@ -93,7 +117,7 @@ def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dic
                     elif row_status == "critical":
                         critical_count += 1
                 alerts_summary = f"alerts: warning={warning_count}, critical={critical_count}"
-    return [line_1, line_1b, line_2] + ([alerts_summary] if alerts_summary else [])
+    return [line_1, line_1b, line_2, line_3] + ([alerts_summary] if alerts_summary else [])
 
 def _build_sku_monitor_email_brief(sku_watchlists: Dict[str, Any]) -> List[str]:
     groups = [

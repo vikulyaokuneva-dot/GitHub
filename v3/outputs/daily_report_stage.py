@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from typing import Any, Dict, List
@@ -179,6 +179,15 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     sku_watchlists = data.get("sku_watchlists", {})
     if not isinstance(sku_watchlists, dict):
         sku_watchlists = {}
+    sales_funnel_summary = data.get("sales_funnel_summary", {})
+    if not isinstance(sales_funnel_summary, dict):
+        sales_funnel_summary = (
+            cabinet_funnel.get("sku_diagnostics", {}).get("summary", {})
+            if isinstance(cabinet_funnel.get("sku_diagnostics"), dict)
+            else {}
+        )
+    if not isinstance(sales_funnel_summary, dict):
+        sales_funnel_summary = {}
 
     def _round_or_none(value: Any) -> float | None:
         if value is None:
@@ -396,7 +405,9 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
                 continue
             sku = str(row.get("sku") or "n/a")
             action_text = str(row.get("action") or "").strip() or "Р В Р ВµРЎв‚¬Р ВµР Р…Р С‘Р Вµ Р Р…Р Вµ Р В·Р В°Р Т‘Р В°Р Р…Р С•"
-            page.append(f"- SKU {sku} РІР‚вЂќ Р С—РЎР‚Р С‘Р В±РЎвЂ№Р В»РЎРЉ {_format_money(row.get('profit', 0.0))} РІР‚вЂќ {action_text.lower()}")
+            funnel_reason = str(row.get("funnel_issue_reason") or "").strip()
+            funnel_suffix = f" | funnel: {funnel_reason}" if funnel_reason else ""
+            page.append(f"- SKU {sku} РІР‚вЂќ Р С—РЎР‚Р С‘Р В±РЎвЂ№Р В»РЎРЉ {_format_money(row.get('profit', 0.0))} РІР‚вЂќ {action_text.lower()}{funnel_suffix}")
         page.append("")
 
     _append_decision_group(page_2, "scale")
@@ -467,6 +478,16 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     funnel_buyouts_prev_delta = _funnel_delta(funnel_alerts, "buyouts", "delta_vs_prev_pct")
     funnel_buyouts_7d_delta = _funnel_delta(funnel_alerts, "buyouts", "delta_vs_7d_pct")
     funnel_alerts_summary = _funnel_alert_summary(funnel_alerts)
+    funnel_total_skus = int(sales_funnel_summary.get("sku_count", 0) or 0)
+    funnel_analyzed_skus = int(sales_funnel_summary.get("analyzed_sku_count", 0) or 0)
+    funnel_problem_groups = sales_funnel_summary.get("top_problem_groups", [])
+    if not isinstance(funnel_problem_groups, list):
+        funnel_problem_groups = []
+    funnel_problem_groups_text = ", ".join(
+        f"{str(item.get('issue_type') or '')}:{int(item.get('count', 0) or 0)}"
+        for item in funnel_problem_groups[:3]
+        if isinstance(item, dict) and str(item.get("issue_type") or "").strip()
+    )
 
     funnel_section_lines = [
         "",
@@ -483,6 +504,8 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         f"- Δ orders vs yesterday: {format_pct_or_unknown(funnel_orders_prev_delta)}, vs 7d: {format_pct_or_unknown(funnel_orders_7d_delta)}",
         f"- Δ buyouts vs yesterday: {format_pct_or_unknown(funnel_buyouts_prev_delta)}, vs 7d: {format_pct_or_unknown(funnel_buyouts_7d_delta)}",
         f"- Статусы: traffic={str(funnel_status.get('traffic') or 'unknown')}, conversion={str(funnel_status.get('conversion') or 'unknown')}, buyout_stage={str(funnel_status.get('buyout_stage') or 'unknown')}",
+        f"- SKU funnel analyzed: {format_int_or_unknown(funnel_analyzed_skus)} / {format_int_or_unknown(funnel_total_skus)}",
+        f"- Top SKU funnel issues: {funnel_problem_groups_text or 'none'}",
         f"- Alert summary: {funnel_alerts_summary}",
     ]
     page_1.extend(funnel_section_lines)
@@ -628,6 +651,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "buyout_kpi": buyout_kpi if isinstance(buyout_kpi, dict) else {},
         "event_ledger_preview": (event_ledger.get("events", [])[:3] if isinstance(event_ledger.get("events"), list) else []),
         "funnel_snapshot": cabinet_funnel if isinstance(cabinet_funnel, dict) else {},
+        "sales_funnel_summary": sales_funnel_summary if isinstance(sales_funnel_summary, dict) else {},
         "sku_watchlists_preview": {
             key: _watchlist_rows(sku_watchlists, key, limit=5)
             for key, _ in _watchlist_groups_for_render()
@@ -640,4 +664,3 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     write_report_meta(out_dir=out_dir, report_meta=report_meta)
     data.update({"job": job, "report_meta": report_meta})
     return data
-

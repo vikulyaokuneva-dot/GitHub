@@ -63,6 +63,20 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     cabinet_funnel = payload.get("cabinet_funnel", {})
     if not isinstance(cabinet_funnel, dict) or not cabinet_funnel:
         cabinet_funnel = _read_optional_artifact("cabinet_funnel.json")
+    sales_funnel_diagnostics = payload.get("sales_funnel_diagnostics", {})
+    if not isinstance(sales_funnel_diagnostics, dict):
+        sales_funnel_diagnostics = {}
+    if not sales_funnel_diagnostics and isinstance(cabinet_funnel, dict):
+        embedded = cabinet_funnel.get("sku_diagnostics")
+        if isinstance(embedded, dict):
+            sales_funnel_diagnostics = embedded
+    if not sales_funnel_diagnostics and isinstance(metrics, dict):
+        fallback_diagnostics = metrics.get("sales_funnel_diagnostics")
+        if isinstance(fallback_diagnostics, dict):
+            sales_funnel_diagnostics = fallback_diagnostics
+    sales_funnel_summary = sales_funnel_diagnostics.get("summary", {}) if isinstance(sales_funnel_diagnostics, dict) else {}
+    if not isinstance(sales_funnel_summary, dict):
+        sales_funnel_summary = {}
     funnel_alerts = payload.get("funnel_alerts", {})
     if not isinstance(funnel_alerts, dict) or not funnel_alerts:
         funnel_alerts = _read_optional_artifact("funnel_alerts.json")
@@ -237,6 +251,15 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         outcomes_payload=outcomes_payload if isinstance(outcomes_payload, dict) else {},
         decision_rows_added=decision_rows_added,
     )
+    if not isinstance(key_insights, list):
+        key_insights = []
+    sales_funnel_top_groups = sales_funnel_summary.get("top_problem_groups", []) if isinstance(sales_funnel_summary, dict) else []
+    if isinstance(sales_funnel_top_groups, list) and sales_funnel_top_groups:
+        top_group = sales_funnel_top_groups[0] if isinstance(sales_funnel_top_groups[0], dict) else {}
+        top_issue_type = str(top_group.get("issue_type") or "").strip()
+        top_issue_count = int(top_group.get("count", 0) or 0)
+        if top_issue_type and top_issue_count > 0:
+            key_insights = list(key_insights) + [f"SKU funnel: топ-проблема {top_issue_type} ({top_issue_count} SKU)."]
 
     payload.update(
         {
@@ -252,6 +275,8 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "health_summary": health_summary,
             "outcomes_payload": outcomes_payload,
             "cabinet_funnel": cabinet_funnel,
+            "sales_funnel_diagnostics": sales_funnel_diagnostics,
+            "sales_funnel_summary": sales_funnel_summary,
             "funnel_alerts": funnel_alerts,
             "sku_alerts": sku_alerts,
             "sku_watchlists": sku_watchlists,

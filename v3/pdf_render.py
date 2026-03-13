@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Dict, List
 
 from PIL import Image, ImageDraw, ImageFont
@@ -51,6 +52,86 @@ def _resolve_font_family() -> Dict[str, str]:
 
 def get_registered_pdf_font() -> Dict[str, str]:
     return _resolve_font_family()
+
+
+def _contains_cyrillic(text: str) -> bool:
+    for ch in text:
+        code = ord(ch)
+        if 0x0400 <= code <= 0x04FF:
+            return True
+    return False
+
+
+def _bad_marker_count(text: str) -> int:
+    markers = ("Ð", "Ñ", "Â", "Ã", "â", "�", "Р ")
+    count = 0
+    for marker in markers:
+        count += text.count(marker)
+    return count
+
+
+def _looks_like_mojibake(text: str) -> bool:
+    if not text:
+        return False
+    if _bad_marker_count(text) > 0:
+        return True
+    cyrillic_letters = len(re.findall(r"[А-Яа-яЁё]", text))
+    if cyrillic_letters < 6:
+        return False
+    # Typical cp1251 mojibake has an abnormal amount of uppercase "Р"/"С".
+    upper_rs = text.count("Р") + text.count("С")
+    return upper_rs >= 4 and (upper_rs / max(cyrillic_letters, 1)) >= 0.22
+
+
+def _try_repair_once(text: str) -> str:
+    if not _looks_like_mojibake(text):
+        return text
+
+    best = text
+    best_bad = _bad_marker_count(text)
+    for source_codec in ("cp1251", "latin1", "cp1252"):
+        try:
+            candidate = text.encode(source_codec, errors="strict").decode("utf-8", errors="strict")
+        except Exception:
+            continue
+        if candidate == text:
+            continue
+        candidate_bad = _bad_marker_count(candidate)
+        if candidate_bad < best_bad:
+            best = candidate
+            best_bad = candidate_bad
+            continue
+        if _contains_cyrillic(candidate) and _looks_like_mojibake(text) and not _looks_like_mojibake(candidate):
+            best = candidate
+            best_bad = candidate_bad
+    return best
+
+
+def _strip_unsafe_controls(text: str) -> str:
+    if not text:
+        return ""
+    # Preserve \f for explicit page breaks handled in renderer.
+    allowed = {"\n", "\r", "\t", "\f"}
+    return "".join(ch for ch in text if ord(ch) >= 32 or ch in allowed)
+
+
+def repair_mojibake(text: str) -> str:
+    if not isinstance(text, str):
+        return str(text)
+    if not text or text.isascii():
+        return text
+    repaired = text
+    # Two passes are enough for most double-decoding artifacts.
+    for _ in range(2):
+        updated = _try_repair_once(repaired)
+        if updated == repaired:
+            break
+        repaired = updated
+    return repaired
+
+
+def normalize_pdf_text(text: str) -> str:
+    return _strip_unsafe_controls(repair_mojibake(text))
 
 
 def _line_style(line: str) -> tuple[str, str]:
@@ -136,7 +217,7 @@ def write_text_pdf(path: str, lines: List[str]) -> Dict[str, str]:
     image, draw, y = _new_page()
 
     for raw in lines:
-        line = str(raw)
+        line = normalize_pdf_text(str(raw))
         style, text = _line_style(line)
         if style == "page_break":
             pages.append(image)

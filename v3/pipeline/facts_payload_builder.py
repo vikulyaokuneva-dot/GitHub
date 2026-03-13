@@ -58,6 +58,14 @@ def build_facts_runtime_patch(
     safe_sales_funnel_core = safe_sales_funnel.get("funnel", {})
     if not isinstance(safe_sales_funnel_core, dict):
         safe_sales_funnel_core = {}
+    safe_sales_funnel_diagnostics = safe_metrics.get("sales_funnel_diagnostics", {})
+    if not isinstance(safe_sales_funnel_diagnostics, dict):
+        safe_sales_funnel_diagnostics = safe_sales_funnel.get("sku_diagnostics", {}) if isinstance(safe_sales_funnel, dict) else {}
+    if not isinstance(safe_sales_funnel_diagnostics, dict):
+        safe_sales_funnel_diagnostics = {}
+    safe_sales_funnel_summary = safe_sales_funnel_diagnostics.get("summary", {})
+    if not isinstance(safe_sales_funnel_summary, dict):
+        safe_sales_funnel_summary = {}
 
     ads_columns_detected = (
         [str(item) for item in safe_ads_summary.get("ads_columns_detected", []) if str(item).strip()]
@@ -119,6 +127,17 @@ def build_facts_runtime_patch(
             (safe_metrics.get("commerce_kpi", {}) if isinstance(safe_metrics.get("commerce_kpi"), dict) else {}).get("cpo"),
         ),
         "sales_funnel": safe_sales_funnel,
+        "sales_funnel_summary": safe_sales_funnel_summary,
+        "sales_funnel_issue_counts": (
+            safe_sales_funnel_summary.get("issue_counts", {})
+            if isinstance(safe_sales_funnel_summary.get("issue_counts"), dict)
+            else {}
+        ),
+        "sales_funnel_top_problem_groups": (
+            safe_sales_funnel_summary.get("top_problem_groups", [])
+            if isinstance(safe_sales_funnel_summary.get("top_problem_groups"), list)
+            else []
+        ),
     }
 
 

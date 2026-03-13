@@ -12,6 +12,7 @@ from ..domain.event_model import (
     build_order_kpi,
     build_render_kpi_values,
 )
+from ..analytics.sales_funnel import build_sales_funnel_metrics
 from ..metrics.cabinet_funnel_builder import build_cabinet_funnel_core
 from ..metrics.sku_daily_dynamics_builder import build_sku_daily_dynamics
 from .daily_stage_support import sync_from_entry
@@ -241,6 +242,15 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         ads_diagnostics=ads_diagnostics_summary if isinstance(ads_diagnostics_summary, dict) else {},
     )
     metrics["sales_funnel"] = cabinet_funnel if isinstance(cabinet_funnel, dict) else {}
+    sales_funnel_diagnostics = build_sales_funnel_metrics(
+        metrics=metrics if isinstance(metrics, dict) else {},
+        run_date=run_date,
+    )
+    if isinstance(cabinet_funnel, dict):
+        cabinet_funnel["sku_diagnostics"] = sales_funnel_diagnostics if isinstance(sales_funnel_diagnostics, dict) else {}
+    metrics["sales_funnel_diagnostics"] = sales_funnel_diagnostics if isinstance(sales_funnel_diagnostics, dict) else {}
+    if isinstance(sales_funnel_diagnostics, dict):
+        warnings_collector.extend_warnings(sales_funnel_diagnostics.get("warnings", []))
     if isinstance(cabinet_funnel, dict) and isinstance(cabinet_funnel.get("sku_funnel"), list):
         metrics["sku_sales_funnel"] = cabinet_funnel.get("sku_funnel", [])
     sku_daily_dynamics = build_sku_daily_dynamics(
@@ -487,6 +497,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "render_kpi": render_kpi,
             "event_ledger": event_ledger,
             "cabinet_funnel": cabinet_funnel,
+            "sales_funnel_diagnostics": sales_funnel_diagnostics,
             "sku_daily_dynamics": sku_daily_dynamics,
             "facts": facts,
             "confidence": confidence,
