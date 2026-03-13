@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import csv
 import os
@@ -171,6 +171,23 @@ FIELD_SYNONYMS = {
     "acos": ["acos", "acos_%", "ддр", "доля_рекламных_расходов"],
     "romi": ["romi", "roi", "окупаемость_рекламы", "рентабельность_рекламы"],
     "conversion_type": ["conversion_type", "тип_конверсии", "конверсия"],
+    "query": [
+        "query",
+        "keyword",
+        "search_query",
+        "search_term",
+        "phrase",
+        "search_phrase",
+        "query_text",
+        "ключевой_запрос",
+        "поисковый_запрос",
+        "поисковая_фраза",
+        "ключевая_фраза",
+        "запрос",
+    ],
+    "add_to_cart": ["add_to_cart", "cart_adds", "cart_add", "carts", "добавления_в_корзину", "корзина"],
+    "buyouts": ["buyouts", "buyout_units", "sales_units", "выкупы", "выкупили"],
+    "avg_position": ["avg_position", "average_position", "position_avg", "средняя_позиция", "позиция_средняя"],
     "margin": ["margin", "маржа", "маржинальность"],
     "margin_pct": ["margin_pct", "маржа_pct", "маржа_процент", "margin_percent"],
     "cost_price": [
@@ -1201,17 +1218,20 @@ def _rows_from_table(
             "ads_spend",
             "impressions",
             "clicks",
+            "add_to_cart",
             "ctr",
             "cpc",
             "orders",
+            "buyouts",
             "revenue",
             "acos",
             "romi",
             "roi",
             "ddr",
             "cpo",
+            "avg_position",
         ]
-        string_fields = ["conversion_type"]
+        string_fields = ["conversion_type", "query"]
     else:
         required, useful = ["sku", "stock"], ["stock"]
         string_fields = ["seller_sku"]

@@ -166,6 +166,76 @@ def _extract_profit_contribution(metrics: Any) -> tuple[Dict[str, Dict[str, Any]
     return out, summary
 
 
+def _extract_keyword_monitoring(metrics: Any) -> tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
+    if not isinstance(metrics, dict):
+        return {}, {}
+    payload = metrics.get("keyword_monitoring")
+    if not isinstance(payload, dict):
+        return {}, {}
+
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        summary = {}
+
+    rows = payload.get("sku_items")
+    if not isinstance(rows, list):
+        rows = payload.get("sku_summary")
+    if not isinstance(rows, list):
+        rows = []
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        sku = str(row.get("sku") or "").strip()
+        if sku:
+            out[sku] = row
+    return out, summary
+
+
+def _keyword_signals_for_sku_ru(keyword_row: Dict[str, Any]) -> List[str]:
+    if not isinstance(keyword_row, dict):
+        return []
+    signals: List[str] = []
+    winner_count = int(keyword_row.get("winner_queries_count", 0) or 0)
+    growth_count = int(keyword_row.get("growth_queries_count", 0) or 0)
+    weak_count = int(keyword_row.get("weak_queries_count", 0) or 0)
+    costly_count = int(keyword_row.get("costly_queries_count", 0) or 0)
+    health_status = str(keyword_row.get("keyword_health_status") or "").strip().lower()
+
+    if costly_count > 0:
+        signals.append("Есть дорогие запросы с плохой эффективностью.")
+    if weak_count > 0:
+        signals.append("SKU получает трафик по запросам, которые не конвертируются в заказы.")
+    if growth_count > 0:
+        signals.append("Есть перспективные запросы с хорошей конверсией, но низким объемом показов.")
+    if winner_count > 0:
+        signals.append("Есть сильные поисковые запросы, которые можно масштабировать.")
+    if health_status in {"risk", "unstable"} and not signals:
+        signals.append("По SKU есть признаки нерелевантного поискового трафика.")
+    return signals[:3]
+
+
+def _keyword_global_signal_ru(summary: Dict[str, Any]) -> str:
+    if not isinstance(summary, dict):
+        return ""
+    winner_count = int(summary.get("winner_query_count", 0) or 0)
+    growth_count = int(summary.get("growth_query_count", 0) or 0)
+    low_relevance_count = int(summary.get("low_relevance_query_count", 0) or 0)
+    no_orders_count = int(summary.get("no_orders_query_count", 0) or 0)
+    costly_count = int(summary.get("costly_query_count", 0) or 0)
+
+    if costly_count > 0 and costly_count >= max(1, winner_count):
+        return "Есть дорогие запросы с плохой эффективностью."
+    if (low_relevance_count + no_orders_count) > max(2, winner_count):
+        return "Часть запросов дает показы, но не дает коммерческого результата."
+    if growth_count > 0:
+        return "Есть перспективные запросы с хорошей конверсией, но низким объемом показов."
+    if winner_count > 0:
+        return "Есть сильные поисковые запросы, которые можно масштабировать."
+    return ""
+
+
 def _profit_group_signal_ru(profit_group: str) -> str:
     group = str(profit_group or "").strip().upper()
     if group == "P1":
@@ -259,6 +329,7 @@ def build_decisions(
     funnel_by_sku = _extract_funnel_by_sku(metrics)
     funnel_summary = _extract_funnel_summary(metrics)
     profit_by_sku, profit_summary = _extract_profit_contribution(metrics)
+    keyword_by_sku, keyword_summary = _extract_keyword_monitoring(metrics)
 
     abc_by_sku = {str(item.get("sku")): str(item.get("abc_class", "")) for item in abc_rows}
     health_by_sku = {str(item.get("sku")): item for item in health_items}
@@ -309,6 +380,15 @@ def build_decisions(
         profit_group = str(profit_row.get("profit_group") or profit_row.get("class") or "").strip().upper()
         profit_share = _as_float_or_none(profit_row.get("profit_share"))
         profit_contribution_signal_ru = _profit_group_signal_ru(profit_group)
+        keyword_row = keyword_by_sku.get(sku) or {}
+        keyword_health_status = str(keyword_row.get("keyword_health_status") or "").strip().lower()
+        keyword_query_count = int(keyword_row.get("query_count", 0) or 0)
+        keyword_winner_count = int(keyword_row.get("winner_queries_count", 0) or 0)
+        keyword_growth_count = int(keyword_row.get("growth_queries_count", 0) or 0)
+        keyword_problem_count = int(keyword_row.get("weak_queries_count", 0) or 0) + int(
+            keyword_row.get("costly_queries_count", 0) or 0
+        )
+        keyword_signals_ru = _keyword_signals_for_sku_ru(keyword_row)
 
         territorial_reasons: List[str] = []
         if territorial_ktr > 1.25:
@@ -343,6 +423,12 @@ def build_decisions(
             "profit_group": profit_group or None,
             "profit_contribution_share": round(profit_share, 6) if profit_share is not None else None,
             "profit_signal_ru": profit_contribution_signal_ru or None,
+            "keyword_health_status": keyword_health_status or None,
+            "keyword_query_count": keyword_query_count,
+            "keyword_winner_queries_count": keyword_winner_count,
+            "keyword_growth_queries_count": keyword_growth_count,
+            "keyword_problem_queries_count": keyword_problem_count,
+            "keyword_signals_ru": keyword_signals_ru,
             "territorial_status": territorial_status,
             "territorial_ktr": round(territorial_ktr, 3) if territorial_ktr > 0 else None,
             "logistics_efficiency_status": logistics_efficiency_status or None,
@@ -386,5 +472,6 @@ def build_decisions(
         ),
         "profit_contribution_summary": profit_summary if isinstance(profit_summary, dict) else {},
         "profit_concentration_signal_ru": _profit_concentration_signal_ru(profit_summary),
+        "keyword_summary": keyword_summary if isinstance(keyword_summary, dict) else {},
+        "keyword_global_signal_ru": _keyword_global_signal_ru(keyword_summary),
     }
-

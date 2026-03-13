@@ -1,4 +1,5 @@
 from .abc_analysis import compute_abc
+from .keywords import build_keyword_monitoring
 from .logistics_ktr import build_logistics_ktr
 from .profit_contribution import build_profit_contribution
 from .sales_funnel import build_sales_funnel_metrics
@@ -7,6 +8,7 @@ from .territorial_distribution import build_territorial_distribution
 
 __all__ = [
     "compute_abc",
+    "build_keyword_monitoring",
     "build_profit_contribution",
     "build_logistics_ktr",
     "build_sales_funnel_metrics",

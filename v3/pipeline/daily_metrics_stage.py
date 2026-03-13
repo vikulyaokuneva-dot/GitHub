@@ -256,6 +256,14 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         warnings_collector.extend_warnings(sales_funnel_diagnostics.get("warnings", []))
     if isinstance(cabinet_funnel, dict) and isinstance(cabinet_funnel.get("sku_funnel"), list):
         metrics["sku_sales_funnel"] = cabinet_funnel.get("sku_funnel", [])
+    keyword_monitoring = build_keyword_monitoring(
+        {"ads_rows": ads_rows if isinstance(ads_rows, list) else []},
+        run_date=run_date,
+    )
+    metrics["keyword_monitoring"] = keyword_monitoring if isinstance(keyword_monitoring, dict) else {}
+    analytics["keyword_monitoring"] = keyword_monitoring if isinstance(keyword_monitoring, dict) else {}
+    if isinstance(keyword_monitoring, dict):
+        warnings_collector.extend_warnings(keyword_monitoring.get("warnings", []))
     sku_daily_dynamics = build_sku_daily_dynamics(
         run_date=run_date,
         metrics=metrics if isinstance(metrics, dict) else {},
@@ -450,6 +458,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         financial_debug=financial_debug if isinstance(financial_debug, list) else [],
         abc_rows=abc_rows if isinstance(abc_rows, list) else [],
         profit_contribution=profit_contribution if isinstance(profit_contribution, dict) else {},
+        keyword_monitoring=keyword_monitoring if isinstance(keyword_monitoring, dict) else {},
         territorial_distribution=territorial_distribution if isinstance(territorial_distribution, dict) else {},
         event_ledger=event_ledger if isinstance(event_ledger, dict) else {},
         cabinet_funnel=cabinet_funnel if isinstance(cabinet_funnel, dict) else {},
@@ -520,6 +529,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "sku_metrics": sku_metrics,
             "abc_rows": abc_rows,
             "profit_contribution": profit_contribution,
+            "keyword_monitoring": keyword_monitoring,
             "p1_rows": p1_rows,
             "p2_rows": p2_rows,
             "p3_rows": p3_rows,

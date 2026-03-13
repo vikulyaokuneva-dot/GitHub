@@ -787,7 +787,7 @@
     "completeness_pct": 33.33,
     "is_partial": true,
     "basis": "buyouts",
-    "date": "2026-03-11",
+    "date": "2026-03-13",
     "confirmed": false
   },
   "ads_diagnostics": {
@@ -907,6 +907,7 @@
     "ads_sheet_found": "Статистика",
     "ads_columns_detected": [
       "ads_spend",
+      "avg_position",
       "clicks",
       "conversion_type",
       "cpc",
@@ -1218,16 +1219,16 @@
     }
   },
   "event_date_model": {
-    "report_date": "2026-03-11",
-    "operational_date": "2026-03-11",
-    "orders_date": "2026-03-11",
-    "buyouts_date": "2026-03-11",
-    "financial_date": "2026-03-11",
+    "report_date": "2026-03-13",
+    "operational_date": "2026-03-13",
+    "orders_date": "2026-03-13",
+    "buyouts_date": "2026-03-13",
+    "financial_date": "2026-03-13",
     "shifted_to_previous_day": false,
     "timezone": "Europe/Moscow"
   },
   "order_kpi": {
-    "date": "2026-03-11",
+    "date": "2026-03-13",
     "orders_count": null,
     "orders_amount": null,
     "orders_count_confirmed": false,
@@ -1236,7 +1237,7 @@
     "source_amount": "unknown"
   },
   "buyout_kpi": {
-    "date": "2026-03-11",
+    "date": "2026-03-13",
     "buyouts_count": null,
     "buyouts_amount": null,
     "buyouts_count_confirmed": false,
@@ -1288,12 +1289,12 @@
     "profitability_pct": null
   },
   "event_ledger": {
-    "report_date": "2026-03-11",
-    "operational_date": "2026-03-11",
+    "report_date": "2026-03-13",
+    "operational_date": "2026-03-13",
     "events": [
       {
         "event_type": "orders_snapshot",
-        "event_date": "2026-03-11",
+        "event_date": "2026-03-13",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -1301,7 +1302,7 @@
       },
       {
         "event_type": "buyouts_snapshot",
-        "event_date": "2026-03-11",
+        "event_date": "2026-03-13",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -1309,7 +1310,7 @@
       },
       {
         "event_type": "financial_snapshot",
-        "event_date": "2026-03-11",
+        "event_date": "2026-03-13",
         "source": "local.supplier_goods",
         "confirmed": false,
         "rows": 0,
@@ -1318,7 +1319,7 @@
     ]
   },
   "sales_funnel": {
-    "date": "2026-03-11",
+    "date": "2026-03-13",
     "funnel": {
       "views": 1359,
       "add_to_cart": null,
@@ -1619,7 +1620,7 @@
       }
     ],
     "sku_diagnostics": {
-      "date": "2026-03-11",
+      "date": "2026-03-13",
       "status": "partial_success",
       "thresholds": {
         "min_views_for_analysis": 50.0,
@@ -1821,7 +1822,7 @@
     }
   },
   "sales_funnel_diagnostics": {
-    "date": "2026-03-11",
+    "date": "2026-03-13",
     "status": "partial_success",
     "thresholds": {
       "min_views_for_analysis": 50.0,
@@ -2255,6 +2256,90 @@
       "sku": "333615320"
     }
   ],
+  "keyword_monitoring": {
+    "date": "2026-03-13",
+    "status": "insufficient_data",
+    "warnings": [
+      {
+        "code": "keyword_query_column_missing",
+        "message": "Rows skipped without query value: 2."
+      },
+      {
+        "code": "keyword_sku_missing",
+        "message": "Rows skipped without SKU value: 1."
+      },
+      {
+        "code": "keyword_monitoring_insufficient_data",
+        "message": "Keyword monitoring has no query-level rows for analysis."
+      }
+    ],
+    "summary": {
+      "sku_count_with_keywords": 0,
+      "total_query_count": 0,
+      "winner_query_count": 0,
+      "growth_query_count": 0,
+      "low_relevance_query_count": 0,
+      "no_orders_query_count": 0,
+      "costly_query_count": 0,
+      "top_global_queries_by_impressions": [],
+      "top_global_queries_by_orders": [],
+      "top_global_problem_queries": [],
+      "query_status_counts": {
+        "winner": 0,
+        "growth_opportunity": 0,
+        "low_conversion": 0,
+        "low_relevance": 0,
+        "traffic_only": 0,
+        "no_orders": 0,
+        "costly": 0,
+        "insufficient_data": 0
+      },
+      "status": "insufficient_data",
+      "warnings": [
+        {
+          "code": "keyword_query_column_missing",
+          "message": "Rows skipped without query value: 2."
+        },
+        {
+          "code": "keyword_sku_missing",
+          "message": "Rows skipped without SKU value: 1."
+        },
+        {
+          "code": "keyword_monitoring_insufficient_data",
+          "message": "Keyword monitoring has no query-level rows for analysis."
+        }
+      ]
+    },
+    "items": [],
+    "sku_items": [],
+    "query_items": [],
+    "thresholds": {
+      "min_impressions_for_analysis": 120.0,
+      "winner_min_impressions": 400.0,
+      "min_clicks_for_analysis": 12.0,
+      "winner_min_conversion": 0.02,
+      "winner_min_click_to_order": 0.08,
+      "growth_max_impressions": 250.0,
+      "growth_min_conversion": 0.02,
+      "low_conversion_max": 0.006,
+      "low_relevance_min_clicks": 25.0,
+      "low_relevance_max_click_to_order": 0.02,
+      "traffic_only_min_impressions": 250.0,
+      "traffic_only_max_cart_rate": 0.01,
+      "costly_min_spend": 500.0,
+      "costly_max_orders": 1.0,
+      "costly_min_spend_per_order": 700.0
+    },
+    "source": {
+      "status": "insufficient_data",
+      "stats": {
+        "rows_input": 3,
+        "rows_with_query": 0,
+        "rows_without_query": 2,
+        "rows_without_sku": 1
+      }
+    }
+  },
   "profit_contribution": {
     "status": "ok",
     "warnings": [

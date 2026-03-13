@@ -36,6 +36,18 @@
     "message": "Insufficient funnel data for 6 SKU."
   },
   {
+    "code": "keyword_query_column_missing",
+    "message": "Rows skipped without query value: 2."
+  },
+  {
+    "code": "keyword_sku_missing",
+    "message": "Rows skipped without SKU value: 1."
+  },
+  {
+    "code": "keyword_monitoring_insufficient_data",
+    "message": "Keyword monitoring has no query-level rows for analysis."
+  },
+  {
     "code": "quantity_orders_fallback_blocked",
     "message": "quantity column cannot be used as orders_count fallback"
   },
@@ -121,6 +133,6 @@
   },
   {
     "code": "history_snapshot_saved",
-    "message": "History snapshot saved for 2026-03-11"
+    "message": "History snapshot saved for 2026-03-13"
   }
 ]

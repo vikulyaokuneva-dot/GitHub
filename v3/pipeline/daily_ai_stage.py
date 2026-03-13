@@ -97,6 +97,20 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(metrics, dict):
         metrics["profit_contribution"] = profit_contribution if isinstance(profit_contribution, dict) else {}
     analytics["profit_contribution"] = profit_contribution if isinstance(profit_contribution, dict) else {}
+    keyword_monitoring = ctx.get("keyword_monitoring", {})
+    if not isinstance(keyword_monitoring, dict):
+        keyword_monitoring = {}
+    if not keyword_monitoring and isinstance(metrics, dict):
+        keyword_from_metrics = metrics.get("keyword_monitoring")
+        if isinstance(keyword_from_metrics, dict):
+            keyword_monitoring = keyword_from_metrics
+    if not keyword_monitoring and isinstance(analytics, dict):
+        keyword_from_analytics = analytics.get("keyword_monitoring")
+        if isinstance(keyword_from_analytics, dict):
+            keyword_monitoring = keyword_from_analytics
+    if isinstance(metrics, dict):
+        metrics["keyword_monitoring"] = keyword_monitoring if isinstance(keyword_monitoring, dict) else {}
+    analytics["keyword_monitoring"] = keyword_monitoring if isinstance(keyword_monitoring, dict) else {}
     health_payload = compute_sku_health(
         facts,
         metrics,
@@ -257,6 +271,7 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "warnings_collector": warnings_collector,
             "analytics": analytics,
             "profit_contribution": profit_contribution,
+            "keyword_monitoring": keyword_monitoring,
             "health_payload": health_payload,
             "health_summary": health_summary,
             "sku_alerts": sku_alerts,

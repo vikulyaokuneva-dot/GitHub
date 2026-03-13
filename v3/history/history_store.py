@@ -100,8 +100,8 @@ def save_daily_history_snapshot(seller_id: str, run_date: str, artifacts_dir: Pa
         "sku_daily_dynamics.json",
         "sku_alerts.json",
         "sku_watchlists.json",
+        "keyword_monitoring.json",
     ]
-
     copied_files: List[str] = []
 
     for name in required_files + optional_artifacts:

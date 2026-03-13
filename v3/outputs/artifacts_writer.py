@@ -16,6 +16,7 @@ def write_daily_metrics_artifacts(
     financial_debug: List[Dict[str, Any]],
     abc_rows: List[Dict[str, Any]],
     profit_contribution: Dict[str, Any],
+    keyword_monitoring: Dict[str, Any] | None = None,
     territorial_distribution: Dict[str, Any],
     event_ledger: Dict[str, Any] | None = None,
     cabinet_funnel: Dict[str, Any] | None = None,
@@ -31,6 +32,8 @@ def write_daily_metrics_artifacts(
     write_json(os.path.join(out_dir, "financial_debug.json"), financial_debug)
     write_json(os.path.join(out_dir, "abc_analysis.json"), abc_rows)
     save_profit_contribution(os.path.join(out_dir, "profit_contribution.json"), profit_contribution)
+    if isinstance(keyword_monitoring, dict) and keyword_monitoring:
+        write_json(os.path.join(out_dir, "keyword_monitoring.json"), keyword_monitoring)
     save_territorial_distribution(Path(out_dir) / "territorial_distribution.json", territorial_distribution)
 
 

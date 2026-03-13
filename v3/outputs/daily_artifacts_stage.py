@@ -129,6 +129,23 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(profit_from_metrics, dict):
             profit_contribution = profit_from_metrics
     analytics["profit_contribution"] = profit_contribution if isinstance(profit_contribution, dict) else {}
+    keyword_monitoring = payload.get("keyword_monitoring", {})
+    if not isinstance(keyword_monitoring, dict):
+        keyword_monitoring = {}
+    if not keyword_monitoring and isinstance(analytics, dict):
+        keyword_from_analytics = analytics.get("keyword_monitoring")
+        if isinstance(keyword_from_analytics, dict):
+            keyword_monitoring = keyword_from_analytics
+    if not keyword_monitoring:
+        keyword_monitoring = _read_optional_artifact("keyword_monitoring.json")
+    if not keyword_monitoring and isinstance(metrics, dict):
+        keyword_from_metrics = metrics.get("keyword_monitoring")
+        if isinstance(keyword_from_metrics, dict):
+            keyword_monitoring = keyword_from_metrics
+    keyword_summary = keyword_monitoring.get("summary", {}) if isinstance(keyword_monitoring, dict) else {}
+    if not isinstance(keyword_summary, dict):
+        keyword_summary = {}
+    analytics["keyword_monitoring"] = keyword_monitoring if isinstance(keyword_monitoring, dict) else {}
     territorial_distribution = payload.get("territorial_distribution", {})
     if not isinstance(territorial_distribution, dict):
         territorial_distribution = {}
@@ -289,6 +306,19 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         top_issue_count = int(top_group.get("count", 0) or 0)
         if top_issue_type and top_issue_count > 0:
             key_insights = list(key_insights) + [f"SKU funnel: top problem {top_issue_type} ({top_issue_count} SKU)."]
+    winner_query_count = int(keyword_summary.get("winner_query_count", 0) or 0)
+    growth_query_count = int(keyword_summary.get("growth_query_count", 0) or 0)
+    costly_query_count = int(keyword_summary.get("costly_query_count", 0) or 0)
+    low_relevance_query_count = int(keyword_summary.get("low_relevance_query_count", 0) or 0)
+    no_orders_query_count = int(keyword_summary.get("no_orders_query_count", 0) or 0)
+    if winner_query_count > 0:
+        key_insights = list(key_insights) + [f"Keyword winners detected: {winner_query_count} queries."]
+    if growth_query_count > 0:
+        key_insights = list(key_insights) + [f"Keyword growth opportunities: {growth_query_count} queries."]
+    if (costly_query_count + low_relevance_query_count + no_orders_query_count) > 0:
+        key_insights = list(key_insights) + [
+            f"Keyword risks detected: costly={costly_query_count}, low_relevance={low_relevance_query_count}, no_orders={no_orders_query_count}."
+        ]
 
     payload.update(
         {
@@ -317,6 +347,8 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "sku_metrics": sku_metrics,
             "abc_rows": abc_rows,
             "profit_contribution": profit_contribution,
+            "keyword_monitoring": keyword_monitoring,
+            "keyword_summary": keyword_summary,
             "territorial_distribution": territorial_distribution,
             "territorial_summary": territorial_summary,
             "logistics_summary": logistics_summary,

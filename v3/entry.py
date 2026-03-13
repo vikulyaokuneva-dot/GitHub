@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import argparse
 import os
 import re
@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from .analytics.abc_analysis import compute_abc
 from .analytics.growth_simulator import simulate_growth
+from .analytics.keywords import build_keyword_monitoring
 from .analytics.logistics_ktr import build_logistics_ktr
 from .analytics.opportunity_engine import compute_opportunity_scores
 from .analytics.profit_contribution import build_profit_contribution
