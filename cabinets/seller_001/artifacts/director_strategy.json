@@ -15,6 +15,46 @@
   },
   "tasks": [
     {
+      "sku": "452102417",
+      "task": "rebalance_stock",
+      "priority": "P2"
+    },
+    {
+      "sku": "283212418",
+      "task": "rebalance_stock",
+      "priority": "P2"
+    },
+    {
+      "sku": "414589567",
+      "task": "rebalance_stock",
+      "priority": "P2"
+    },
+    {
+      "sku": "333615320",
+      "task": "rebalance_stock",
+      "priority": "P2"
+    },
+    {
+      "sku": "430679462",
+      "task": "rebalance_stock",
+      "priority": "P2"
+    },
+    {
+      "sku": "453526507",
+      "task": "rebalance_stock",
+      "priority": "P2"
+    },
+    {
+      "sku": "590614192",
+      "task": "rebalance_stock",
+      "priority": "P2"
+    },
+    {
+      "sku": "739384273",
+      "task": "rebalance_stock",
+      "priority": "P2"
+    },
+    {
       "sku": "283212418",
       "task": "monitor",
       "priority": "P3"

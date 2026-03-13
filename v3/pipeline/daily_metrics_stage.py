@@ -30,6 +30,9 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     token = str(ctx.get("token") or "")
 
     source_mode = str(ctx.get("source_mode") or "local_reports")
+    cfg = ctx.get("cfg", {})
+    if not isinstance(cfg, dict):
+        cfg = {}
     sales_rows = list(ctx.get("sales_rows", []))
     ads_rows = list(ctx.get("ads_rows", []))
     stocks_rows = list(ctx.get("stocks_rows", []))
@@ -417,7 +420,12 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         stocks_raw=stocks_rows,
         seller_id=seller_id,
         run_date=run_date,
+        config=cfg if isinstance(cfg, dict) else {},
     )
+    analytics["territorial_distribution"] = territorial_distribution if isinstance(territorial_distribution, dict) else {}
+    metrics["territorial_distribution"] = territorial_distribution if isinstance(territorial_distribution, dict) else {}
+    if isinstance(territorial_distribution, dict):
+        warnings_collector.extend_warnings(territorial_distribution.get("warnings", []))
     territorial_summary = (
         territorial_distribution.get("summary", {}) if isinstance(territorial_distribution, dict) else {}
     )

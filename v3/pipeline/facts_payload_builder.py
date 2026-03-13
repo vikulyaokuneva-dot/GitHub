@@ -207,6 +207,24 @@ def build_territorial_distribution_summary(territorial_summary: Dict[str, Any]) 
         "no_stock_data_count": no_stock_data_count,
         "insufficient_total_count": insufficient_total_count,
         "avg_ktr": float(safe_summary.get("avg_ktr", 0.0) or 0.0),
+        "total_skus_analyzed": int(safe_summary.get("total_skus_analyzed", safe_summary.get("sku_total", 0)) or 0),
+        "skus_with_irp_penalty": int(safe_summary.get("skus_with_irp_penalty", 0) or 0),
+        "skus_below_60_localization": int(safe_summary.get("skus_below_60_localization", 0) or 0),
+        "skus_below_40_localization": int(safe_summary.get("skus_below_40_localization", 0) or 0),
+        "skus_critical_below_20_localization": int(safe_summary.get("skus_critical_below_20_localization", 0) or 0),
+        "aggregate_estimated_irp_penalty_total": float(safe_summary.get("aggregate_estimated_irp_penalty_total", 0.0) or 0.0),
+        "weighted_average_localization_share": float(safe_summary.get("weighted_average_localization_share", 0.0) or 0.0),
+        "distribution_efficiency_score": float(safe_summary.get("distribution_efficiency_score", 0.0) or 0.0),
+        "top_weak_localization_skus": (
+            [item for item in safe_summary.get("top_weak_localization_skus", []) if isinstance(item, dict)][:5]
+            if isinstance(safe_summary.get("top_weak_localization_skus"), list)
+            else []
+        ),
+        "top_irp_penalty_skus": (
+            [item for item in safe_summary.get("top_irp_penalty_skus", []) if isinstance(item, dict)][:5]
+            if isinstance(safe_summary.get("top_irp_penalty_skus"), list)
+            else []
+        ),
         "top_misaligned_skus": (
             [str(value) for value in safe_summary.get("top_misaligned_skus", []) if str(value or "").strip()][:5]
             if isinstance(safe_summary.get("top_misaligned_skus"), list)

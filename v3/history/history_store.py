@@ -101,6 +101,10 @@ def save_daily_history_snapshot(seller_id: str, run_date: str, artifacts_dir: Pa
         "sku_alerts.json",
         "sku_watchlists.json",
         "keyword_monitoring.json",
+        "territorial_distribution.json",
+        "territorial_distribution_summary.json",
+        "territorial_distribution_metrics.json",
+        "logistics_ktr.json",
     ]
     copied_files: List[str] = []
 

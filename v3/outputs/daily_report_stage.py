@@ -306,6 +306,39 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         and str(item.get("confidence") or "").strip().lower() == "low"
     )
     top_misaligned_text = _compact_sku_list(top_misaligned_confident, limit=3)
+    weighted_localization_share = _safe_float(territorial_summary.get("weighted_average_localization_share", 0.0))
+    skus_below_60_localization = int(territorial_summary.get("skus_below_60_localization", 0) or 0)
+    aggregate_estimated_irp_penalty_total = _safe_float(territorial_summary.get("aggregate_estimated_irp_penalty_total", 0.0))
+    top_weak_localization_rows = territorial_summary.get("top_weak_localization_skus", [])
+    if not isinstance(top_weak_localization_rows, list):
+        top_weak_localization_rows = []
+    top_irp_penalty_rows = territorial_summary.get("top_irp_penalty_skus", [])
+    if not isinstance(top_irp_penalty_rows, list):
+        top_irp_penalty_rows = []
+    territorial_signals = territorial_distribution.get("signals", []) if isinstance(territorial_distribution, dict) else []
+    if not isinstance(territorial_signals, list):
+        territorial_signals = []
+
+    top_weak_lines: List[str] = []
+    for row in top_weak_localization_rows[:3]:
+        if not isinstance(row, dict):
+            continue
+        sku_code = str(row.get("sku") or "").strip()
+        loc_share = _safe_float_local(row.get("localization_share"))
+        if sku_code:
+            if loc_share is None:
+                top_weak_lines.append(sku_code)
+            else:
+                top_weak_lines.append(f"{sku_code} ({format_pct_or_unknown(loc_share)})")
+
+    top_irp_lines: List[str] = []
+    for row in top_irp_penalty_rows[:3]:
+        if not isinstance(row, dict):
+            continue
+        sku_code = str(row.get("sku") or "").strip()
+        penalty_value = _safe_float(row.get("estimated_irp_penalty_total", 0.0))
+        if sku_code:
+            top_irp_lines.append(f"{sku_code} ({_format_money(penalty_value)})")
 
     page_1.extend(["", "## ТЕРРИТОРИАЛЬНОЕ РАСПРЕДЕЛЕНИЕ"])
     if analyzed_with_ktr <= 0:
@@ -326,6 +359,36 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             page_1.append(f"- Low-confidence KTR (total_buys < 3): {_format_int(low_conf_ktr_count)} SKU, интерпретировать осторожно")
 
     logistics_top_critical = logistics_summary.get("top_critical_skus", []) if isinstance(logistics_summary, dict) else []
+
+    page_1.extend(["", "## Территориальное распределение и логистический риск"])
+    if analyzed_with_ktr <= 0:
+        page_1.append("- Недостаточно данных для оценки локализации и IRP-риска.")
+    else:
+        page_1.append(f"- Взвешенная локализация портфеля: {format_pct_or_unknown(weighted_localization_share)}")
+        page_1.append(f"- SKU ниже порога 60% локализации: {_format_int(skus_below_60_localization)}")
+        page_1.append(f"- Оценочный суммарный IRP exposure: {_format_money(aggregate_estimated_irp_penalty_total)}")
+        if top_weak_lines:
+            page_1.append("- Топ SKU с худшей локализацией: " + ", ".join(top_weak_lines))
+        else:
+            page_1.append("- Топ SKU с худшей локализацией: —")
+        if top_irp_lines:
+            page_1.append("- Топ SKU по оценочному IRP-риску: " + ", ".join(top_irp_lines))
+        else:
+            page_1.append("- Топ SKU по оценочному IRP-риску: —")
+
+        recommendation_lines: List[str] = []
+        for signal in territorial_signals:
+            if not isinstance(signal, dict):
+                continue
+            recommendation = str(signal.get("recommendation") or "").strip()
+            if not recommendation:
+                continue
+            if recommendation not in recommendation_lines:
+                recommendation_lines.append(recommendation)
+            if len(recommendation_lines) >= 2:
+                break
+        if recommendation_lines:
+            page_1.append("- Рекомендации: " + "; ".join(recommendation_lines))
     if not isinstance(logistics_top_critical, list):
         logistics_top_critical = []
     logistics_top_critical = [str(x).strip() for x in logistics_top_critical if str(x).strip()]

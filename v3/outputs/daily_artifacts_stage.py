@@ -149,7 +149,21 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     territorial_distribution = payload.get("territorial_distribution", {})
     if not isinstance(territorial_distribution, dict):
         territorial_distribution = {}
+    if not territorial_distribution and isinstance(analytics, dict):
+        territorial_from_analytics = analytics.get("territorial_distribution")
+        if isinstance(territorial_from_analytics, dict):
+            territorial_distribution = territorial_from_analytics
+    if not territorial_distribution:
+        territorial_distribution = _read_optional_artifact("territorial_distribution.json")
+    if not territorial_distribution and isinstance(metrics, dict):
+        territorial_from_metrics = metrics.get("territorial_distribution")
+        if isinstance(territorial_from_metrics, dict):
+            territorial_distribution = territorial_from_metrics
+    analytics["territorial_distribution"] = territorial_distribution if isinstance(territorial_distribution, dict) else {}
+
     territorial_summary = payload.get("territorial_summary", {})
+    if not isinstance(territorial_summary, dict) or not territorial_summary:
+        territorial_summary = territorial_distribution.get("summary", {}) if isinstance(territorial_distribution, dict) else {}
     if not isinstance(territorial_summary, dict):
         territorial_summary = {}
     logistics_summary = payload.get("logistics_summary", {})
@@ -318,6 +332,22 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     if (costly_query_count + low_relevance_query_count + no_orders_query_count) > 0:
         key_insights = list(key_insights) + [
             f"Keyword risks detected: costly={costly_query_count}, low_relevance={low_relevance_query_count}, no_orders={no_orders_query_count}."
+        ]
+
+    territorial_problematic_count = int(territorial_summary.get("skus_below_60_localization", 0) or 0)
+    territorial_penalty_total = _safe_float(territorial_summary.get("aggregate_estimated_irp_penalty_total", 0.0))
+    weighted_localization_share = _safe_float(territorial_summary.get("weighted_average_localization_share", 0.0))
+    if territorial_problematic_count > 0:
+        key_insights = list(key_insights) + [
+            f"Territorial risk: {territorial_problematic_count} SKU below 60% localization."
+        ]
+    if territorial_penalty_total > 0:
+        key_insights = list(key_insights) + [
+            f"Estimated IRP exposure: {round(territorial_penalty_total, 2)} RUB."
+        ]
+    if weighted_localization_share > 0:
+        key_insights = list(key_insights) + [
+            f"Weighted localization share: {round(weighted_localization_share, 2)}%."
         ]
 
     payload.update(

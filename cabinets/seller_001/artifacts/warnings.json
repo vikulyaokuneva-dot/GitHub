@@ -120,19 +120,31 @@
     "message": "Total financial profit is non-positive; financial attribution may be incomplete."
   },
   {
+    "code": "territorial_distribution_stock_rows_missing",
+    "message": "Stock rows are missing for robust localization estimation."
+  },
+  {
     "code": "territorial_distribution_built",
-    "message": "Territorial distribution built for 0 SKU with KTR"
+    "message": "Territorial distribution built for 8 SKU with KTR"
   },
   {
     "code": "insufficient_warehouse_data",
     "message": "Insufficient warehouse-level data for full territorial analysis"
   },
   {
-    "code": "no_decisions_ready_for_outcome",
-    "message": "No decisions are ready for outcome evaluation yet"
+    "code": "high_ktr_detected",
+    "message": "High KTR detected for 7 SKU"
+  },
+  {
+    "code": "decision_memory_updated",
+    "message": "Decision memory updated: added 8 records."
+  },
+  {
+    "code": "decision_outcomes_evaluated",
+    "message": "Decision outcomes evaluated: 8"
   },
   {
     "code": "history_snapshot_saved",
-    "message": "History snapshot saved for 2026-03-13"
+    "message": "History snapshot saved for 2026-03-14"
   }
 ]

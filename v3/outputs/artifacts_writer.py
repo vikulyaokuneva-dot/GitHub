@@ -35,6 +35,31 @@ def write_daily_metrics_artifacts(
     if isinstance(keyword_monitoring, dict) and keyword_monitoring:
         write_json(os.path.join(out_dir, "keyword_monitoring.json"), keyword_monitoring)
     save_territorial_distribution(Path(out_dir) / "territorial_distribution.json", territorial_distribution)
+    if isinstance(territorial_distribution, dict):
+        territorial_summary = territorial_distribution.get("summary", {})
+        if not isinstance(territorial_summary, dict):
+            territorial_summary = {}
+        territorial_items = territorial_distribution.get("items")
+        if not isinstance(territorial_items, list):
+            territorial_items = territorial_distribution.get("skus", [])
+        if not isinstance(territorial_items, list):
+            territorial_items = []
+        write_json(
+            os.path.join(out_dir, "territorial_distribution_summary.json"),
+            {
+                "status": str(territorial_distribution.get("status") or ""),
+                "warnings": territorial_distribution.get("warnings", []),
+                "summary": territorial_summary,
+            },
+        )
+        write_json(
+            os.path.join(out_dir, "territorial_distribution_metrics.json"),
+            {
+                "status": str(territorial_distribution.get("status") or ""),
+                "warnings": territorial_distribution.get("warnings", []),
+                "items": territorial_items,
+            },
+        )
 
 
 def write_daily_ai_artifacts(

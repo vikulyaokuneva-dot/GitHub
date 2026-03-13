@@ -787,7 +787,7 @@
     "completeness_pct": 33.33,
     "is_partial": true,
     "basis": "buyouts",
-    "date": "2026-03-13",
+    "date": "2026-03-14",
     "confirmed": false
   },
   "ads_diagnostics": {
@@ -1219,16 +1219,16 @@
     }
   },
   "event_date_model": {
-    "report_date": "2026-03-13",
-    "operational_date": "2026-03-13",
-    "orders_date": "2026-03-13",
-    "buyouts_date": "2026-03-13",
-    "financial_date": "2026-03-13",
+    "report_date": "2026-03-14",
+    "operational_date": "2026-03-14",
+    "orders_date": "2026-03-14",
+    "buyouts_date": "2026-03-14",
+    "financial_date": "2026-03-14",
     "shifted_to_previous_day": false,
     "timezone": "Europe/Moscow"
   },
   "order_kpi": {
-    "date": "2026-03-13",
+    "date": "2026-03-14",
     "orders_count": null,
     "orders_amount": null,
     "orders_count_confirmed": false,
@@ -1237,7 +1237,7 @@
     "source_amount": "unknown"
   },
   "buyout_kpi": {
-    "date": "2026-03-13",
+    "date": "2026-03-14",
     "buyouts_count": null,
     "buyouts_amount": null,
     "buyouts_count_confirmed": false,
@@ -1289,12 +1289,12 @@
     "profitability_pct": null
   },
   "event_ledger": {
-    "report_date": "2026-03-13",
-    "operational_date": "2026-03-13",
+    "report_date": "2026-03-14",
+    "operational_date": "2026-03-14",
     "events": [
       {
         "event_type": "orders_snapshot",
-        "event_date": "2026-03-13",
+        "event_date": "2026-03-14",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -1302,7 +1302,7 @@
       },
       {
         "event_type": "buyouts_snapshot",
-        "event_date": "2026-03-13",
+        "event_date": "2026-03-14",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -1310,7 +1310,7 @@
       },
       {
         "event_type": "financial_snapshot",
-        "event_date": "2026-03-13",
+        "event_date": "2026-03-14",
         "source": "local.supplier_goods",
         "confirmed": false,
         "rows": 0,
@@ -1319,7 +1319,7 @@
     ]
   },
   "sales_funnel": {
-    "date": "2026-03-13",
+    "date": "2026-03-14",
     "funnel": {
       "views": 1359,
       "add_to_cart": null,
@@ -1620,7 +1620,7 @@
       }
     ],
     "sku_diagnostics": {
-      "date": "2026-03-13",
+      "date": "2026-03-14",
       "status": "partial_success",
       "thresholds": {
         "min_views_for_analysis": 50.0,
@@ -1822,7 +1822,7 @@
     }
   },
   "sales_funnel_diagnostics": {
-    "date": "2026-03-13",
+    "date": "2026-03-14",
     "status": "partial_success",
     "thresholds": {
       "min_views_for_analysis": 50.0,
@@ -2257,7 +2257,7 @@
     }
   ],
   "keyword_monitoring": {
-    "date": "2026-03-13",
+    "date": "2026-03-14",
     "status": "insufficient_data",
     "warnings": [
       {
@@ -2766,5 +2766,1041 @@
       "total_profit": -249.16,
       "sku_count": 8
     }
+  },
+  "territorial_distribution": {
+    "seller_id": "seller_001",
+    "report_date": "2026-03-14",
+    "status": "partial",
+    "warnings": [
+      {
+        "code": "territorial_distribution_stock_rows_missing",
+        "message": "Stock rows are missing for robust localization estimation."
+      }
+    ],
+    "metadata": {
+      "engine": "territorial_distribution_engine",
+      "version": "2.0",
+      "seller_id": "seller_001",
+      "run_date": "2026-03-14",
+      "generated_at": "2026-03-13T22:23:26Z",
+      "wb_irp_effective_date": "2026-03-23",
+      "source_artifacts": [
+        "metrics.json"
+      ],
+      "reverse_logistics": {
+        "mode": "deferred",
+        "details": "Volume-based reverse logistics can be added when liters/volume fields become available."
+      },
+      "config": {
+        "enable_territorial_distribution_engine": true,
+        "distribution_profit_leak_threshold": 5000.0,
+        "localization_watch_threshold": 60.0,
+        "localization_weak_threshold": 40.0,
+        "localization_critical_threshold": 20.0
+      }
+    },
+    "summary": {
+      "total_skus_analyzed": 8,
+      "skus_with_irp_penalty": 0,
+      "skus_below_60_localization": 7,
+      "skus_below_40_localization": 7,
+      "skus_critical_below_20_localization": 7,
+      "aggregate_estimated_irp_penalty_total": 0.0,
+      "weighted_average_localization_share": 0.0,
+      "distribution_efficiency_score": 0.0,
+      "distribution_state_counts": {
+        "no_orders": 1,
+        "strong": 0,
+        "watch": 0,
+        "weak": 0,
+        "critical": 7
+      },
+      "top_weak_localization_skus": [
+        {
+          "sku": "452102417",
+          "localization_share": 0.0,
+          "total_orders": 7.0
+        },
+        {
+          "sku": "283212418",
+          "localization_share": 0.0,
+          "total_orders": 4.0
+        },
+        {
+          "sku": "333615320",
+          "localization_share": 0.0,
+          "total_orders": 4.0
+        },
+        {
+          "sku": "414589567",
+          "localization_share": 0.0,
+          "total_orders": 4.0
+        },
+        {
+          "sku": "453526507",
+          "localization_share": 0.0,
+          "total_orders": 2.0
+        },
+        {
+          "sku": "590614192",
+          "localization_share": 0.0,
+          "total_orders": 2.0
+        },
+        {
+          "sku": "739384273",
+          "localization_share": 0.0,
+          "total_orders": 2.0
+        }
+      ],
+      "top_irp_penalty_skus": [],
+      "sku_total": 8,
+      "sku_with_ktr": 8,
+      "balanced_count": 0,
+      "moderate_mismatch_count": 0,
+      "misallocated_count": 7,
+      "insufficient_distribution_data_count": 1,
+      "no_stock_data_count": 0,
+      "insufficient_total_count": 1,
+      "avg_ktr": 2.0,
+      "top_misaligned_skus": [
+        "452102417",
+        "283212418",
+        "333615320",
+        "414589567",
+        "453526507"
+      ]
+    },
+    "signals": [
+      {
+        "signal_type": "distribution_critical_sku",
+        "entity_type": "sku",
+        "entity_id": "283212418",
+        "severity": "high",
+        "title": "Критично низкая локализация SKU",
+        "description": "Локализация заказов SKU находится в критической зоне.",
+        "evidence": {
+          "sku": "283212418",
+          "localization_share": 0.0,
+          "ktr": 2.0,
+          "krp": 0.025,
+          "estimated_irp_penalty_total": 0.0
+        },
+        "recommendation": "Приоритетно перераспределить остатки по складам с высоким спросом.",
+        "impact_score": 100.0
+      },
+      {
+        "signal_type": "distribution_critical_sku",
+        "entity_type": "sku",
+        "entity_id": "333615320",
+        "severity": "high",
+        "title": "Критично низкая локализация SKU",
+        "description": "Локализация заказов SKU находится в критической зоне.",
+        "evidence": {
+          "sku": "333615320",
+          "localization_share": 0.0,
+          "ktr": 2.0,
+          "krp": 0.025,
+          "estimated_irp_penalty_total": 0.0
+        },
+        "recommendation": "Приоритетно перераспределить остатки по складам с высоким спросом.",
+        "impact_score": 100.0
+      },
+      {
+        "signal_type": "distribution_critical_sku",
+        "entity_type": "sku",
+        "entity_id": "414589567",
+        "severity": "high",
+        "title": "Критично низкая локализация SKU",
+        "description": "Локализация заказов SKU находится в критической зоне.",
+        "evidence": {
+          "sku": "414589567",
+          "localization_share": 0.0,
+          "ktr": 2.0,
+          "krp": 0.025,
+          "estimated_irp_penalty_total": 0.0
+        },
+        "recommendation": "Приоритетно перераспределить остатки по складам с высоким спросом.",
+        "impact_score": 100.0
+      },
+      {
+        "signal_type": "distribution_critical_sku",
+        "entity_type": "sku",
+        "entity_id": "452102417",
+        "severity": "high",
+        "title": "Критично низкая локализация SKU",
+        "description": "Локализация заказов SKU находится в критической зоне.",
+        "evidence": {
+          "sku": "452102417",
+          "localization_share": 0.0,
+          "ktr": 2.0,
+          "krp": 0.025,
+          "estimated_irp_penalty_total": 0.0
+        },
+        "recommendation": "Приоритетно перераспределить остатки по складам с высоким спросом.",
+        "impact_score": 100.0
+      },
+      {
+        "signal_type": "distribution_critical_sku",
+        "entity_type": "sku",
+        "entity_id": "453526507",
+        "severity": "high",
+        "title": "Критично низкая локализация SKU",
+        "description": "Локализация заказов SKU находится в критической зоне.",
+        "evidence": {
+          "sku": "453526507",
+          "localization_share": 0.0,
+          "ktr": 2.0,
+          "krp": 0.025,
+          "estimated_irp_penalty_total": 0.0
+        },
+        "recommendation": "Приоритетно перераспределить остатки по складам с высоким спросом.",
+        "impact_score": 100.0
+      },
+      {
+        "signal_type": "distribution_critical_sku",
+        "entity_type": "sku",
+        "entity_id": "590614192",
+        "severity": "high",
+        "title": "Критично низкая локализация SKU",
+        "description": "Локализация заказов SKU находится в критической зоне.",
+        "evidence": {
+          "sku": "590614192",
+          "localization_share": 0.0,
+          "ktr": 2.0,
+          "krp": 0.025,
+          "estimated_irp_penalty_total": 0.0
+        },
+        "recommendation": "Приоритетно перераспределить остатки по складам с высоким спросом.",
+        "impact_score": 100.0
+      },
+      {
+        "signal_type": "distribution_critical_sku",
+        "entity_type": "sku",
+        "entity_id": "739384273",
+        "severity": "high",
+        "title": "Критично низкая локализация SKU",
+        "description": "Локализация заказов SKU находится в критической зоне.",
+        "evidence": {
+          "sku": "739384273",
+          "localization_share": 0.0,
+          "ktr": 2.0,
+          "krp": 0.025,
+          "estimated_irp_penalty_total": 0.0
+        },
+        "recommendation": "Приоритетно перераспределить остатки по складам с высоким спросом.",
+        "impact_score": 100.0
+      },
+      {
+        "signal_type": "distribution_portfolio_risk",
+        "entity_type": "portfolio",
+        "entity_id": "seller",
+        "severity": "high",
+        "title": "Портфельный риск территориального распределения",
+        "description": "Портфель демонстрирует повышенный риск логистической неэффективности и IRP-нагрузки.",
+        "evidence": {
+          "weighted_average_localization_share": 0.0,
+          "problematic_skus": 7,
+          "total_skus": 8,
+          "problematic_share": 0.875,
+          "aggregate_estimated_irp_penalty_total": 0.0
+        },
+        "recommendation": "Сфокусироваться на SKU с высоким спросом и низкой локализацией, перераспределить остатки по регионам спроса.",
+        "impact_score": 100.0
+      }
+    ],
+    "sku_metrics": [
+      {
+        "sku": "283212418",
+        "total_orders": 4.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "333615320",
+        "total_orders": 4.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "414589567",
+        "total_orders": 4.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "430679462",
+        "total_orders": 0.0,
+        "local_orders": 0.0,
+        "localization_share": null,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "no_orders",
+        "distribution_state_label_ru": "нет заказов",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "452102417",
+        "total_orders": 7.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": 62.6286,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "revenue_div_total_orders",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": 0.5,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {
+            "тула": 1.0
+          },
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {
+            "тула": 1.0
+          },
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [
+            "тула"
+          ],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "price_fallback_revenue_div_orders",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "453526507",
+        "total_orders": 2.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "590614192",
+        "total_orders": 2.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "739384273",
+        "total_orders": 2.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      }
+    ],
+    "skus": [
+      {
+        "sku": "283212418",
+        "total_orders": 4.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "333615320",
+        "total_orders": 4.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "414589567",
+        "total_orders": 4.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "430679462",
+        "total_orders": 0.0,
+        "local_orders": 0.0,
+        "localization_share": null,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "no_orders",
+        "distribution_state_label_ru": "нет заказов",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "452102417",
+        "total_orders": 7.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": 62.6286,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "revenue_div_total_orders",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": 0.5,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {
+            "тула": 1.0
+          },
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {
+            "тула": 1.0
+          },
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [
+            "тула"
+          ],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "price_fallback_revenue_div_orders",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "453526507",
+        "total_orders": 2.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "590614192",
+        "total_orders": 2.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "739384273",
+        "total_orders": 2.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      }
+    ],
+    "items": [
+      {
+        "sku": "283212418",
+        "total_orders": 4.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "333615320",
+        "total_orders": 4.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "414589567",
+        "total_orders": 4.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "430679462",
+        "total_orders": 0.0,
+        "local_orders": 0.0,
+        "localization_share": null,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "no_orders",
+        "distribution_state_label_ru": "нет заказов",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "452102417",
+        "total_orders": 7.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": 62.6286,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "medium",
+        "diagnostics": {
+          "price_source": "revenue_div_total_orders",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": 0.5,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {
+            "тула": 1.0
+          },
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {
+            "тула": 1.0
+          },
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [
+            "тула"
+          ],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "price_fallback_revenue_div_orders",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "453526507",
+        "total_orders": 2.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "590614192",
+        "total_orders": 2.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      },
+      {
+        "sku": "739384273",
+        "total_orders": 2.0,
+        "local_orders": 0.0,
+        "localization_share": 0.0,
+        "ktr": 2.0,
+        "krp": 0.025,
+        "average_retail_price": null,
+        "irp_penalty_per_order": 0.0,
+        "estimated_irp_penalty_total": 0.0,
+        "distribution_state": "critical",
+        "distribution_state_label_ru": "критично низкая локализация",
+        "effective_date_applied": false,
+        "confidence": "low",
+        "diagnostics": {
+          "price_source": "missing",
+          "local_orders_source": "estimated_from_warehouse_shares",
+          "distribution_gap": null,
+          "locality_score": 0.0,
+          "demand_by_warehouse": {},
+          "stock_by_warehouse": {},
+          "demand_share_by_warehouse": {},
+          "stock_share_by_warehouse": {},
+          "dominant_demand_warehouses": [],
+          "dominant_stock_warehouses": [],
+          "reverse_logistics_modeling": "deferred_until_volume_fields_available"
+        },
+        "notes": [
+          "average_retail_price_missing",
+          "irp_effect_not_applied_yet"
+        ]
+      }
+    ],
+    "aggregate_estimated_irp_penalty_total": 0.0,
+    "distribution_efficiency_score": 0.0
   }
 }

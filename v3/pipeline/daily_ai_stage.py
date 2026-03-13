@@ -33,6 +33,17 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     territorial_distribution = ctx.get("territorial_distribution", {})
     if not isinstance(territorial_distribution, dict):
         territorial_distribution = {}
+    if not territorial_distribution and isinstance(analytics, dict):
+        territorial_from_analytics = analytics.get("territorial_distribution")
+        if isinstance(territorial_from_analytics, dict):
+            territorial_distribution = territorial_from_analytics
+    if not territorial_distribution and isinstance(metrics, dict):
+        territorial_from_metrics = metrics.get("territorial_distribution")
+        if isinstance(territorial_from_metrics, dict):
+            territorial_distribution = territorial_from_metrics
+    if isinstance(metrics, dict):
+        metrics["territorial_distribution"] = territorial_distribution if isinstance(territorial_distribution, dict) else {}
+    analytics["territorial_distribution"] = territorial_distribution if isinstance(territorial_distribution, dict) else {}
     source_flags = ctx.get("source_flags", {})
     if not isinstance(source_flags, dict):
         source_flags = {}
@@ -163,6 +174,20 @@ def run_daily_ai_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     decisions_payload = decisions_layer_payload.get("decisions_payload", {})
     if not isinstance(decisions_payload, dict):
         decisions_payload = {}
+    territorial_summary_payload = territorial_distribution.get("summary", {}) if isinstance(territorial_distribution, dict) else {}
+    if not isinstance(territorial_summary_payload, dict):
+        territorial_summary_payload = {}
+    territorial_signals_payload = territorial_distribution.get("signals", []) if isinstance(territorial_distribution, dict) else []
+    if not isinstance(territorial_signals_payload, list):
+        territorial_signals_payload = []
+    decisions_payload["territorial_summary"] = territorial_summary_payload
+    decisions_payload["territorial_signals"] = territorial_signals_payload
+    decisions_payload["territorial_signals_count"] = len(territorial_signals_payload)
+    if territorial_signals_payload:
+        top_signal = territorial_signals_payload[0] if isinstance(territorial_signals_payload[0], dict) else {}
+        top_signal_desc = str(top_signal.get("description") or "").strip()
+        if top_signal_desc:
+            decisions_payload["territorial_portfolio_signal_ru"] = top_signal_desc
     decisions_summary = decisions_payload.get("summary", {}) if isinstance(decisions_payload, dict) else {}
     director_strategy = decisions_layer_payload.get("director_strategy", {})
     if not isinstance(director_strategy, dict):

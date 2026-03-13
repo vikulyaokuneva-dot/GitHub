@@ -14,6 +14,14 @@ def _default_config(seller_id: str) -> Dict[str, Any]:
         "tax_rate": 0.06,
         "email_reports_to": [],
         "wb": {"token_ref": ""},
+        "territorial_distribution": {
+            "enable_territorial_distribution_engine": True,
+            "wb_irp_effective_date": "2026-03-23",
+            "distribution_profit_leak_threshold": 5000.0,
+            "localization_watch_threshold": 60.0,
+            "localization_weak_threshold": 40.0,
+            "localization_critical_threshold": 20.0,
+        },
     }
 
 
