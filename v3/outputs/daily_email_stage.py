@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List
 
@@ -51,11 +51,11 @@ def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dic
         + format_int_or_unknown(buyouts)
     )
     line_1b = (
-        "view→order="
+        "viewв†’order="
         + format_pct_or_unknown(view_to_order)
-        + ", cart→order="
+        + ", cartв†’order="
         + format_pct_or_unknown(cart_to_order)
-        + ", order→buyout="
+        + ", orderв†’buyout="
         + format_pct_or_unknown(buyout_rate)
         + ", CPO="
         + (f"{round(float(cpo), 2):.2f}" if _safe_float(cpo) is not None else "unknown")
@@ -121,8 +121,8 @@ def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dic
 
 def _build_sku_monitor_email_brief(sku_watchlists: Dict[str, Any]) -> List[str]:
     groups = [
-        ("top_growth", "рост"),
-        ("top_risk", "риск"),
+        ("top_growth", "СЂРѕСЃС‚"),
+        ("top_risk", "СЂРёСЃРє"),
         ("dead_stock", "dead_stock"),
         ("ad_inefficiency", "ad_ineff"),
         ("conversion_drop", "conv_drop"),
@@ -209,6 +209,9 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     sku_alerts = data.get("sku_alerts", {})
     if not isinstance(sku_alerts, dict):
         sku_alerts = {}
+    report_guardrails = data.get("report_guardrails", {})
+    if not isinstance(report_guardrails, dict):
+        report_guardrails = {}
 
     decision_groups: Dict[str, List[Dict[str, Any]]] = {}
     if isinstance(decisions_summary, dict):
@@ -250,13 +253,40 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     key_insights_enhanced = data.get("key_insights", [])
     if not isinstance(key_insights_enhanced, list):
         key_insights_enhanced = []
+
+    sku_attribution_status = str(
+        data_quality.get("sku_attribution_status", report_guardrails.get("sku_attribution_status", "ok")) or "ok"
+    ).strip().lower()
+    financial_finality_status = str(
+        data_quality.get("financial_finality_status", report_guardrails.get("financial_finality_status", "unavailable"))
+        or "unavailable"
+    ).strip().lower()
+
+    if sku_attribution_status == "broken":
+        key_insights_enhanced = [
+            str(line)
+            for line in key_insights_enhanced
+            if str(line).strip()
+            and "unassigned" not in str(line).lower()
+            and "territorial" not in str(line).lower()
+        ]
+        key_insights_enhanced.insert(
+            0,
+            "Technical issue: SKU attribution is broken, SKU-level business insights are temporarily suppressed.",
+        )
+    if financial_finality_status != "final":
+        key_insights_enhanced.insert(
+            0,
+            "Financial KPI are provisional today; profitability metrics should be interpreted as partial.",
+        )
+
     if sku_monitor_brief_lines:
         key_insights_enhanced = list(key_insights_enhanced) + [
-            "SKU monitor сформирован: фокус по risk/growth/ad/conversion группам.",
+            "SKU monitor СЃС„РѕСЂРјРёСЂРѕРІР°РЅ: С„РѕРєСѓСЃ РїРѕ risk/growth/ad/conversion РіСЂСѓРїРїР°Рј.",
         ]
     if funnel_brief_lines:
         key_insights_enhanced = list(key_insights_enhanced) + [
-            "Funnel KPI добавлен в управленческую выжимку.",
+            "Funnel KPI РґРѕР±Р°РІР»РµРЅ РІ СѓРїСЂР°РІР»РµРЅС‡РµСЃРєСѓСЋ РІС‹Р¶РёРјРєСѓ.",
         ]
 
     job["email_summary"] = build_email_summary(
@@ -301,6 +331,12 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         funnel_snapshot=cabinet_funnel if isinstance(cabinet_funnel, dict) else {},
         sku_watchlists=sku_watchlists if isinstance(sku_watchlists, dict) else {},
         sku_alerts=sku_alerts if isinstance(sku_alerts, dict) else {},
+        sku_attribution_status=sku_attribution_status,
+        financial_finality_status=financial_finality_status,
+        report_reliability_level=str(
+            data_quality.get("report_reliability_level", report_guardrails.get("report_reliability_level", "medium"))
+            or "medium"
+        ),
     )
 
     data.update(
@@ -314,3 +350,6 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
     return data
+
+
+

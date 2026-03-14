@@ -1,6 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List
+
+from ..validation.data_integrity import evaluate_financial_integrity
 
 
 def _safe_float(value: Any) -> float:
@@ -33,6 +35,7 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
 
     invalid_rows = int(_safe_float(safe_data_quality.get("invalid_sku_rows", 0)))
     unassigned_present = bool(safe_data_quality.get("unassigned_costs_present", False))
+    sku_attribution_status = str(safe_data_quality.get("sku_attribution_status") or "ok")
 
     has_financial_activity = bool(
         revenue > 0
@@ -44,14 +47,23 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
     cost_price_missing = bool(has_financial_activity and abs(cost_price) <= 1e-9)
     wb_commission_missing = bool(has_financial_activity and abs(wb_commission) <= 1e-9)
     expense_attribution_partial = bool(invalid_rows > 0 or unassigned_present)
-    net_profit_partial = bool(cost_price_missing or wb_commission_missing or expense_attribution_partial)
-    financial_margin_not_final = net_profit_partial
-    completeness_checks = (
-        not cost_price_missing,
-        not wb_commission_missing,
-        not expense_attribution_partial,
+
+    integrity = evaluate_financial_integrity(
+        totals=safe_totals,
+        data_sources=safe_data_quality.get("data_sources", {}) if isinstance(safe_data_quality.get("data_sources"), dict) else {},
+        sku_attribution_status=sku_attribution_status,
+        ads_rows_count=int(_safe_float(safe_data_quality.get("ads_rows", 0))),
     )
-    completeness_pct = (sum(1 for ok in completeness_checks if ok) / len(completeness_checks) * 100.0)
+    completeness_pct = float(integrity.get("financial_completeness_pct", 0.0) or 0.0)
+    financial_finality_status = str(integrity.get("financial_finality_status") or "unavailable")
+
+    net_profit_partial = bool(
+        financial_finality_status != "final"
+        or cost_price_missing
+        or wb_commission_missing
+        or expense_attribution_partial
+    )
+    financial_margin_not_final = bool(net_profit_partial)
 
     financial_kpi = {
         "revenue": round(revenue, 2),
@@ -74,6 +86,10 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
         "net_profit_partial": net_profit_partial,
         "financial_margin_not_final": financial_margin_not_final,
         "completeness_pct": round(completeness_pct, 2),
+        "components": integrity.get("components", {}),
+        "available_components": int(integrity.get("available_components", 0) or 0),
+        "total_components": int(integrity.get("total_components", 0) or 0),
+        "financial_finality_status": financial_finality_status,
         "is_partial": net_profit_partial,
         "basis": "buyouts",
     }
@@ -125,6 +141,7 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
             "net_profit_partial": bool(net_profit_partial),
             "financial_margin_not_final": bool(financial_margin_not_final),
             "completeness_pct": round(completeness_pct, 2),
+            "financial_finality_status": financial_finality_status,
             "is_partial": bool(net_profit_partial),
         },
     }

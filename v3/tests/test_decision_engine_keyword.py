@@ -59,7 +59,7 @@ class TestDecisionEngineKeywordSignals(unittest.TestCase):
         self.assertGreaterEqual(len(by_sku.get("SKU2", {}).get("keyword_signals_ru", [])), 1)
         self.assertEqual(
             payload.get("keyword_global_signal_ru"),
-            "Часть запросов дает показы, но не дает коммерческого результата.",
+            "\u0427\u0430\u0441\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432 \u0434\u0430\u0435\u0442 \u043f\u043e\u043a\u0430\u0437\u044b, \u043d\u043e \u043d\u0435 \u0434\u0430\u0435\u0442 \u043a\u043e\u043c\u043c\u0435\u0440\u0447\u0435\u0441\u043a\u043e\u0433\u043e \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u0430.",
         )
 
 

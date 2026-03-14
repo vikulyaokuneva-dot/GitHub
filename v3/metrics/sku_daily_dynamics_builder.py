@@ -1,12 +1,14 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Tuple
 
+from ..validation.sku_normalization import normalize_sku as _canonical_normalize_sku
 
-_MISSING_TEXT = {"", "none", "null", "nan", "n/a", "-", "—"}
+
+_MISSING_TEXT = {"", "none", "null", "nan", "n/a", "-", "вЂ”"}
 _INVALID_SKU_VALUES = {"0", "0.0", "00", "000", "unknown"}
 
 _COMPARISON_METRICS: Tuple[str, ...] = (
@@ -51,15 +53,7 @@ def _is_missing(value: Any) -> bool:
 def _normalize_sku(value: Any) -> str:
     if _is_missing(value):
         return ""
-    text = str(value).strip()
-    if text.endswith(".0"):
-        try:
-            text = str(int(float(text)))
-        except (TypeError, ValueError):
-            pass
-    if text.strip().lower() in _INVALID_SKU_VALUES:
-        return ""
-    return text
+    return str(_canonical_normalize_sku(value) or "")
 
 
 def _pick_value(row: Mapping[str, Any], keys: Iterable[str]) -> Any:
@@ -89,10 +83,10 @@ def _extract_sku(row: Mapping[str, Any]) -> str:
                 "nm_id",
                 "nmId",
                 "nmid",
-                "артикул",
-                "артикул_продавца",
-                "артикул_поставщика",
-                "код_номенклатуры",
+                "Р°СЂС‚РёРєСѓР»",
+                "Р°СЂС‚РёРєСѓР»_РїСЂРѕРґР°РІС†Р°",
+                "Р°СЂС‚РёРєСѓР»_РїРѕСЃС‚Р°РІС‰РёРєР°",
+                "РєРѕРґ_РЅРѕРјРµРЅРєР»Р°С‚СѓСЂС‹",
             ),
         )
     )
@@ -120,21 +114,21 @@ def _extract_metadata_for_sku(rows: Iterable[Mapping[str, Any]], sku: str) -> Di
                     "supplierArticle",
                     "seller_sku",
                     "supplier_sku",
-                    "артикул_продавца",
-                    "артикул_поставщика",
+                    "Р°СЂС‚РёРєСѓР»_РїСЂРѕРґР°РІС†Р°",
+                    "Р°СЂС‚РёРєСѓР»_РїРѕСЃС‚Р°РІС‰РёРєР°",
                 ),
             )
         if meta["name"] is None:
             meta["name"] = _pick_value(
                 row,
-                ("name", "nm_name", "product_name", "title", "наименование", "товар"),
+                ("name", "nm_name", "product_name", "title", "РЅР°РёРјРµРЅРѕРІР°РЅРёРµ", "С‚РѕРІР°СЂ"),
             )
         if meta["brand"] is None:
-            meta["brand"] = _pick_value(row, ("brand", "brand_name", "бренд"))
+            meta["brand"] = _pick_value(row, ("brand", "brand_name", "Р±СЂРµРЅРґ"))
         if meta["subject"] is None:
             meta["subject"] = _pick_value(
                 row,
-                ("subject", "subject_name", "category", "категория", "предмет"),
+                ("subject", "subject_name", "category", "РєР°С‚РµРіРѕСЂРёСЏ", "РїСЂРµРґРјРµС‚"),
             )
     for key, value in list(meta.items()):
         if _is_missing(value):
@@ -483,3 +477,7 @@ def build_sku_daily_dynamics(
         "sku_count": len(items),
         "items": items,
     }
+
+
+
+

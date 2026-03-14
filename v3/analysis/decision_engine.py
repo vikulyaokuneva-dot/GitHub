@@ -1,8 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List
 
 from ..analytics.sales_funnel import FUNNEL_ISSUE_REASONS_RU
+from ..validation.sku_normalization import normalize_sku
 
 
 def _as_float(value: Any) -> float:
@@ -63,7 +64,7 @@ def _extract_territorial_items(territorial: Any) -> Dict[str, Dict[str, Any]]:
     for item in value:
         if not isinstance(item, dict):
             continue
-        sku = str(item.get("sku") or "").strip()
+        sku = str(normalize_sku(item.get("sku")) or "").strip()
         if sku:
             rows[sku] = item
     return rows
@@ -81,7 +82,7 @@ def _extract_logistics_items(logistics: Any) -> Dict[str, Dict[str, Any]]:
     for item in value:
         if not isinstance(item, dict):
             continue
-        sku = str(item.get("sku") or "").strip()
+        sku = str(normalize_sku(item.get("sku")) or "").strip()
         if sku:
             rows[sku] = item
     return rows
@@ -109,7 +110,7 @@ def _extract_funnel_by_sku(metrics: Any) -> Dict[str, Dict[str, Any]]:
     for item in items:
         if not isinstance(item, dict):
             continue
-        sku = str(item.get("sku") or "").strip()
+        sku = str(normalize_sku(item.get("sku")) or "").strip()
         if sku:
             out[sku] = item
     return out
@@ -160,7 +161,7 @@ def _extract_profit_contribution(metrics: Any) -> tuple[Dict[str, Dict[str, Any]
     for row in rows:
         if not isinstance(row, dict):
             continue
-        sku = str(row.get("sku") or "").strip()
+        sku = str(normalize_sku(row.get("sku")) or "").strip()
         if sku:
             out[sku] = row
     return out, summary
@@ -187,7 +188,7 @@ def _extract_keyword_monitoring(metrics: Any) -> tuple[Dict[str, Dict[str, Any]]
     for row in rows:
         if not isinstance(row, dict):
             continue
-        sku = str(row.get("sku") or "").strip()
+        sku = str(normalize_sku(row.get("sku")) or "").strip()
         if sku:
             out[sku] = row
     return out, summary
@@ -204,15 +205,15 @@ def _keyword_signals_for_sku_ru(keyword_row: Dict[str, Any]) -> List[str]:
     health_status = str(keyword_row.get("keyword_health_status") or "").strip().lower()
 
     if costly_count > 0:
-        signals.append("Есть дорогие запросы с плохой эффективностью.")
+        signals.append("Р•СЃС‚СЊ РґРѕСЂРѕРіРёРµ Р·Р°РїСЂРѕСЃС‹ СЃ РїР»РѕС…РѕР№ СЌС„С„РµРєС‚РёРІРЅРѕСЃС‚СЊСЋ.")
     if weak_count > 0:
-        signals.append("SKU получает трафик по запросам, которые не конвертируются в заказы.")
+        signals.append("SKU РїРѕР»СѓС‡Р°РµС‚ С‚СЂР°С„РёРє РїРѕ Р·Р°РїСЂРѕСЃР°Рј, РєРѕС‚РѕСЂС‹Рµ РЅРµ РєРѕРЅРІРµСЂС‚РёСЂСѓСЋС‚СЃСЏ РІ Р·Р°РєР°Р·С‹.")
     if growth_count > 0:
-        signals.append("Есть перспективные запросы с хорошей конверсией, но низким объемом показов.")
+        signals.append("Р•СЃС‚СЊ РїРµСЂСЃРїРµРєС‚РёРІРЅС‹Рµ Р·Р°РїСЂРѕСЃС‹ СЃ С…РѕСЂРѕС€РµР№ РєРѕРЅРІРµСЂСЃРёРµР№, РЅРѕ РЅРёР·РєРёРј РѕР±СЉРµРјРѕРј РїРѕРєР°Р·РѕРІ.")
     if winner_count > 0:
-        signals.append("Есть сильные поисковые запросы, которые можно масштабировать.")
+        signals.append("Р•СЃС‚СЊ СЃРёР»СЊРЅС‹Рµ РїРѕРёСЃРєРѕРІС‹Рµ Р·Р°РїСЂРѕСЃС‹, РєРѕС‚РѕСЂС‹Рµ РјРѕР¶РЅРѕ РјР°СЃС€С‚Р°Р±РёСЂРѕРІР°С‚СЊ.")
     if health_status in {"risk", "unstable"} and not signals:
-        signals.append("По SKU есть признаки нерелевантного поискового трафика.")
+        signals.append("РџРѕ SKU РµСЃС‚СЊ РїСЂРёР·РЅР°РєРё РЅРµСЂРµР»РµРІР°РЅС‚РЅРѕРіРѕ РїРѕРёСЃРєРѕРІРѕРіРѕ С‚СЂР°С„РёРєР°.")
     return signals[:3]
 
 
@@ -321,6 +322,27 @@ def build_decisions(
     territorial: Any | None = None,
     logistics: Any | None = None,
 ) -> Dict[str, Any]:
+    data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(data_quality, dict):
+        data_quality = {}
+    sku_attribution_status = str(data_quality.get("sku_attribution_status") or "ok").strip().lower()
+    territorial_analysis_enabled = bool(data_quality.get("territorial_analysis_enabled", sku_attribution_status != "broken"))
+    profit_contribution_enabled = bool(data_quality.get("profit_contribution_enabled", sku_attribution_status != "broken"))
+
+    if sku_attribution_status == "broken":
+        return {
+            "summary": {"scale": [], "fix": [], "watch": [], "liquidate": []},
+            "top_profit_skus": [],
+            "top_risk_skus": [],
+            "signals": [
+                {"code": "technical_issue", "message": "Decision engine suppressed due to broken SKU attribution."},
+                {"code": "data_quality_issue", "message": "Business conclusions are blocked while attribution is broken."},
+            ],
+            "sku_attribution_status": sku_attribution_status,
+            "territorial_analysis_enabled": territorial_analysis_enabled,
+            "profit_contribution_enabled": profit_contribution_enabled,
+        }
+
     sku_metrics = _extract_sku_metrics(metrics)
     abc_rows = _extract_abc(abc)
     health_items = _extract_health_items(health)
@@ -328,7 +350,7 @@ def build_decisions(
     logistics_items = _extract_logistics_items(logistics)
     funnel_by_sku = _extract_funnel_by_sku(metrics)
     funnel_summary = _extract_funnel_summary(metrics)
-    profit_by_sku, profit_summary = _extract_profit_contribution(metrics)
+    profit_by_sku, profit_summary = _extract_profit_contribution(metrics) if profit_contribution_enabled else ({}, {})
     keyword_by_sku, keyword_summary = _extract_keyword_monitoring(metrics)
 
     abc_by_sku = {str(item.get("sku")): str(item.get("abc_class", "")) for item in abc_rows}
@@ -343,7 +365,7 @@ def build_decisions(
 
     evaluated: List[Dict[str, Any]] = []
     for row in sku_metrics:
-        sku = str(row.get("sku") or "").strip()
+        sku = str(normalize_sku(row.get("sku")) or "").strip()
         if not sku:
             continue
 
@@ -376,7 +398,9 @@ def build_decisions(
             or FUNNEL_ISSUE_REASONS_RU.get(funnel_issue_type)
             or FUNNEL_ISSUE_REASONS_RU.get("insufficient_data", "")
         ).strip()
-        profit_row = profit_by_sku.get(sku) or {}
+        profit_row = profit_by_sku.get(sku) if profit_contribution_enabled else {}
+        if not isinstance(profit_row, dict):
+            profit_row = {}
         profit_group = str(profit_row.get("profit_group") or profit_row.get("class") or "").strip().upper()
         profit_share = _as_float_or_none(profit_row.get("profit_share"))
         profit_contribution_signal_ru = _profit_group_signal_ru(profit_group)
@@ -391,15 +415,15 @@ def build_decisions(
         keyword_signals_ru = _keyword_signals_for_sku_ru(keyword_row)
 
         territorial_reasons: List[str] = []
-        if territorial_ktr > 1.25:
+        if territorial_analysis_enabled and territorial_ktr > 1.25:
             territorial_reasons = [
                 "Stock is distributed across warehouses not according to demand",
                 "There is a potential logistics gain from stock rebalancing",
             ]
 
-        if logistics_efficiency_status == "critical":
+        if territorial_analysis_enabled and logistics_efficiency_status == "critical":
             territorial_reasons.append("Critical logistics imbalance between demand and stock distribution.")
-        elif logistics_efficiency_status == "inefficient":
+        elif territorial_analysis_enabled and logistics_efficiency_status == "inefficient":
             territorial_reasons.append("Logistics imbalance detected; consider stock rebalancing.")
 
         bucket, action = _choose_decision(
@@ -459,6 +483,9 @@ def build_decisions(
         "summary": summary,
         "top_profit_skus": top_profit_skus,
         "top_risk_skus": top_risk_skus,
+        "sku_attribution_status": sku_attribution_status,
+        "territorial_analysis_enabled": territorial_analysis_enabled,
+        "profit_contribution_enabled": profit_contribution_enabled,
         "funnel_summary": funnel_summary if isinstance(funnel_summary, dict) else {},
         "funnel_issue_counts": (
             funnel_summary.get("issue_counts", {})
@@ -475,3 +502,5 @@ def build_decisions(
         "keyword_summary": keyword_summary if isinstance(keyword_summary, dict) else {},
         "keyword_global_signal_ru": _keyword_global_signal_ru(keyword_summary),
     }
+
+

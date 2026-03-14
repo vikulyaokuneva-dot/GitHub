@@ -1,10 +1,10 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-import re
 from typing import Any, Dict, Iterable, List
 
 from ..api.endpoints import STOCKS
 from ..api.wb_client import WBApiClient
+from ..validation.sku_normalization import normalize_sku
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -23,10 +23,7 @@ def _as_float(value: Any, default: float = 0.0) -> float:
 
 
 def _as_sku(value: Any) -> str:
-    text = str(value or "").strip()
-    if re.fullmatch(r"\d+(\.0+)?", text):
-        return text.split(".", 1)[0]
-    return text
+    return str(normalize_sku(value) or "")
 
 
 def _pick_text(row: Dict[str, Any], keys: Iterable[str]) -> str:
@@ -51,10 +48,13 @@ def load_stocks_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
     for index, row in enumerate(rows_raw):
         nm_id = _pick_text(row, ("nmId", "nm_id", "nmid", "nmID"))
         sku = _as_sku(
-            row.get("supplierArticle")
+            nm_id
+            or row.get("nmId")
+            or row.get("nm_id")
+            or row.get("nmid")
+            or row.get("supplierArticle")
             or row.get("vendorCode")
             or row.get("barcode")
-            or nm_id
         )
         warehouse = _pick_text(row, ("warehouseName", "warehouse", "officeName"))
         quantity_full = _as_float(row.get("quantityFull") or row.get("quantity_full"), default=0.0)
@@ -68,7 +68,7 @@ def load_stocks_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
             "nm_id": nm_id,
             "quantity": round(stock, 2),
             "warehouse": warehouse,
-            # compatibility with current metrics layer
+            "_sku_source_field": "nm_id" if sku and sku == _as_sku(nm_id) else "supplierArticle",
             "stock": round(stock, 2),
             "_raw_row_index": index,
             "_source_dataset": "stocks_api",
@@ -90,4 +90,3 @@ def load_stocks_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
         "rows": rows,
         "api_debug": api_debug,
     }
-

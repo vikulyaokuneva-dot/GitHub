@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 from ..domain.event_model import build_render_kpi_values
 from ..pipeline.daily_stage_support import sync_from_entry
+from ..validation.report_guardrails import apply_report_guardrails
 
 
 def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
@@ -433,4 +434,6 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "key_insights": key_insights,
         }
     )
+    payload = apply_report_guardrails(payload)
     return payload
+

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any
 
@@ -41,8 +41,8 @@ def format_money_or_unknown(
     amount = _safe_float(value)
     if decimals <= 0:
         rounded = int(round(amount))
-        return f"{rounded:,}".replace(",", " ") + " ?"
-    return f"{amount:,.{decimals}f}".replace(",", " ") + " ?"
+        return f"{rounded:,}".replace(",", " ")
+    return f"{amount:,.{decimals}f}".replace(",", " ")
 
 
 def format_pct_or_unknown(

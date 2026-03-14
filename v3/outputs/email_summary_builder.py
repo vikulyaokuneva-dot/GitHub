@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List
 
@@ -76,6 +76,9 @@ def build_email_summary(
     funnel_snapshot: Dict[str, Any] | None = None,
     sku_watchlists: Dict[str, Any] | None = None,
     sku_alerts: Dict[str, Any] | None = None,
+    sku_attribution_status: str = "ok",
+    financial_finality_status: str = "unavailable",
+    report_reliability_level: str = "medium",
 ) -> Dict[str, Any]:
     safe_daily_kpi = daily_kpi if isinstance(daily_kpi, dict) else {}
     safe_ads_summary = ads_summary if isinstance(ads_summary, dict) else {}
@@ -150,6 +153,9 @@ def build_email_summary(
         "funnel_snapshot": safe_funnel_snapshot,
         "sku_watchlists": safe_sku_watchlists,
         "sku_alerts": safe_sku_alerts,
+        "sku_attribution_status": str(sku_attribution_status or "ok"),
+        "financial_finality_status": str(financial_finality_status or "unavailable"),
+        "report_reliability_level": str(report_reliability_level or "medium"),
     }
 
     summary["display"] = {

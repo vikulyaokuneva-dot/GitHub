@@ -1,10 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from typing import Any, Dict, Iterable, List
 
 from ..api.endpoints import ORDERS
 from ..api.wb_client import WBApiClient
+from ..validation.sku_normalization import normalize_sku
 
 
 def _as_float(value: Any, default: float = 0.0) -> float:
@@ -23,10 +24,7 @@ def _as_float(value: Any, default: float = 0.0) -> float:
 
 
 def _as_sku(value: Any) -> str:
-    text = str(value or "").strip()
-    if re.fullmatch(r"\d+(\.0+)?", text):
-        return text.split(".", 1)[0]
-    return text
+    return str(normalize_sku(value) or "")
 
 
 def _pick_text(row: Dict[str, Any], keys: Iterable[str]) -> str:
@@ -62,10 +60,13 @@ def load_orders_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
             continue
         nm_id = _pick_text(row, ("nmId", "nm_id", "nmid", "nmID"))
         sku = _as_sku(
-            row.get("supplierArticle")
+            nm_id
+            or row.get("nmId")
+            or row.get("nm_id")
+            or row.get("nmid")
+            or row.get("supplierArticle")
             or row.get("vendorCode")
             or row.get("barcode")
-            or nm_id
         )
         order_id = _pick_text(row, ("srid", "odid", "orderId", "gNumber", "orderUID"))
         quantity = _as_float(
@@ -97,7 +98,7 @@ def load_orders_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
             "quantity": quantity,
             "price": round(price, 2),
             "warehouse": warehouse,
-            # compatibility with current metrics layer
+            "_sku_source_field": "nm_id" if sku and sku == _as_sku(nm_id) else "supplierArticle",
             "revenue": round(price, 2),
             "profit": 0.0,
             "orders": quantity,
@@ -129,4 +130,3 @@ def load_orders_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
         "rows": rows,
         "api_debug": api_debug,
     }
-

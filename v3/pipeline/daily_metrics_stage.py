@@ -298,10 +298,17 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             breakdown = ", ".join(f"{k}={int(v)}" for k, v in sorted(invalid_reason_counts.items(), key=lambda x: str(x[0])))
             warnings_collector.add_warning("invalid_sku_reason_breakdown", f"Invalid SKU reason breakdown: {breakdown}")
     if bool(metrics_data_quality.get("unassigned_costs_present", False)):
-        warnings_collector.add_warning(
-            "unassigned_costs_detected",
-            "Part of costs is not assigned to SKU and stored in unassigned_costs.",
-        )
+        sku_attr_status_for_warning = str(metrics_data_quality.get("sku_attribution_status") or "ok").strip().lower()
+        if sku_attr_status_for_warning == "broken":
+            warnings_collector.add_warning(
+                "sku_attribution_broken",
+                "SKU attribution quality is broken; unassigned rows are treated as parser/data issue.",
+            )
+        else:
+            warnings_collector.add_warning(
+                "unassigned_costs_detected",
+                "Part of costs is not assigned to SKU and stored in unassigned_costs.",
+            )
     zero_revenue_activity_skus = metrics_data_quality.get("zero_revenue_activity_skus", [])
     if isinstance(zero_revenue_activity_skus, list) and zero_revenue_activity_skus:
         warnings_collector.add_warning(
@@ -383,15 +390,52 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         if cls in abc_summary:
             abc_summary[cls] += 1
 
-    profit_contribution = build_profit_contribution(metrics if isinstance(metrics, dict) else {})
+    sku_attribution_status = str(metrics_data_quality.get("sku_attribution_status") or "ok").strip().lower()
+    financial_finality_status = str(metrics_data_quality.get("financial_finality_status") or "unavailable").strip().lower()
+    territorial_analysis_enabled = bool(metrics_data_quality.get("territorial_analysis_enabled", sku_attribution_status != "broken"))
+    profit_contribution_enabled = bool(
+        metrics_data_quality.get("profit_contribution_enabled", sku_attribution_status != "broken")
+    )
+
+    metrics_data_quality["territorial_analysis_enabled"] = territorial_analysis_enabled
+    metrics_data_quality["profit_contribution_enabled"] = profit_contribution_enabled
+    metrics["data_quality"] = metrics_data_quality
+
+    if profit_contribution_enabled:
+        profit_contribution = build_profit_contribution(metrics if isinstance(metrics, dict) else {})
+        profit_contribution_status = str(
+            (profit_contribution.get("status") if isinstance(profit_contribution, dict) else "") or ""
+        ).strip().lower()
+        if profit_contribution_status in {"partial", "insufficient_data"}:
+            warnings_collector.add_warning(
+                "profit_contribution_partial_data",
+                f"Profit contribution computed with status={profit_contribution_status}.",
+            )
+    else:
+        profit_contribution = {
+            "status": "suppressed_due_to_data_quality",
+            "summary": {"suppressed": True, "sku_count": 0},
+            "items": [],
+            "p1": [],
+            "p2": [],
+            "p3": [],
+            "p4": [],
+            "top_profit_skus": [],
+            "warnings": ["suppressed_due_to_sku_attribution"],
+            "signals": [
+                {
+                    "code": "technical_issue",
+                    "message": "Profit contribution suppressed: SKU attribution is broken.",
+                }
+            ],
+        }
+        warnings_collector.add_warning(
+            "profit_contribution_suppressed",
+            "Profit contribution engine suppressed due to broken SKU attribution.",
+        )
     metrics["profit_contribution"] = profit_contribution if isinstance(profit_contribution, dict) else {}
     analytics["profit_contribution"] = profit_contribution if isinstance(profit_contribution, dict) else {}
-    profit_contribution_status = str((profit_contribution.get("status") if isinstance(profit_contribution, dict) else "") or "").strip().lower()
-    if profit_contribution_status in {"partial", "insufficient_data"}:
-        warnings_collector.add_warning(
-            "profit_contribution_partial_data",
-            f"Profit contribution computed with status={profit_contribution_status}.",
-        )
+
     p1_rows = profit_contribution.get("p1", []) if isinstance(profit_contribution, dict) else []
     p2_rows = profit_contribution.get("p2", []) if isinstance(profit_contribution, dict) else []
     p3_rows = profit_contribution.get("p3", []) if isinstance(profit_contribution, dict) else []
@@ -399,12 +443,12 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     totals_payload = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
     total_profit_overall = float(totals_payload.get("total_profit", totals_payload.get("profit", 0.0)) or 0.0)
 
-    if total_profit_overall <= 0:
+    if total_profit_overall <= 0 and financial_finality_status == "final":
         warnings_collector.add_warning(
             "low_total_profit",
             "Total financial profit is non-positive; financial attribution may be incomplete.",
         )
-    if isinstance(top_profit_rows, list) and top_profit_rows:
+    if profit_contribution_enabled and isinstance(top_profit_rows, list) and top_profit_rows:
         top_share = float((top_profit_rows[0] or {}).get("profit_share", 0.0) or 0.0)
         if top_share > 0.5:
             warnings_collector.add_warning(
@@ -412,16 +456,37 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
                 f"Top SKU contributes {round(top_share, 4)} of total profit.",
             )
 
-    territorial_input: Dict[str, Any] = dict(metrics if isinstance(metrics, dict) else {})
-    territorial_input["sales_rows"] = sales_rows
-    territorial_input["stocks_rows"] = stocks_rows
-    territorial_distribution = build_territorial_distribution(
-        territorial_input,
-        stocks_raw=stocks_rows,
-        seller_id=seller_id,
-        run_date=run_date,
-        config=cfg if isinstance(cfg, dict) else {},
-    )
+    if territorial_analysis_enabled:
+        territorial_input: Dict[str, Any] = dict(metrics if isinstance(metrics, dict) else {})
+        territorial_input["sales_rows"] = sales_rows
+        territorial_input["stocks_rows"] = stocks_rows
+        territorial_distribution = build_territorial_distribution(
+            territorial_input,
+            stocks_raw=stocks_rows,
+            seller_id=seller_id,
+            run_date=run_date,
+            config=cfg if isinstance(cfg, dict) else {},
+        )
+    else:
+        territorial_distribution = {
+            "status": "suppressed_due_to_data_quality",
+            "summary": {"suppressed": True},
+            "signals": [
+                {"code": "data_quality_issue", "message": "Territorial engine suppressed: SKU attribution is broken."}
+            ],
+            "warnings": [
+                {
+                    "code": "territorial_analysis_suppressed",
+                    "message": "Territorial distribution suppressed due to broken SKU attribution.",
+                }
+            ],
+            "items": [],
+            "skus": [],
+        }
+        warnings_collector.add_warning(
+            "territorial_analysis_suppressed",
+            "Territorial distribution engine suppressed due to broken SKU attribution.",
+        )
     analytics["territorial_distribution"] = territorial_distribution if isinstance(territorial_distribution, dict) else {}
     metrics["territorial_distribution"] = territorial_distribution if isinstance(territorial_distribution, dict) else {}
     if isinstance(territorial_distribution, dict):
@@ -447,18 +512,19 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     sku_with_ktr = int(territorial_distribution_summary.get("sku_with_ktr", 0) or 0)
     insufficient_total_count = int(territorial_distribution_summary.get("insufficient_total_count", 0) or 0)
 
-    warnings_collector.add_warning(
-        "territorial_distribution_built",
-        f"Territorial distribution built for {sku_with_ktr} SKU with KTR",
-    )
-    if insufficient_total_count > 0:
+    if territorial_analysis_enabled:
         warnings_collector.add_warning(
-            "insufficient_warehouse_data",
-            "Insufficient warehouse-level data for full territorial analysis",
+            "territorial_distribution_built",
+            f"Territorial distribution built for {sku_with_ktr} SKU with KTR",
         )
-    high_ktr_count = int(territorial_summary.get("misallocated_count", 0) or 0)
-    if high_ktr_count > 0:
-        warnings_collector.add_warning("high_ktr_detected", f"High KTR detected for {high_ktr_count} SKU")
+        if insufficient_total_count > 0:
+            warnings_collector.add_warning(
+                "insufficient_warehouse_data",
+                "Insufficient warehouse-level data for full territorial analysis",
+            )
+        high_ktr_count = int(territorial_summary.get("misallocated_count", 0) or 0)
+        if high_ktr_count > 0:
+            warnings_collector.add_warning("high_ktr_detected", f"High KTR detected for {high_ktr_count} SKU")
 
     write_daily_metrics_artifacts(
         out_dir=out_dir,
@@ -486,6 +552,21 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         territorial_summary=territorial_summary if isinstance(territorial_summary, dict) else {},
         logistics_summary=logistics_summary if isinstance(logistics_summary, dict) else {},
     )
+    if isinstance(facts.get("data_quality"), dict):
+        facts_data_quality = dict(facts.get("data_quality", {}))
+        facts_data_quality.update(
+            {
+                "sku_attribution_status": sku_attribution_status,
+                "financial_finality_status": financial_finality_status,
+                "territorial_analysis_enabled": territorial_analysis_enabled,
+                "profit_contribution_enabled": profit_contribution_enabled,
+                "report_reliability_level": str(metrics_data_quality.get("report_reliability_level") or "medium"),
+            }
+        )
+        facts["data_quality"] = facts_data_quality
+    data_quality = facts.get("data_quality", {}) if isinstance(facts, dict) else {}
+    if not isinstance(data_quality, dict):
+        data_quality = {}
 
     ctx.update(
         {
@@ -549,4 +630,3 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
     return ctx
-

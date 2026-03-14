@@ -1,8 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List
 
 from ..raw.models import RawIngestionBundle
+from ..validation.sku_normalization import normalize_sku
 from .models import (
     NormalizedAdsRow,
     NormalizedBundle,
@@ -37,16 +38,25 @@ def _to_str(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _to_sku(*values: Any) -> str:
+    for value in values:
+        token = normalize_sku(value)
+        if token:
+            return str(token)
+    return ""
+
+
 def _normalize_orders_rows(rows: List[Dict[str, Any]]) -> List[NormalizedOrderRow]:
     out: List[NormalizedOrderRow] = []
     for row in rows:
         if not isinstance(row, dict):
             continue
+        nm_id = _to_str(_first_non_empty(row, ("nm_id", "nmId", "nmid")))
         out.append(
             NormalizedOrderRow(
                 date=_to_str(_first_non_empty(row, ("date", "lastChangeDate", "createdAt"))),
-                sku=_to_str(_first_non_empty(row, ("sku", "supplierArticle", "vendorCode"))),
-                nm_id=_to_str(_first_non_empty(row, ("nm_id", "nmId", "nmid"))),
+                sku=_to_sku(nm_id, _first_non_empty(row, ("sku", "supplierArticle", "vendorCode", "barcode"))),
+                nm_id=nm_id,
                 order_id=_to_str(_first_non_empty(row, ("order_id", "srid", "srid2", "rid"))),
                 quantity=_safe_float(_first_non_empty(row, ("quantity", "qty", "count")) or 1.0),
                 price=_safe_float(
@@ -67,11 +77,12 @@ def _normalize_sales_rows(rows: List[Dict[str, Any]]) -> List[NormalizedSalesRow
         orders_value = _safe_float(_first_non_empty(row, ("orders", "order_count", "orders_count", "ordered_quantity")))
         buys_value = _safe_float(_first_non_empty(row, ("buys", "sales_count", "quantity", "count", "orders")))
         quantity_value = _safe_float(_first_non_empty(row, ("quantity", "count", "qty", "buys", "sales_count", "orders")))
+        nm_id = _to_str(_first_non_empty(row, ("nm_id", "nmId", "nmid")))
         out.append(
             NormalizedSalesRow(
                 date=_to_str(_first_non_empty(row, ("date", "lastChangeDate", "saleDate", "createdAt"))),
-                sku=_to_str(_first_non_empty(row, ("sku", "seller_sku", "supplierArticle", "vendorCode"))),
-                nm_id=_to_str(_first_non_empty(row, ("nm_id", "nmId", "nmid"))),
+                sku=_to_sku(nm_id, _first_non_empty(row, ("sku", "seller_sku", "supplierArticle", "vendorCode", "barcode"))),
+                nm_id=nm_id,
                 order_ref=_to_str(_first_non_empty(row, ("order_ref", "order_id", "srid", "saleID", "gNumber"))),
                 quantity=quantity_value,
                 revenue=_safe_float(_first_non_empty(row, ("revenue", "forPay", "finishedPrice", "priceWithDisc", "totalPrice"))),
@@ -97,10 +108,11 @@ def _normalize_stocks_rows(rows: List[Dict[str, Any]]) -> List[NormalizedStockRo
     for row in rows:
         if not isinstance(row, dict):
             continue
+        nm_id = _to_str(_first_non_empty(row, ("nm_id", "nmId", "nmid")))
         out.append(
             NormalizedStockRow(
-                sku=_to_str(_first_non_empty(row, ("sku", "seller_sku", "supplierArticle", "vendorCode"))),
-                nm_id=_to_str(_first_non_empty(row, ("nm_id", "nmId", "nmid"))),
+                sku=_to_sku(nm_id, _first_non_empty(row, ("sku", "seller_sku", "supplierArticle", "vendorCode", "barcode"))),
+                nm_id=nm_id,
                 quantity=_safe_float(_first_non_empty(row, ("stock", "quantity", "qty", "amount"))),
                 warehouse=_to_str(_first_non_empty(row, ("warehouse", "warehouseName", "warehouse_name"))),
                 raw=dict(row),
@@ -114,11 +126,12 @@ def _normalize_ads_rows(rows: List[Dict[str, Any]]) -> List[NormalizedAdsRow]:
     for row in rows:
         if not isinstance(row, dict):
             continue
+        nm_id = _to_str(_first_non_empty(row, ("nm_id", "nmId", "nmid")))
         out.append(
             NormalizedAdsRow(
                 date=_to_str(_first_non_empty(row, ("date", "day", "report_date"))),
-                sku=_to_str(_first_non_empty(row, ("sku", "seller_sku", "supplierArticle", "vendorCode"))),
-                nm_id=_to_str(_first_non_empty(row, ("nm_id", "nmId", "nmid"))),
+                sku=_to_sku(nm_id, _first_non_empty(row, ("sku", "seller_sku", "supplierArticle", "vendorCode", "barcode"))),
+                nm_id=nm_id,
                 spend=_safe_float(_first_non_empty(row, ("ads_spend", "spend", "cost", "sum"))),
                 impressions=_safe_float(_first_non_empty(row, ("impressions", "shows", "views"))),
                 clicks=_safe_float(_first_non_empty(row, ("clicks",))),

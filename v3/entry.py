@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import argparse
 import os
 import re
@@ -314,17 +314,17 @@ def _format_ktr(value: Any) -> str:
 
 def _confidence_ru(value: str) -> str:
     mapping = {
-        "high": "высокая",
-        "medium": "средняя",
-        "low": "низкая",
+        "high": "РІС‹СЃРѕРєР°СЏ",
+        "medium": "СЃСЂРµРґРЅСЏСЏ",
+        "low": "РЅРёР·РєР°СЏ",
     }
-    return mapping.get(str(value or "").strip().lower(), str(value or "низкая"))
+    return mapping.get(str(value or "").strip().lower(), str(value or "РЅРёР·РєР°СЏ"))
 
 
 def _compact_sku_list(items: List[str], limit: int = 8) -> str:
     clean = [str(x).strip() for x in items if str(x).strip()]
     if not clean:
-        return "—"
+        return "вЂ”"
     if len(clean) <= limit:
         return ", ".join(clean)
     return ", ".join(clean[:limit]) + f" (+{len(clean) - limit})"
@@ -458,64 +458,64 @@ def _warning_message_ru(code: str, message: str) -> str:
     number = number_match.group(1) if number_match else None
     mapping = {
         "invalid_sku_filtered": (
-            f"Отфильтрованы невалидные SKU-строки: {number}."
+            f"РћС‚С„РёР»СЊС‚СЂРѕРІР°РЅС‹ РЅРµРІР°Р»РёРґРЅС‹Рµ SKU-СЃС‚СЂРѕРєРё: {number}."
             if number is not None
-            else "Невалидные SKU-строки отфильтрованы."
+            else "РќРµРІР°Р»РёРґРЅС‹Рµ SKU-СЃС‚СЂРѕРєРё РѕС‚С„РёР»СЊС‚СЂРѕРІР°РЅС‹."
         ),
-        "invalid_sku_reason_breakdown": "Есть строки с невалидным SKU по нескольким типам ошибок.",
-        "unassigned_costs_detected": "Часть расходов не привязана к SKU и учтена отдельно.",
+        "invalid_sku_reason_breakdown": "Р•СЃС‚СЊ СЃС‚СЂРѕРєРё СЃ РЅРµРІР°Р»РёРґРЅС‹Рј SKU РїРѕ РЅРµСЃРєРѕР»СЊРєРёРј С‚РёРїР°Рј РѕС€РёР±РѕРє.",
+        "unassigned_costs_detected": "Р§Р°СЃС‚СЊ СЂР°СЃС…РѕРґРѕРІ РЅРµ РїСЂРёРІСЏР·Р°РЅР° Рє SKU Рё СѓС‡С‚РµРЅР° РѕС‚РґРµР»СЊРЅРѕ.",
         "decision_memory_updated": (
-            f"Память решений AI обновлена: добавлено {number} записей."
+            f"РџР°РјСЏС‚СЊ СЂРµС€РµРЅРёР№ AI РѕР±РЅРѕРІР»РµРЅР°: РґРѕР±Р°РІР»РµРЅРѕ {number} Р·Р°РїРёСЃРµР№."
             if number is not None
-            else "Память решений AI обновлена."
+            else "РџР°РјСЏС‚СЊ СЂРµС€РµРЅРёР№ AI РѕР±РЅРѕРІР»РµРЅР°."
         ),
         "decision_outcomes_evaluated": (
-            f"Выполнена оценка результатов решений: {number}."
+            f"Р’С‹РїРѕР»РЅРµРЅР° РѕС†РµРЅРєР° СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ СЂРµС€РµРЅРёР№: {number}."
             if number is not None
-            else "Выполнена оценка результатов прошлых решений."
+            else "Р’С‹РїРѕР»РЅРµРЅР° РѕС†РµРЅРєР° СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ РїСЂРѕС€Р»С‹С… СЂРµС€РµРЅРёР№."
         ),
-        "no_decisions_ready_for_outcome": "Пока нет решений, готовых к оценке результата.",
-        "sales_report_missing": "Не найден валидный отчет продаж.",
-        "ads_report_missing": "Не найден валидный рекламный отчет.",
-        "stocks_report_missing": "Не найден валидный отчет остатков.",
-        "ads_file_loaded": "Рекламный файл успешно загружен.",
-        "ads_spend_applied_to_profit": "Рекламные расходы учтены при расчете чистой прибыли.",
-        "ads_attribution_partial": "В рекламной атрибуции есть ассоциированные конверсии, показатели смешанные.",
-        "net_profit_reduced_by_ads": "Чистая прибыль уменьшена на сумму рекламных расходов.",
-        "input_files_missing": "Во входной папке нет локальных отчетов.",
-        "low_total_profit": "Суммарная прибыль по SKU неположительная.",
-        "profit_concentration_high": "Концентрация прибыли в одном SKU слишком высокая.",
-        "wb_token_missing": "Отсутствует WB токен для внешнего источника.",
-        "wb_api_zero_sales_rows": "WB API вернул 0 строк продаж за выбранный период.",
-        "wb_api_financial_degraded": "Финансовые данные WB API не получены, использован деградированный режим.",
-        "financial_data_missing": "Данные о продажах не получены.",
-        "cost_price_missing": "Себестоимость не подтверждена, финансовый контур частичный.",
-        "wb_commission_missing": "Комиссия WB не подтверждена, финансовый контур частичный.",
-        "expense_attribution_partial": "Часть расходов атрибутирована неполно (есть invalid/unassigned строки).",
-        "net_profit_partial": "Чистая прибыль рассчитана частично из-за неполных финансовых компонентов.",
-        "financial_margin_not_final": "Маржинальность не финальная, так как финансовый контур частичный.",
-        "sales_activity_zero_revenue": "Есть продажи по SKU, но выручка по ним не атрибутирована.",
-        "daily_kpi_fallback_used": "Supplier goods report не найден, использован API fallback для daily KPI.",
-        "weak_kpi_source": "Daily KPI рассчитаны из слабого источника metrics totals fallback.",
-        "daily_orders_count_unknown": "Количество заказов за день не подтверждено ни одним валидным источником.",
-        "daily_buyouts_count_unknown": "Количество выкупов за день не подтверждено ни одним валидным источником.",
-        "daily_kpi_unknown": "Daily KPI по заказам/выкупам не подтверждены валидным источником.",
-        "totals_orders_buys_not_confirmed": "В totals заказы/выкупы не подтверждены и не подставляются из quantity/activity.",
-        "quantity_orders_fallback_blocked": "Колонка quantity не может использоваться как fallback для orders/buyouts count.",
-        "daily_kpi_mismatch_with_supplier_goods_report": "Daily KPI не совпадает с supplier goods report WB.",
+        "no_decisions_ready_for_outcome": "РџРѕРєР° РЅРµС‚ СЂРµС€РµРЅРёР№, РіРѕС‚РѕРІС‹С… Рє РѕС†РµРЅРєРµ СЂРµР·СѓР»СЊС‚Р°С‚Р°.",
+        "sales_report_missing": "РќРµ РЅР°Р№РґРµРЅ РІР°Р»РёРґРЅС‹Р№ РѕС‚С‡РµС‚ РїСЂРѕРґР°Р¶.",
+        "ads_report_missing": "РќРµ РЅР°Р№РґРµРЅ РІР°Р»РёРґРЅС‹Р№ СЂРµРєР»Р°РјРЅС‹Р№ РѕС‚С‡РµС‚.",
+        "stocks_report_missing": "РќРµ РЅР°Р№РґРµРЅ РІР°Р»РёРґРЅС‹Р№ РѕС‚С‡РµС‚ РѕСЃС‚Р°С‚РєРѕРІ.",
+        "ads_file_loaded": "Р РµРєР»Р°РјРЅС‹Р№ С„Р°Р№Р» СѓСЃРїРµС€РЅРѕ Р·Р°РіСЂСѓР¶РµРЅ.",
+        "ads_spend_applied_to_profit": "Р РµРєР»Р°РјРЅС‹Рµ СЂР°СЃС…РѕРґС‹ СѓС‡С‚РµРЅС‹ РїСЂРё СЂР°СЃС‡РµС‚Рµ С‡РёСЃС‚РѕР№ РїСЂРёР±С‹Р»Рё.",
+        "ads_attribution_partial": "Р’ СЂРµРєР»Р°РјРЅРѕР№ Р°С‚СЂРёР±СѓС†РёРё РµСЃС‚СЊ Р°СЃСЃРѕС†РёРёСЂРѕРІР°РЅРЅС‹Рµ РєРѕРЅРІРµСЂСЃРёРё, РїРѕРєР°Р·Р°С‚РµР»Рё СЃРјРµС€Р°РЅРЅС‹Рµ.",
+        "net_profit_reduced_by_ads": "Р§РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ СѓРјРµРЅСЊС€РµРЅР° РЅР° СЃСѓРјРјСѓ СЂРµРєР»Р°РјРЅС‹С… СЂР°СЃС…РѕРґРѕРІ.",
+        "input_files_missing": "Р’Рѕ РІС…РѕРґРЅРѕР№ РїР°РїРєРµ РЅРµС‚ Р»РѕРєР°Р»СЊРЅС‹С… РѕС‚С‡РµС‚РѕРІ.",
+        "low_total_profit": "РЎСѓРјРјР°СЂРЅР°СЏ РїСЂРёР±С‹Р»СЊ РїРѕ SKU РЅРµРїРѕР»РѕР¶РёС‚РµР»СЊРЅР°СЏ.",
+        "profit_concentration_high": "РљРѕРЅС†РµРЅС‚СЂР°С†РёСЏ РїСЂРёР±С‹Р»Рё РІ РѕРґРЅРѕРј SKU СЃР»РёС€РєРѕРј РІС‹СЃРѕРєР°СЏ.",
+        "wb_token_missing": "РћС‚СЃСѓС‚СЃС‚РІСѓРµС‚ WB С‚РѕРєРµРЅ РґР»СЏ РІРЅРµС€РЅРµРіРѕ РёСЃС‚РѕС‡РЅРёРєР°.",
+        "wb_api_zero_sales_rows": "WB API РІРµСЂРЅСѓР» 0 СЃС‚СЂРѕРє РїСЂРѕРґР°Р¶ Р·Р° РІС‹Р±СЂР°РЅРЅС‹Р№ РїРµСЂРёРѕРґ.",
+        "wb_api_financial_degraded": "Р¤РёРЅР°РЅСЃРѕРІС‹Рµ РґР°РЅРЅС‹Рµ WB API РЅРµ РїРѕР»СѓС‡РµРЅС‹, РёСЃРїРѕР»СЊР·РѕРІР°РЅ РґРµРіСЂР°РґРёСЂРѕРІР°РЅРЅС‹Р№ СЂРµР¶РёРј.",
+        "financial_data_missing": "Р”Р°РЅРЅС‹Рµ Рѕ РїСЂРѕРґР°Р¶Р°С… РЅРµ РїРѕР»СѓС‡РµРЅС‹.",
+        "cost_price_missing": "РЎРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅР°, С„РёРЅР°РЅСЃРѕРІС‹Р№ РєРѕРЅС‚СѓСЂ С‡Р°СЃС‚РёС‡РЅС‹Р№.",
+        "wb_commission_missing": "РљРѕРјРёСЃСЃРёСЏ WB РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅР°, С„РёРЅР°РЅСЃРѕРІС‹Р№ РєРѕРЅС‚СѓСЂ С‡Р°СЃС‚РёС‡РЅС‹Р№.",
+        "expense_attribution_partial": "Р§Р°СЃС‚СЊ СЂР°СЃС…РѕРґРѕРІ Р°С‚СЂРёР±СѓС‚РёСЂРѕРІР°РЅР° РЅРµРїРѕР»РЅРѕ (РµСЃС‚СЊ invalid/unassigned СЃС‚СЂРѕРєРё).",
+        "net_profit_partial": "Р§РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ СЂР°СЃСЃС‡РёС‚Р°РЅР° С‡Р°СЃС‚РёС‡РЅРѕ РёР·-Р·Р° РЅРµРїРѕР»РЅС‹С… С„РёРЅР°РЅСЃРѕРІС‹С… РєРѕРјРїРѕРЅРµРЅС‚РѕРІ.",
+        "financial_margin_not_final": "РњР°СЂР¶РёРЅР°Р»СЊРЅРѕСЃС‚СЊ РЅРµ С„РёРЅР°Р»СЊРЅР°СЏ, С‚Р°Рє РєР°Рє С„РёРЅР°РЅСЃРѕРІС‹Р№ РєРѕРЅС‚СѓСЂ С‡Р°СЃС‚РёС‡РЅС‹Р№.",
+        "sales_activity_zero_revenue": "Р•СЃС‚СЊ РїСЂРѕРґР°Р¶Рё РїРѕ SKU, РЅРѕ РІС‹СЂСѓС‡РєР° РїРѕ РЅРёРј РЅРµ Р°С‚СЂРёР±СѓС‚РёСЂРѕРІР°РЅР°.",
+        "daily_kpi_fallback_used": "Supplier goods report РЅРµ РЅР°Р№РґРµРЅ, РёСЃРїРѕР»СЊР·РѕРІР°РЅ API fallback РґР»СЏ daily KPI.",
+        "weak_kpi_source": "Daily KPI СЂР°СЃСЃС‡РёС‚Р°РЅС‹ РёР· СЃР»Р°Р±РѕРіРѕ РёСЃС‚РѕС‡РЅРёРєР° metrics totals fallback.",
+        "daily_orders_count_unknown": "РљРѕР»РёС‡РµСЃС‚РІРѕ Р·Р°РєР°Р·РѕРІ Р·Р° РґРµРЅСЊ РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅРѕ РЅРё РѕРґРЅРёРј РІР°Р»РёРґРЅС‹Рј РёСЃС‚РѕС‡РЅРёРєРѕРј.",
+        "daily_buyouts_count_unknown": "РљРѕР»РёС‡РµСЃС‚РІРѕ РІС‹РєСѓРїРѕРІ Р·Р° РґРµРЅСЊ РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅРѕ РЅРё РѕРґРЅРёРј РІР°Р»РёРґРЅС‹Рј РёСЃС‚РѕС‡РЅРёРєРѕРј.",
+        "daily_kpi_unknown": "Daily KPI РїРѕ Р·Р°РєР°Р·Р°Рј/РІС‹РєСѓРїР°Рј РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹ РІР°Р»РёРґРЅС‹Рј РёСЃС‚РѕС‡РЅРёРєРѕРј.",
+        "totals_orders_buys_not_confirmed": "Р’ totals Р·Р°РєР°Р·С‹/РІС‹РєСѓРїС‹ РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹ Рё РЅРµ РїРѕРґСЃС‚Р°РІР»СЏСЋС‚СЃСЏ РёР· quantity/activity.",
+        "quantity_orders_fallback_blocked": "РљРѕР»РѕРЅРєР° quantity РЅРµ РјРѕР¶РµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊСЃСЏ РєР°Рє fallback РґР»СЏ orders/buyouts count.",
+        "daily_kpi_mismatch_with_supplier_goods_report": "Daily KPI РЅРµ СЃРѕРІРїР°РґР°РµС‚ СЃ supplier goods report WB.",
         "territorial_distribution_built": (
-            f"Рассчитано территориальное распределение для {number} SKU."
+            f"Р Р°СЃСЃС‡РёС‚Р°РЅРѕ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕРµ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ РґР»СЏ {number} SKU."
             if number is not None
-            else "Рассчитано территориальное распределение SKU."
+            else "Р Р°СЃСЃС‡РёС‚Р°РЅРѕ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕРµ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ SKU."
         ),
-        "insufficient_warehouse_data": "Недостаточно данных по складам для полного территориального анализа.",
+        "insufficient_warehouse_data": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РїРѕ СЃРєР»Р°РґР°Рј РґР»СЏ РїРѕР»РЅРѕРіРѕ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕРіРѕ Р°РЅР°Р»РёР·Р°.",
         "high_ktr_detected": (
-            f"Обнаружен высокий KTR у {number} SKU."
+            f"РћР±РЅР°СЂСѓР¶РµРЅ РІС‹СЃРѕРєРёР№ KTR Сѓ {number} SKU."
             if number is not None
-            else "Обнаружены SKU с высоким KTR."
+            else "РћР±РЅР°СЂСѓР¶РµРЅС‹ SKU СЃ РІС‹СЃРѕРєРёРј KTR."
         ),
     }
-    base = mapping.get(code, text or "Предупреждение системы.")
+    base = mapping.get(code, text or "РџСЂРµРґСѓРїСЂРµР¶РґРµРЅРёРµ СЃРёСЃС‚РµРјС‹.")
     if code == "profit_concentration_high" and text:
         return text
     return base
@@ -553,37 +553,37 @@ def _build_key_insights(
     if conversion_view_to_order is not None:
         if conversion_view_to_order < 1.0:
             insights.append(
-                "Конверсия карточки ниже 1%: вероятны проблемы первого фото, цены, рейтинга или отзывов."
+                "РљРѕРЅРІРµСЂСЃРёСЏ РєР°СЂС‚РѕС‡РєРё РЅРёР¶Рµ 1%: РІРµСЂРѕСЏС‚РЅС‹ РїСЂРѕР±Р»РµРјС‹ РїРµСЂРІРѕРіРѕ С„РѕС‚Рѕ, С†РµРЅС‹, СЂРµР№С‚РёРЅРіР° РёР»Рё РѕС‚Р·С‹РІРѕРІ."
             )
         elif conversion_view_to_order > 3.0:
-            insights.append("Конверсия карточки выше 3%: карточка товара работает сильно.")
+            insights.append("РљРѕРЅРІРµСЂСЃРёСЏ РєР°СЂС‚РѕС‡РєРё РІС‹С€Рµ 3%: РєР°СЂС‚РѕС‡РєР° С‚РѕРІР°СЂР° СЂР°Р±РѕС‚Р°РµС‚ СЃРёР»СЊРЅРѕ.")
     if buyout_rate is not None and buyout_rate < 50.0:
         insights.append(
-            "Доля выкупа ниже 50%: проверьте логистику, ожидания клиента и соответствие карточки товару."
+            "Р”РѕР»СЏ РІС‹РєСѓРїР° РЅРёР¶Рµ 50%: РїСЂРѕРІРµСЂСЊС‚Рµ Р»РѕРіРёСЃС‚РёРєСѓ, РѕР¶РёРґР°РЅРёСЏ РєР»РёРµРЅС‚Р° Рё СЃРѕРѕС‚РІРµС‚СЃС‚РІРёРµ РєР°СЂС‚РѕС‡РєРё С‚РѕРІР°СЂСѓ."
         )
     if cpo_value is not None:
-        insights.append(f"CPO по заказам: {round(cpo_value, 2)}.")
+        insights.append(f"CPO РїРѕ Р·Р°РєР°Р·Р°Рј: {round(cpo_value, 2)}.")
 
     profit_summary = facts.get("profit_contribution_summary", {}) if isinstance(facts, dict) else {}
     p1_count = int((profit_summary or {}).get("p1_count", 0) or 0)
     if p1_count > 0:
-        insights.append(f"{p1_count} SKU формируют основную прибыль бизнеса (P1).")
+        insights.append(f"{p1_count} SKU С„РѕСЂРјРёСЂСѓСЋС‚ РѕСЃРЅРѕРІРЅСѓСЋ РїСЂРёР±С‹Р»СЊ Р±РёР·РЅРµСЃР° (P1).")
 
     liquidate = int((health_summary or {}).get("LIQUIDATE", 0) or 0)
     if liquidate > 0:
-        insights.append(f"{liquidate} SKU находится в зоне ликвидации.")
+        insights.append(f"{liquidate} SKU РЅР°С…РѕРґРёС‚СЃСЏ РІ Р·РѕРЅРµ Р»РёРєРІРёРґР°С†РёРё.")
 
     data_quality = facts.get("data_quality", {}) if isinstance(facts, dict) else {}
     invalid_rows = int((data_quality or {}).get("invalid_sku_rows", 0) or 0)
     if invalid_rows > 0:
-        insights.append(f"{invalid_rows} строк расходов не привязаны к валидному SKU.")
+        insights.append(f"{invalid_rows} СЃС‚СЂРѕРє СЂР°СЃС…РѕРґРѕРІ РЅРµ РїСЂРёРІСЏР·Р°РЅС‹ Рє РІР°Р»РёРґРЅРѕРјСѓ SKU.")
 
     memory_summary = facts.get("decision_memory_summary", {}) if isinstance(facts, dict) else {}
     total_logged = int((memory_summary or {}).get("total_logged", 0) or 0)
     if total_logged > 0:
-        insights.append(f"В памяти AI уже накоплено {total_logged} решений.")
+        insights.append(f"Р’ РїР°РјСЏС‚Рё AI СѓР¶Рµ РЅР°РєРѕРїР»РµРЅРѕ {total_logged} СЂРµС€РµРЅРёР№.")
     if decision_rows_added > 0:
-        insights.append(f"В текущем запуске добавлено {decision_rows_added} новых решений в память.")
+        insights.append(f"Р’ С‚РµРєСѓС‰РµРј Р·Р°РїСѓСЃРєРµ РґРѕР±Р°РІР»РµРЅРѕ {decision_rows_added} РЅРѕРІС‹С… СЂРµС€РµРЅРёР№ РІ РїР°РјСЏС‚СЊ.")
 
     evaluated = int((outcomes_payload or {}).get("evaluated", 0) or 0)
     if evaluated > 0:
@@ -591,10 +591,10 @@ def _build_key_insights(
         success = int((results or {}).get("success", 0) or 0)
         neutral = int((results or {}).get("neutral", 0) or 0)
         fail = int((results or {}).get("fail", 0) or 0)
-        insights.append(f"Оценка решений: успешных {success}, нейтральных {neutral}, неудачных {fail}.")
+        insights.append(f"РћС†РµРЅРєР° СЂРµС€РµРЅРёР№: СѓСЃРїРµС€РЅС‹С… {success}, РЅРµР№С‚СЂР°Р»СЊРЅС‹С… {neutral}, РЅРµСѓРґР°С‡РЅС‹С… {fail}.")
 
     if not insights:
-        insights.append("Ключевые показатели рассчитаны без критичных отклонений.")
+        insights.append("РљР»СЋС‡РµРІС‹Рµ РїРѕРєР°Р·Р°С‚РµР»Рё СЂР°СЃСЃС‡РёС‚Р°РЅС‹ Р±РµР· РєСЂРёС‚РёС‡РЅС‹С… РѕС‚РєР»РѕРЅРµРЅРёР№.")
     return insights[:5]
 
 
@@ -609,16 +609,16 @@ def _build_short_recommendations(
     critical_logistics = int(logistics_summary.get("critical_count", 0) or 0)
 
     if scale_count > 0:
-        recommendations.append("Усилить SKU из группы SCALE: поддержать запас и повысить рекламное присутствие.")
+        recommendations.append("РЈСЃРёР»РёС‚СЊ SKU РёР· РіСЂСѓРїРїС‹ SCALE: РїРѕРґРґРµСЂР¶Р°С‚СЊ Р·Р°РїР°СЃ Рё РїРѕРІС‹СЃРёС‚СЊ СЂРµРєР»Р°РјРЅРѕРµ РїСЂРёСЃСѓС‚СЃС‚РІРёРµ.")
     if fix_count > 0:
-        recommendations.append("Приоритизировать SKU из группы FIX: обновить карточки, цену и экономику unit-уровня.")
+        recommendations.append("РџСЂРёРѕСЂРёС‚РёР·РёСЂРѕРІР°С‚СЊ SKU РёР· РіСЂСѓРїРїС‹ FIX: РѕР±РЅРѕРІРёС‚СЊ РєР°СЂС‚РѕС‡РєРё, С†РµРЅСѓ Рё СЌРєРѕРЅРѕРјРёРєСѓ unit-СѓСЂРѕРІРЅСЏ.")
     if liquidate_count > 0:
-        recommendations.append("По SKU из LIQUIDATE запустить сценарий ускоренной распродажи и очистки остатков.")
+        recommendations.append("РџРѕ SKU РёР· LIQUIDATE Р·Р°РїСѓСЃС‚РёС‚СЊ СЃС†РµРЅР°СЂРёР№ СѓСЃРєРѕСЂРµРЅРЅРѕР№ СЂР°СЃРїСЂРѕРґР°Р¶Рё Рё РѕС‡РёСЃС‚РєРё РѕСЃС‚Р°С‚РєРѕРІ.")
     if critical_logistics > 0:
-        recommendations.append("Снизить логистические потери у critical SKU через перераспределение по складам.")
+        recommendations.append("РЎРЅРёР·РёС‚СЊ Р»РѕРіРёСЃС‚РёС‡РµСЃРєРёРµ РїРѕС‚РµСЂРё Сѓ critical SKU С‡РµСЂРµР· РїРµСЂРµСЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ РїРѕ СЃРєР»Р°РґР°Рј.")
 
     if not recommendations:
-        recommendations.append("Сохранить текущий курс и контролировать динамику KPI без резких изменений.")
+        recommendations.append("РЎРѕС…СЂР°РЅРёС‚СЊ С‚РµРєСѓС‰РёР№ РєСѓСЂСЃ Рё РєРѕРЅС‚СЂРѕР»РёСЂРѕРІР°С‚СЊ РґРёРЅР°РјРёРєСѓ KPI Р±РµР· СЂРµР·РєРёС… РёР·РјРµРЅРµРЅРёР№.")
     return recommendations[:3]
 
 
@@ -680,31 +680,31 @@ def _build_ai_day_conclusion(
     financial_revenue = safe_financial_kpi.get("revenue")
     profit = safe_financial_kpi.get("net_profit")
     margin_pct = safe_financial_kpi.get("margin_pct") if financial_status == "confirmed" and not financial_partial else None
-    main_insight = (key_insights[0] if key_insights else "Критичных отклонений по KPI не выявлено").rstrip(".")
-    focus = (recommendations[0] if recommendations else "Сохранить текущую операционную стратегию").rstrip(".")
+    main_insight = (key_insights[0] if key_insights else "РљСЂРёС‚РёС‡РЅС‹С… РѕС‚РєР»РѕРЅРµРЅРёР№ РїРѕ KPI РЅРµ РІС‹СЏРІР»РµРЅРѕ").rstrip(".")
+    focus = (recommendations[0] if recommendations else "РЎРѕС…СЂР°РЅРёС‚СЊ С‚РµРєСѓС‰СѓСЋ РѕРїРµСЂР°С†РёРѕРЅРЅСѓСЋ СЃС‚СЂР°С‚РµРіРёСЋ").rstrip(".")
 
     if orders_status == "confirmed" and (financial_status != "confirmed" or financial_partial):
         return (
-            f"За операционный день {operational_date} зафиксировано {format_int_or_unknown(orders)} заказов. "
-            "Подтвержденных выкупов и полного финансового контура за период не получено, "
-            "поэтому выручка, прибыль и производные финансовые KPI не интерпретируются как окончательные значения дня. "
-            f"Главный сигнал: {main_insight}; фокус следующего дня: {focus}."
+            f"Р—Р° РѕРїРµСЂР°С†РёРѕРЅРЅС‹Р№ РґРµРЅСЊ {operational_date} Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРѕ {format_int_or_unknown(orders)} Р·Р°РєР°Р·РѕРІ. "
+            "РџРѕРґС‚РІРµСЂР¶РґРµРЅРЅС‹С… РІС‹РєСѓРїРѕРІ Рё РїРѕР»РЅРѕРіРѕ С„РёРЅР°РЅСЃРѕРІРѕРіРѕ РєРѕРЅС‚СѓСЂР° Р·Р° РїРµСЂРёРѕРґ РЅРµ РїРѕР»СѓС‡РµРЅРѕ, "
+            "РїРѕСЌС‚РѕРјСѓ РІС‹СЂСѓС‡РєР°, РїСЂРёР±С‹Р»СЊ Рё РїСЂРѕРёР·РІРѕРґРЅС‹Рµ С„РёРЅР°РЅСЃРѕРІС‹Рµ KPI РЅРµ РёРЅС‚РµСЂРїСЂРµС‚РёСЂСѓСЋС‚СЃСЏ РєР°Рє РѕРєРѕРЅС‡Р°С‚РµР»СЊРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РґРЅСЏ. "
+            f"Р“Р»Р°РІРЅС‹Р№ СЃРёРіРЅР°Р»: {main_insight}; С„РѕРєСѓСЃ СЃР»РµРґСѓСЋС‰РµРіРѕ РґРЅСЏ: {focus}."
         )
     if orders_status != "confirmed":
         return (
-            f"За операционный день {operational_date} данные по заказам пока не подтверждены. "
-            "До подтверждения операционного и финансового контуров итоговые KPI дня считаются предварительными. "
-            f"Главный сигнал: {main_insight}; фокус следующего дня: {focus}."
+            f"Р—Р° РѕРїРµСЂР°С†РёРѕРЅРЅС‹Р№ РґРµРЅСЊ {operational_date} РґР°РЅРЅС‹Рµ РїРѕ Р·Р°РєР°Р·Р°Рј РїРѕРєР° РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹. "
+            "Р”Рѕ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РѕРїРµСЂР°С†РёРѕРЅРЅРѕРіРѕ Рё С„РёРЅР°РЅСЃРѕРІРѕРіРѕ РєРѕРЅС‚СѓСЂРѕРІ РёС‚РѕРіРѕРІС‹Рµ KPI РґРЅСЏ СЃС‡РёС‚Р°СЋС‚СЃСЏ РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅС‹РјРё. "
+            f"Р“Р»Р°РІРЅС‹Р№ СЃРёРіРЅР°Р»: {main_insight}; С„РѕРєСѓСЃ СЃР»РµРґСѓСЋС‰РµРіРѕ РґРЅСЏ: {focus}."
         )
 
     return (
-        f"За операционный день {operational_date} получено {format_int_or_unknown(orders)} заказов, "
-        f"выкуплено {format_int_or_unknown(buyouts)} на сумму {format_money_or_unknown(buyouts_revenue)}. "
-        f"Финансовая выручка: {format_money_or_unknown(financial_revenue, decimals=0)}, "
-        f"чистая прибыль: {format_money_or_unknown(profit, decimals=0)}, "
-        f"маржа: {format_pct_or_unknown(margin_pct)}. "
-        f"Статусы контуров: orders={orders_status}, buyouts={buyouts_status}, financials={financial_status}. "
-        f"Главный сигнал: {main_insight}; фокус следующего дня: {focus}."
+        f"Р—Р° РѕРїРµСЂР°С†РёРѕРЅРЅС‹Р№ РґРµРЅСЊ {operational_date} РїРѕР»СѓС‡РµРЅРѕ {format_int_or_unknown(orders)} Р·Р°РєР°Р·РѕРІ, "
+        f"РІС‹РєСѓРїР»РµРЅРѕ {format_int_or_unknown(buyouts)} РЅР° СЃСѓРјРјСѓ {format_money_or_unknown(buyouts_revenue)}. "
+        f"Р¤РёРЅР°РЅСЃРѕРІР°СЏ РІС‹СЂСѓС‡РєР°: {format_money_or_unknown(financial_revenue, decimals=0)}, "
+        f"С‡РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ: {format_money_or_unknown(profit, decimals=0)}, "
+        f"РјР°СЂР¶Р°: {format_pct_or_unknown(margin_pct)}. "
+        f"РЎС‚Р°С‚СѓСЃС‹ РєРѕРЅС‚СѓСЂРѕРІ: orders={orders_status}, buyouts={buyouts_status}, financials={financial_status}. "
+        f"Р“Р»Р°РІРЅС‹Р№ СЃРёРіРЅР°Р»: {main_insight}; С„РѕРєСѓСЃ СЃР»РµРґСѓСЋС‰РµРіРѕ РґРЅСЏ: {focus}."
     )
 
 
@@ -727,6 +727,8 @@ def _build_management_email_body(
     profitability_pct = _safe_float(summary.get("profitability_pct", 0.0))
     financial_completeness_pct = _safe_float(summary.get("financial_completeness_pct", 0.0))
     financial_partial = bool(summary.get("financial_partial", False))
+    financial_finality_status = str(summary.get("financial_finality_status") or ("partial" if financial_partial else "final")).strip().lower()
+    financial_interpretation = "provisional" if financial_finality_status != "final" else "final"
     ads_rows = int(round(_safe_float(summary.get("ads_rows", 0))))
     ads_impressions = int(round(_safe_float(summary.get("ads_impressions", 0))))
     ads_clicks = int(round(_safe_float(summary.get("ads_clicks", 0))))
@@ -774,61 +776,62 @@ def _build_management_email_body(
     )
 
     lines: List[str] = [
-        f"Управленческое резюме WB AI Agent v3 — кабинет {seller_id}",
-        f"Дата отчета: {run_date}",
-        f"Операционный день: {operational_date}",
+        f"РЈРїСЂР°РІР»РµРЅС‡РµСЃРєРѕРµ СЂРµР·СЋРјРµ WB AI Agent v3 вЂ” РєР°Р±РёРЅРµС‚ {seller_id}",
+        f"Р”Р°С‚Р° РѕС‚С‡РµС‚Р°: {run_date}",
+        f"РћРїРµСЂР°С†РёРѕРЅРЅС‹Р№ РґРµРЅСЊ: {operational_date}",
         "",
         "COMMERCE KPI",
-        f"- Заказы: {orders_display}",
-        f"- Выкупы: {buyouts_display}",
-        f"- К перечислению по выкупам: {buyouts_amount_display}",
-        f"- Сумма заказов (минус комиссия WB): {orders_amount_display}",
-        f"- Источник orders_count: {orders_count_source}",
-        f"- Источник orders_amount: {orders_amount_source}",
-        f"- Источник buyouts: {buyouts_source}",
+        f"- Р—Р°РєР°Р·С‹: {orders_display}",
+        f"- Р’С‹РєСѓРїС‹: {buyouts_display}",
+        f"- Рљ РїРµСЂРµС‡РёСЃР»РµРЅРёСЋ РїРѕ РІС‹РєСѓРїР°Рј: {buyouts_amount_display}",
+        f"- РЎСѓРјРјР° Р·Р°РєР°Р·РѕРІ (РјРёРЅСѓСЃ РєРѕРјРёСЃСЃРёСЏ WB): {orders_amount_display}",
+        f"- РСЃС‚РѕС‡РЅРёРє orders_count: {orders_count_source}",
+        f"- РСЃС‚РѕС‡РЅРёРє orders_amount: {orders_amount_source}",
+        f"- РСЃС‚РѕС‡РЅРёРє buyouts: {buyouts_source}",
         "",
         "FINANCIAL KPI",
-        f"- Выручка (финансовая агрегация): {revenue_display}",
-        f"- Себестоимость: {_format_money(cost_price)}",
-        f"- Комиссия WB: {_format_money(wb_commission)}",
-        f"- Валовая прибыль: {_format_money(gross_profit)}",
-        f"- Чистая прибыль: {net_profit_display}",
-        f"- Маржа: {margin_display}",
-        f"- Рентабельность: {profitability_display}",
-        f"- Логистика: {_format_money(logistics)}",
-        f"- Хранение: {_format_money(storage)}",
-        f"- Штрафы: {_format_money(penalties)}",
-        f"- Удержания: {_format_money(deductions)}",
-        f"- Реклама: {_format_money(ads_spend)}",
-        f"- Полнота финансовых данных: {_format_pct(financial_completeness_pct)}",
-        f"- Финансовый контур: {'частичный' if financial_partial else 'подтвержденный'}",
-        f"- Рекламных строк: {_format_int(ads_rows)}",
-        f"- Показы: {_format_int(ads_impressions)}",
-        f"- Клики: {_format_int(ads_clicks)}",
-        f"- Заказанные товары из рекламы: {_format_int(ads_orders)}",
-        f"- Источник рекламы: {ads_source_file or ('local_file' if ads_loaded_from_file else 'api_or_missing')}",
-        f"- Атрибуция рекламы: {ads_attribution_quality}",
-        f"- Реклама учтена в прибыли: {'Да' if ads_applied_to_profit else 'Нет'}",
-        f"- Средний чек: {avg_check_display}",
-        f"- Статусы контуров: orders={str(daily_status_matrix.get('orders') or 'unknown')}, buyouts={str(daily_status_matrix.get('buyouts') or 'unknown')}, financials={str(daily_status_matrix.get('financials') or 'unknown')}",
+        f"- Р’С‹СЂСѓС‡РєР° (С„РёРЅР°РЅСЃРѕРІР°СЏ Р°РіСЂРµРіР°С†РёСЏ): {revenue_display}",
+        f"- РЎРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ: {_format_money(cost_price)}",
+        f"- РљРѕРјРёСЃСЃРёСЏ WB: {_format_money(wb_commission)}",
+        f"- Р’Р°Р»РѕРІР°СЏ РїСЂРёР±С‹Р»СЊ: {_format_money(gross_profit)}",
+        f"- Р§РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ: {net_profit_display}",
+        f"- РњР°СЂР¶Р°: {margin_display}",
+        f"- Р РµРЅС‚Р°Р±РµР»СЊРЅРѕСЃС‚СЊ: {profitability_display}",
+        f"- Р›РѕРіРёСЃС‚РёРєР°: {_format_money(logistics)}",
+        f"- РҐСЂР°РЅРµРЅРёРµ: {_format_money(storage)}",
+        f"- РЁС‚СЂР°С„С‹: {_format_money(penalties)}",
+        f"- РЈРґРµСЂР¶Р°РЅРёСЏ: {_format_money(deductions)}",
+        f"- Р РµРєР»Р°РјР°: {_format_money(ads_spend)}",
+        f"- РџРѕР»РЅРѕС‚Р° С„РёРЅР°РЅСЃРѕРІС‹С… РґР°РЅРЅС‹С…: {_format_pct(financial_completeness_pct)}",
+        f"- Financial contour status: {financial_finality_status}",
+        f"- Financial KPI interpretation: {financial_interpretation}",
+        f"- Р РµРєР»Р°РјРЅС‹С… СЃС‚СЂРѕРє: {_format_int(ads_rows)}",
+        f"- РџРѕРєР°Р·С‹: {_format_int(ads_impressions)}",
+        f"- РљР»РёРєРё: {_format_int(ads_clicks)}",
+        f"- Р—Р°РєР°Р·Р°РЅРЅС‹Рµ С‚РѕРІР°СЂС‹ РёР· СЂРµРєР»Р°РјС‹: {_format_int(ads_orders)}",
+        f"- РСЃС‚РѕС‡РЅРёРє СЂРµРєР»Р°РјС‹: {ads_source_file or ('local_file' if ads_loaded_from_file else 'api_or_missing')}",
+        f"- РђС‚СЂРёР±СѓС†РёСЏ СЂРµРєР»Р°РјС‹: {ads_attribution_quality}",
+        f"- Р РµРєР»Р°РјР° СѓС‡С‚РµРЅР° РІ РїСЂРёР±С‹Р»Рё: {'Р”Р°' if ads_applied_to_profit else 'РќРµС‚'}",
+        f"- РЎСЂРµРґРЅРёР№ С‡РµРє: {avg_check_display}",
+        f"- РЎС‚Р°С‚СѓСЃС‹ РєРѕРЅС‚СѓСЂРѕРІ: orders={str(daily_status_matrix.get('orders') or 'unknown')}, buyouts={str(daily_status_matrix.get('buyouts') or 'unknown')}, financials={str(daily_status_matrix.get('financials') or 'unknown')}",
         "",
-        "КЛЮЧЕВЫЕ ВЫВОДЫ AI",
+        "РљР›Р®Р§Р•Р’Р«Р• Р’Р«Р’РћР”Р« AI",
     ]
     if insights:
         lines.extend(f"- {item}" for item in insights[:3])
     else:
-        lines.append("- Существенных отклонений не зафиксировано, динамика стабильна.")
+        lines.append("- РЎСѓС‰РµСЃС‚РІРµРЅРЅС‹С… РѕС‚РєР»РѕРЅРµРЅРёР№ РЅРµ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРѕ, РґРёРЅР°РјРёРєР° СЃС‚Р°Р±РёР»СЊРЅР°.")
 
-    lines.extend(["", "КРАТКИЕ РЕКОМЕНДАЦИИ"])
+    lines.extend(["", "РљР РђРўРљРР• Р Р•РљРћРњР•РќР”РђР¦РР"])
     if recommendations:
         lines.extend(f"- {item}" for item in recommendations[:3])
     else:
-        lines.append("- Поддерживать текущую стратегию и контролировать KPI в ежедневном цикле.")
+        lines.append("- РџРѕРґРґРµСЂР¶РёРІР°С‚СЊ С‚РµРєСѓС‰СѓСЋ СЃС‚СЂР°С‚РµРіРёСЋ Рё РєРѕРЅС‚СЂРѕР»РёСЂРѕРІР°С‚СЊ KPI РІ РµР¶РµРґРЅРµРІРЅРѕРј С†РёРєР»Рµ.")
 
     if day_conclusion:
-        lines.extend(["", "AI ВЫВОД ДНЯ", day_conclusion])
+        lines.extend(["", "AI Р’Р«Р’РћР” Р”РќРЇ", day_conclusion])
 
-    lines.extend(["", "Детализация — в приложенном PDF-отчете."])
+    lines.extend(["", "Р”РµС‚Р°Р»РёР·Р°С†РёСЏ вЂ” РІ РїСЂРёР»РѕР¶РµРЅРЅРѕРј PDF-РѕС‚С‡РµС‚Рµ."])
     return "\n".join(lines)
 
 
@@ -1025,11 +1028,11 @@ def main() -> None:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_daily = sub.add_parser("daily", help="Run daily pipeline")
-    p_daily.add_argument("--seller", default=None, help="seller_id, РµСЃР»Рё РЅРµ Р·Р°РґР°РЅ вЂ” Р·Р°РїСѓСЃС‚РёС‚ РїРѕ РІСЃРµРј cabinets/*")
+    p_daily.add_argument("--seller", default=None, help="seller_id, Р ВµРЎРѓР В»Р С‘ Р Р…Р Вµ Р В·Р В°Р Т‘Р В°Р Р… РІР‚вЂќ Р В·Р В°Р С—РЎС“РЎРѓРЎвЂљР С‘РЎвЂљ Р С—Р С• Р Р†РЎРѓР ВµР С cabinets/*")
     p_daily.add_argument("--date", default=_default_date(), help="YYYY-MM-DD")
 
     p_weekly = sub.add_parser("weekly", help="Run weekly intelligence from history snapshots")
-    p_weekly.add_argument("--seller", default=None, help="seller_id, если не задан — запустит по всем cabinets/*")
+    p_weekly.add_argument("--seller", default=None, help="seller_id, РµСЃР»Рё РЅРµ Р·Р°РґР°РЅ вЂ” Р·Р°РїСѓСЃС‚РёС‚ РїРѕ РІСЃРµРј cabinets/*")
     p_weekly.add_argument("--date", default=_default_date(), help="YYYY-MM-DD")
 
     p_audit = sub.add_parser("audit", help="Run audit pipeline (Excel input)")

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Tuple
 
@@ -69,7 +69,6 @@ def _ktr_map(logistics_ktr: Dict[str, Any], territorial_distribution: Dict[str, 
             continue
         out[sku] = _safe_float(ktr)
 
-    # fallback to territorial distribution if logistics_ktr misses some SKUs
     for row in _extract_rows(territorial_distribution, ("skus", "items")):
         sku = str(row.get("sku") or "").strip()
         if not sku or sku in out:
@@ -126,6 +125,28 @@ def build_strategy_plan(
     opportunity_scores: Dict[str, Any],
     growth_simulation: Dict[str, Any],
 ) -> Dict[str, Any]:
+    safe_metrics = metrics if isinstance(metrics, dict) else {}
+    data_quality = safe_metrics.get("data_quality", {})
+    if not isinstance(data_quality, dict):
+        data_quality = {}
+
+    sku_attribution_status = str(data_quality.get("sku_attribution_status") or "ok").strip().lower()
+    territorial_analysis_enabled = bool(data_quality.get("territorial_analysis_enabled", sku_attribution_status != "broken"))
+
+    if sku_attribution_status == "broken":
+        return {
+            "strategy": {"scale": [], "fix": [], "watch": [], "liquidate": []},
+            "tasks": [],
+            "signals": [
+                {
+                    "code": "data_quality_issue",
+                    "message": "Director strategy suppressed due to broken SKU attribution.",
+                }
+            ],
+            "territorial_analysis_enabled": territorial_analysis_enabled,
+            "sku_attribution_status": sku_attribution_status,
+        }
+
     metric_rows = _extract_rows(metrics, ("sku_metrics", "items", "skus"))
     abc_by_sku = _abc_map(abc_rows)
     health_by_sku = _health_map(health_payload)
@@ -159,7 +180,6 @@ def build_strategy_plan(
         action = ""
         priority = ""
 
-        # Primary strategy bucket (deterministic precedence)
         if abc_class == "A" and margin_pct > 0.3 and health_status == "SCALE":
             group, action, priority = "scale", "increase_ads", "P1"
         elif profit < 0 and orders > 5:
@@ -177,7 +197,7 @@ def build_strategy_plan(
                 tasks.append({"sku": sku, "task": action, "priority": priority})
 
         ktr = ktr_by_sku.get(sku)
-        if ktr is not None and ktr > 1.3:
+        if territorial_analysis_enabled and ktr is not None and ktr > 1.3:
             task_key = (sku, "rebalance_stock")
             if task_key not in task_seen:
                 task_seen.add(task_key)
@@ -199,4 +219,6 @@ def build_strategy_plan(
     return {
         "strategy": strategy,
         "tasks": tasks,
+        "territorial_analysis_enabled": territorial_analysis_enabled,
+        "sku_attribution_status": sku_attribution_status,
     }

@@ -14,6 +14,11 @@ except Exception:
     pd = None
 
 from ..cleaning.sku_normalizer import split_assigned_vs_unassigned_rows
+from ..validation.data_integrity import (
+    evaluate_financial_integrity,
+    evaluate_sku_attribution,
+    resolve_report_reliability_level,
+)
 
 ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv"}
 
@@ -1300,7 +1305,7 @@ def _rows_from_table(
         sku = str(r.get(sku_col, "")).strip()
         if not sku or sku.lower() == "nan":
             continue
-        item: Dict[str, Any] = {"sku": sku}
+        item: Dict[str, Any] = {"sku": sku, "_sku_source_field": sku_col}
         for field in useful:
             col = canon.get(field)
             if not col:
@@ -1792,14 +1797,17 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
     else:
         ads_attribution_quality = "unknown"
 
-    sales_split = split_assigned_vs_unassigned_rows(sales_rows)
-    ads_split = split_assigned_vs_unassigned_rows(ads_rows)
-    stocks_split = split_assigned_vs_unassigned_rows(stocks_rows)
+    sales_split = split_assigned_vs_unassigned_rows(sales_rows, dataset_name="sales")
+    ads_split = split_assigned_vs_unassigned_rows(ads_rows, dataset_name="ads")
+    stocks_split = split_assigned_vs_unassigned_rows(stocks_rows, dataset_name="stocks")
 
     valid_sales_rows = sales_split["assigned"]
     valid_ads_rows = ads_split["assigned"]
     valid_stocks_rows = stocks_split["assigned"]
     invalid_sku_rows = len(sales_split["unassigned"]) + len(ads_split["unassigned"]) + len(stocks_split["unassigned"])
+    sales_split_diagnostics = sales_split.get("diagnostics", {}) if isinstance(sales_split, dict) else {}
+    ads_split_diagnostics = ads_split.get("diagnostics", {}) if isinstance(ads_split, dict) else {}
+    stocks_split_diagnostics = stocks_split.get("diagnostics", {}) if isinstance(stocks_split, dict) else {}
 
     unassigned_costs = {
         "revenue": 0.0,
@@ -2208,13 +2216,45 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         or abs(unassigned_costs["deductions"]) > 0
         or abs(unassigned_costs["ads_spend"]) > 0
     )
-    financial_status, ai_reliability = _financial_status(
-        invalid_rows=int(invalid_sku_rows),
-        unassigned_present=unassigned_costs_present,
-        unassigned_profit=float(unassigned_costs["profit"]),
-        total_profit=float(totals["total_profit"]),
-        zero_revenue_activity_count=len(zero_revenue_activity_skus),
+    sku_attribution = evaluate_sku_attribution(
+        valid_sku_count=len(sku_metrics),
+        sales_unassigned=sales_split["unassigned"],
+        ads_unassigned=ads_split["unassigned"],
+        stocks_unassigned=stocks_split["unassigned"],
+        sales_activity_qty=total_sales_activity_qty,
     )
+    sku_attribution_status = str(sku_attribution.get("sku_attribution_status") or "ok")
+    attribution_guard_triggered = bool(sku_attribution.get("attribution_guard_triggered", False))
+
+    financial_integrity = evaluate_financial_integrity(
+        totals={
+            "total_revenue": total_revenue,
+            "wb_commission": total_wb_commission,
+            "logistics": total_logistics,
+            "storage": total_storage,
+            "penalties": total_penalties,
+            "deductions": total_deductions,
+            "cost_price": total_cost_price,
+            "tax": 0.0,
+            "ads_spend_total": total_ads_spend,
+        },
+        data_sources={
+            "revenue": "aggregated_rows",
+            "commission": "aggregated_rows",
+            "logistics": "aggregated_rows",
+            "storage": "aggregated_rows",
+            "penalties": "aggregated_rows",
+            "deductions": "aggregated_rows",
+            "cost_price": "aggregated_rows",
+            "tax": "unknown",
+            "ads_spend": ("ads_campaign_totals" if ads_campaign_total_rows else ("ads_rows" if ads_rows else "unknown")),
+        },
+        sku_attribution_status=sku_attribution_status,
+        ads_rows_count=len(ads_rows),
+    )
+    financial_completeness_pct = float(financial_integrity.get("financial_completeness_pct", 0.0) or 0.0)
+    financial_finality_status = str(financial_integrity.get("financial_finality_status") or "unavailable")
+
     has_financial_activity = bool(
         total_revenue > 0
         or abs(total_logistics) > 0
@@ -2225,18 +2265,30 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
     )
     cost_price_missing = bool(has_financial_activity and abs(total_cost_price) <= 1e-9)
     wb_commission_missing = bool(has_financial_activity and abs(total_wb_commission) <= 1e-9)
-    expense_attribution_partial = bool(unassigned_costs_present or int(invalid_sku_rows) > 0)
-    net_profit_partial = bool(cost_price_missing or wb_commission_missing or expense_attribution_partial)
-    financial_margin_not_final = net_profit_partial
-    completeness_checks = (
-        not cost_price_missing,
-        not wb_commission_missing,
-        not expense_attribution_partial,
+    expense_attribution_partial = bool(
+        unassigned_costs_present or int(invalid_sku_rows) > 0 or sku_attribution_status != "ok"
     )
-    financial_completeness_pct = sum(1 for ok in completeness_checks if ok) / len(completeness_checks) * 100.0
-    if net_profit_partial:
+    net_profit_partial = bool(
+        financial_finality_status != "final"
+        or cost_price_missing
+        or wb_commission_missing
+        or expense_attribution_partial
+    )
+    financial_margin_not_final = net_profit_partial
+    if financial_finality_status == "final":
+        financial_status = "ok"
+    elif financial_finality_status == "partial":
         financial_status = "partial"
-        ai_reliability = "low"
+    else:
+        financial_status = "degraded"
+
+    ads_analysis_enabled = bool(len(ads_rows) > 0 or len(ads_campaign_total_rows) > 0)
+    report_reliability_level = resolve_report_reliability_level(
+        sku_attribution_status=sku_attribution_status,
+        financial_finality_status=financial_finality_status,
+        ads_analysis_enabled=ads_analysis_enabled,
+    )
+    ai_reliability = report_reliability_level
 
     financial_kpi = {
         "revenue": round(total_revenue, 2),
@@ -2257,6 +2309,10 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "net_profit_partial": net_profit_partial,
         "financial_margin_not_final": financial_margin_not_final,
         "completeness_pct": round(financial_completeness_pct, 2),
+        "components": financial_integrity.get("components", {}),
+        "available_components": int(financial_integrity.get("available_components", 0) or 0),
+        "total_components": int(financial_integrity.get("total_components", 0) or 0),
+        "financial_finality_status": financial_finality_status,
         "is_partial": net_profit_partial,
     }
 
@@ -2271,12 +2327,31 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "ai_decision_reliability": ai_reliability,
         "zero_revenue_activity_sku_count": len(zero_revenue_activity_skus),
         "zero_revenue_activity_skus": zero_revenue_activity_skus[:50],
+        "sku_attribution_status": sku_attribution_status,
+        "invalid_sku_rows_parser_error": int(sku_attribution.get("invalid_sku_rows_parser_error", 0) or 0),
+        "invalid_sku_rows_missing_field": int(sku_attribution.get("invalid_sku_rows_missing_field", 0) or 0),
+        "unassigned_rows_true": int(sku_attribution.get("unassigned_rows_true", 0) or 0),
+        "attribution_guard_triggered": attribution_guard_triggered,
+        "no_valid_sku_with_sales_activity": bool(sku_attribution.get("no_valid_sku_with_sales_activity", False)),
         "cost_price_missing": cost_price_missing,
         "wb_commission_missing": wb_commission_missing,
         "expense_attribution_partial": expense_attribution_partial,
         "net_profit_partial": net_profit_partial,
         "financial_margin_not_final": financial_margin_not_final,
         "financial_completeness_pct": round(financial_completeness_pct, 2),
+        "financial_finality_status": financial_finality_status,
+        "financial_components": financial_integrity.get("components", {}),
+        "available_financial_components": int(financial_integrity.get("available_components", 0) or 0),
+        "total_financial_components": int(financial_integrity.get("total_components", 0) or 0),
+        "territorial_analysis_enabled": bool(sku_attribution_status != "broken"),
+        "profit_contribution_enabled": bool(sku_attribution_status != "broken"),
+        "ads_analysis_enabled": ads_analysis_enabled,
+        "report_reliability_level": report_reliability_level,
+        "sku_split_diagnostics": {
+            "sales": sales_split_diagnostics if isinstance(sales_split_diagnostics, dict) else {},
+            "ads": ads_split_diagnostics if isinstance(ads_split_diagnostics, dict) else {},
+            "stocks": stocks_split_diagnostics if isinstance(stocks_split_diagnostics, dict) else {},
+        },
     }
 
     ads_diagnostics = {
@@ -2349,6 +2424,7 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             "penalties": totals["penalties"],
             "deductions": totals["deductions"],
             "financial_completeness_pct": financial_kpi["completeness_pct"],
+            "financial_finality_status": financial_kpi.get("financial_finality_status", "unavailable"),
             "is_partial": financial_kpi["is_partial"],
             "ads_attribution_quality": ads_attribution_quality,
         },
@@ -2412,6 +2488,8 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
     unassigned_present = bool(data_quality.get("unassigned_costs_present", False))
     financial_status = str(data_quality.get("financial_status") or "ok")
     ai_reliability = str(data_quality.get("ai_decision_reliability") or "high")
+    sku_attribution_status = str(data_quality.get("sku_attribution_status") or "ok")
+    financial_finality_status = str(data_quality.get("financial_finality_status") or "unavailable")
 
     if source_mode == "fallback_mock":
         confidence = "low"
@@ -2422,10 +2500,12 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
     else:
         confidence = "high"
 
-    if financial_status == "partial":
+    if financial_status == "partial" or financial_finality_status in {"sparse", "unavailable"}:
         confidence = "low"
     elif financial_status == "degraded" and confidence == "high":
         confidence = "medium"
+    elif sku_attribution_status == "broken":
+        confidence = "low"
     elif (invalid_sku_rows > 0 or unassigned_present) and confidence == "high":
         confidence = "medium"
 
@@ -2479,6 +2559,11 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
         "net_profit_partial": bool(financial_kpi.get("net_profit_partial", False)),
         "financial_margin_not_final": bool(financial_kpi.get("financial_margin_not_final", False)),
         "completeness_pct": float(financial_kpi.get("completeness_pct", data_quality.get("financial_completeness_pct", 0.0)) or 0.0),
+        "financial_finality_status": str(
+            financial_kpi.get("financial_finality_status", data_quality.get("financial_finality_status", "unavailable"))
+            or "unavailable"
+        ),
+        "components": financial_kpi.get("components", data_quality.get("financial_components", {})),
         "is_partial": bool(financial_kpi.get("is_partial", False)),
     }
     commerce_kpi = {
@@ -2548,6 +2633,11 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
             "unassigned_profit": float(data_quality.get("unassigned_profit", 0.0) or 0.0),
             "financial_status": financial_status,
             "ai_decision_reliability": ai_reliability,
+            "sku_attribution_status": sku_attribution_status,
+            "invalid_sku_rows_parser_error": int(data_quality.get("invalid_sku_rows_parser_error", 0) or 0),
+            "invalid_sku_rows_missing_field": int(data_quality.get("invalid_sku_rows_missing_field", 0) or 0),
+            "unassigned_rows_true": int(data_quality.get("unassigned_rows_true", 0) or 0),
+            "attribution_guard_triggered": bool(data_quality.get("attribution_guard_triggered", False)),
             "zero_revenue_activity_sku_count": int(data_quality.get("zero_revenue_activity_sku_count", 0) or 0),
             "zero_revenue_activity_skus": data_quality.get("zero_revenue_activity_skus", []),
             "ads_attribution_quality": ads_attribution_quality,
@@ -2563,5 +2653,13 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
             "financial_completeness_pct": float(
                 data_quality.get("financial_completeness_pct", financial_kpi_payload["completeness_pct"]) or 0.0
             ),
+            "financial_finality_status": str(
+                data_quality.get("financial_finality_status", financial_kpi_payload.get("financial_finality_status", "unavailable"))
+                or "unavailable"
+            ),
+            "territorial_analysis_enabled": bool(data_quality.get("territorial_analysis_enabled", True)),
+            "profit_contribution_enabled": bool(data_quality.get("profit_contribution_enabled", True)),
+            "ads_analysis_enabled": bool(data_quality.get("ads_analysis_enabled", ads_rows_count > 0)),
+            "report_reliability_level": str(data_quality.get("report_reliability_level") or "medium"),
         },
     }

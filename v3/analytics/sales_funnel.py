@@ -1,6 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Mapping, Tuple
+
+from ..validation.sku_normalization import normalize_sku
 
 DEFAULT_FUNNEL_THRESHOLDS: Dict[str, float] = {
     "min_views_for_analysis": 50.0,
@@ -24,13 +26,13 @@ FUNNEL_ISSUE_TYPES: Tuple[str, ...] = (
 )
 
 FUNNEL_ISSUE_REASONS_RU: Dict[str, str] = {
-    "traffic_problem": "Низкий трафик: товар получает слишком мало просмотров.",
-    "card_problem": "Проблема карточки: просмотры есть, но товар слабо добавляют в корзину или заказывают.",
-    "price_or_offer_problem": "Проблема оффера: товар кладут в корзину, но плохо оформляют заказ.",
-    "buyout_problem": "Проблема выкупа: заказы есть, но низкий процент выкупа.",
-    "ads_efficiency_problem": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика.",
-    "healthy_funnel": "Воронка выглядит устойчиво по ключевым этапам.",
-    "insufficient_data": "Недостаточно данных для уверенной диагностики воронки.",
+    "traffic_problem": "РќРёР·РєРёР№ С‚СЂР°С„РёРє: С‚РѕРІР°СЂ РїРѕР»СѓС‡Р°РµС‚ СЃР»РёС€РєРѕРј РјР°Р»Рѕ РїСЂРѕСЃРјРѕС‚СЂРѕРІ.",
+    "card_problem": "РџСЂРѕР±Р»РµРјР° РєР°СЂС‚РѕС‡РєРё: РїСЂРѕСЃРјРѕС‚СЂС‹ РµСЃС‚СЊ, РЅРѕ С‚РѕРІР°СЂ СЃР»Р°Р±Рѕ РґРѕР±Р°РІР»СЏСЋС‚ РІ РєРѕСЂР·РёРЅСѓ РёР»Рё Р·Р°РєР°Р·С‹РІР°СЋС‚.",
+    "price_or_offer_problem": "РџСЂРѕР±Р»РµРјР° РѕС„С„РµСЂР°: С‚РѕРІР°СЂ РєР»Р°РґСѓС‚ РІ РєРѕСЂР·РёРЅСѓ, РЅРѕ РїР»РѕС…Рѕ РѕС„РѕСЂРјР»СЏСЋС‚ Р·Р°РєР°Р·.",
+    "buyout_problem": "РџСЂРѕР±Р»РµРјР° РІС‹РєСѓРїР°: Р·Р°РєР°Р·С‹ РµСЃС‚СЊ, РЅРѕ РЅРёР·РєРёР№ РїСЂРѕС†РµРЅС‚ РІС‹РєСѓРїР°.",
+    "ads_efficiency_problem": "РџСЂРѕР±Р»РµРјР° СЂРµРєР»Р°РјС‹: СЂР°СЃС…РѕРґС‹ РµСЃС‚СЊ, РЅРѕ Р·Р°РєР°Р·С‹ РЅРµ РїРѕРґС‚РІРµСЂР¶РґР°СЋС‚ СЌС„С„РµРєС‚РёРІРЅРѕСЃС‚СЊ С‚СЂР°С„РёРєР°.",
+    "healthy_funnel": "Р’РѕСЂРѕРЅРєР° РІС‹РіР»СЏРґРёС‚ СѓСЃС‚РѕР№С‡РёРІРѕ РїРѕ РєР»СЋС‡РµРІС‹Рј СЌС‚Р°РїР°Рј.",
+    "insufficient_data": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё.",
 }
 
 _SKU_ALIASES: Tuple[str, ...] = ("sku", "nm_id", "nmid", "offer_id", "product_id")
@@ -270,7 +272,7 @@ def build_sales_funnel_metrics(
             continue
         lookup = _row_lookup(row)
         raw_sku = _pick_first(row, lookup, _SKU_ALIASES)
-        sku = str(raw_sku or "").strip()
+        sku = str(normalize_sku(raw_sku) or "").strip()
         if not sku:
             sku = f"unknown_sku_{index + 1}"
 
@@ -359,3 +361,7 @@ __all__ = [
     "classify_sales_funnel_issue",
     "safe_div",
 ]
+
+
+
+
