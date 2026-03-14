@@ -338,14 +338,30 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     territorial_problematic_count = int(territorial_summary.get("skus_below_60_localization", 0) or 0)
     territorial_penalty_total = _safe_float(territorial_summary.get("aggregate_estimated_irp_penalty_total", 0.0))
     weighted_localization_share = _safe_float(territorial_summary.get("weighted_average_localization_share", 0.0))
-    if territorial_problematic_count > 0:
+    territorial_analysis_mode = str(
+        territorial_summary.get("analysis_mode", territorial_distribution.get("analysis_mode", "disabled"))
+    ).strip().lower()
+    territorial_recommendation_status = str(
+        territorial_summary.get("recommendation_status", territorial_distribution.get("recommendation_status", "blocked_by_data"))
+    ).strip().lower()
+    territorial_suppressed = bool(
+        territorial_summary.get("suppressed_due_to_data_quality", territorial_distribution.get("suppressed_due_to_data_quality", False))
+    )
+
+    if territorial_analysis_mode == "full" and territorial_recommendation_status == "actionable" and not territorial_suppressed:
+        if territorial_problematic_count > 0:
+            key_insights = list(key_insights) + [
+                f"Confirmed territorial distribution risk: {territorial_problematic_count} SKU below 60% localization."
+            ]
+        if territorial_penalty_total > 0:
+            key_insights = list(key_insights) + [
+                f"Confirmed estimated IRP exposure: {round(territorial_penalty_total, 2)} RUB."
+            ]
+    elif territorial_analysis_mode in {"preview", "disabled"} or territorial_suppressed:
         key_insights = list(key_insights) + [
-            f"Territorial risk: {territorial_problematic_count} SKU below 60% localization."
+            "????????????? ???? ?????????????? ???????, ?? ??? ??????? ?????? ?? ??????? ?????? ? ????????????? ???????/????????."
         ]
-    if territorial_penalty_total > 0:
-        key_insights = list(key_insights) + [
-            f"Estimated IRP exposure: {round(territorial_penalty_total, 2)} RUB."
-        ]
+
     if weighted_localization_share > 0:
         key_insights = list(key_insights) + [
             f"Weighted localization share: {round(weighted_localization_share, 2)}%."

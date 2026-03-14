@@ -21,6 +21,12 @@ def _default_config(seller_id: str) -> Dict[str, Any]:
             "localization_watch_threshold": 60.0,
             "localization_weak_threshold": 40.0,
             "localization_critical_threshold": 20.0,
+            "min_orders_for_confidence": 3.0,
+            "min_orders_for_actionable": 5.0,
+            "min_portfolio_coverage_pct": 40.0,
+            "min_demand_coverage_pct": 50.0,
+            "min_stock_coverage_pct": 40.0,
+            "max_unknown_share_pct": 60.0,
         },
     }
 

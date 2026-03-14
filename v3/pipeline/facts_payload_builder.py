@@ -215,6 +215,13 @@ def build_territorial_distribution_summary(territorial_summary: Dict[str, Any]) 
         "aggregate_estimated_irp_penalty_total": float(safe_summary.get("aggregate_estimated_irp_penalty_total", 0.0) or 0.0),
         "weighted_average_localization_share": float(safe_summary.get("weighted_average_localization_share", 0.0) or 0.0),
         "distribution_efficiency_score": float(safe_summary.get("distribution_efficiency_score", 0.0) or 0.0),
+        "coverage_pct": float(safe_summary.get("coverage_pct", 0.0) or 0.0),
+        "demand_coverage_pct": float(safe_summary.get("demand_coverage_pct", 0.0) or 0.0),
+        "stock_coverage_pct": float(safe_summary.get("stock_coverage_pct", 0.0) or 0.0),
+        "confidence_level": str(safe_summary.get("confidence_level") or "low"),
+        "analysis_mode": str(safe_summary.get("analysis_mode") or "disabled"),
+        "recommendation_status": str(safe_summary.get("recommendation_status") or "blocked_by_data"),
+        "suppressed_due_to_data_quality": bool(safe_summary.get("suppressed_due_to_data_quality", False)),
         "top_weak_localization_skus": (
             [item for item in safe_summary.get("top_weak_localization_skus", []) if isinstance(item, dict)][:5]
             if isinstance(safe_summary.get("top_weak_localization_skus"), list)

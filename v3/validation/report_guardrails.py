@@ -49,7 +49,8 @@ def apply_report_guardrails(payload: Dict[str, Any]) -> Dict[str, Any]:
     commerce_commentary_enabled = bool(orders_confirmed or buyouts_confirmed)
     profitability_commentary_enabled = bool(financial_finality_status == "final")
 
-    territorial_analysis_enabled = bool(sku_attribution_status != "broken")
+    territorial_analysis_enabled = bool(data_quality.get("territorial_analysis_enabled", sku_attribution_status != "broken"))
+    territorial_actionable_enabled = bool(data_quality.get("territorial_actionable_enabled", territorial_analysis_enabled))
     profit_contribution_enabled = bool(sku_attribution_status != "broken")
 
     report_reliability_level = resolve_report_reliability_level(
@@ -65,6 +66,8 @@ def apply_report_guardrails(payload: Dict[str, Any]) -> Dict[str, Any]:
         notices.append("SKU-level analytics are disabled due to attribution quality issues.")
     if not ads_analysis_enabled:
         notices.append("Ads analysis is suppressed because ads source data is missing.")
+    if territorial_analysis_enabled and not territorial_actionable_enabled:
+        notices.append("Territorial conclusions are preview-only due to insufficient demand/stock evidence.")
     if not views_analysis_enabled:
         notices.append("View-dependent conversion interpretation is suppressed because views are missing.")
 
@@ -111,6 +114,7 @@ def apply_report_guardrails(payload: Dict[str, Any]) -> Dict[str, Any]:
             "sku_attribution_status": sku_attribution_status,
             "financial_finality_status": financial_finality_status,
             "territorial_analysis_enabled": territorial_analysis_enabled,
+            "territorial_actionable_enabled": territorial_actionable_enabled,
             "profit_contribution_enabled": profit_contribution_enabled,
             "ads_analysis_enabled": ads_analysis_enabled,
             "views_analysis_enabled": views_analysis_enabled,
@@ -128,6 +132,7 @@ def apply_report_guardrails(payload: Dict[str, Any]) -> Dict[str, Any]:
         "sku_attribution_status": sku_attribution_status,
         "financial_finality_status": financial_finality_status,
         "territorial_analysis_enabled": territorial_analysis_enabled,
+        "territorial_actionable_enabled": territorial_actionable_enabled,
         "profit_contribution_enabled": profit_contribution_enabled,
         "ads_analysis_enabled": ads_analysis_enabled,
         "views_analysis_enabled": views_analysis_enabled,

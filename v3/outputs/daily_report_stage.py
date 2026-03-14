@@ -367,6 +367,27 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     territorial_signals = territorial_distribution.get("signals", []) if isinstance(territorial_distribution, dict) else []
     if not isinstance(territorial_signals, list):
         territorial_signals = []
+    territorial_analysis_mode = str(
+        territorial_summary.get("analysis_mode", territorial_distribution.get("analysis_mode", "disabled"))
+        if isinstance(territorial_distribution, dict)
+        else "disabled"
+    ).strip().lower()
+    territorial_recommendation_status = str(
+        territorial_summary.get("recommendation_status", territorial_distribution.get("recommendation_status", "blocked_by_data"))
+        if isinstance(territorial_distribution, dict)
+        else "blocked_by_data"
+    ).strip().lower()
+    territorial_suppressed_due_to_data_quality = bool(
+        territorial_summary.get("suppressed_due_to_data_quality", territorial_distribution.get("suppressed_due_to_data_quality", False))
+        if isinstance(territorial_distribution, dict)
+        else False
+    )
+    territorial_actionable = bool(
+        territorial_analysis_enabled
+        and territorial_analysis_mode == "full"
+        and territorial_recommendation_status == "actionable"
+        and not territorial_suppressed_due_to_data_quality
+    )
 
     top_weak_lines: List[str] = []
     for row in top_weak_localization_rows[:3]:
@@ -390,7 +411,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             top_irp_lines.append(f"{sku_code} ({_format_money(penalty_value)})")
 
     page_1.extend(["", "## РўР•Р Р РРўРћР РРђР›Р¬РќРћР• Р РђРЎРџР Р•Р”Р•Р›Р•РќРР•"])
-    if (not territorial_analysis_enabled) or analyzed_with_ktr <= 0:
+    if (not territorial_actionable) or analyzed_with_ktr <= 0:
         page_1.append("- РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ Р°РЅР°Р»РёР·Р° С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕРіРѕ СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ")
     else:
         page_1.append(f"- РЎСЂРµРґРЅРёР№ РљРўР  РїРѕ РєР°Р±РёРЅРµС‚Сѓ: {_format_ktr(territorial_summary.get('avg_ktr', 0.0))}")
@@ -410,7 +431,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     logistics_top_critical = logistics_summary.get("top_critical_skus", []) if isinstance(logistics_summary, dict) else []
 
     page_1.extend(["", "## РўРµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕРµ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ Рё Р»РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ СЂРёСЃРє"])
-    if (not territorial_analysis_enabled) or analyzed_with_ktr <= 0:
+    if (not territorial_actionable) or analyzed_with_ktr <= 0:
         page_1.append("- РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ РѕС†РµРЅРєРё Р»РѕРєР°Р»РёР·Р°С†РёРё Рё IRP-СЂРёСЃРєР°.")
     else:
         page_1.append(f"- Р’Р·РІРµС€РµРЅРЅР°СЏ Р»РѕРєР°Р»РёР·Р°С†РёСЏ РїРѕСЂС‚С„РµР»СЏ: {format_pct_or_unknown(weighted_localization_share)}")

@@ -218,6 +218,145 @@ class TestTerritorialDistributionEngine(unittest.TestCase):
 
 
 
+
+    def test_missing_local_orders_does_not_force_zero_localization(self) -> None:
+
+        payload = build_territorial_distribution(
+
+            {
+
+                "sku_metrics": [{"sku": "SKU_UNKNOWN", "orders": 12, "revenue": 1000}],
+
+            },
+
+            run_date="2026-03-24",
+
+        )
+
+        item = self._item(payload, "SKU_UNKNOWN")
+
+        self.assertIsNone(item.get("localization_share"))
+
+        self.assertIn(str(item.get("analysis_mode") or ""), {"preview", "disabled"})
+
+        signals = payload.get("signals", []) if isinstance(payload, dict) else []
+
+        self.assertTrue(any(str(s.get("signal_type") or "") == "distribution_insufficient_data" for s in signals if isinstance(s, dict)))
+
+
+
+    def test_low_sample_sku_is_preview_low_confidence(self) -> None:
+
+        payload = build_territorial_distribution(
+
+            {
+
+                "sku_metrics": [{"sku": "SKU_LOW", "orders": 1, "revenue": 1000}],
+
+                "sales_rows": [{"sku": "SKU_LOW", "warehouse": "wh_a", "orders": 1}],
+
+            },
+
+            stocks_raw=[{"sku": "SKU_LOW", "stock_by_warehouse": {"wh_a": 10}}],
+
+            run_date="2026-03-24",
+
+        )
+
+        item = self._item(payload, "SKU_LOW")
+
+        self.assertEqual(str(item.get("confidence") or ""), "low")
+
+        self.assertEqual(str(item.get("analysis_mode") or ""), "preview")
+
+        self.assertEqual(str(item.get("recommendation_status") or ""), "watch")
+
+
+
+    def test_portfolio_summary_is_suppressed_under_low_coverage(self) -> None:
+
+        payload = build_territorial_distribution(
+
+            {
+
+                "sku_metrics": [
+
+                    {"sku": "A", "orders": 10, "local_orders": 5, "revenue": 1000},
+
+                    {"sku": "B", "orders": 10, "revenue": 1000},
+
+                    {"sku": "C", "orders": 10, "revenue": 1000},
+
+                    {"sku": "D", "orders": 10, "revenue": 1000},
+
+                    {"sku": "E", "orders": 10, "revenue": 1000},
+
+                ]
+
+            },
+
+            run_date="2026-03-24",
+
+        )
+
+        summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
+
+        self.assertTrue(bool(summary.get("suppressed_due_to_data_quality", False)))
+
+        self.assertIn(str(summary.get("analysis_mode") or ""), {"preview", "disabled"})
+
+        self.assertLess(float(summary.get("coverage_pct", 0.0) or 0.0), 40.0)
+
+
+
+    def test_strong_signal_emits_only_with_sufficient_evidence(self) -> None:
+
+        payload = build_territorial_distribution(
+
+            {
+
+                "sku_metrics": [
+
+                    {"sku": "SKU_CRIT_OK", "orders": 12, "revenue": 1000},
+
+                    {"sku": "SKU_CRIT_UNKNOWN", "orders": 12, "revenue": 1000},
+
+                ],
+
+                "sales_rows": [
+
+                    {"sku": "SKU_CRIT_OK", "warehouse": "wh_a", "orders": 12},
+
+                    {"sku": "SKU_CRIT_UNKNOWN", "warehouse": "wh_a", "orders": 12},
+
+                ],
+
+            },
+
+            stocks_raw=[
+
+                {"sku": "SKU_CRIT_OK", "stock_by_warehouse": {"wh_b": 100}},
+
+            ],
+
+            run_date="2026-03-24",
+
+        )
+
+        signals = [row for row in (payload.get("signals", []) if isinstance(payload, dict) else []) if isinstance(row, dict)]
+
+        crit_ok = [s for s in signals if str(s.get("entity_id") or "") == "SKU_CRIT_OK" and str(s.get("signal_type") or "") == "distribution_critical_sku"]
+
+        crit_unknown = [s for s in signals if str(s.get("entity_id") or "") == "SKU_CRIT_UNKNOWN" and str(s.get("signal_type") or "") == "distribution_critical_sku"]
+
+        unknown_data = [s for s in signals if str(s.get("entity_id") or "") == "SKU_CRIT_UNKNOWN" and str(s.get("signal_type") or "") in {"distribution_insufficient_data", "distribution_low_confidence"}]
+
+        self.assertTrue(bool(crit_ok))
+
+        self.assertFalse(bool(crit_unknown))
+
+        self.assertTrue(bool(unknown_data))
+
     def test_writer_creates_territorial_artifacts(self) -> None:
 
         territorial = build_territorial_distribution(

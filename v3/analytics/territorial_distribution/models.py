@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List
@@ -16,10 +16,10 @@ class DistributionCoefficients:
 class SkuDistributionMetrics:
     sku: str
     total_orders: float
-    local_orders: float
+    local_orders: float | None
     localization_share: float | None
-    ktr: float
-    krp: float
+    ktr: float | None
+    krp: float | None
     average_retail_price: float | None
     irp_penalty_per_order: float | None
     estimated_irp_penalty_total: float
@@ -27,6 +27,9 @@ class SkuDistributionMetrics:
     distribution_state_label_ru: str
     effective_date_applied: bool
     confidence: str
+    analysis_mode: str = "disabled"
+    data_quality_status: str = "insufficient_data"
+    recommendation_status: str = "blocked_by_data"
     diagnostics: Dict[str, Any] = field(default_factory=dict)
     notes: List[str] = field(default_factory=list)
 
@@ -48,14 +51,14 @@ class DistributionEngineOutput:
     def to_dict(self) -> Dict[str, Any]:
         items = [row.to_dict() for row in self.sku_metrics]
         return {
-            'seller_id': self.seller_id,
-            'report_date': self.report_date,
-            'status': self.status,
-            'warnings': list(self.warnings),
-            'metadata': dict(self.metadata),
-            'summary': dict(self.summary),
-            'signals': list(self.signals),
-            'sku_metrics': items,
-            'skus': items,
-            'items': items,
+            "seller_id": self.seller_id,
+            "report_date": self.report_date,
+            "status": self.status,
+            "warnings": list(self.warnings),
+            "metadata": dict(self.metadata),
+            "summary": dict(self.summary),
+            "signals": list(self.signals),
+            "sku_metrics": items,
+            "skus": items,
+            "items": items,
         }

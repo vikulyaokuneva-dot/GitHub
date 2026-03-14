@@ -1,14 +1,12 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Mapping, Tuple
 
 
-
-_CYRILLIC_IO = '\u0451'
-
-_CYRILLIC_E = '\u0435'
+_CYRILLIC_IO = "\u0451"
+_CYRILLIC_E = "\u0435"
 
 
 def _as_float_or_none(value: Any) -> float | None:
@@ -19,7 +17,7 @@ def _as_float_or_none(value: Any) -> float | None:
     text = str(value).strip()
     if not text:
         return None
-    candidate = text.replace(' ', '').replace(',', '.')
+    candidate = text.replace(" ", "").replace(",", ".")
     try:
         return float(candidate)
     except ValueError:
@@ -42,27 +40,27 @@ def _resolve_qty(row: Mapping[str, Any], keys: Iterable[str]) -> float:
 
 
 def _resolve_sku(value: Any) -> str:
-    token = str(value or '').strip()
+    token = str(value or "").strip()
     if not token:
-        return ''
-    if re.fullmatch(r'\d+(\.0+)?', token):
-        return token.split('.', 1)[0]
+        return ""
+    if re.fullmatch(r"\d+(\.0+)?", token):
+        return token.split(".", 1)[0]
     return token.lower().replace(_CYRILLIC_IO, _CYRILLIC_E).strip()
 
 
 def _resolve_warehouse_token(value: Any) -> str:
-    token = str(value or '').strip().lower().replace(_CYRILLIC_IO, _CYRILLIC_E)
-    token = re.sub(r'[^a-z\u0430-\u044f0-9]+', ' ', token)
-    token = re.sub(r'\s+', ' ', token).strip()
+    token = str(value or "").strip().lower().replace(_CYRILLIC_IO, _CYRILLIC_E)
+    token = re.sub(r"[^a-z\u0430-\u044f0-9]+", " ", token)
+    token = re.sub(r"\s+", " ", token).strip()
     return token
 
 
 def _resolve_warehouse_from_row(row: Mapping[str, Any]) -> str:
-    for key in ('warehouse', 'warehouse_name', 'stock_warehouse', 'office', 'office_name'):
+    for key in ("warehouse", "warehouse_name", "stock_warehouse", "office", "office_name"):
         token = _resolve_warehouse_token(row.get(key))
         if token:
             return token
-    return ''
+    return ""
 
 
 def _extract_rows(source: Any, keys: Iterable[str]) -> List[Dict[str, Any]]:
@@ -78,14 +76,14 @@ def _extract_rows(source: Any, keys: Iterable[str]) -> List[Dict[str, Any]]:
 
 
 def extract_sku_metrics(metrics: Any) -> List[Dict[str, Any]]:
-    rows = _extract_rows(metrics, ('sku_metrics', 'items', 'skus'))
+    rows = _extract_rows(metrics, ("sku_metrics", "items", "skus"))
     return rows
 
 
 def build_sku_metrics_index(metrics: Any) -> Dict[str, Dict[str, Any]]:
     out: Dict[str, Dict[str, Any]] = {}
     for row in extract_sku_metrics(metrics):
-        sku = _resolve_sku(row.get('sku') or row.get('nm_id') or row.get('offer_id'))
+        sku = _resolve_sku(row.get("sku") or row.get("nm_id") or row.get("offer_id"))
         if sku:
             out[sku] = row
     return out
@@ -94,11 +92,11 @@ def build_sku_metrics_index(metrics: Any) -> Dict[str, Dict[str, Any]]:
 def _build_sku_alias_map(sales_rows: List[Dict[str, Any]], known_skus: set[str]) -> Dict[str, str]:
     weighted_links: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for row in sales_rows:
-        sku = _resolve_sku(row.get('sku'))
-        seller_sku = _resolve_sku(row.get('seller_sku'))
+        sku = _resolve_sku(row.get("sku"))
+        seller_sku = _resolve_sku(row.get("seller_sku"))
         if not sku:
             continue
-        qty = _resolve_qty(row, ('buys', 'sales_count', 'orders', 'quantity'))
+        qty = _resolve_qty(row, ("buys", "sales_count", "orders", "quantity"))
         weight = qty if qty > 0 else 1.0
         weighted_links[sku][sku] += weight
         if seller_sku:
@@ -117,13 +115,13 @@ def _build_sku_alias_map(sales_rows: List[Dict[str, Any]], known_skus: set[str])
 def extract_demand_by_warehouse(sales_rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
     demand: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for row in sales_rows:
-        sku = _resolve_sku(row.get('sku'))
+        sku = _resolve_sku(row.get("sku"))
         if not sku:
             continue
         warehouse = _resolve_warehouse_from_row(row)
         if not warehouse:
             continue
-        qty = _resolve_qty(row, ('buys', 'sales_count', 'orders', 'quantity'))
+        qty = _resolve_qty(row, ("buys", "sales_count", "orders", "quantity"))
         if qty <= 0:
             continue
         demand[sku][warehouse] += qty
@@ -132,7 +130,7 @@ def extract_demand_by_warehouse(sales_rows: List[Dict[str, Any]]) -> Dict[str, D
 
 def _extract_stock_map_from_row(row: Mapping[str, Any]) -> Dict[str, float]:
     out: Dict[str, float] = {}
-    raw_map = row.get('stock_by_warehouse')
+    raw_map = row.get("stock_by_warehouse")
     if isinstance(raw_map, dict):
         for warehouse_raw, value in raw_map.items():
             warehouse = _resolve_warehouse_token(warehouse_raw)
@@ -143,7 +141,7 @@ def _extract_stock_map_from_row(row: Mapping[str, Any]) -> Dict[str, float]:
             return out
 
     warehouse = _resolve_warehouse_from_row(row)
-    stock = _resolve_qty(row, ('stock', 'qty', 'quantity', 'stock_qty'))
+    stock = _resolve_qty(row, ("stock", "qty", "quantity", "stock_qty"))
     if warehouse and stock > 0:
         out[warehouse] = stock
     return out
@@ -153,13 +151,13 @@ def extract_stock_by_warehouse(
     stocks_raw: Dict[str, Any] | List[Dict[str, Any]] | None,
     sku_alias_map: Dict[str, str] | None = None,
 ) -> Dict[str, Dict[str, float]]:
-    rows = _extract_rows(stocks_raw, ('stocks_rows', 'items', 'rows'))
+    rows = _extract_rows(stocks_raw, ("stocks_rows", "items", "rows"))
     aliases = sku_alias_map or {}
     stock_by_sku: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
 
     for row in rows:
-        sku = ''
-        for key in ('sku', 'seller_sku', 'nm_id', 'nmid', 'vendor_code', 'offer_id'):
+        sku = ""
+        for key in ("sku", "seller_sku", "nm_id", "nmid", "vendor_code", "offer_id"):
             token = _resolve_sku(row.get(key))
             if not token:
                 continue
@@ -208,7 +206,11 @@ def compute_distribution_gap(demand_share: Mapping[str, Any], stock_share: Mappi
     if not warehouses:
         return 0.0
     return round(
-        0.5 * sum(abs(_safe_positive(demand_share.get(warehouse)) - _safe_positive(stock_share.get(warehouse))) for warehouse in warehouses),
+        0.5
+        * sum(
+            abs(_safe_positive(demand_share.get(warehouse)) - _safe_positive(stock_share.get(warehouse)))
+            for warehouse in warehouses
+        ),
         6,
     )
 
@@ -224,16 +226,18 @@ def dominant_warehouses(share_map: Mapping[str, Any], threshold: float = 0.2) ->
     return [warehouse for warehouse, _ in rows]
 
 
-def _resolve_confidence(total_orders: float) -> str:
-    if total_orders < 3:
-        return 'low'
+def _resolve_confidence(total_orders: float, *, min_orders_for_confidence: int, localization_known: bool) -> str:
+    if total_orders <= 0 or not localization_known:
+        return "low"
+    if total_orders < max(1, int(min_orders_for_confidence)):
+        return "low"
     if total_orders < 10:
-        return 'medium'
-    return 'high'
+        return "medium"
+    return "high"
 
 
 def _resolve_total_orders(sku_metric_row: Mapping[str, Any], demand_total: float) -> float:
-    candidates = ('orders', 'orders_count', 'sales_count', 'buys', 'total_orders')
+    candidates = ("orders", "orders_count", "sales_count", "buys", "total_orders")
     for key in candidates:
         parsed = _as_float_or_none(sku_metric_row.get(key))
         if parsed is not None:
@@ -242,89 +246,208 @@ def _resolve_total_orders(sku_metric_row: Mapping[str, Any], demand_total: float
 
 
 def _resolve_explicit_local_orders(sku_metric_row: Mapping[str, Any]) -> float | None:
-    for key in ('local_orders', 'orders_local', 'localized_orders'):
+    for key in ("local_orders", "orders_local", "localized_orders"):
         parsed = _as_float_or_none(sku_metric_row.get(key))
         if parsed is not None:
             return max(0.0, float(parsed))
     return None
 
 
+def _resolve_analysis_mode(
+    *,
+    valid_sku_attribution: bool,
+    order_count_available: bool,
+    demand_geography_available: bool,
+    stock_geography_available: bool,
+    minimum_sample_met: bool,
+    localization_known: bool,
+) -> tuple[str, str, str]:
+    if not valid_sku_attribution:
+        return "disabled", "blocked_by_data", "blocked_by_data"
+    if not order_count_available:
+        return "disabled", "insufficient_data", "blocked_by_data"
+    if not demand_geography_available:
+        return "disabled", "insufficient_data", "blocked_by_data"
+    if not localization_known:
+        return "preview", "insufficient_data", "watch"
+    if not stock_geography_available:
+        return "preview", "insufficient_data", "watch"
+    if not minimum_sample_met:
+        return "preview", "low_confidence", "watch"
+    return "full", "ok", "actionable"
+
+
 def build_localization_rows(
     metrics: Dict[str, Any],
     stocks_raw: Dict[str, Any] | List[Dict[str, Any]] | None = None,
+    *,
+    min_orders_for_confidence: int = 3,
+    min_orders_for_actionable: int = 5,
+    sku_attribution_status: str = "ok",
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     warnings: List[Dict[str, str]] = []
 
     sku_metrics_index = build_sku_metrics_index(metrics)
-    sales_rows = _extract_rows(metrics, ('sales_rows', 'sales_raw', 'raw_sales_rows', 'sales_report_rows'))
+    sales_rows = _extract_rows(metrics, ("sales_rows", "sales_raw", "raw_sales_rows", "sales_report_rows"))
 
     demand_by_sku = extract_demand_by_warehouse(sales_rows)
     alias_map = _build_sku_alias_map(sales_rows, set(sku_metrics_index.keys()))
-    stock_rows_source = stocks_raw if stocks_raw is not None else (metrics.get('stocks_rows') if isinstance(metrics, dict) else None)
+    stock_rows_source = stocks_raw if stocks_raw is not None else (metrics.get("stocks_rows") if isinstance(metrics, dict) else None)
     stock_by_sku = extract_stock_by_warehouse(stock_rows_source, sku_alias_map=alias_map)
 
     known_skus = set(sku_metrics_index.keys()) | set(demand_by_sku.keys()) | set(stock_by_sku.keys())
     rows: List[Dict[str, Any]] = []
 
     if not known_skus:
-        warnings.append({'code': 'territorial_distribution_sku_missing', 'message': 'No SKU rows available for territorial distribution analysis.'})
+        warnings.append(
+            {
+                "code": "territorial_distribution_sku_missing",
+                "message": "No SKU rows available for territorial distribution analysis.",
+            }
+        )
         return rows, warnings
+
+    attribution_ok = str(sku_attribution_status or "ok").strip().lower() != "broken"
 
     for sku in sorted(known_skus):
         metric_row = sku_metrics_index.get(sku, {})
         demand_map = demand_by_sku.get(sku, {})
         stock_map = stock_by_sku.get(sku, {})
-        output_sku = str(metric_row.get('sku') or sku).strip() if isinstance(metric_row, dict) else sku
+        output_sku = str(metric_row.get("sku") or sku).strip() if isinstance(metric_row, dict) else sku
         if not output_sku:
             output_sku = sku
+
         demand_total = sum(_safe_positive(v) for v in demand_map.values())
         total_orders = _resolve_total_orders(metric_row, demand_total)
 
         demand_share = share_by_warehouse(demand_map)
         stock_share = share_by_warehouse(stock_map)
         locality_score = compute_locality_score(demand_share, stock_share)
-        explicit_local_orders = _resolve_explicit_local_orders(metric_row)
-        if explicit_local_orders is None:
-            local_orders = round(total_orders * locality_score, 6)
-            local_orders_source = 'estimated_from_warehouse_shares'
-        else:
-            local_orders = min(total_orders, max(0.0, explicit_local_orders))
-            local_orders_source = 'input_local_orders'
 
-        if total_orders > 0:
+        explicit_local_orders = _resolve_explicit_local_orders(metric_row)
+        demand_geography_available = bool(demand_map) or explicit_local_orders is not None
+        stock_geography_available = bool(stock_map)
+        order_count_available = bool(total_orders > 0)
+        minimum_sample_met = bool(total_orders >= max(1, int(min_orders_for_actionable)))
+        valid_sku_attribution = bool(attribution_ok and output_sku)
+
+        local_orders: float | None
+        localization_share: float | None
+        local_orders_source: str
+
+        if explicit_local_orders is not None and total_orders > 0:
+            local_orders = min(total_orders, max(0.0, explicit_local_orders))
             localization_share = round(local_orders / total_orders * 100.0, 6)
-        else:
+            local_orders_source = "input_local_orders"
+        elif total_orders > 0 and demand_geography_available and stock_geography_available:
+            local_orders = round(total_orders * locality_score, 6)
+            localization_share = round(local_orders / total_orders * 100.0, 6)
+            local_orders_source = "estimated_from_warehouse_shares"
+        elif total_orders <= 0:
+            local_orders = 0.0
             localization_share = None
+            local_orders_source = "not_applicable_no_orders"
+        else:
+            local_orders = None
+            localization_share = None
+            local_orders_source = "unavailable"
+
+        localization_known = localization_share is not None
+        analysis_mode, data_quality_status, recommendation_status = _resolve_analysis_mode(
+            valid_sku_attribution=valid_sku_attribution,
+            order_count_available=order_count_available,
+            demand_geography_available=demand_geography_available,
+            stock_geography_available=stock_geography_available,
+            minimum_sample_met=minimum_sample_met,
+            localization_known=localization_known,
+        )
+
+        confidence = _resolve_confidence(
+            total_orders,
+            min_orders_for_confidence=min_orders_for_confidence,
+            localization_known=localization_known,
+        )
 
         distribution_gap = compute_distribution_gap(demand_share, stock_share) if demand_share or stock_share else None
 
+        unavailable_metrics: List[str] = []
+        if not demand_geography_available:
+            unavailable_metrics.append("demand_geography")
+        if not stock_geography_available:
+            unavailable_metrics.append("stock_geography")
+        if not localization_known:
+            unavailable_metrics.append("localization_share")
+
+        estimated_metrics: Dict[str, Any] = {}
+        if local_orders_source == "estimated_from_warehouse_shares":
+            estimated_metrics["local_orders"] = local_orders
+            estimated_metrics["localization_share"] = localization_share
+
+        known_facts: Dict[str, Any] = {
+            "total_orders": round(total_orders, 6),
+            "demand_warehouses_count": len(demand_map),
+            "stock_warehouses_count": len(stock_map),
+        }
+        if local_orders_source == "input_local_orders":
+            known_facts["local_orders"] = round(float(local_orders or 0.0), 6)
+            known_facts["localization_share"] = localization_share
+
+        suppressed_recommendations: List[str] = []
+        if recommendation_status != "actionable":
+            suppressed_recommendations.extend(["rebalance_stock", "relocate_inventory"])
+
         rows.append(
             {
-                'sku': output_sku,
-                'total_orders': round(total_orders, 6),
-                'local_orders': round(local_orders, 6),
-                'localization_share': localization_share,
-                'confidence': _resolve_confidence(total_orders),
-                'low_sample_warning': total_orders < 3,
-                'demand_by_warehouse': {k: round(_safe_positive(v), 6) for k, v in demand_map.items()},
-                'stock_by_warehouse': {k: round(_safe_positive(v), 6) for k, v in stock_map.items()},
-                'demand_share_by_warehouse': demand_share,
-                'stock_share_by_warehouse': stock_share,
-                'distribution_gap': distribution_gap,
-                'locality_score': locality_score,
-                'dominant_demand_warehouses': dominant_warehouses(demand_share),
-                'dominant_stock_warehouses': dominant_warehouses(stock_share),
-                'local_orders_source': local_orders_source,
-                'source_metric_row': metric_row if isinstance(metric_row, dict) else {},
+                "sku": output_sku,
+                "total_orders": round(total_orders, 6),
+                "local_orders": (round(float(local_orders), 6) if local_orders is not None else None),
+                "localization_share": localization_share,
+                "confidence": confidence,
+                "low_sample_warning": total_orders < max(1, int(min_orders_for_confidence)),
+                "demand_by_warehouse": {k: round(_safe_positive(v), 6) for k, v in demand_map.items()},
+                "stock_by_warehouse": {k: round(_safe_positive(v), 6) for k, v in stock_map.items()},
+                "demand_share_by_warehouse": demand_share,
+                "stock_share_by_warehouse": stock_share,
+                "distribution_gap": distribution_gap,
+                "locality_score": locality_score,
+                "dominant_demand_warehouses": dominant_warehouses(demand_share),
+                "dominant_stock_warehouses": dominant_warehouses(stock_share),
+                "local_orders_source": local_orders_source,
+                "source_metric_row": metric_row if isinstance(metric_row, dict) else {},
+                "valid_sku_attribution": valid_sku_attribution,
+                "order_count_available": order_count_available,
+                "demand_geography_available": demand_geography_available,
+                "stock_geography_available": stock_geography_available,
+                "minimum_sample_met": minimum_sample_met,
+                "analysis_mode": analysis_mode,
+                "data_quality_status": data_quality_status,
+                "recommendation_status": recommendation_status,
+                "evidence_sources": {
+                    "local_orders": local_orders_source,
+                    "demand_geography": "sales_rows" if bool(demand_map) else ("explicit_local_orders" if explicit_local_orders is not None else "missing"),
+                    "stock_geography": "stocks_rows" if bool(stock_map) else "missing",
+                    "sku_attribution": "metrics_data_quality",
+                },
+                "known_facts": known_facts,
+                "estimated_metrics": estimated_metrics,
+                "unavailable_metrics": unavailable_metrics,
+                "suppressed_recommendations": suppressed_recommendations,
             }
         )
 
     if not sales_rows:
-        warnings.append({'code': 'territorial_distribution_sales_rows_missing', 'message': 'Sales rows are missing for robust localization estimation.'})
+        warnings.append(
+            {
+                "code": "territorial_distribution_sales_rows_missing",
+                "message": "Sales rows are missing for robust localization estimation.",
+            }
+        )
     if not stock_by_sku:
-        warnings.append({'code': 'territorial_distribution_stock_rows_missing', 'message': 'Stock rows are missing for robust localization estimation.'})
+        warnings.append(
+            {
+                "code": "territorial_distribution_stock_rows_missing",
+                "message": "Stock rows are missing for robust localization estimation.",
+            }
+        )
 
     return rows, warnings
-
-
-

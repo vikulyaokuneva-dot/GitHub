@@ -24,6 +24,7 @@ def build_decisions_layer(
     sku_attribution_status = str(data_quality.get("sku_attribution_status") or "ok").strip().lower()
     territorial_analysis_enabled = bool(data_quality.get("territorial_analysis_enabled", sku_attribution_status != "broken"))
     profit_contribution_enabled = bool(data_quality.get("profit_contribution_enabled", sku_attribution_status != "broken"))
+    territorial_actionable_enabled = bool(data_quality.get("territorial_actionable_enabled", territorial_analysis_enabled))
 
     if sku_attribution_status == "broken":
         decisions_payload = {
@@ -42,6 +43,7 @@ def build_decisions_layer(
             ],
             "sku_attribution_status": sku_attribution_status,
             "territorial_analysis_enabled": territorial_analysis_enabled,
+            "territorial_actionable_enabled": territorial_actionable_enabled,
             "profit_contribution_enabled": profit_contribution_enabled,
         }
         director_strategy = {
@@ -55,6 +57,7 @@ def build_decisions_layer(
             ],
             "sku_attribution_status": sku_attribution_status,
             "territorial_analysis_enabled": territorial_analysis_enabled,
+            "territorial_actionable_enabled": territorial_actionable_enabled,
             "profit_contribution_enabled": profit_contribution_enabled,
         }
     else:
@@ -62,6 +65,7 @@ def build_decisions_layer(
         if isinstance(decisions_payload, dict):
             decisions_payload["sku_attribution_status"] = sku_attribution_status
             decisions_payload["territorial_analysis_enabled"] = territorial_analysis_enabled
+            decisions_payload["territorial_actionable_enabled"] = bool(decisions_payload.get("territorial_actionable_enabled", territorial_actionable_enabled))
             decisions_payload["profit_contribution_enabled"] = profit_contribution_enabled
 
         director_strategy = build_strategy_plan(
@@ -76,6 +80,7 @@ def build_decisions_layer(
         if isinstance(director_strategy, dict):
             director_strategy["sku_attribution_status"] = sku_attribution_status
             director_strategy["territorial_analysis_enabled"] = territorial_analysis_enabled
+            director_strategy["territorial_actionable_enabled"] = bool(director_strategy.get("territorial_actionable_enabled", territorial_actionable_enabled))
             director_strategy["profit_contribution_enabled"] = profit_contribution_enabled
 
     return {

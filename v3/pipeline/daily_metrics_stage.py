@@ -496,6 +496,41 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     )
     if not isinstance(territorial_summary, dict):
         territorial_summary = {}
+    territorial_analysis_mode = str(
+        territorial_summary.get("analysis_mode", territorial_distribution.get("analysis_mode", "disabled"))
+        if isinstance(territorial_distribution, dict)
+        else "disabled"
+    ).strip().lower()
+    territorial_recommendation_status = str(
+        territorial_summary.get("recommendation_status", territorial_distribution.get("recommendation_status", "blocked_by_data"))
+        if isinstance(territorial_distribution, dict)
+        else "blocked_by_data"
+    ).strip().lower()
+    territorial_confidence_level = str(
+        territorial_summary.get("confidence_level", territorial_distribution.get("confidence_level", "low"))
+        if isinstance(territorial_distribution, dict)
+        else "low"
+    ).strip().lower()
+    territorial_suppressed_due_to_data_quality = bool(
+        territorial_summary.get("suppressed_due_to_data_quality", territorial_distribution.get("suppressed_due_to_data_quality", False))
+        if isinstance(territorial_distribution, dict)
+        else False
+    )
+    territorial_actionable_enabled = bool(
+        territorial_analysis_enabled
+        and territorial_analysis_mode == "full"
+        and territorial_recommendation_status == "actionable"
+        and not territorial_suppressed_due_to_data_quality
+    )
+
+    metrics_data_quality["territorial_analysis_enabled"] = bool(territorial_analysis_enabled and territorial_analysis_mode != "disabled")
+    metrics_data_quality["territorial_actionable_enabled"] = territorial_actionable_enabled
+    metrics_data_quality["territorial_analysis_mode"] = territorial_analysis_mode
+    metrics_data_quality["territorial_recommendation_status"] = territorial_recommendation_status
+    metrics_data_quality["territorial_confidence_level"] = territorial_confidence_level
+    metrics_data_quality["territorial_suppressed_due_to_data_quality"] = territorial_suppressed_due_to_data_quality
+    metrics["data_quality"] = metrics_data_quality
+
     logistics_summary: Dict[str, Any] = {}
     facts = attach_daily_facts_sections(
         facts=facts if isinstance(facts, dict) else {},
@@ -517,13 +552,18 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "territorial_distribution_built",
             f"Territorial distribution built for {sku_with_ktr} SKU with KTR",
         )
+        if not territorial_actionable_enabled:
+            warnings_collector.add_warning(
+                "territorial_distribution_preview_only",
+                "Territorial conclusions are preview-only due to limited evidence coverage.",
+            )
         if insufficient_total_count > 0:
             warnings_collector.add_warning(
                 "insufficient_warehouse_data",
                 "Insufficient warehouse-level data for full territorial analysis",
             )
         high_ktr_count = int(territorial_summary.get("misallocated_count", 0) or 0)
-        if high_ktr_count > 0:
+        if territorial_actionable_enabled and high_ktr_count > 0:
             warnings_collector.add_warning("high_ktr_detected", f"High KTR detected for {high_ktr_count} SKU")
 
     write_daily_metrics_artifacts(
@@ -558,7 +598,12 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             {
                 "sku_attribution_status": sku_attribution_status,
                 "financial_finality_status": financial_finality_status,
-                "territorial_analysis_enabled": territorial_analysis_enabled,
+                "territorial_analysis_enabled": bool(metrics_data_quality.get("territorial_analysis_enabled", territorial_analysis_enabled)),
+                "territorial_actionable_enabled": bool(metrics_data_quality.get("territorial_actionable_enabled", False)),
+                "territorial_analysis_mode": str(metrics_data_quality.get("territorial_analysis_mode") or "disabled"),
+                "territorial_recommendation_status": str(metrics_data_quality.get("territorial_recommendation_status") or "blocked_by_data"),
+                "territorial_confidence_level": str(metrics_data_quality.get("territorial_confidence_level") or "low"),
+                "territorial_suppressed_due_to_data_quality": bool(metrics_data_quality.get("territorial_suppressed_due_to_data_quality", False)),
                 "profit_contribution_enabled": profit_contribution_enabled,
                 "report_reliability_level": str(metrics_data_quality.get("report_reliability_level") or "medium"),
             }

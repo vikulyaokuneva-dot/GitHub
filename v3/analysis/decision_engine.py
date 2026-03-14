@@ -314,6 +314,40 @@ def _legacy_to_health_tier(status: str) -> str:
         return "strong"
     return ""
 
+def _territorial_portfolio_context(territorial: Any, data_quality: Dict[str, Any], territorial_analysis_enabled: bool) -> Dict[str, Any]:
+    summary = territorial.get("summary", {}) if isinstance(territorial, dict) else {}
+    if not isinstance(summary, dict):
+        summary = {}
+
+    analysis_mode = str(
+        data_quality.get("territorial_analysis_mode")
+        or summary.get("analysis_mode")
+        or (territorial.get("analysis_mode") if isinstance(territorial, dict) else "")
+        or "disabled"
+    ).strip().lower()
+    recommendation_status = str(
+        data_quality.get("territorial_recommendation_status")
+        or summary.get("recommendation_status")
+        or (territorial.get("recommendation_status") if isinstance(territorial, dict) else "")
+        or "blocked_by_data"
+    ).strip().lower()
+    suppressed_due_to_data_quality = bool(
+        data_quality.get("territorial_suppressed_due_to_data_quality", summary.get("suppressed_due_to_data_quality", False))
+    )
+
+    territorial_actionable_enabled = bool(
+        territorial_analysis_enabled
+        and analysis_mode == "full"
+        and recommendation_status == "actionable"
+        and not suppressed_due_to_data_quality
+    )
+    return {
+        "analysis_mode": analysis_mode,
+        "recommendation_status": recommendation_status,
+        "suppressed_due_to_data_quality": suppressed_due_to_data_quality,
+        "territorial_actionable_enabled": territorial_actionable_enabled,
+    }
+
 
 def build_decisions(
     metrics: Any,
@@ -348,6 +382,8 @@ def build_decisions(
     health_items = _extract_health_items(health)
     territorial_items = _extract_territorial_items(territorial)
     logistics_items = _extract_logistics_items(logistics)
+    territorial_ctx = _territorial_portfolio_context(territorial, data_quality, territorial_analysis_enabled)
+    territorial_actionable_enabled = bool(territorial_ctx.get("territorial_actionable_enabled", False))
     funnel_by_sku = _extract_funnel_by_sku(metrics)
     funnel_summary = _extract_funnel_summary(metrics)
     profit_by_sku, profit_summary = _extract_profit_contribution(metrics) if profit_contribution_enabled else ({}, {})
@@ -414,17 +450,37 @@ def build_decisions(
         )
         keyword_signals_ru = _keyword_signals_for_sku_ru(keyword_row)
 
+        territorial_analysis_mode = str(territorial_row.get("analysis_mode") or territorial_ctx.get("analysis_mode") or "disabled").strip().lower()
+        territorial_recommendation_status = str(
+            territorial_row.get("recommendation_status")
+            or territorial_ctx.get("recommendation_status")
+            or "blocked_by_data"
+        ).strip().lower()
+        territorial_row_actionable = bool(
+            territorial_actionable_enabled
+            and territorial_analysis_mode == "full"
+            and territorial_recommendation_status == "actionable"
+            and bool(territorial_row.get("valid_sku_attribution", True))
+            and bool(territorial_row.get("demand_geography_available", True))
+            and bool(territorial_row.get("minimum_sample_met", True))
+            and territorial_row.get("localization_share") is not None
+        )
+
         territorial_reasons: List[str] = []
-        if territorial_analysis_enabled and territorial_ktr > 1.25:
+        if territorial_row_actionable and territorial_ktr > 1.25:
             territorial_reasons = [
-                "Stock is distributed across warehouses not according to demand",
-                "There is a potential logistics gain from stock rebalancing",
+                "Confirmed territorial mismatch between demand and stock.",
+                "Stock rebalancing can improve logistics efficiency.",
             ]
 
-        if territorial_analysis_enabled and logistics_efficiency_status == "critical":
-            territorial_reasons.append("Critical logistics imbalance between demand and stock distribution.")
-        elif territorial_analysis_enabled and logistics_efficiency_status == "inefficient":
-            territorial_reasons.append("Logistics imbalance detected; consider stock rebalancing.")
+        if territorial_row_actionable and logistics_efficiency_status == "critical":
+            territorial_reasons.append("Confirmed critical logistics imbalance.")
+        elif territorial_row_actionable and logistics_efficiency_status == "inefficient":
+            territorial_reasons.append("Confirmed logistics imbalance; consider stock rebalancing.")
+        elif territorial_analysis_enabled and not territorial_row_actionable and logistics_efficiency_status in {"critical", "inefficient"}:
+            territorial_reasons.append(
+                "Preliminary logistics risk is elevated, but regional demand/stock evidence is insufficient for strong action."
+            )
 
         bucket, action = _choose_decision(
             profit,
@@ -459,6 +515,9 @@ def build_decisions(
             "priority_for_relocation": priority_for_relocation,
             "locality_score": round(locality_score, 3) if locality_score is not None else None,
             "territorial_reasons": territorial_reasons,
+            "territorial_analysis_mode": territorial_analysis_mode,
+            "territorial_recommendation_status": territorial_recommendation_status,
+            "territorial_actionable": territorial_row_actionable,
             "funnel_issue_type": funnel_issue_type,
             "funnel_issue_reason": funnel_issue_reason,
             "financial_status": row_financial_status,
@@ -485,6 +544,9 @@ def build_decisions(
         "top_risk_skus": top_risk_skus,
         "sku_attribution_status": sku_attribution_status,
         "territorial_analysis_enabled": territorial_analysis_enabled,
+        "territorial_actionable_enabled": bool(territorial_ctx.get("territorial_actionable_enabled", False)),
+        "territorial_analysis_mode": str(territorial_ctx.get("analysis_mode") or "disabled"),
+        "territorial_recommendation_status": str(territorial_ctx.get("recommendation_status") or "blocked_by_data"),
         "profit_contribution_enabled": profit_contribution_enabled,
         "funnel_summary": funnel_summary if isinstance(funnel_summary, dict) else {},
         "funnel_issue_counts": (

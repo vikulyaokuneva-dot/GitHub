@@ -116,6 +116,59 @@ def _sort_skus(skus: Iterable[str], opp: Dict[str, float], growth: Dict[str, flo
     )
 
 
+def _territorial_context(
+    territorial_distribution: Dict[str, Any],
+    data_quality: Dict[str, Any],
+    territorial_analysis_enabled: bool,
+) -> Dict[str, Any]:
+    summary = territorial_distribution.get("summary", {}) if isinstance(territorial_distribution, dict) else {}
+    if not isinstance(summary, dict):
+        summary = {}
+
+    analysis_mode = str(
+        data_quality.get("territorial_analysis_mode")
+        or summary.get("analysis_mode")
+        or territorial_distribution.get("analysis_mode")
+        or "disabled"
+    ).strip().lower()
+    recommendation_status = str(
+        data_quality.get("territorial_recommendation_status")
+        or summary.get("recommendation_status")
+        or territorial_distribution.get("recommendation_status")
+        or "blocked_by_data"
+    ).strip().lower()
+    suppressed_due_to_data_quality = bool(
+        data_quality.get("territorial_suppressed_due_to_data_quality", summary.get("suppressed_due_to_data_quality", False))
+    )
+    confidence_level = str(
+        data_quality.get("territorial_confidence_level")
+        or summary.get("confidence_level")
+        or territorial_distribution.get("confidence_level")
+        or "low"
+    ).strip().lower()
+    demand_coverage_pct = _safe_float(summary.get("demand_coverage_pct", territorial_distribution.get("demand_coverage_pct", 0.0)))
+    stock_coverage_pct = _safe_float(summary.get("stock_coverage_pct", territorial_distribution.get("stock_coverage_pct", 0.0)))
+    coverage_pct = _safe_float(summary.get("coverage_pct", territorial_distribution.get("coverage_pct", 0.0)))
+
+    territorial_actionable_enabled = bool(
+        territorial_analysis_enabled
+        and analysis_mode == "full"
+        and recommendation_status == "actionable"
+        and not suppressed_due_to_data_quality
+    )
+
+    return {
+        "analysis_mode": analysis_mode,
+        "recommendation_status": recommendation_status,
+        "suppressed_due_to_data_quality": suppressed_due_to_data_quality,
+        "confidence_level": confidence_level,
+        "demand_coverage_pct": demand_coverage_pct,
+        "stock_coverage_pct": stock_coverage_pct,
+        "coverage_pct": coverage_pct,
+        "territorial_actionable_enabled": territorial_actionable_enabled,
+    }
+
+
 def build_strategy_plan(
     metrics: Dict[str, Any],
     abc_rows: List[Dict[str, Any]],
@@ -144,8 +197,12 @@ def build_strategy_plan(
                 }
             ],
             "territorial_analysis_enabled": territorial_analysis_enabled,
+            "territorial_actionable_enabled": False,
             "sku_attribution_status": sku_attribution_status,
         }
+
+    territorial_ctx = _territorial_context(territorial_distribution, data_quality, territorial_analysis_enabled)
+    territorial_actionable_enabled = bool(territorial_ctx.get("territorial_actionable_enabled", False))
 
     metric_rows = _extract_rows(metrics, ("sku_metrics", "items", "skus"))
     abc_by_sku = _abc_map(abc_rows)
@@ -197,11 +254,27 @@ def build_strategy_plan(
                 tasks.append({"sku": sku, "task": action, "priority": priority})
 
         ktr = ktr_by_sku.get(sku)
-        if territorial_analysis_enabled and ktr is not None and ktr > 1.3:
+        if territorial_actionable_enabled and ktr is not None and ktr > 1.3:
             task_key = (sku, "rebalance_stock")
             if task_key not in task_seen:
                 task_seen.add(task_key)
                 tasks.append({"sku": sku, "task": "rebalance_stock", "priority": "P2"})
+
+    if not territorial_actionable_enabled and territorial_analysis_enabled:
+        portfolio_tasks: List[Tuple[str, str, str]] = [
+            ("PORTFOLIO", "collect_stock_distribution_data", "P1"),
+        ]
+        if _safe_float(territorial_ctx.get("stock_coverage_pct")) <= 0:
+            portfolio_tasks.append(("PORTFOLIO", "connect_stock_source", "P1"))
+        if _safe_float(territorial_ctx.get("demand_coverage_pct")) < 60.0:
+            portfolio_tasks.append(("PORTFOLIO", "improve_regional_demand_attribution", "P2"))
+
+        for sku, task_name, priority in portfolio_tasks:
+            task_key = (sku, task_name)
+            if task_key in task_seen:
+                continue
+            task_seen.add(task_key)
+            tasks.append({"sku": sku, "task": task_name, "priority": priority})
 
     for key, rows in strategy.items():
         strategy[key] = _sort_skus(rows, opportunity_by_sku, growth_delta_by_sku)
@@ -216,9 +289,31 @@ def build_strategy_plan(
         )
     )
 
+    signals: List[Dict[str, Any]] = []
+    if territorial_analysis_enabled and not territorial_actionable_enabled:
+        signals.append(
+            {
+                "code": "data_quality_issue",
+                "message": "Territorial recommendations are preview-only; operational rebalance tasks are blocked until evidence improves.",
+                "evidence": {
+                    "analysis_mode": territorial_ctx.get("analysis_mode"),
+                    "recommendation_status": territorial_ctx.get("recommendation_status"),
+                    "confidence_level": territorial_ctx.get("confidence_level"),
+                    "coverage_pct": territorial_ctx.get("coverage_pct"),
+                    "demand_coverage_pct": territorial_ctx.get("demand_coverage_pct"),
+                    "stock_coverage_pct": territorial_ctx.get("stock_coverage_pct"),
+                },
+            }
+        )
+
     return {
         "strategy": strategy,
         "tasks": tasks,
+        "signals": signals,
         "territorial_analysis_enabled": territorial_analysis_enabled,
+        "territorial_actionable_enabled": territorial_actionable_enabled,
+        "territorial_analysis_mode": str(territorial_ctx.get("analysis_mode") or "disabled"),
+        "territorial_recommendation_status": str(territorial_ctx.get("recommendation_status") or "blocked_by_data"),
+        "territorial_confidence_level": str(territorial_ctx.get("confidence_level") or "low"),
         "sku_attribution_status": sku_attribution_status,
     }
