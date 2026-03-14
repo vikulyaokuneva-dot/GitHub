@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import argparse
 import os
 import re
@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from zoneinfo import ZoneInfo
 
 from .analytics.abc_analysis import compute_abc
+from .analytics.advertising_efficiency import build_advertising_efficiency
 from .analytics.growth_simulator import simulate_growth
 from .analytics.keywords import build_keyword_monitoring
 from .analytics.logistics_ktr import build_logistics_ktr
@@ -1060,5 +1061,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
 

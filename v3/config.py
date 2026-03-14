@@ -28,6 +28,13 @@ def _default_config(seller_id: str) -> Dict[str, Any]:
             "min_stock_coverage_pct": 40.0,
             "max_unknown_share_pct": 60.0,
         },
+        "advertising_efficiency": {
+            "enable_advertising_efficiency_engine": True,
+            "min_orders_for_confidence": 3,
+            "min_query_clicks_for_confidence": 5,
+            "high_romi_threshold_pct": 40.0,
+            "budget_leak_spend_threshold": 1000.0,
+        },
     }
 
 

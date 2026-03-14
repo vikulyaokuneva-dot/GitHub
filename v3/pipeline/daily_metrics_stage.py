@@ -267,6 +267,38 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     analytics["keyword_monitoring"] = keyword_monitoring if isinstance(keyword_monitoring, dict) else {}
     if isinstance(keyword_monitoring, dict):
         warnings_collector.extend_warnings(keyword_monitoring.get("warnings", []))
+    advertising_efficiency = build_advertising_efficiency(
+        metrics=metrics if isinstance(metrics, dict) else {},
+        ads_rows=ads_rows if isinstance(ads_rows, list) else [],
+        keyword_monitoring=keyword_monitoring if isinstance(keyword_monitoring, dict) else {},
+        daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
+        seller_id=seller_id,
+        run_date=run_date,
+        config=cfg if isinstance(cfg, dict) else {},
+    )
+    metrics["advertising_efficiency"] = advertising_efficiency if isinstance(advertising_efficiency, dict) else {}
+    analytics["advertising_efficiency"] = advertising_efficiency if isinstance(advertising_efficiency, dict) else {}
+
+    advertising_efficiency_analysis_mode = str(
+        (advertising_efficiency.get("analysis_mode") if isinstance(advertising_efficiency, dict) else "") or "disabled"
+    ).strip().lower()
+    advertising_efficiency_enabled = bool(advertising_efficiency_analysis_mode != "disabled")
+    metrics_data_quality["advertising_efficiency_analysis_mode"] = advertising_efficiency_analysis_mode
+    metrics_data_quality["advertising_efficiency_enabled"] = advertising_efficiency_enabled
+
+    if advertising_efficiency_analysis_mode == "disabled":
+        warnings_collector.add_warning(
+            "advertising_efficiency_disabled",
+            "Advertising efficiency engine is disabled because ads data is missing.",
+        )
+    elif advertising_efficiency_analysis_mode == "preview":
+        warnings_collector.add_warning(
+            "advertising_efficiency_preview",
+            "Advertising efficiency is preview-only because buyouts are not confirmed.",
+        )
+
+    if isinstance(advertising_efficiency, dict):
+        warnings_collector.extend_warnings(advertising_efficiency.get("warnings", []))
     sku_daily_dynamics = build_sku_daily_dynamics(
         run_date=run_date,
         metrics=metrics if isinstance(metrics, dict) else {},
@@ -573,6 +605,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         abc_rows=abc_rows if isinstance(abc_rows, list) else [],
         profit_contribution=profit_contribution if isinstance(profit_contribution, dict) else {},
         keyword_monitoring=keyword_monitoring if isinstance(keyword_monitoring, dict) else {},
+        advertising_efficiency=advertising_efficiency if isinstance(advertising_efficiency, dict) else {},
         territorial_distribution=territorial_distribution if isinstance(territorial_distribution, dict) else {},
         event_ledger=event_ledger if isinstance(event_ledger, dict) else {},
         cabinet_funnel=cabinet_funnel if isinstance(cabinet_funnel, dict) else {},
@@ -605,6 +638,8 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
                 "territorial_confidence_level": str(metrics_data_quality.get("territorial_confidence_level") or "low"),
                 "territorial_suppressed_due_to_data_quality": bool(metrics_data_quality.get("territorial_suppressed_due_to_data_quality", False)),
                 "profit_contribution_enabled": profit_contribution_enabled,
+                "advertising_efficiency_enabled": bool(metrics_data_quality.get("advertising_efficiency_enabled", False)),
+                "advertising_efficiency_analysis_mode": str(metrics_data_quality.get("advertising_efficiency_analysis_mode") or "disabled"),
                 "report_reliability_level": str(metrics_data_quality.get("report_reliability_level") or "medium"),
             }
         )
@@ -664,6 +699,9 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "abc_rows": abc_rows,
             "profit_contribution": profit_contribution,
             "keyword_monitoring": keyword_monitoring,
+            "advertising_efficiency": advertising_efficiency if isinstance(advertising_efficiency, dict) else {},
+            "query_profitability": (advertising_efficiency.get("query_profitability", {}) if isinstance(advertising_efficiency, dict) else {}),
+            "portfolio_ads_summary": (advertising_efficiency.get("portfolio_ads_summary", {}) if isinstance(advertising_efficiency, dict) else {}),
             "p1_rows": p1_rows,
             "p2_rows": p2_rows,
             "p3_rows": p3_rows,

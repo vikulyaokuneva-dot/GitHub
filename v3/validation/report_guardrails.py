@@ -40,6 +40,18 @@ def apply_report_guardrails(payload: Dict[str, Any]) -> Dict[str, Any]:
     ads_source_file = str(out.get("ads_source_file") or "")
     ads_analysis_enabled = bool(ads_rows > 0 or ads_source_file)
 
+    advertising_efficiency = out.get("advertising_efficiency", {})
+    if not isinstance(advertising_efficiency, dict):
+        advertising_efficiency = {}
+    advertising_efficiency_analysis_mode = str(
+        data_quality.get("advertising_efficiency_analysis_mode")
+        or advertising_efficiency.get("analysis_mode")
+        or ("disabled" if not ads_analysis_enabled else "preview")
+    ).strip().lower()
+    if not ads_analysis_enabled:
+        advertising_efficiency_analysis_mode = "disabled"
+    advertising_efficiency_enabled = bool(advertising_efficiency_analysis_mode != "disabled")
+
     funnel = cabinet_funnel.get("funnel", {}) if isinstance(cabinet_funnel.get("funnel"), dict) else {}
     views = funnel.get("views", funnel.get("impressions"))
     views_analysis_enabled = views is not None
@@ -66,6 +78,8 @@ def apply_report_guardrails(payload: Dict[str, Any]) -> Dict[str, Any]:
         notices.append("SKU-level analytics are disabled due to attribution quality issues.")
     if not ads_analysis_enabled:
         notices.append("Ads analysis is suppressed because ads source data is missing.")
+    if advertising_efficiency_analysis_mode == "preview":
+        notices.append("Advertising efficiency is preview-only until buyout confirmation is available.")
     if territorial_analysis_enabled and not territorial_actionable_enabled:
         notices.append("Territorial conclusions are preview-only due to insufficient demand/stock evidence.")
     if not views_analysis_enabled:
@@ -117,6 +131,8 @@ def apply_report_guardrails(payload: Dict[str, Any]) -> Dict[str, Any]:
             "territorial_actionable_enabled": territorial_actionable_enabled,
             "profit_contribution_enabled": profit_contribution_enabled,
             "ads_analysis_enabled": ads_analysis_enabled,
+            "advertising_efficiency_enabled": advertising_efficiency_enabled,
+            "advertising_efficiency_analysis_mode": advertising_efficiency_analysis_mode,
             "views_analysis_enabled": views_analysis_enabled,
             "report_reliability_level": report_reliability_level,
         }
@@ -135,6 +151,8 @@ def apply_report_guardrails(payload: Dict[str, Any]) -> Dict[str, Any]:
         "territorial_actionable_enabled": territorial_actionable_enabled,
         "profit_contribution_enabled": profit_contribution_enabled,
         "ads_analysis_enabled": ads_analysis_enabled,
+        "advertising_efficiency_enabled": advertising_efficiency_enabled,
+        "advertising_efficiency_analysis_mode": advertising_efficiency_analysis_mode,
         "views_analysis_enabled": views_analysis_enabled,
         "commerce_commentary_enabled": commerce_commentary_enabled,
         "profitability_commentary_enabled": profitability_commentary_enabled,

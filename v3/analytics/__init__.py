@@ -1,4 +1,5 @@
 from .abc_analysis import compute_abc
+from .advertising_efficiency import build_advertising_efficiency
 from .keywords import build_keyword_monitoring
 from .logistics_ktr import build_logistics_ktr
 from .profit_contribution import build_profit_contribution
@@ -8,6 +9,7 @@ from .territorial_distribution import build_territorial_distribution
 
 __all__ = [
     "compute_abc",
+    "build_advertising_efficiency",
     "build_keyword_monitoring",
     "build_profit_contribution",
     "build_logistics_ktr",

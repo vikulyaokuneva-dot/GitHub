@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from typing import Any, Dict, List
@@ -189,6 +189,23 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(sales_funnel_summary, dict):
         sales_funnel_summary = {}
     report_guardrails = data.get("report_guardrails", {})
+    advertising_efficiency = data.get("advertising_efficiency", {})
+    if not isinstance(advertising_efficiency, dict):
+        advertising_efficiency = {}
+    portfolio_ads_summary = data.get(
+        "portfolio_ads_summary",
+        advertising_efficiency.get("portfolio_ads_summary", advertising_efficiency.get("summary", {}))
+        if isinstance(advertising_efficiency, dict)
+        else {},
+    )
+    if not isinstance(portfolio_ads_summary, dict):
+        portfolio_ads_summary = {}
+    query_profitability = data.get(
+        "query_profitability",
+        advertising_efficiency.get("query_profitability", {}) if isinstance(advertising_efficiency, dict) else {},
+    )
+    if not isinstance(query_profitability, dict):
+        query_profitability = {}
     if not isinstance(report_guardrails, dict):
         report_guardrails = {}
     sku_attribution_status = str(
@@ -301,6 +318,69 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "",
         "## РљР›Р®Р§Р•Р’Р«Р• Р’Р«Р’РћР”Р«",
     ]
+    ads_efficiency_mode = str(
+        portfolio_ads_summary.get("analysis_mode", advertising_efficiency.get("analysis_mode", "disabled"))
+        if isinstance(advertising_efficiency, dict)
+        else "disabled"
+    ).strip().lower()
+    portfolio_ad_spend = _safe_float(portfolio_ads_summary.get("portfolio_ad_spend", 0.0))
+    portfolio_orders_from_ads = _safe_float(portfolio_ads_summary.get("portfolio_orders_from_ads", 0.0))
+    portfolio_buyouts_from_ads = _safe_float(portfolio_ads_summary.get("portfolio_buyouts_from_ads", 0.0))
+    portfolio_revenue_from_ads = _safe_float(portfolio_ads_summary.get("portfolio_revenue_from_ads", 0.0))
+    portfolio_profit_from_ads = _safe_float(portfolio_ads_summary.get("portfolio_profit_from_ads", 0.0))
+    portfolio_romi = _safe_float_local(portfolio_ads_summary.get("portfolio_ROMI"))
+    portfolio_drr = _safe_float_local(portfolio_ads_summary.get("portfolio_DRR"))
+    portfolio_cpo = _safe_float_local(portfolio_ads_summary.get("portfolio_CPO"))
+    top_profitable_queries_ads = portfolio_ads_summary.get("top_profitable_queries", []) if isinstance(portfolio_ads_summary, dict) else []
+    if not isinstance(top_profitable_queries_ads, list):
+        top_profitable_queries_ads = []
+    top_unprofitable_queries_ads = portfolio_ads_summary.get("top_unprofitable_queries", []) if isinstance(portfolio_ads_summary, dict) else []
+    if not isinstance(top_unprofitable_queries_ads, list):
+        top_unprofitable_queries_ads = []
+
+    page_1.extend(["", "## Advertising Efficiency"])
+    if ads_efficiency_mode == "disabled":
+        page_1.append("- Analysis mode: disabled (ads source data missing).")
+    else:
+        if ads_efficiency_mode == "preview":
+            page_1.append("- Analysis mode: preview (orders are available, buyout-confirmed profitability is provisional).")
+        else:
+            page_1.append("- Analysis mode: full")
+        page_1.append(f"- Portfolio ad spend: {_format_money(portfolio_ad_spend)}")
+        page_1.append(f"- Orders from ads: {_format_int(portfolio_orders_from_ads)}")
+        page_1.append(f"- Buyouts from ads: {_format_int(portfolio_buyouts_from_ads)}")
+        page_1.append(f"- Revenue from ads: {_format_money(portfolio_revenue_from_ads)}")
+        page_1.append(f"- Profit from ads: {_format_money(portfolio_profit_from_ads)}")
+        page_1.append(f"- Advertising ROMI: {format_pct_or_unknown(portfolio_romi)}")
+        page_1.append(f"- Advertising DRR: {format_pct_or_unknown(portfolio_drr)}")
+        page_1.append(f"- Advertising CPO: {format_money_or_unknown(portfolio_cpo)}")
+        page_1.append(f"- Budget leakage candidates: {_format_int(len(top_unprofitable_queries_ads))} queries")
+        if top_profitable_queries_ads:
+            top_lines = []
+            for row in top_profitable_queries_ads[:3]:
+                if not isinstance(row, dict):
+                    continue
+                query = str(row.get("query") or "").strip()
+                if not query:
+                    continue
+                top_lines.append(
+                    f"{query} (profit {format_money_or_unknown(row.get('profit'))}, ROMI {format_pct_or_unknown(row.get('ROMI'))})"
+                )
+            if top_lines:
+                page_1.append("- Top profitable queries: " + "; ".join(top_lines))
+        if top_unprofitable_queries_ads:
+            leak_lines = []
+            for row in top_unprofitable_queries_ads[:3]:
+                if not isinstance(row, dict):
+                    continue
+                query = str(row.get("query") or "").strip()
+                if not query:
+                    continue
+                leak_lines.append(
+                    f"{query} (profit {format_money_or_unknown(row.get('profit'))}, ROMI {format_pct_or_unknown(row.get('ROMI'))})"
+                )
+            if leak_lines:
+                page_1.append("- Top loss-making queries: " + "; ".join(leak_lines))
     page_1.extend(f"- {line}" for line in data.get("key_insights", []))
     if financial_finality_status != "final":
         page_1.extend(
@@ -808,14 +888,3 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     write_report_meta(out_dir=out_dir, report_meta=report_meta)
     data.update({"job": job, "report_meta": report_meta})
     return data
-
-
-
-
-
-
-
-
-
-
-

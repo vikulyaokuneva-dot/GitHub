@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -147,6 +147,30 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(keyword_summary, dict):
         keyword_summary = {}
     analytics["keyword_monitoring"] = keyword_monitoring if isinstance(keyword_monitoring, dict) else {}
+    advertising_efficiency = payload.get("advertising_efficiency", {})
+    if not isinstance(advertising_efficiency, dict):
+        advertising_efficiency = {}
+    if not advertising_efficiency and isinstance(analytics, dict):
+        ads_eff_from_analytics = analytics.get("advertising_efficiency")
+        if isinstance(ads_eff_from_analytics, dict):
+            advertising_efficiency = ads_eff_from_analytics
+    if not advertising_efficiency:
+        advertising_efficiency = _read_optional_artifact("advertising_efficiency.json")
+    if not advertising_efficiency and isinstance(metrics, dict):
+        ads_eff_from_metrics = metrics.get("advertising_efficiency")
+        if isinstance(ads_eff_from_metrics, dict):
+            advertising_efficiency = ads_eff_from_metrics
+    analytics["advertising_efficiency"] = advertising_efficiency if isinstance(advertising_efficiency, dict) else {}
+    portfolio_ads_summary = (
+        advertising_efficiency.get("portfolio_ads_summary", advertising_efficiency.get("summary", {}))
+        if isinstance(advertising_efficiency, dict)
+        else {}
+    )
+    if not isinstance(portfolio_ads_summary, dict):
+        portfolio_ads_summary = {}
+    query_profitability = advertising_efficiency.get("query_profitability", {}) if isinstance(advertising_efficiency, dict) else {}
+    if not isinstance(query_profitability, dict):
+        query_profitability = {}
     territorial_distribution = payload.get("territorial_distribution", {})
     if not isinstance(territorial_distribution, dict):
         territorial_distribution = {}
@@ -335,6 +359,29 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             f"Keyword risks detected: costly={costly_query_count}, low_relevance={low_relevance_query_count}, no_orders={no_orders_query_count}."
         ]
 
+    ads_efficiency_mode = str(
+        portfolio_ads_summary.get("analysis_mode", advertising_efficiency.get("analysis_mode", "disabled"))
+        if isinstance(advertising_efficiency, dict)
+        else "disabled"
+    ).strip().lower()
+    portfolio_ads_profit = _safe_float(portfolio_ads_summary.get("portfolio_profit_from_ads", 0.0))
+    portfolio_ads_romi = _safe_float(portfolio_ads_summary.get("portfolio_ROMI", 0.0))
+    top_unprofitable_queries = portfolio_ads_summary.get("top_unprofitable_queries", []) if isinstance(portfolio_ads_summary, dict) else []
+    if not isinstance(top_unprofitable_queries, list):
+        top_unprofitable_queries = []
+
+    if ads_efficiency_mode == "full":
+        key_insights = list(key_insights) + [
+            f"Advertising efficiency: ROMI={round(portfolio_ads_romi, 2)}%, profit={round(portfolio_ads_profit, 2)} RUB."
+        ]
+        if top_unprofitable_queries:
+            key_insights = list(key_insights) + [
+                f"Advertising budget leakage risk: {len(top_unprofitable_queries)} unprofitable queries detected."
+            ]
+    elif ads_efficiency_mode == "preview":
+        key_insights = list(key_insights) + [
+            "Advertising efficiency is provisional: orders are visible, but buyout-confirmed profitability is not final yet."
+        ]
     territorial_problematic_count = int(territorial_summary.get("skus_below_60_localization", 0) or 0)
     territorial_penalty_total = _safe_float(territorial_summary.get("aggregate_estimated_irp_penalty_total", 0.0))
     weighted_localization_share = _safe_float(territorial_summary.get("weighted_average_localization_share", 0.0))
@@ -396,6 +443,9 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "profit_contribution": profit_contribution,
             "keyword_monitoring": keyword_monitoring,
             "keyword_summary": keyword_summary,
+            "advertising_efficiency": advertising_efficiency,
+            "query_profitability": query_profitability,
+            "portfolio_ads_summary": portfolio_ads_summary,
             "territorial_distribution": territorial_distribution,
             "territorial_summary": territorial_summary,
             "logistics_summary": logistics_summary,

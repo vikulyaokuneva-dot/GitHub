@@ -17,6 +17,7 @@ def write_daily_metrics_artifacts(
     abc_rows: List[Dict[str, Any]],
     profit_contribution: Dict[str, Any],
     keyword_monitoring: Dict[str, Any] | None = None,
+    advertising_efficiency: Dict[str, Any] | None = None,
     territorial_distribution: Dict[str, Any],
     event_ledger: Dict[str, Any] | None = None,
     cabinet_funnel: Dict[str, Any] | None = None,
@@ -34,6 +35,27 @@ def write_daily_metrics_artifacts(
     save_profit_contribution(os.path.join(out_dir, "profit_contribution.json"), profit_contribution)
     if isinstance(keyword_monitoring, dict) and keyword_monitoring:
         write_json(os.path.join(out_dir, "keyword_monitoring.json"), keyword_monitoring)
+
+    if isinstance(advertising_efficiency, dict) and advertising_efficiency:
+        write_json(os.path.join(out_dir, "advertising_efficiency.json"), advertising_efficiency)
+        query_payload = advertising_efficiency.get("query_profitability", {})
+        if not isinstance(query_payload, dict):
+            query_payload = {
+                "analysis_mode": str(advertising_efficiency.get("analysis_mode") or "disabled"),
+                "status": str(advertising_efficiency.get("status") or "disabled"),
+                "summary": {"query_count": len(advertising_efficiency.get("query_performance", []))},
+                "items": advertising_efficiency.get("query_performance", []),
+            }
+        write_json(os.path.join(out_dir, "query_profitability.json"), query_payload)
+
+        portfolio_summary = advertising_efficiency.get("portfolio_ads_summary")
+        if not isinstance(portfolio_summary, dict):
+            portfolio_summary = advertising_efficiency.get("summary", {})
+        if not isinstance(portfolio_summary, dict):
+            portfolio_summary = {}
+        write_json(os.path.join(out_dir, "portfolio_ads_summary.json"), portfolio_summary)
+        write_json(os.path.join(out_dir, "advertising_efficiency_summary.json"), portfolio_summary)
+
     save_territorial_distribution(Path(out_dir) / "territorial_distribution.json", territorial_distribution)
     if isinstance(territorial_distribution, dict):
         territorial_summary = territorial_distribution.get("summary", {})
