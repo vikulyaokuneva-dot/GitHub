@@ -115,7 +115,7 @@ def build_input_debug(
     out["ads_source_file"] = _as_str(ads_source_file or out.get("ads_source_file"))
 
     out["source_priority"] = {
-        "sales": "api.realization -> api.sales -> local.sales",
+        "sales": "api.realization -> local.sales",
         "orders_kpi_count": "supplier_goods_confirmed_count -> api.orders -> api.sales -> unknown",
         "buyouts_kpi_count": "supplier_goods_confirmed_count -> api.sales -> api.realization -> unknown",
         "stocks": "api.stocks -> local.stocks",

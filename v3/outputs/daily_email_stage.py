@@ -154,6 +154,64 @@ def _extend_ai_conclusion_with_monitoring(base_text: str, funnel_lines: List[str
     return "\n".join([line for line in chunks if str(line).strip()])
 
 
+def _resolve_preliminary_ai_reasons(
+    *,
+    financial_finality_status: str,
+    financial_completeness_pct: float,
+    territorial_analysis_mode: str,
+    territorial_recommendation_status: str,
+    territorial_actionable_enabled: bool,
+    territorial_suppressed_due_to_data_quality: bool,
+    ads_analysis_enabled: bool,
+    ads_rows_count: int,
+) -> List[str]:
+    reasons: List[str] = []
+    if str(financial_finality_status or "").strip().lower() != "final":
+        reasons.append("financial contour is not final")
+    if float(financial_completeness_pct) < 80.0:
+        reasons.append("financial completeness is low")
+    if (
+        str(territorial_analysis_mode or "").strip().lower() in {"", "preview", "disabled"}
+        or str(territorial_recommendation_status or "").strip().lower() not in {"actionable"}
+        or not bool(territorial_actionable_enabled)
+        or bool(territorial_suppressed_due_to_data_quality)
+    ):
+        reasons.append("territorial analysis is preview-only")
+    if not bool(ads_analysis_enabled) or int(ads_rows_count) <= 0:
+        reasons.append("ads data is missing")
+    return reasons
+
+
+def _soften_recommendations_for_preliminary(recommendations: List[str], reasons: List[str]) -> List[str]:
+    reasons_text = "; ".join([str(item).strip() for item in reasons if str(item).strip()]) or "limited data quality"
+    softened: List[str] = [
+        "PRELIMINARY: recommendations are hypotheses until data quality is confirmed (" + reasons_text + ")."
+    ]
+    for item in recommendations:
+        text = str(item).strip()
+        if not text:
+            continue
+        softened.append("Hypothesis: " + text.replace("LIQUIDATE", "REVIEW"))
+        if len(softened) >= 4:
+            break
+    if len(softened) == 1:
+        softened.append("Hypothesis: keep monitoring and re-check after confirmed financial contour.")
+    return softened
+
+
+def _prepend_preliminary_conclusion(base_text: str, reasons: List[str]) -> str:
+    reasons_text = "; ".join([str(item).strip() for item in reasons if str(item).strip()]) or "limited data quality"
+    prefix = (
+        "PRELIMINARY CONCLUSION: high-impact actions require confirmation (" + reasons_text + ")."
+    )
+    text = str(base_text or "").strip()
+    if not text:
+        return prefix
+    if "PRELIMINARY CONCLUSION:" in text:
+        return text
+    return prefix + "\n" + text
+
+
 def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     sync_from_entry(globals())
 
@@ -261,6 +319,54 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         data_quality.get("financial_finality_status", report_guardrails.get("financial_finality_status", "unavailable"))
         or "unavailable"
     ).strip().lower()
+    financial_completeness_pct = (
+        _safe_float(
+            data.get(
+                "financial_completeness_pct",
+                financial_kpi.get(
+                    "completeness_pct",
+                    data_quality.get("financial_completeness_pct", 0.0),
+                ),
+            )
+        )
+        or 0.0
+    )
+    territorial_analysis_mode = str(
+        data_quality.get("territorial_analysis_mode", report_guardrails.get("territorial_analysis_mode", "disabled")) or "disabled"
+    ).strip().lower()
+    territorial_recommendation_status = str(
+        data_quality.get(
+            "territorial_recommendation_status",
+            report_guardrails.get("territorial_recommendation_status", "blocked_by_data"),
+        )
+        or "blocked_by_data"
+    ).strip().lower()
+    territorial_actionable_enabled = bool(
+        report_guardrails.get("territorial_actionable_enabled", False)
+    )
+    territorial_suppressed_due_to_data_quality = bool(
+        data_quality.get("territorial_suppressed_due_to_data_quality", False)
+    )
+    ads_analysis_enabled = bool(report_guardrails.get("ads_analysis_enabled", True))
+    ads_rows_count = int(data.get("ads_rows_count", 0) or 0)
+    preliminary_ai_reasons = _resolve_preliminary_ai_reasons(
+        financial_finality_status=financial_finality_status,
+        financial_completeness_pct=float(financial_completeness_pct),
+        territorial_analysis_mode=territorial_analysis_mode,
+        territorial_recommendation_status=territorial_recommendation_status,
+        territorial_actionable_enabled=territorial_actionable_enabled,
+        territorial_suppressed_due_to_data_quality=territorial_suppressed_due_to_data_quality,
+        ads_analysis_enabled=ads_analysis_enabled,
+        ads_rows_count=ads_rows_count,
+    )
+    preliminary_ai_mode = bool(preliminary_ai_reasons)
+    if preliminary_ai_mode:
+        short_recommendations = _soften_recommendations_for_preliminary(short_recommendations, preliminary_ai_reasons)
+        ai_day_conclusion_email = _prepend_preliminary_conclusion(ai_day_conclusion_email, preliminary_ai_reasons)
+        key_insights_enhanced.insert(
+            0,
+            "Preliminary mode: recommendations are hypotheses until data quality is confirmed.",
+        )
 
     if sku_attribution_status == "broken":
         key_insights_enhanced = [
@@ -289,7 +395,7 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "Funnel KPI РґРѕР±Р°РІР»РµРЅ РІ СѓРїСЂР°РІР»РµРЅС‡РµСЃРєСѓСЋ РІС‹Р¶РёРјРєСѓ.",
         ]
 
-    job["email_summary"] = build_email_summary(
+    email_summary_payload = build_email_summary(
         daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
         ads_summary=ads_summary if isinstance(ads_summary, dict) else {},
         net_profit=data.get("net_profit"),
@@ -339,6 +445,10 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         ),
     )
 
+    email_summary_payload["ai_guidance_mode"] = "preliminary" if preliminary_ai_mode else "standard"
+    email_summary_payload["ai_guardrail_reasons"] = list(preliminary_ai_reasons)
+    job["email_summary"] = email_summary_payload
+
     data.update(
         {
             "job": job,
@@ -350,6 +460,11 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
     return data
+
+
+
+
+
 
 
 

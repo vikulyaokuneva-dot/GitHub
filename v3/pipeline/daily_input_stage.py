@@ -137,13 +137,18 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         ads_rows = list(api_ads_rows)
         stocks_rows = list(api_stocks_rows)
 
-        # orders_api rows are commerce-only and must not be used for financial revenue.
-        sales_rows = list(api_realization_rows) if api_realization_rows else list(api_sales_rows)
+        # orders/sales API rows are commerce-only and must not be used as financial contour.
+        sales_rows = list(api_realization_rows)
 
         if not api_sales_rows and not api_realization_rows:
             warnings_collector.add_warning(
                 "wb_api_zero_sales_rows",
                 "WB API returned zero sales rows for selected period",
+            )
+        elif api_sales_rows and not api_realization_rows:
+            warnings_collector.add_warning(
+                "wb_api_realization_missing",
+                "WB API sales rows are present, but realization rows are empty; financial contour is not confirmed.",
             )
 
         need_local_sales = not sales_rows
@@ -209,12 +214,16 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
                         warnings_collector.extend_warnings([item])
 
         if not sales_rows:
-            warnings_collector.add_warning("financial_data_missing", "данные о продажах не получены")
+            warnings_collector.add_warning(
+                "financial_data_missing",
+                "Financial contour is missing: no realization rows and no local financial fallback.",
+            )
 
         api_debug = {
             "sales_rows": len(api_sales_rows),
             "orders_rows": len(api_orders_rows),
             "realization_rows": len(api_realization_rows),
+            "financial_rows": len(sales_rows),
             "ads_rows": len(api_ads_rows),
             "stocks_rows": len(api_stocks_rows),
             "endpoints": api_endpoint_debug,
@@ -224,6 +233,11 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "timezone": str(period.get("timezone") or report_timezone),
             "shifted_to_previous_day": bool(period.get("shifted_to_previous_day")),
             "local_financial_fallback_used": local_financial_fallback_used,
+            "financial_contour_source": (
+                "api.realization"
+                if api_realization_rows
+                else ("local.sales_fallback" if local_financial_fallback_used else "missing")
+            ),
         }
         event_date_model = build_event_date_model(
             run_date=run_date,
@@ -273,6 +287,7 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "sales_rows": 0,
             "orders_rows": 0,
             "realization_rows": 0,
+            "financial_rows": len(sales_rows),
             "ads_rows": 0,
             "stocks_rows": 0,
             "endpoints": [],
@@ -281,6 +296,8 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "run_date_requested": run_date,
             "timezone": _resolve_report_timezone(cfg),
             "shifted_to_previous_day": False,
+            "local_financial_fallback_used": bool(len(sales_rows) > 0),
+            "financial_contour_source": "local.report" if sales_rows else "missing",
         }
         event_date_model = build_event_date_model(
             run_date=run_date,

@@ -103,19 +103,22 @@ def run_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict[str, A
 
 
 def _batch_summary(run_date: str, results: List[Dict[str, Any]]) -> Dict[str, Any]:
-    success_count = sum(1 for row in results if str(row.get("status") or "") == "success")
-    failed_count = len(results) - success_count
+    safe_results = [row for row in results if isinstance(row, dict)]
+    non_fallback_results = [row for row in safe_results if str(row.get("seller_id") or "") != _FALLBACK_SELLER_ID]
+    effective_results = non_fallback_results if non_fallback_results else safe_results
+    success_count = sum(1 for row in effective_results if str(row.get("status") or "") == "success")
+    failed_count = len(effective_results) - success_count
     return {
         "run_date": run_date,
-        "total_sellers": len(results),
+        "total_sellers": len(effective_results),
         "success_count": success_count,
         "failed_count": failed_count,
-        "results": results,
+        "results": effective_results,
     }
 
 
 def run_for_all_sellers(repo_root: str, run_date: str) -> Dict[str, Any]:
-    sellers = discover_sellers(repo_root)
+    sellers = [seller for seller in discover_sellers(repo_root) if seller != _FALLBACK_SELLER_ID]
     print(f"[batch] discovered {len(sellers)} sellers")
     if sellers:
         print(f"[batch] discovered sellers: {' '.join(sellers)}")

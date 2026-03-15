@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import re
@@ -9,7 +9,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 def _font_dirs() -> List[str]:
     here = os.path.dirname(__file__)
+    repo_root = os.path.dirname(here)
     dirs = [
+        os.path.join(repo_root, "assets", "fonts"),
         os.path.join(here, "fonts"),
     ]
 
@@ -29,11 +31,7 @@ def _font_dirs() -> List[str]:
 
 def _resolve_font_family() -> Dict[str, str]:
     # Keep one font family for all PDF text to avoid glyph fallback issues.
-    families = [
-        ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"),
-        ("arial.ttf", "arialbd.ttf"),
-        ("tahoma.ttf", "tahomabd.ttf"),
-    ]
+    families = [("DejaVuSans.ttf", "DejaVuSans.ttf")]
     for directory in _font_dirs():
         for regular_name, bold_name in families:
             regular = os.path.join(directory, regular_name)
@@ -43,10 +41,10 @@ def _resolve_font_family() -> Dict[str, str]:
             return {
                 "regular": regular,
                 "bold": bold if os.path.isfile(bold) else regular,
-                "family": os.path.splitext(os.path.basename(regular))[0],
+                "family": "DejaVuSans",
             }
     raise FileNotFoundError(
-        "No Cyrillic-capable TTF font found. Put DejaVuSans.ttf into v3/fonts/ or install Arial/Tahoma."
+        "DejaVuSans.ttf was not found. Put it into assets/fonts/DejaVuSans.ttf."
     )
 
 
@@ -131,7 +129,11 @@ def repair_mojibake(text: str) -> str:
 
 
 def normalize_pdf_text(text: str) -> str:
-    return _strip_unsafe_controls(repair_mojibake(text))
+    normalized = repair_mojibake(text)
+    # Fix common mojibake punctuation that can survive codec repair heuristics.
+    normalized = normalized.replace("вЂ”", "—")
+    return _strip_unsafe_controls(normalized)
+
 
 
 def _line_style(line: str) -> tuple[str, str]:
@@ -185,9 +187,9 @@ def write_text_pdf(path: str, lines: List[str]) -> Dict[str, str]:
     max_text_width = width_px - margin_x * 2
 
     fonts = {
-        "title": ImageFont.truetype(font_info["bold"], size=46),
-        "section": ImageFont.truetype(font_info["bold"], size=32),
-        "subsection": ImageFont.truetype(font_info["bold"], size=26),
+        "title": ImageFont.truetype(font_info["regular"], size=46),
+        "section": ImageFont.truetype(font_info["regular"], size=32),
+        "subsection": ImageFont.truetype(font_info["regular"], size=26),
         "body": ImageFont.truetype(font_info["regular"], size=23),
         "bullet": ImageFont.truetype(font_info["regular"], size=23),
     }
@@ -251,3 +253,4 @@ def write_text_pdf(path: str, lines: List[str]) -> Dict[str, str]:
     pages[0].save(path, "PDF", save_all=True, append_images=pages[1:], resolution=150.0)
     font_info["pages"] = str(len(pages))
     return font_info
+

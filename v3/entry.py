@@ -853,18 +853,21 @@ def _failed_run_result(seller_id: str, run_date: str, mode: str, error: str) -> 
 
 
 def _batch_summary(run_date: str, results: List[Dict[str, Any]]) -> Dict[str, Any]:
-    success_count = sum(1 for row in results if str(row.get("status") or "") == "success")
-    partial_success_count = sum(1 for row in results if str(row.get("status") or "") == "partial_success")
+    safe_results = [row for row in results if isinstance(row, dict)]
+    non_fallback_results = [row for row in safe_results if str(row.get("seller_id") or "") != _FALLBACK_SELLER_ID]
+    effective_results = non_fallback_results if non_fallback_results else safe_results
+    success_count = sum(1 for row in effective_results if str(row.get("status") or "") == "success")
+    partial_success_count = sum(1 for row in effective_results if str(row.get("status") or "") == "partial_success")
     failed_count = sum(
-        1 for row in results if str(row.get("status") or "") not in {"success", "partial_success"}
+        1 for row in effective_results if str(row.get("status") or "") not in {"success", "partial_success"}
     )
     return {
         "run_date": run_date,
-        "total_sellers": len(results),
+        "total_sellers": len(effective_results),
         "success_count": success_count,
         "partial_success_count": partial_success_count,
         "failed_count": failed_count,
-        "results": results,
+        "results": effective_results,
     }
 
 
@@ -954,7 +957,7 @@ def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str |
 def run_for_all_sellers(run_date: str | None = None, repo_root: str | None = None) -> Dict[str, Any]:
     resolved_repo_root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     resolved_run_date = run_date or _default_date()
-    sellers = discover_sellers(resolved_repo_root)
+    sellers = [seller for seller in discover_sellers(resolved_repo_root) if seller != _FALLBACK_SELLER_ID]
     print(f"[batch] discovered {len(sellers)} sellers")
     if sellers:
         print(f"[batch] discovered sellers: {' '.join(sellers)}")

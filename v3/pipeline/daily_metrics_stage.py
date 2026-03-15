@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict, List
@@ -40,6 +40,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     api_sales_rows = list(ctx.get("api_sales_rows", []))
     api_realization_rows = list(ctx.get("api_realization_rows", []))
     api_stocks_rows = list(ctx.get("api_stocks_rows", []))
+    local_financial_fallback_used = bool(ctx.get("local_financial_fallback_used", False))
     supplier_goods_daily = ctx.get("supplier_goods_daily", {})
     if not isinstance(supplier_goods_daily, dict):
         supplier_goods_daily = {}
@@ -354,7 +355,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     )
     warnings_collector.extend_warnings(assembly_warning_additions.get("financial_warning_additions", []))
     warnings_collector.extend_warnings(assembly_warning_additions.get("ads_warning_additions", []))
-    api_financial_empty = bool(token and not api_realization_rows and not api_sales_rows)
+    api_financial_contour_missing = bool(token and not api_realization_rows)
     financial_data_missing_flag = len(sales_rows) == 0
     financial_data_degraded_flag = False
     if financial_data_missing_flag:
@@ -363,14 +364,24 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             for item in warnings_collector.export_warnings()
             if isinstance(item, dict)
         ):
-            warnings_collector.add_warning("financial_data_missing", "sales data not received")
+            warnings_collector.add_warning(
+                "financial_data_missing",
+                "Financial contour is missing: no realization rows and no local financial fallback.",
+            )
         financial_data_degraded_flag = True
-    elif api_financial_empty:
-        warnings_collector.add_warning(
-            "wb_api_financial_degraded",
-            "WB API financial datasets are empty; local fallback data was used.",
-        )
-        financial_data_degraded_flag = True
+    elif api_financial_contour_missing:
+        if local_financial_fallback_used:
+            warnings_collector.add_warning(
+                "wb_api_financial_degraded",
+                "WB API realization data is empty; local financial fallback data was used.",
+            )
+            financial_data_degraded_flag = True
+        else:
+            warnings_collector.add_warning(
+                "financial_contour_not_confirmed",
+                "WB API realization data is empty; final financial contour is not confirmed.",
+            )
+            financial_data_degraded_flag = True
 
     facts = build_daily_facts_base(
         seller_id=seller_id,
@@ -713,3 +724,5 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
     return ctx
+
+

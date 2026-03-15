@@ -16,7 +16,7 @@
     "assigned_to_sku": "430679462",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 1,
@@ -35,7 +35,7 @@
     "assigned_to_sku": "430679462",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 2,
@@ -54,7 +54,7 @@
     "assigned_to_sku": "452102417",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 3,
@@ -73,7 +73,7 @@
     "assigned_to_sku": "452102417",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 4,
@@ -92,7 +92,7 @@
     "assigned_to_sku": "333615320",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 5,
@@ -111,7 +111,7 @@
     "assigned_to_sku": "333615320",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 6,
@@ -130,7 +130,7 @@
     "assigned_to_sku": "739384273",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 7,
@@ -149,7 +149,7 @@
     "assigned_to_sku": "452102417",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 8,
@@ -168,7 +168,7 @@
     "assigned_to_sku": "452102417",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 9,
@@ -187,7 +187,7 @@
     "assigned_to_sku": "452102417",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 10,
@@ -206,7 +206,7 @@
     "assigned_to_sku": "590614192",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 11,
@@ -225,7 +225,7 @@
     "assigned_to_sku": "453526507",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 12,
@@ -244,7 +244,7 @@
     "assigned_to_sku": "414589567",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 13,
@@ -263,7 +263,7 @@
     "assigned_to_sku": "283212418",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 14,
@@ -282,7 +282,7 @@
     "assigned_to_sku": "283212418",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 15,
@@ -301,16 +301,16 @@
     "assigned_to_sku": "414589567",
     "unassigned": false,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 16,
     "operation": "",
     "type": "",
     "name": "",
-    "extracted_sku": "0",
+    "extracted_sku": "",
     "is_valid_sku": false,
-    "reason_invalid": "invalid_literal",
+    "reason_invalid": "missing_field",
     "revenue_component": 0.0,
     "cost_price_component": 0.0,
     "wb_commission_component": -1.7,
@@ -320,16 +320,16 @@
     "assigned_to_sku": null,
     "unassigned": true,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 17,
     "operation": "",
     "type": "",
     "name": "",
-    "extracted_sku": "0",
+    "extracted_sku": "",
     "is_valid_sku": false,
-    "reason_invalid": "invalid_literal",
+    "reason_invalid": "missing_field",
     "revenue_component": 0.0,
     "cost_price_component": 0.0,
     "wb_commission_component": -1.7,
@@ -339,16 +339,16 @@
     "assigned_to_sku": null,
     "unassigned": true,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   },
   {
     "raw_row_index": 18,
     "operation": "",
     "type": "",
     "name": "",
-    "extracted_sku": "0",
+    "extracted_sku": "",
     "is_valid_sku": false,
-    "reason_invalid": "invalid_literal",
+    "reason_invalid": "missing_field",
     "revenue_component": 0.0,
     "cost_price_component": 0.0,
     "wb_commission_component": 0.0,
@@ -358,6 +358,6 @@
     "assigned_to_sku": null,
     "unassigned": true,
     "source_dataset": "",
-    "sku_source_field": ""
+    "sku_source_field": "код_номенклатуры"
   }
 ]

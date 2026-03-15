@@ -48,6 +48,18 @@
     "message": "Keyword monitoring has no query-level rows for analysis."
   },
   {
+    "code": "advertising_efficiency_preview",
+    "message": "Advertising efficiency is preview-only because buyouts are not confirmed."
+  },
+  {
+    "code": "advertising_efficiency_preview",
+    "message": "Advertising efficiency is preview-only: buyouts are not confirmed."
+  },
+  {
+    "code": "advertising_efficiency_query_missing",
+    "message": "Query-level advertising rows are missing; query analysis is limited."
+  },
+  {
     "code": "quantity_orders_fallback_blocked",
     "message": "quantity column cannot be used as orders_count fallback"
   },
@@ -73,7 +85,7 @@
   },
   {
     "code": "invalid_sku_reason_breakdown",
-    "message": "Invalid SKU reason breakdown: invalid_literal=3"
+    "message": "Invalid SKU reason breakdown: missing_field=3"
   },
   {
     "code": "unassigned_costs_detected",
@@ -116,35 +128,27 @@
     "message": "Net profit reduced by ads spend."
   },
   {
-    "code": "low_total_profit",
-    "message": "Total financial profit is non-positive; financial attribution may be incomplete."
-  },
-  {
     "code": "territorial_distribution_stock_rows_missing",
     "message": "Stock rows are missing for robust localization estimation."
   },
   {
+    "code": "territorial_distribution_suppressed_due_to_data_quality",
+    "message": "Portfolio-level territorial conclusions downgraded due to low evidence coverage."
+  },
+  {
     "code": "territorial_distribution_built",
-    "message": "Territorial distribution built for 8 SKU with KTR"
+    "message": "Territorial distribution built for 0 SKU with KTR"
+  },
+  {
+    "code": "territorial_distribution_preview_only",
+    "message": "Territorial conclusions are preview-only due to limited evidence coverage."
   },
   {
     "code": "insufficient_warehouse_data",
     "message": "Insufficient warehouse-level data for full territorial analysis"
   },
   {
-    "code": "high_ktr_detected",
-    "message": "High KTR detected for 7 SKU"
-  },
-  {
-    "code": "decision_memory_updated",
-    "message": "Decision memory updated: added 8 records."
-  },
-  {
-    "code": "decision_outcomes_evaluated",
-    "message": "Decision outcomes evaluated: 8"
-  },
-  {
-    "code": "history_snapshot_saved",
-    "message": "History snapshot saved for 2026-03-14"
+    "code": "no_decisions_ready_for_outcome",
+    "message": "No decisions are ready for outcome evaluation yet"
   }
 ]

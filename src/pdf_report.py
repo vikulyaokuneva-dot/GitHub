@@ -30,6 +30,8 @@ def _find_font_file() -> str | None:
     """
     base_dir = os.path.dirname(__file__)  # .../src
     candidates = [
+        # canonical project path
+        os.path.join(os.getcwd(), "assets", "fonts", "DejaVuSans.ttf"),
         # recommended: src/fonts/DejaVuSans.ttf
         os.path.join(base_dir, "fonts", "DejaVuSans.ttf"),
         # sometimes fonts folder is at repo root: fonts/DejaVuSans.ttf

@@ -1,8 +1,8 @@
 {
   "seller_id": "seller_001",
   "seller_name": "seller_001",
-  "run_date": "2026-03-14",
-  "generated_at": "2026-03-13T22:23:26Z",
+  "run_date": "2026-03-15",
+  "generated_at": "2026-03-15T19:06:43Z",
   "data_confidence": "low",
   "source_mode": "local_reports",
   "daily_orders_count": 0,
@@ -91,10 +91,69 @@
     "expense_attribution_partial": true,
     "net_profit_partial": true,
     "financial_margin_not_final": true,
-    "completeness_pct": 33.33,
+    "completeness_pct": 55.56,
+    "components": {
+      "revenue": {
+        "available": true,
+        "confirmed": true,
+        "source": "aggregated_rows",
+        "trusted_for_final_reporting": true
+      },
+      "commission": {
+        "available": true,
+        "confirmed": true,
+        "source": "aggregated_rows",
+        "trusted_for_final_reporting": true
+      },
+      "logistics": {
+        "available": true,
+        "confirmed": true,
+        "source": "aggregated_rows",
+        "trusted_for_final_reporting": true
+      },
+      "storage": {
+        "available": true,
+        "confirmed": true,
+        "source": "aggregated_rows",
+        "trusted_for_final_reporting": true
+      },
+      "penalties": {
+        "available": false,
+        "confirmed": true,
+        "source": "aggregated_rows",
+        "trusted_for_final_reporting": false
+      },
+      "deductions": {
+        "available": false,
+        "confirmed": true,
+        "source": "aggregated_rows",
+        "trusted_for_final_reporting": false
+      },
+      "cost_price": {
+        "available": false,
+        "confirmed": true,
+        "source": "aggregated_rows",
+        "trusted_for_final_reporting": false
+      },
+      "tax": {
+        "available": false,
+        "confirmed": true,
+        "source": "aggregated_rows",
+        "trusted_for_final_reporting": false
+      },
+      "ads_spend": {
+        "available": true,
+        "confirmed": true,
+        "source": "aggregated_rows",
+        "trusted_for_final_reporting": true
+      }
+    },
+    "available_components": 5,
+    "total_components": 9,
+    "financial_finality_status": "partial",
     "is_partial": true,
     "basis": "buyouts",
-    "date": "2026-03-14",
+    "date": "2026-03-15",
     "confirmed": false
   },
   "kpi": {
@@ -109,13 +168,18 @@
     "valid_sku_count": 8,
     "invalid_sku_rows": 3,
     "invalid_sku_reason_counts": {
-      "invalid_literal": 3
+      "missing_field": 3
     },
     "unassigned_costs_present": true,
     "unassigned_rows": 3,
     "unassigned_profit": -42.2,
     "financial_status": "partial",
-    "ai_decision_reliability": "low",
+    "ai_decision_reliability": "medium",
+    "sku_attribution_status": "degraded",
+    "invalid_sku_rows_parser_error": 0,
+    "invalid_sku_rows_missing_field": 0,
+    "unassigned_rows_true": 3,
+    "attribution_guard_triggered": true,
     "zero_revenue_activity_sku_count": 6,
     "zero_revenue_activity_skus": [
       "333615320",
@@ -131,20 +195,35 @@
     "expense_attribution_partial": true,
     "net_profit_partial": true,
     "financial_margin_not_final": true,
-    "financial_completeness_pct": 33.33
+    "financial_completeness_pct": 55.56,
+    "financial_finality_status": "partial",
+    "territorial_analysis_enabled": false,
+    "profit_contribution_enabled": true,
+    "ads_analysis_enabled": true,
+    "report_reliability_level": "medium",
+    "territorial_actionable_enabled": false,
+    "territorial_analysis_mode": "disabled",
+    "territorial_recommendation_status": "blocked_by_data",
+    "territorial_confidence_level": "low",
+    "territorial_suppressed_due_to_data_quality": true,
+    "advertising_efficiency_enabled": true,
+    "advertising_efficiency_analysis_mode": "preview"
   },
   "api_debug": {
     "sales_rows": 0,
     "orders_rows": 0,
     "realization_rows": 0,
+    "financial_rows": 19,
     "ads_rows": 0,
     "stocks_rows": 0,
     "endpoints": [],
-    "date_from": "2026-03-14",
-    "date_to": "2026-03-14",
-    "run_date_requested": "2026-03-14",
+    "date_from": "2026-03-15",
+    "date_to": "2026-03-15",
+    "run_date_requested": "2026-03-15",
     "timezone": "Europe/Moscow",
-    "shifted_to_previous_day": false
+    "shifted_to_previous_day": false,
+    "local_financial_fallback_used": true,
+    "financial_contour_source": "local.report"
   },
   "ads_file_candidates_found": 1,
   "ads_file_detected": true,
@@ -330,16 +409,16 @@
     }
   },
   "event_date_model": {
-    "report_date": "2026-03-14",
-    "operational_date": "2026-03-14",
-    "orders_date": "2026-03-14",
-    "buyouts_date": "2026-03-14",
-    "financial_date": "2026-03-14",
+    "report_date": "2026-03-15",
+    "operational_date": "2026-03-15",
+    "orders_date": "2026-03-15",
+    "buyouts_date": "2026-03-15",
+    "financial_date": "2026-03-15",
     "shifted_to_previous_day": false,
     "timezone": "Europe/Moscow"
   },
   "order_kpi": {
-    "date": "2026-03-14",
+    "date": "2026-03-15",
     "orders_count": null,
     "orders_amount": null,
     "orders_count_confirmed": false,
@@ -348,7 +427,7 @@
     "source_amount": "unknown"
   },
   "buyout_kpi": {
-    "date": "2026-03-14",
+    "date": "2026-03-15",
     "buyouts_count": null,
     "buyouts_amount": null,
     "buyouts_count_confirmed": false,
@@ -364,12 +443,12 @@
     "ai_reliability": "low"
   },
   "event_ledger": {
-    "report_date": "2026-03-14",
-    "operational_date": "2026-03-14",
+    "report_date": "2026-03-15",
+    "operational_date": "2026-03-15",
     "events": [
       {
         "event_type": "orders_snapshot",
-        "event_date": "2026-03-14",
+        "event_date": "2026-03-15",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -377,7 +456,7 @@
       },
       {
         "event_type": "buyouts_snapshot",
-        "event_date": "2026-03-14",
+        "event_date": "2026-03-15",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -385,7 +464,7 @@
       },
       {
         "event_type": "financial_snapshot",
-        "event_date": "2026-03-14",
+        "event_date": "2026-03-15",
         "source": "local.supplier_goods",
         "confirmed": false,
         "rows": 0,
@@ -409,7 +488,7 @@
   "buyout_rate": null,
   "CPO": null,
   "sales_funnel": {
-    "date": "2026-03-14",
+    "date": "2026-03-15",
     "funnel": {
       "views": 1359,
       "add_to_cart": null,
@@ -710,7 +789,7 @@
       }
     ],
     "sku_diagnostics": {
-      "date": "2026-03-14",
+      "date": "2026-03-15",
       "status": "partial_success",
       "thresholds": {
         "min_views_for_analysis": 50.0,
@@ -739,7 +818,7 @@
           "has_orders": true,
           "has_buyouts": true,
           "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+          "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
         },
         {
           "sku": "283212418",
@@ -757,7 +836,7 @@
           "has_orders": true,
           "has_buyouts": true,
           "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+          "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
         },
         {
           "sku": "739384273",
@@ -775,7 +854,7 @@
           "has_orders": true,
           "has_buyouts": true,
           "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+          "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
         },
         {
           "sku": "414589567",
@@ -793,7 +872,7 @@
           "has_orders": true,
           "has_buyouts": true,
           "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+          "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
         },
         {
           "sku": "590614192",
@@ -811,7 +890,7 @@
           "has_orders": true,
           "has_buyouts": true,
           "issue_type": "traffic_problem",
-          "issue_reason_ru": "Низкий трафик: товар получает слишком мало просмотров."
+          "issue_reason_ru": "РќРёР·РєРёР№ С‚СЂР°С„РёРє: С‚РѕРІР°СЂ РїРѕР»СѓС‡Р°РµС‚ СЃР»РёС€РєРѕРј РјР°Р»Рѕ РїСЂРѕСЃРјРѕС‚СЂРѕРІ."
         },
         {
           "sku": "453526507",
@@ -829,7 +908,7 @@
           "has_orders": true,
           "has_buyouts": true,
           "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+          "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
         },
         {
           "sku": "430679462",
@@ -847,7 +926,7 @@
           "has_orders": false,
           "has_buyouts": false,
           "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+          "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
         },
         {
           "sku": "333615320",
@@ -865,7 +944,7 @@
           "has_orders": true,
           "has_buyouts": true,
           "issue_type": "ads_efficiency_problem",
-          "issue_reason_ru": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+          "issue_reason_ru": "РџСЂРѕР±Р»РµРјР° СЂРµРєР»Р°РјС‹: СЂР°СЃС…РѕРґС‹ РµСЃС‚СЊ, РЅРѕ Р·Р°РєР°Р·С‹ РЅРµ РїРѕРґС‚РІРµСЂР¶РґР°СЋС‚ СЌС„С„РµРєС‚РёРІРЅРѕСЃС‚СЊ С‚СЂР°С„РёРєР°."
         }
       ],
       "summary": {
@@ -894,12 +973,12 @@
           {
             "sku": "590614192",
             "issue_type": "traffic_problem",
-            "reason": "Низкий трафик: товар получает слишком мало просмотров."
+            "reason": "РќРёР·РєРёР№ С‚СЂР°С„РёРє: С‚РѕРІР°СЂ РїРѕР»СѓС‡Р°РµС‚ СЃР»РёС€РєРѕРј РјР°Р»Рѕ РїСЂРѕСЃРјРѕС‚СЂРѕРІ."
           },
           {
             "sku": "333615320",
             "issue_type": "ads_efficiency_problem",
-            "reason": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+            "reason": "РџСЂРѕР±Р»РµРјР° СЂРµРєР»Р°РјС‹: СЂР°СЃС…РѕРґС‹ РµСЃС‚СЊ, РЅРѕ Р·Р°РєР°Р·С‹ РЅРµ РїРѕРґС‚РІРµСЂР¶РґР°СЋС‚ СЌС„С„РµРєС‚РёРІРЅРѕСЃС‚СЊ С‚СЂР°С„РёРєР°."
           }
         ]
       },
@@ -937,12 +1016,12 @@
       {
         "sku": "590614192",
         "issue_type": "traffic_problem",
-        "reason": "Низкий трафик: товар получает слишком мало просмотров."
+        "reason": "РќРёР·РєРёР№ С‚СЂР°С„РёРє: С‚РѕРІР°СЂ РїРѕР»СѓС‡Р°РµС‚ СЃР»РёС€РєРѕРј РјР°Р»Рѕ РїСЂРѕСЃРјРѕС‚СЂРѕРІ."
       },
       {
         "sku": "333615320",
         "issue_type": "ads_efficiency_problem",
-        "reason": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+        "reason": "РџСЂРѕР±Р»РµРјР° СЂРµРєР»Р°РјС‹: СЂР°СЃС…РѕРґС‹ РµСЃС‚СЊ, РЅРѕ Р·Р°РєР°Р·С‹ РЅРµ РїРѕРґС‚РІРµСЂР¶РґР°СЋС‚ СЌС„С„РµРєС‚РёРІРЅРѕСЃС‚СЊ С‚СЂР°С„РёРєР°."
       }
     ]
   },
@@ -979,85 +1058,50 @@
   },
   "territorial_distribution_summary": {
     "sku_total": 8,
-    "sku_with_ktr": 8,
+    "sku_with_ktr": 0,
     "balanced_count": 0,
     "moderate_mismatch_count": 0,
-    "misallocated_count": 7,
-    "insufficient_distribution_data_count": 1,
-    "no_stock_data_count": 0,
-    "insufficient_total_count": 1,
-    "avg_ktr": 2.0,
+    "misallocated_count": 0,
+    "insufficient_distribution_data_count": 8,
+    "no_stock_data_count": 8,
+    "insufficient_total_count": 8,
+    "avg_ktr": 0.0,
     "total_skus_analyzed": 8,
     "skus_with_irp_penalty": 0,
-    "skus_below_60_localization": 7,
-    "skus_below_40_localization": 7,
-    "skus_critical_below_20_localization": 7,
+    "skus_below_60_localization": 0,
+    "skus_below_40_localization": 0,
+    "skus_critical_below_20_localization": 0,
     "aggregate_estimated_irp_penalty_total": 0.0,
     "weighted_average_localization_share": 0.0,
     "distribution_efficiency_score": 0.0,
-    "top_weak_localization_skus": [
-      {
-        "sku": "452102417",
-        "localization_share": 0.0,
-        "total_orders": 7.0
-      },
-      {
-        "sku": "283212418",
-        "localization_share": 0.0,
-        "total_orders": 4.0
-      },
-      {
-        "sku": "333615320",
-        "localization_share": 0.0,
-        "total_orders": 4.0
-      },
-      {
-        "sku": "414589567",
-        "localization_share": 0.0,
-        "total_orders": 4.0
-      },
-      {
-        "sku": "453526507",
-        "localization_share": 0.0,
-        "total_orders": 2.0
-      }
-    ],
+    "coverage_pct": 0.0,
+    "demand_coverage_pct": 12.5,
+    "stock_coverage_pct": 0.0,
+    "confidence_level": "low",
+    "analysis_mode": "disabled",
+    "recommendation_status": "blocked_by_data",
+    "suppressed_due_to_data_quality": true,
+    "top_weak_localization_skus": [],
     "top_irp_penalty_skus": [],
-    "top_misaligned_skus": [
-      "452102417",
-      "283212418",
-      "333615320",
-      "414589567",
-      "453526507"
-    ]
+    "top_misaligned_skus": []
   },
   "logistics_ktr_summary": {
     "sku_total": 8,
-    "sku_with_ktr": 8,
+    "sku_with_ktr": 0,
     "efficient_count": 0,
     "acceptable_count": 0,
     "inefficient_count": 0,
-    "critical_count": 8,
-    "low_confidence_count": 4,
-    "avg_ktr": 2.0,
+    "critical_count": 0,
+    "low_confidence_count": 8,
+    "avg_ktr": 0.0,
     "avg_locality_score": 0.0,
-    "top_critical_skus": [
-      "283212418",
-      "333615320",
-      "414589567",
-      "430679462",
-      "452102417"
-    ]
+    "top_critical_skus": []
   },
   "decision_memory_summary": {
-    "total_logged": 72,
-    "pending": 16,
+    "total_logged": 80,
+    "pending": 24,
     "success": 13,
     "fail": 18,
     "neutral": 25
-  },
-  "history_summary": {
-    "snapshots_count": 8,
-    "latest_snapshot_date": "2026-03-14"
   }
 }

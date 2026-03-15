@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from typing import Any, Dict
@@ -223,9 +223,12 @@ def build_daily_status_matrix(
         source_amount=safe_buyout.get("source_amount"),
     )
 
+    financial_finality_status = str(safe_financial.get("financial_finality_status") or "").strip().lower()
     if bool(safe_financial.get("confirmed", False)):
         financial_status = STATUS_CONFIRMED
-    elif bool(safe_financial.get("is_partial", False)):
+    elif safe_financial.get("revenue") is None and financial_finality_status in {"", "unavailable", "sparse"}:
+        financial_status = STATUS_NOT_CONFIRMED
+    elif bool(safe_financial.get("is_partial", False)) or financial_finality_status == "partial":
         financial_status = STATUS_PARTIAL
     elif safe_financial.get("revenue") is None:
         financial_status = STATUS_NOT_CONFIRMED
@@ -352,7 +355,9 @@ def build_event_ledger(
     elif buyouts_source == "supplier_goods":
         buyouts_rows = _safe_int(safe_buyout.get("buyouts_count", 0))
 
-    financial_rows = _safe_int(safe_api.get("realization_rows", 0) or safe_api.get("sales_rows", 0))
+    financial_rows = _safe_int(safe_api.get("realization_rows", 0))
+    if financial_source == "local_report":
+        financial_rows = _safe_int(safe_api.get("financial_rows", financial_rows))
     if financial_source == "supplier_goods":
         financial_rows = _safe_int(safe_buyout.get("buyouts_count", 0))
 
@@ -390,3 +395,4 @@ def build_event_ledger(
             },
         ],
     }
+

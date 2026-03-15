@@ -15,46 +15,6 @@
   },
   "tasks": [
     {
-      "sku": "452102417",
-      "task": "rebalance_stock",
-      "priority": "P2"
-    },
-    {
-      "sku": "283212418",
-      "task": "rebalance_stock",
-      "priority": "P2"
-    },
-    {
-      "sku": "414589567",
-      "task": "rebalance_stock",
-      "priority": "P2"
-    },
-    {
-      "sku": "333615320",
-      "task": "rebalance_stock",
-      "priority": "P2"
-    },
-    {
-      "sku": "430679462",
-      "task": "rebalance_stock",
-      "priority": "P2"
-    },
-    {
-      "sku": "453526507",
-      "task": "rebalance_stock",
-      "priority": "P2"
-    },
-    {
-      "sku": "590614192",
-      "task": "rebalance_stock",
-      "priority": "P2"
-    },
-    {
-      "sku": "739384273",
-      "task": "rebalance_stock",
-      "priority": "P2"
-    },
-    {
       "sku": "283212418",
       "task": "monitor",
       "priority": "P3"
@@ -84,5 +44,13 @@
       "task": "discount_or_remove",
       "priority": "P4"
     }
-  ]
+  ],
+  "signals": [],
+  "territorial_analysis_enabled": false,
+  "territorial_actionable_enabled": false,
+  "territorial_analysis_mode": "disabled",
+  "territorial_recommendation_status": "blocked_by_data",
+  "territorial_confidence_level": "low",
+  "sku_attribution_status": "degraded",
+  "profit_contribution_enabled": true
 }

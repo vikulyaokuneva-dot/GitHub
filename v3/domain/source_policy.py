@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, Iterable
 
@@ -87,12 +87,14 @@ def _financial_base_source(
 ) -> str:
     if bool(supplier_goods_daily.get("found", False)):
         return SOURCE_SUPPLIER_GOODS
-    if _api_endpoint_success(api_debug, ("realization", "sales")):
+    if _api_endpoint_success(api_debug, ("realization",)):
         return SOURCE_API
-    if _has_local_financial_rows(input_debug):
+    financial_rows = int(api_debug.get("financial_rows", 0) or 0)
+    if financial_rows > 0 and (
+        bool(api_debug.get("local_financial_fallback_used", False))
+        or _has_local_financial_rows(input_debug)
+    ):
         return SOURCE_LOCAL_REPORT
-    if abs(float(financial_kpi.get(metric_key, 0.0) or 0.0)) > 1e-9:
-        return SOURCE_FALLBACK
     return SOURCE_UNKNOWN
 
 
@@ -232,3 +234,7 @@ def resolve_source_policy(
         "sources": sources,
         "source_flags": source_flags,
     }
+
+
+
+
