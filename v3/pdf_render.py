@@ -1,7 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import re
+import unicodedata
 from typing import Dict, List
 
 from PIL import Image, ImageDraw, ImageFont
@@ -129,7 +130,9 @@ def repair_mojibake(text: str) -> str:
 
 
 def normalize_pdf_text(text: str) -> str:
-    normalized = repair_mojibake(text)
+    source = str(text or "")
+    normalized = repair_mojibake(source).replace("\ufeff", "")
+    normalized = unicodedata.normalize("NFC", normalized)
     # Fix common mojibake punctuation that can survive codec repair heuristics.
     normalized = normalized.replace("вЂ”", "—")
     return _strip_unsafe_controls(normalized)
@@ -253,4 +256,3 @@ def write_text_pdf(path: str, lines: List[str]) -> Dict[str, str]:
     pages[0].save(path, "PDF", save_all=True, append_images=pages[1:], resolution=150.0)
     font_info["pages"] = str(len(pages))
     return font_info
-

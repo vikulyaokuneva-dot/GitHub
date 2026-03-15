@@ -22,7 +22,7 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         if not os.path.isfile(path):
             return {}
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8-sig") as f:
                 data = json.load(f)
         except Exception:
             return {}
@@ -502,4 +502,3 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     )
     payload = apply_report_guardrails(payload)
     return payload
-

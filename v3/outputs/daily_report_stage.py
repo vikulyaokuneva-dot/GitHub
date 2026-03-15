@@ -1,13 +1,13 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import re
 from typing import Any, Dict, List
 
-from ..pdf_render import repair_mojibake
+from ..pdf_render import normalize_pdf_text, repair_mojibake
 from ..pipeline.daily_stage_support import sync_from_entry
 from .email_sender_orchestrator import build_daily_email_body, build_daily_email_subject
-from .render_policy import format_int_or_unknown, format_money_or_unknown, format_pct_or_unknown
+from .render_policy import format_int_or_unknown, format_money_or_unknown, format_pct_or_unknown, is_missing_value
 
 
 def _safe_float_local(value: Any) -> float | None:
@@ -320,6 +320,8 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(funnel, dict):
         funnel = {}
 
+    conversion_value = funnel.get("view_to_order_conversion", funnel.get("click_to_order_conversion_pct"))
+
     ads_efficiency_mode = str(
         portfolio_ads_summary.get("analysis_mode", advertising_efficiency.get("analysis_mode", "disabled"))
         if isinstance(advertising_efficiency, dict)
@@ -333,6 +335,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     portfolio_romi = _safe_float_local(portfolio_ads_summary.get("portfolio_ROMI", data.get("ads_romi")))
     portfolio_drr = _safe_float_local(portfolio_ads_summary.get("portfolio_DRR"))
     portfolio_cpo = _safe_float_local(portfolio_ads_summary.get("portfolio_CPO"))
+    cpo_value = portfolio_cpo if portfolio_cpo is not None else _safe_float_local(funnel.get("cpo", funnel.get("CPO")))
     top_profitable_queries_ads = portfolio_ads_summary.get("top_profitable_queries", []) if isinstance(portfolio_ads_summary, dict) else []
     if not isinstance(top_profitable_queries_ads, list):
         top_profitable_queries_ads = []
@@ -348,26 +351,19 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         if not text_value:
             return ""
 
-        text_value = (
-            text_value.replace("???", "?")
-            .replace("???", "?")
-            .replace("???", "?")
-            .replace("???", "?")
-        )
-
         token_map = {
-            "unknown": "??? ??????",
-            "degraded": "???????",
-            "partial": "?????????",
-            "confirmed": "????????????",
-            "not_confirmed": "?? ????????????",
-            "attention_score": "??????? ????????",
-            "baseline": "???? ?????????",
-            "traffic_problem": "?????? ??????",
-            "ads_efficiency_problem": "???? ????????????? ???????",
-            "monitor": "?????????",
-            "discount_or_remove": "??????? ???? ??? ??????? ?? ???????",
-            "fallback": "????????? ????????",
+            "unknown": "данные не подтверждены",
+            "degraded": "частично",
+            "partial": "частично",
+            "confirmed": "подтверждено",
+            "not_confirmed": "данные не подтверждены",
+            "attention_score": "оценка внимания",
+            "baseline": "базовый уровень",
+            "traffic_problem": "низкий трафик",
+            "ads_efficiency_problem": "неэффективная реклама",
+            "monitor": "наблюдать",
+            "discount_or_remove": "снижать цену или выводить",
+            "fallback": "резервный источник",
         }
 
         for source, target in token_map.items():
@@ -384,7 +380,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         return text_value
 
     def _sanitize_line(line: str) -> str:
-        if line == "":
+        if line == "\f":
             return line
         prefixes = ("### ", "## ", "# ", "- ")
         for prefix in prefixes:
@@ -392,43 +388,74 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
                 return prefix + _sanitize_client_text(line[len(prefix):])
         return _sanitize_client_text(line)
 
+    NO_DATA_LABEL = "нет данных"
+    NOT_CONFIRMED_LABEL = "данные не подтверждены"
+    INSUFFICIENT_DATA_LABEL = "недостаточно данных для расчета"
+    _MISSING_DISPLAY_LABELS = {
+        NO_DATA_LABEL,
+        NOT_CONFIRMED_LABEL,
+        INSUFFICIENT_DATA_LABEL,
+    }
+
+    def _unknown_label_for_value(value: Any, *, missing_label: str) -> str:
+        token = str(value or "").strip().lower()
+        if token in {"not_confirmed", "unknown"}:
+            return NOT_CONFIRMED_LABEL
+        if is_missing_value(value):
+            return missing_label
+        return missing_label
+
     def _with_preliminary(value: str, preliminary: bool) -> str:
         normalized = _sanitize_client_text(value)
-        if preliminary and normalized and normalized != "??? ??????":
-            return f"{normalized} (??????????????)"
+        if preliminary and normalized and normalized not in _MISSING_DISPLAY_LABELS:
+            return f"{normalized} (предварительно)"
         return normalized
 
-    def _money_text(value: Any, *, preliminary: bool = False, decimals: int = 0) -> str:
+    def _money_text(
+        value: Any,
+        *,
+        preliminary: bool = False,
+        decimals: int = 0,
+        missing_label: str = NO_DATA_LABEL,
+    ) -> str:
         return _with_preliminary(
-            format_money_or_unknown(value, unknown_label="??? ??????", decimals=decimals),
+            format_money_or_unknown(
+                value,
+                unknown_label=_unknown_label_for_value(value, missing_label=missing_label),
+                decimals=decimals,
+            ),
             preliminary,
         )
 
-    def _int_text(value: Any, *, preliminary: bool = False) -> str:
-        return _with_preliminary(format_int_or_unknown(value, unknown_label="??? ??????"), preliminary)
+    def _int_text(value: Any, *, preliminary: bool = False, missing_label: str = NO_DATA_LABEL) -> str:
+        return _with_preliminary(
+            format_int_or_unknown(value, unknown_label=_unknown_label_for_value(value, missing_label=missing_label)),
+            preliminary,
+        )
 
-    def _pct_text(value: Any, *, preliminary: bool = False) -> str:
-        return _with_preliminary(format_pct_or_unknown(value, unknown_label="??? ??????"), preliminary)
+    def _pct_text(value: Any, *, preliminary: bool = False, missing_label: str = NO_DATA_LABEL) -> str:
+        return _with_preliminary(
+            format_pct_or_unknown(value, unknown_label=_unknown_label_for_value(value, missing_label=missing_label)),
+            preliminary,
+        )
 
     def _action_ru(raw_action: Any) -> str:
         action = _sanitize_client_text(raw_action).lower()
         mapping = {
-            "increase ads": "??????? ???????",
-            "improve listing": "???????? ????????",
-            "rebalance stock": "???????????????? ???????",
-            "?????????": "?????????",
-            "??????? ???? ??? ??????? ?? ???????": "??????? ???? ??? ??????? ?? ???????",
-            "monitor": "?????????",
-            "discount or remove": "??????? ???? ??? ??????? ?? ???????",
-            "increase_ads": "??????? ???????",
-            "improve_listing": "???????? ????????",
-            "rebalance_stock": "???????????????? ???????",
-            "discount_or_remove": "??????? ???? ??? ??????? ?? ???????",
+            "increase ads": "усилить рекламу",
+            "improve listing": "улучшить карточку",
+            "rebalance stock": "перераспределить остатки",
+            "monitor": "наблюдать",
+            "discount or remove": "снижать цену или выводить",
+            "increase_ads": "усилить рекламу",
+            "improve_listing": "улучшить карточку",
+            "rebalance_stock": "перераспределить остатки",
+            "discount_or_remove": "снижать цену или выводить",
         }
         for key, translated in mapping.items():
             if key in action:
                 return translated
-        return _sanitize_client_text(raw_action) or "???????? ??????????"
+        return _sanitize_client_text(raw_action) or "требуется решение"
 
     def _sku_lines(rows: Any, *, limit: int = 6) -> List[str]:
         if not isinstance(rows, list):
@@ -455,8 +482,8 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
                 delta_value = _safe_float_local(
                     (row.get("deltas") or {}).get("orders_vs_7d_pct") if isinstance(row.get("deltas"), dict) else None
                 )
-            suffix = f", ?7d {_pct_text(delta_value)}" if delta_value is not None else ""
-            line = f"SKU {sku} ? {reason}" if reason else f"SKU {sku}"
+            suffix = f", Δ7d {_pct_text(delta_value, missing_label=INSUFFICIENT_DATA_LABEL)}" if delta_value is not None else ""
+            line = f"SKU {sku} — {reason}" if reason else f"SKU {sku}"
             result.append(_sanitize_client_text(line + suffix))
             if len(result) >= limit:
                 break
@@ -525,8 +552,8 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "# ??????? ? ???????",
         "## ???????????? KPI",
         "?????????? | ????????",
-        f"?????? | {_int_text(orders_count_value)}",
-        f"?????? | {_int_text(buyouts_count_value)}",
+        f"?????? | {_int_text(orders_count_value, missing_label=NO_DATA_LABEL)}",
+        f"?????? | {_int_text(buyouts_count_value, missing_label=NO_DATA_LABEL)}",
         f"??????? ??? | {_money_text(avg_check_value, preliminary=not bool(daily_kpi.get('buyouts_amount_confirmed', False)), decimals=0)}",
         f"????????? ???????? ? ????? | {_pct_text(cabinet_funnel.get('funnel', {}).get('view_to_order_conversion') if isinstance(cabinet_funnel.get('funnel', {}), dict) else None)}",
         "",
@@ -534,7 +561,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "?????????? | ????????",
         f"??????? | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
         f"?????? ??????? | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
-        f"????? | {_pct_text(margin_pct_value, preliminary=financial_preliminary)}",
+        f"????? | {_pct_text(margin_pct_value, preliminary=financial_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
         f"?????????????? | {_pct_text(profitability_pct_value, preliminary=financial_preliminary)}",
         f"??????? ?????????? ?????? | {_pct_text(data.get('financial_completeness_pct', 0.0))}",
         "",
@@ -544,8 +571,8 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         f"??????? ?? ??????? | {_money_text(portfolio_revenue_from_ads, preliminary=ads_preliminary, decimals=0)}",
         f"??????? ?? ??????? | {_money_text(portfolio_profit_from_ads, preliminary=ads_preliminary, decimals=0)}",
         f"ROMI | {_pct_text(portfolio_romi, preliminary=ads_preliminary)}",
-        f"DRR | {_pct_text(portfolio_drr, preliminary=ads_preliminary)}",
-        f"CPO | {_money_text(portfolio_cpo, preliminary=ads_preliminary, decimals=0)}",
+        f"DRR | {_pct_text(portfolio_drr, preliminary=ads_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
+        f"CPO | {_money_text(cpo_value, preliminary=ads_preliminary, decimals=0, missing_label=INSUFFICIENT_DATA_LABEL)}",
     ]
 
     top_profitable_queries = [
@@ -618,15 +645,15 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     not_confirmed_lines: List[str] = []
     if not bool(daily_kpi.get("orders_count_confirmed", False)):
-        not_confirmed_lines.append("?????? ??? ?? ????????????")
+        not_confirmed_lines.append("Заказы дня: данные не подтверждены")
     if not bool(daily_kpi.get("buyouts_count_confirmed", False)):
-        not_confirmed_lines.append("?????? ??? ?? ????????????")
+        not_confirmed_lines.append("Выкупы дня: данные не подтверждены")
     if not ads_analysis_enabled:
-        not_confirmed_lines.append("????????? ?????? ??????????? ????????")
+        not_confirmed_lines.append("Рекламные метрики: данные не подтверждены")
     if financial_preliminary:
-        not_confirmed_lines.append("?????????? ?????? ?????????")
+        not_confirmed_lines.append("Финансовые метрики: предварительные")
     if not not_confirmed_lines:
-        not_confirmed_lines.append("????????? ???????????????? ?????? ?? ????????")
+        not_confirmed_lines.append("Все критичные метрики подтверждены")
 
     page_4: List[str] = [
         "# ???????????? ??",
@@ -723,11 +750,17 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     ]
 
     def _ru(escaped: str) -> str:
-        return escaped.encode("ascii").decode("unicode_escape")
+        if not isinstance(escaped, str):
+            return str(escaped)
+        if "\\u" not in escaped:
+            return escaped
+        try:
+            return escaped.encode("ascii").decode("unicode_escape")
+        except UnicodeEncodeError:
+            return escaped
 
     def _clean_client(value: Any) -> str:
-        txt = repair_mojibake(str(value or "")).strip()
-        txt = txt.replace("???", "?").replace("???", "?").replace("???", "?")
+        txt = normalize_pdf_text(str(value or "")).strip()
         txt = re.sub(r"\b[a-z]+(?:_[a-z0-9]+)+\b", "", txt)
         txt = re.sub(r"\s{2,}", " ", txt).strip()
         return txt
@@ -768,15 +801,16 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "# " + _ru("\u0424\u0438\u043d\u0430\u043d\u0441\u044b \u0438 \u0440\u0435\u043a\u043b\u0430\u043c\u0430"),
         "## " + _ru("\u041a\u043e\u043c\u043c\u0435\u0440\u0447\u0435\u0441\u043a\u0438\u0435 KPI"),
         _ru("\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u0435\u043b\u044c") + " | " + _ru("\u0417\u043d\u0430\u0447\u0435\u043d\u0438\u0435"),
-        _ru("\u0417\u0430\u043a\u0430\u0437\u044b") + f" | {_int_text(orders_count_value)}",
-        _ru("\u0412\u044b\u043a\u0443\u043f\u044b") + f" | {_int_text(buyouts_count_value)}",
+        _ru("\u0417\u0430\u043a\u0430\u0437\u044b") + f" | {_int_text(orders_count_value, missing_label=NO_DATA_LABEL)}",
+        _ru("\u0412\u044b\u043a\u0443\u043f\u044b") + f" | {_int_text(buyouts_count_value, missing_label=NO_DATA_LABEL)}",
         _ru("\u0421\u0440\u0435\u0434\u043d\u0438\u0439 \u0447\u0435\u043a") + f" | {_money_text(avg_check_value, preliminary=not bool(daily_kpi.get('buyouts_amount_confirmed', False)), decimals=0)}",
+        _ru("\u041a\u043e\u043d\u0432\u0435\u0440\u0441\u0438\u044f \u0432 \u0437\u0430\u043a\u0430\u0437") + f" | {_pct_text(conversion_value, missing_label=INSUFFICIENT_DATA_LABEL)}",
         "",
         "## " + _ru("\u0424\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u044b\u0435 KPI"),
         _ru("\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u0435\u043b\u044c") + " | " + _ru("\u0417\u043d\u0430\u0447\u0435\u043d\u0438\u0435"),
         _ru("\u0412\u044b\u0440\u0443\u0447\u043a\u0430") + f" | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
         _ru("\u0427\u0438\u0441\u0442\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c") + f" | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
-        _ru("\u041c\u0430\u0440\u0436\u0430") + f" | {_pct_text(margin_pct_value, preliminary=financial_preliminary)}",
+        _ru("\u041c\u0430\u0440\u0436\u0430") + f" | {_pct_text(margin_pct_value, preliminary=financial_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
         _ru("\u041f\u043e\u043b\u043d\u043e\u0442\u0430 \u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u044b\u0445 \u0434\u0430\u043d\u043d\u044b\u0445") + f" | {_pct_text(data.get('financial_completeness_pct', 0.0))}",
         "",
         "## " + _ru("\u042d\u0444\u0444\u0435\u043a\u0442\u0438\u0432\u043d\u043e\u0441\u0442\u044c \u0440\u0435\u043a\u043b\u0430\u043c\u044b"),
@@ -785,6 +819,8 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         _ru("\u0412\u044b\u0440\u0443\u0447\u043a\u0430 \u0438\u0437 \u0440\u0435\u043a\u043b\u0430\u043c\u044b") + f" | {_money_text(portfolio_revenue_from_ads, preliminary=ads_preliminary, decimals=0)}",
         _ru("\u041f\u0440\u0438\u0431\u044b\u043b\u044c \u0438\u0437 \u0440\u0435\u043a\u043b\u0430\u043c\u044b") + f" | {_money_text(portfolio_profit_from_ads, preliminary=ads_preliminary, decimals=0)}",
         f"ROMI | {_pct_text(portfolio_romi, preliminary=ads_preliminary)}",
+        f"DRR | {_pct_text(portfolio_drr, preliminary=ads_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
+        f"CPO | {_money_text(cpo_value, preliminary=ads_preliminary, decimals=0, missing_label=INSUFFICIENT_DATA_LABEL)}",
         "",
         "- " + _ru("\u0427\u0430\u0441\u0442\u044c \u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u044b\u0445 \u0438 \u0440\u0435\u043a\u043b\u0430\u043c\u043d\u044b\u0445 \u043c\u0435\u0442\u0440\u0438\u043a \u043d\u043e\u0441\u0438\u0442 \u043f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u0445\u0430\u0440\u0430\u043a\u0442\u0435\u0440 \u0438\u0437-\u0437\u0430 \u043d\u0435\u043f\u043e\u043b\u043d\u043e\u0433\u043e \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u044f \u0434\u0430\u043d\u043d\u044b\u0445."),
     ]
@@ -885,6 +921,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             pdf_lines.append("\f")
         pdf_lines.extend(page)
 
+    pdf_lines = [normalize_pdf_text(str(line)) for line in pdf_lines]
     font_info = write_text_pdf(os.path.join(out_dir, "report.pdf"), pdf_lines)
     job["pdf_font"] = {
         "family": font_info.get("family", ""),
@@ -963,9 +1000,9 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "orders_count_confirmed": bool(daily_kpi.get("orders_count_confirmed", False)),
             "buyouts_count_confirmed": bool(daily_kpi.get("buyouts_count_confirmed", False)),
             "display": {
-                "daily_orders_count": format_int_or_unknown(orders_count_value),
+                "daily_orders_count": format_int_or_unknown(orders_count_value, unknown_label=NO_DATA_LABEL),
                 "daily_orders_amount": format_money_or_unknown(orders_amount_value),
-                "daily_buyouts_count": format_int_or_unknown(buyouts_count_value),
+                "daily_buyouts_count": format_int_or_unknown(buyouts_count_value, unknown_label=NO_DATA_LABEL),
                 "daily_buyouts_amount": format_money_or_unknown(buyouts_amount_value),
                 "avg_check": format_money_or_unknown(avg_check_value),
             },
@@ -992,7 +1029,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "display": {
                 "revenue": format_money_or_unknown(revenue_value, decimals=0),
                 "net_profit": format_money_or_unknown(net_profit_value, decimals=0),
-                "margin_pct": format_pct_or_unknown(margin_pct_value),
+                "margin_pct": format_pct_or_unknown(margin_pct_value, unknown_label=INSUFFICIENT_DATA_LABEL),
                 "profitability_pct": format_pct_or_unknown(profitability_pct_value),
             },
         },
@@ -1015,40 +1052,3 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     write_report_meta(out_dir=out_dir, report_meta=report_meta)
     data.update({"job": job, "report_meta": report_meta})
     return data
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
