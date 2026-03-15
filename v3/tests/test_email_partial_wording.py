@@ -32,7 +32,7 @@ class TestEmailPartialDataWording(unittest.TestCase):
 
         self.assertEqual(str(summary.get("financial_finality_status")), "partial")
         self.assertTrue(isinstance(insights, list) and insights)
-        self.assertIn("provisional", str(insights[0]).lower())
+        self.assertIn("предвар", str(insights[0]).lower())
 
     def test_parser_failure_is_not_rendered_as_business_insight(self) -> None:
         payload = {
@@ -63,11 +63,11 @@ class TestEmailPartialDataWording(unittest.TestCase):
         insights = out.get("job", {}).get("email_summary", {}).get("key_insights", [])
         joined = "\n".join(str(x).lower() for x in insights)
 
-        self.assertIn("technical issue", joined)
+        self.assertIn("технический статус", joined)
         self.assertNotIn("53 unassigned rows", joined)
         self.assertNotIn("territorial risk", joined)
 
-    def test_management_body_uses_provisional_wording(self) -> None:
+    def test_management_body_uses_russian_provisional_wording(self) -> None:
         body = _build_management_email_body(
             seller_id="seller-1",
             run_date="2026-03-14",
@@ -86,9 +86,11 @@ class TestEmailPartialDataWording(unittest.TestCase):
             },
         )
 
-        self.assertIn("Financial contour status: partial", body)
-        self.assertIn("Financial KPI interpretation: provisional", body)
-        self.assertNotIn("Financial KPI interpretation: final", body)
+        self.assertIn("ФИНАНСОВЫЕ ПОКАЗАТЕЛИ", body)
+        self.assertIn("Статус финансового контура: частичный", body)
+        self.assertIn("РЕЖИМ РЕКОМЕНДАЦИЙ ИИ", body)
+        self.assertNotIn("Financial contour status", body)
+        self.assertNotIn("Financial KPI interpretation", body)
 
 
 if __name__ == "__main__":

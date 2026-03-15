@@ -3,8 +3,8 @@
   "mode": "daily",
   "run_date": "2026-03-15",
   "status": "partial_success",
-  "started_at": "2026-03-15T18:57:44Z",
-  "finished_at": "2026-03-15T18:57:46Z",
+  "started_at": "2026-03-15T20:14:37Z",
+  "finished_at": "2026-03-15T20:14:39Z",
   "error": "финансовая атрибуция частичная",
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
   "source_mode": "local_reports",
@@ -1005,7 +1005,7 @@
             "has_orders": true,
             "has_buyouts": true,
             "issue_type": "insufficient_data",
-            "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
+            "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
           },
           {
             "sku": "283212418",
@@ -1023,7 +1023,7 @@
             "has_orders": true,
             "has_buyouts": true,
             "issue_type": "insufficient_data",
-            "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
+            "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
           },
           {
             "sku": "739384273",
@@ -1041,7 +1041,7 @@
             "has_orders": true,
             "has_buyouts": true,
             "issue_type": "insufficient_data",
-            "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
+            "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
           },
           {
             "sku": "414589567",
@@ -1059,7 +1059,7 @@
             "has_orders": true,
             "has_buyouts": true,
             "issue_type": "insufficient_data",
-            "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
+            "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
           },
           {
             "sku": "590614192",
@@ -1077,7 +1077,7 @@
             "has_orders": true,
             "has_buyouts": true,
             "issue_type": "traffic_problem",
-            "issue_reason_ru": "РќРёР·РєРёР№ С‚СЂР°С„РёРє: С‚РѕРІР°СЂ РїРѕР»СѓС‡Р°РµС‚ СЃР»РёС€РєРѕРј РјР°Р»Рѕ РїСЂРѕСЃРјРѕС‚СЂРѕРІ."
+            "issue_reason_ru": "Низкий трафик: товар получает слишком мало просмотров."
           },
           {
             "sku": "453526507",
@@ -1095,7 +1095,7 @@
             "has_orders": true,
             "has_buyouts": true,
             "issue_type": "insufficient_data",
-            "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
+            "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
           },
           {
             "sku": "430679462",
@@ -1113,7 +1113,7 @@
             "has_orders": false,
             "has_buyouts": false,
             "issue_type": "insufficient_data",
-            "issue_reason_ru": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РґР»СЏ СѓРІРµСЂРµРЅРЅРѕР№ РґРёР°РіРЅРѕСЃС‚РёРєРё РІРѕСЂРѕРЅРєРё."
+            "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
           },
           {
             "sku": "333615320",
@@ -1131,7 +1131,7 @@
             "has_orders": true,
             "has_buyouts": true,
             "issue_type": "ads_efficiency_problem",
-            "issue_reason_ru": "РџСЂРѕР±Р»РµРјР° СЂРµРєР»Р°РјС‹: СЂР°СЃС…РѕРґС‹ РµСЃС‚СЊ, РЅРѕ Р·Р°РєР°Р·С‹ РЅРµ РїРѕРґС‚РІРµСЂР¶РґР°СЋС‚ СЌС„С„РµРєС‚РёРІРЅРѕСЃС‚СЊ С‚СЂР°С„РёРєР°."
+            "issue_reason_ru": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
           }
         ],
         "summary": {
@@ -1160,12 +1160,12 @@
             {
               "sku": "590614192",
               "issue_type": "traffic_problem",
-              "reason": "РќРёР·РєРёР№ С‚СЂР°С„РёРє: С‚РѕРІР°СЂ РїРѕР»СѓС‡Р°РµС‚ СЃР»РёС€РєРѕРј РјР°Р»Рѕ РїСЂРѕСЃРјРѕС‚СЂРѕРІ."
+              "reason": "Низкий трафик: товар получает слишком мало просмотров."
             },
             {
               "sku": "333615320",
               "issue_type": "ads_efficiency_problem",
-              "reason": "РџСЂРѕР±Р»РµРјР° СЂРµРєР»Р°РјС‹: СЂР°СЃС…РѕРґС‹ РµСЃС‚СЊ, РЅРѕ Р·Р°РєР°Р·С‹ РЅРµ РїРѕРґС‚РІРµСЂР¶РґР°СЋС‚ СЌС„С„РµРєС‚РёРІРЅРѕСЃС‚СЊ С‚СЂР°С„РёРєР°."
+              "reason": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
             }
           ]
         },
@@ -2881,7 +2881,9 @@
     }
   ],
   "email_attempted": true,
-  "email_sent": false,
+  "email_sent": true,
   "email_to": "vi***@yandex.ru",
-  "email_error": "[WinError 10013] Сделана попытка доступа к сокету методом, запрещенным правами доступа"
+  "email_error": null,
+  "email_subject": "WB AI Agent v3 — управленческое резюме: seller_001 (2026-03-15)",
+  "email_body_text": "Управленческое резюме WB AI Agent v3 - cabinet seller_001\nReport date: 2026-03-15\nOperational day: 2026-03-15\n\nCOMMERCE KPI\n- Orders: не подтверждено\n- Buyouts: не подтверждено\n- Buyouts amount: не подтверждено\n- Orders amount: не подтверждено\n\nFINANCIAL KPI\n- Revenue: 438\n- Net profit: -291\n- Margin: не подтверждено\n- Profitability: не подтверждено\n- Financial contour status: partial\n- Financial KPI interpretation: provisional\n\nAI Guidance Mode\n- PRELIMINARY / HYPOTHESIS ONLY\n- High-impact actions require confirmation on complete data.\n- Reasons: financial contour is not final; financial completeness is low; territorial analysis is preview-only\n\nKey Insights\n- Financial KPI are provisional today; profitability metrics should be interpreted as partial.\n- Preliminary mode: recommendations are hypotheses until data quality is confirmed.\n- 1 SKU формируют основную прибыль бизнеса (P1).\n\nRecommendations\n- PRELIMINARY: recommendations are hypotheses until data quality is confirmed (financial contour is not final; financial completeness is low; territorial analysis is preview-only).\n- Hypothesis: По SKU из REVIEW запустить сценарий ускоренной распродажи и очистки остатков.\n\nAI Conclusion\nPRELIMINARY CONCLUSION: high-impact actions require confirmation (financial contour is not final; financial completeness is low; territorial analysis is preview-only).\nР—Р° РѕРїРµСЂР°С†РёРѕРЅРЅС‹Р№ РґРµРЅСЊ 2026-03-15 РґР°РЅРЅС‹Рµ РїРѕ Р·Р°РєР°Р·Р°Рј РїРѕРєР° РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹. Р”Рѕ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РѕРїРµСЂР°С†РёРѕРЅРЅРѕРіРѕ Рё С„РёРЅР°РЅСЃРѕРІРѕРіРѕ РєРѕРЅС‚СѓСЂРѕРІ РёС‚РѕРіРѕРІС‹Рµ KPI РґРЅСЏ СЃС‡РёС‚Р°СЋС‚СЃСЏ РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅС‹РјРё. Р“Р»Р°РІРЅС‹Р№ СЃРёРіРЅР°Р»: 1 SKU С„РѕСЂРјРёСЂСѓСЋС‚ РѕСЃРЅРѕРІРЅСѓСЋ РїСЂРёР±С‹Р»СЊ Р±РёР·РЅРµСЃР° (P1); С„РѕРєСѓСЃ СЃР»РµРґСѓСЋС‰РµРіРѕ РґРЅСЏ: РџРѕ SKU РёР· LIQUIDATE Р·Р°РїСѓСЃС‚РёС‚СЊ СЃС†РµРЅР°СЂРёР№ СѓСЃРєРѕСЂРµРЅРЅРѕР№ СЂР°СЃРїСЂРѕРґР°Р¶Рё Рё РѕС‡РёСЃС‚РєРё РѕСЃС‚Р°С‚РєРѕРІ.\nFUNNEL KPI:\n- views=1 359, add_to_cart=не подтверждено, orders=не подтверждено, buyouts=не подтверждено\n- viewв†’order=не подтверждено, cartв†’order=не подтверждено, orderв†’buyout=не подтверждено, CPO=unknown\n- statuses: traffic=partial, conversion=unknown, buyout_stage=unknown\nSKU MONITOR:\n- СЂРѕСЃС‚: 414589567(54)\n- СЂРёСЃРє: 333615320(131), 430679462(112), 453526507(112), 739384273(112), 590614192(100)\n- ad_ineff: 333615320(131)\n- conv_drop: 333615320(131), 430679462(112), 453526507(112), 739384273(112), 590614192(100)"
 }

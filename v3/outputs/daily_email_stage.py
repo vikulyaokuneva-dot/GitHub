@@ -1,9 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import re
 from typing import Any, Dict, List
 
+from ..pdf_render import normalize_pdf_text
 from ..pipeline.daily_stage_support import sync_from_entry
-from .render_policy import format_int_or_unknown, format_pct_or_unknown
+from .email_summary_builder import build_email_summary
+from .render_policy import format_int_or_unknown, format_pct_or_unknown, is_missing_value
 
 
 def _safe_float(value: Any) -> float | None:
@@ -13,6 +16,96 @@ def _safe_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _is_mojibake_text(text: str) -> bool:
+    sample = str(text or "")
+    if not sample:
+        return False
+    if "в†" in sample or "вЂ" in sample:
+        return True
+    if re.search(r"[РС][^А-Яа-яЁё0-9\s\.,:;!?()\"'«»—–/+%=-]", sample):
+        return True
+    return False
+
+
+def _translate_technical_words(text: str) -> str:
+    normalized = str(text or "")
+    replacements = [
+        (r"(?i)\bfinancial contour is not final\b", "финансовый контур не финализирован"),
+        (r"(?i)\bfinancial completeness is low\b", "низкая полнота финансовых данных"),
+        (r"(?i)\bterritorial analysis is preview-only\b", "территориальный анализ в режиме предпросмотра"),
+        (r"(?i)\bads data is missing\b", "недостаточно данных по рекламе"),
+        (r"(?i)\bkeep monitoring\b", "продолжить мониторинг"),
+        (r"(?i)\bre-check\b", "перепроверить"),
+        (r"(?i)\brecheck\b", "перепроверить"),
+        (r"(?i)\bnot[ _-]?confirmed\b", "данные не подтверждены"),
+        (r"(?i)\bне подтверждено\b", "данные не подтверждены"),
+        (r"(?i)\bunknown\b", "нет данных"),
+        (r"(?i)\bpartial\b", "частичный"),
+        (r"(?i)\bprovisional\b", "предварительный"),
+        (r"(?i)\bhypothesis\b", "гипотеза"),
+    ]
+    for pattern, target in replacements:
+        normalized = re.sub(pattern, target, normalized)
+    normalized = normalized.replace("->", "→")
+    return normalized
+
+
+def _clean_text(value: Any, *, reject_unsafe_raw: bool = True) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if reject_unsafe_raw and _is_mojibake_text(raw):
+        return ""
+    text = normalize_pdf_text(raw)
+    text = _translate_technical_words(text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    if _is_mojibake_text(text):
+        return ""
+    if reject_unsafe_raw and re.search(r"\b[A-Za-z]{4,}\b", text):
+        return ""
+    return text
+
+
+def _clean_lines(items: Any, *, limit: int = 6) -> List[str]:
+    if not isinstance(items, list):
+        return []
+    out: List[str] = []
+    for item in items:
+        line = _clean_text(item)
+        if not line:
+            continue
+        if re.search(r"\b(?:COMMERCE|FINANCIAL|INSIGHTS|RECOMMENDATIONS|CONCLUSION|statuses|preview-only)\b", line, re.IGNORECASE):
+            continue
+        if re.search(r"\b[A-Za-z]{4,}\b", line):
+            continue
+        out.append(line)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _status_ru(value: Any) -> str:
+    token = str(value or "").strip().lower().replace("_", " ").replace("-", " ")
+    mapping = {
+        "ok": "норма",
+        "good": "норма",
+        "confirmed": "подтверждено",
+        "final": "подтверждено",
+        "partial": "частичный",
+        "provisional": "предварительный",
+        "unknown": "нет данных",
+        "not confirmed": "данные не подтверждены",
+        "notconfirmed": "данные не подтверждены",
+        "warning": "внимание",
+        "critical": "критично",
+        "hypothesis": "гипотеза",
+    }
+    if token in mapping:
+        return mapping[token]
+    cleaned = _clean_text(token)
+    return cleaned or "нет данных"
 
 
 def _top_watchlist_rows(sku_watchlists: Dict[str, Any], group: str, limit: int = 5) -> List[Dict[str, Any]]:
@@ -40,116 +133,83 @@ def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dic
     buyout_rate = funnel.get("buyout_rate", funnel.get("order_to_buyout_conversion_pct"))
     cpo = funnel.get("cpo", funnel.get("CPO"))
 
-    line_1 = (
-        "views="
-        + format_int_or_unknown(views)
-        + ", add_to_cart="
-        + format_int_or_unknown(add_to_cart)
-        + ", orders="
-        + format_int_or_unknown(orders)
-        + ", buyouts="
-        + format_int_or_unknown(buyouts)
-    )
-    line_1b = (
-        "viewв†’order="
-        + format_pct_or_unknown(view_to_order)
-        + ", cartв†’order="
-        + format_pct_or_unknown(cart_to_order)
-        + ", orderв†’buyout="
-        + format_pct_or_unknown(buyout_rate)
-        + ", CPO="
-        + (f"{round(float(cpo), 2):.2f}" if _safe_float(cpo) is not None else "unknown")
-    )
-    line_2 = (
-        "statuses: traffic="
-        + str(status.get("traffic") or "unknown")
-        + ", conversion="
-        + str(status.get("conversion") or "unknown")
-        + ", buyout_stage="
-        + str(status.get("buyout_stage") or "unknown")
-    )
+    cpo_text = f"{round(float(cpo), 2):.2f}" if _safe_float(cpo) is not None else "недостаточно данных"
 
-    sku_diag_summary = (
-        cabinet_funnel.get("sku_diagnostics", {}).get("summary", {})
-        if isinstance(cabinet_funnel.get("sku_diagnostics"), dict)
-        else {}
-    )
-    if not isinstance(sku_diag_summary, dict):
-        sku_diag_summary = {}
-    top_problem_groups = sku_diag_summary.get("top_problem_groups", [])
-    if not isinstance(top_problem_groups, list):
-        top_problem_groups = []
-    top_problem_groups_text = ", ".join(
-        f"{str(item.get('issue_type') or '')}:{int(item.get('count', 0) or 0)}"
-        for item in top_problem_groups[:3]
-        if isinstance(item, dict) and str(item.get("issue_type") or "").strip()
-    )
-    line_3 = (
-        "sku_funnel: analyzed="
-        + str(int(sku_diag_summary.get("analyzed_sku_count", 0) or 0))
-        + "/"
-        + str(int(sku_diag_summary.get("sku_count", 0) or 0))
-        + ", top_issues="
-        + (top_problem_groups_text or "none")
-    )
+    lines = [
+        (
+            "Просмотры: "
+            + format_int_or_unknown(views, unknown_label="нет данных")
+            + ", в корзину: "
+            + format_int_or_unknown(add_to_cart, unknown_label="нет данных")
+            + ", заказы: "
+            + format_int_or_unknown(orders, unknown_label="нет данных")
+            + ", выкупы: "
+            + format_int_or_unknown(buyouts, unknown_label="нет данных")
+        ),
+        (
+            "Конверсия просмотр → заказ: "
+            + format_pct_or_unknown(view_to_order, unknown_label="недостаточно данных")
+            + ", корзина → заказ: "
+            + format_pct_or_unknown(cart_to_order, unknown_label="недостаточно данных")
+            + ", заказ → выкуп: "
+            + format_pct_or_unknown(buyout_rate, unknown_label="недостаточно данных")
+            + ", CPO: "
+            + cpo_text
+        ),
+        (
+            "Статусы воронки: трафик — "
+            + _status_ru(status.get("traffic"))
+            + ", конверсия — "
+            + _status_ru(status.get("conversion"))
+            + ", выкуп — "
+            + _status_ru(status.get("buyout_stage"))
+        ),
+    ]
 
-    alerts_summary = ""
-    if isinstance(funnel_alerts, dict) and funnel_alerts:
-        if isinstance(funnel_alerts.get("summary"), dict):
-            summary = funnel_alerts.get("summary", {})
-            alerts_summary = (
-                "alerts: warning="
-                + str(summary.get("warning_count", 0))
-                + ", critical="
-                + str(summary.get("critical_count", 0))
-            )
-        else:
-            alerts = funnel_alerts.get("alerts", [])
-            if isinstance(alerts, list):
-                warning_count = 0
-                critical_count = 0
-                for row in alerts:
-                    if not isinstance(row, dict):
-                        continue
-                    row_status = str(row.get("status") or "").strip()
-                    if row_status == "warning":
-                        warning_count += 1
-                    elif row_status == "critical":
-                        critical_count += 1
-                alerts_summary = f"alerts: warning={warning_count}, critical={critical_count}"
-    return [line_1, line_1b, line_2, line_3] + ([alerts_summary] if alerts_summary else [])
+    if isinstance(funnel_alerts, dict) and isinstance(funnel_alerts.get("summary"), dict):
+        summary = funnel_alerts.get("summary", {})
+        lines.append(
+            "Сигналы: предупреждений="
+            + str(int(summary.get("warning_count", 0) or 0))
+            + ", критических="
+            + str(int(summary.get("critical_count", 0) or 0))
+        )
+
+    return [_clean_text(line, reject_unsafe_raw=False) for line in lines if _clean_text(line, reject_unsafe_raw=False)]
+
 
 def _build_sku_monitor_email_brief(sku_watchlists: Dict[str, Any]) -> List[str]:
     groups = [
-        ("top_growth", "СЂРѕСЃС‚"),
-        ("top_risk", "СЂРёСЃРє"),
-        ("dead_stock", "dead_stock"),
-        ("ad_inefficiency", "ad_ineff"),
-        ("conversion_drop", "conv_drop"),
+        ("top_growth", "Рост"),
+        ("top_risk", "Риск"),
+        ("dead_stock", "Неликвид"),
+        ("ad_inefficiency", "Реклама"),
+        ("conversion_drop", "Конверсия"),
     ]
     lines: List[str] = []
     for key, label in groups:
         rows = _top_watchlist_rows(sku_watchlists, key, limit=5)
         if not rows:
             continue
-        compact = []
+        compact: List[str] = []
         for row in rows:
-            sku = str(row.get("sku") or "").strip()
+            sku = _clean_text(row.get("sku"), reject_unsafe_raw=True)
             if not sku:
                 continue
-            compact.append(f"{sku}({int(float(row.get('attention_score', 0) or 0))})")
+            score = int(float(row.get("attention_score", 0) or 0))
+            compact.append(f"{sku}({score})")
         if compact:
             lines.append(f"{label}: " + ", ".join(compact[:5]))
     return lines
 
 
 def _extend_ai_conclusion_with_monitoring(base_text: str, funnel_lines: List[str], sku_lines: List[str]) -> str:
-    chunks = [str(base_text or "").strip()]
+    chunks = [_clean_text(base_text)]
     if funnel_lines:
-        chunks.append("FUNNEL KPI:")
+        chunks.append("ВОРОНКА ПРОДАЖ:")
         chunks.extend(f"- {line}" for line in funnel_lines[:3])
     if sku_lines:
-        chunks.append("SKU MONITOR:")
+        chunks.append("МОНИТОРИНГ ТОВАРОВ:")
         chunks.extend(f"- {line}" for line in sku_lines[:5])
     return "\n".join([line for line in chunks if str(line).strip()])
 
@@ -167,49 +227,87 @@ def _resolve_preliminary_ai_reasons(
 ) -> List[str]:
     reasons: List[str] = []
     if str(financial_finality_status or "").strip().lower() != "final":
-        reasons.append("financial contour is not final")
+        reasons.append("финансовый контур не финализирован")
     if float(financial_completeness_pct) < 80.0:
-        reasons.append("financial completeness is low")
+        reasons.append("низкая полнота финансовых данных")
     if (
         str(territorial_analysis_mode or "").strip().lower() in {"", "preview", "disabled"}
         or str(territorial_recommendation_status or "").strip().lower() not in {"actionable"}
         or not bool(territorial_actionable_enabled)
         or bool(territorial_suppressed_due_to_data_quality)
     ):
-        reasons.append("territorial analysis is preview-only")
+        reasons.append("территориальный анализ в ограниченном режиме")
     if not bool(ads_analysis_enabled) or int(ads_rows_count) <= 0:
-        reasons.append("ads data is missing")
+        reasons.append("недостаточно данных по рекламе")
     return reasons
 
 
 def _soften_recommendations_for_preliminary(recommendations: List[str], reasons: List[str]) -> List[str]:
-    reasons_text = "; ".join([str(item).strip() for item in reasons if str(item).strip()]) or "limited data quality"
+    reasons_text = "; ".join([_clean_text(item, reject_unsafe_raw=False) for item in reasons if _clean_text(item, reject_unsafe_raw=False)])
+    reasons_text = reasons_text or "ограниченное качество данных"
     softened: List[str] = [
-        "PRELIMINARY: recommendations are hypotheses until data quality is confirmed (" + reasons_text + ")."
+        "Рекомендации ниже являются гипотезами до подтверждения данных (" + reasons_text + ")."
     ]
     for item in recommendations:
-        text = str(item).strip()
+        text = _clean_text(item)
         if not text:
             continue
-        softened.append("Hypothesis: " + text.replace("LIQUIDATE", "REVIEW"))
+        softened.append("Гипотеза: " + text.replace("LIQUIDATE", "перепроверить"))
         if len(softened) >= 4:
             break
     if len(softened) == 1:
-        softened.append("Hypothesis: keep monitoring and re-check after confirmed financial contour.")
+        softened.append("Гипотеза: сохранить текущий курс и перепроверить показатели на следующем цикле.")
     return softened
 
 
 def _prepend_preliminary_conclusion(base_text: str, reasons: List[str]) -> str:
-    reasons_text = "; ".join([str(item).strip() for item in reasons if str(item).strip()]) or "limited data quality"
-    prefix = (
-        "PRELIMINARY CONCLUSION: high-impact actions require confirmation (" + reasons_text + ")."
-    )
-    text = str(base_text or "").strip()
+    reasons_text = "; ".join([_clean_text(item, reject_unsafe_raw=False) for item in reasons if _clean_text(item, reject_unsafe_raw=False)])
+    reasons_text = reasons_text or "ограниченное качество данных"
+    prefix = "Предварительный вывод: высокие по влиянию действия требуют подтверждения (" + reasons_text + ")."
+    text = _clean_text(base_text)
     if not text:
         return prefix
-    if "PRELIMINARY CONCLUSION:" in text:
+    if text.startswith("Предварительный вывод:"):
         return text
     return prefix + "\n" + text
+
+
+def _build_ai_conclusion_fallback(
+    *,
+    run_date: str,
+    daily_kpi: Dict[str, Any],
+    render_kpi: Dict[str, Any],
+    cabinet_funnel: Dict[str, Any],
+    financial_finality_status: str,
+) -> str:
+    orders_confirmed = bool(daily_kpi.get("orders_count_confirmed", False))
+    orders_value = render_kpi.get("orders_count", daily_kpi.get("daily_orders_count"))
+    margin_value = render_kpi.get("margin_pct")
+    funnel = cabinet_funnel.get("funnel", {}) if isinstance(cabinet_funnel, dict) else {}
+    if not isinstance(funnel, dict):
+        funnel = {}
+    conversion_value = funnel.get("view_to_order_conversion", funnel.get("click_to_order_conversion_pct"))
+
+    parts: List[str] = [f"Операционный день: {run_date}."]
+    if not orders_confirmed:
+        parts.append("Данные по заказам пока не подтверждены.")
+    else:
+        parts.append("Заказы за день: " + format_int_or_unknown(orders_value, unknown_label="нет данных") + ".")
+
+    if is_missing_value(margin_value):
+        parts.append("Маржа: недостаточно данных для расчета.")
+    else:
+        parts.append("Маржа: " + format_pct_or_unknown(margin_value, unknown_label="недостаточно данных для расчета") + ".")
+
+    if is_missing_value(conversion_value):
+        parts.append("Конверсия просмотр → заказ: недостаточно данных.")
+    else:
+        parts.append("Конверсия просмотр → заказ: " + format_pct_or_unknown(conversion_value, unknown_label="недостаточно данных") + ".")
+
+    if str(financial_finality_status or "").strip().lower() != "final":
+        parts.append("Финансовые показатели носят предварительный характер.")
+
+    return " ".join(parts)
 
 
 def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -279,11 +377,13 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     else:
         decision_groups = {"scale": [], "fix": [], "watch": [], "liquidate": []}
 
-    short_recommendations = _build_short_recommendations(
+    short_recommendations_raw = _build_short_recommendations(
         decision_groups=decision_groups,
         logistics_summary=logistics_summary if isinstance(logistics_summary, dict) else {},
     )
-    base_ai_day_conclusion = _build_ai_day_conclusion(
+    short_recommendations = _clean_lines(short_recommendations_raw, limit=5)
+
+    base_ai_day_conclusion_raw = _build_ai_day_conclusion(
         run_date=str(data.get("run_date") or ""),
         totals=totals if isinstance(totals, dict) else {},
         daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
@@ -296,6 +396,8 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
         daily_status_matrix=daily_status_matrix if isinstance(daily_status_matrix, dict) else {},
     )
+    base_ai_day_conclusion = _clean_text(base_ai_day_conclusion_raw)
+
     funnel_brief_lines = _build_funnel_email_brief(
         cabinet_funnel=cabinet_funnel if isinstance(cabinet_funnel, dict) else {},
         funnel_alerts=funnel_alerts if isinstance(funnel_alerts, dict) else {},
@@ -303,14 +405,14 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     sku_monitor_brief_lines = _build_sku_monitor_email_brief(
         sku_watchlists=sku_watchlists if isinstance(sku_watchlists, dict) else {},
     )
+
     ai_day_conclusion_email = _extend_ai_conclusion_with_monitoring(
         base_text=base_ai_day_conclusion,
         funnel_lines=funnel_brief_lines,
         sku_lines=sku_monitor_brief_lines,
     )
-    key_insights_enhanced = data.get("key_insights", [])
-    if not isinstance(key_insights_enhanced, list):
-        key_insights_enhanced = []
+
+    key_insights_enhanced = _clean_lines(data.get("key_insights", []), limit=6)
 
     sku_attribution_status = str(
         data_quality.get("sku_attribution_status", report_guardrails.get("sku_attribution_status", "ok")) or "ok"
@@ -331,6 +433,7 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         )
         or 0.0
     )
+
     territorial_analysis_mode = str(
         data_quality.get("territorial_analysis_mode", report_guardrails.get("territorial_analysis_mode", "disabled")) or "disabled"
     ).strip().lower()
@@ -341,14 +444,11 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         )
         or "blocked_by_data"
     ).strip().lower()
-    territorial_actionable_enabled = bool(
-        report_guardrails.get("territorial_actionable_enabled", False)
-    )
-    territorial_suppressed_due_to_data_quality = bool(
-        data_quality.get("territorial_suppressed_due_to_data_quality", False)
-    )
+    territorial_actionable_enabled = bool(report_guardrails.get("territorial_actionable_enabled", False))
+    territorial_suppressed_due_to_data_quality = bool(data_quality.get("territorial_suppressed_due_to_data_quality", False))
     ads_analysis_enabled = bool(report_guardrails.get("ads_analysis_enabled", True))
     ads_rows_count = int(data.get("ads_rows_count", 0) or 0)
+
     preliminary_ai_reasons = _resolve_preliminary_ai_reasons(
         financial_finality_status=financial_finality_status,
         financial_completeness_pct=float(financial_completeness_pct),
@@ -360,13 +460,11 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         ads_rows_count=ads_rows_count,
     )
     preliminary_ai_mode = bool(preliminary_ai_reasons)
+
     if preliminary_ai_mode:
         short_recommendations = _soften_recommendations_for_preliminary(short_recommendations, preliminary_ai_reasons)
         ai_day_conclusion_email = _prepend_preliminary_conclusion(ai_day_conclusion_email, preliminary_ai_reasons)
-        key_insights_enhanced.insert(
-            0,
-            "Preliminary mode: recommendations are hypotheses until data quality is confirmed.",
-        )
+        key_insights_enhanced.insert(0, "Рекомендации переведены в режим гипотез до подтверждения качества данных.")
 
     if sku_attribution_status == "broken":
         key_insights_enhanced = [
@@ -378,22 +476,36 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         ]
         key_insights_enhanced.insert(
             0,
-            "Technical issue: SKU attribution is broken, SKU-level business insights are temporarily suppressed.",
+            "Технический статус: атрибуция SKU нарушена, поэтому часть SKU-выводов временно скрыта.",
         )
+
     if financial_finality_status != "final":
         key_insights_enhanced.insert(
             0,
-            "Financial KPI are provisional today; profitability metrics should be interpreted as partial.",
+            "Финансовые показатели за день предварительные и требуют повторной проверки после финализации данных.",
         )
 
     if sku_monitor_brief_lines:
-        key_insights_enhanced = list(key_insights_enhanced) + [
-            "SKU monitor СЃС„РѕСЂРјРёСЂРѕРІР°РЅ: С„РѕРєСѓСЃ РїРѕ risk/growth/ad/conversion РіСЂСѓРїРїР°Рј.",
-        ]
+        key_insights_enhanced.append("Мониторинг товаров сформирован по группам: рост, риск, неликвид, реклама, конверсия.")
     if funnel_brief_lines:
-        key_insights_enhanced = list(key_insights_enhanced) + [
-            "Funnel KPI РґРѕР±Р°РІР»РµРЅ РІ СѓРїСЂР°РІР»РµРЅС‡РµСЃРєСѓСЋ РІС‹Р¶РёРјРєСѓ.",
-        ]
+        key_insights_enhanced.append("Воронка продаж включена в управленческое резюме.")
+
+    key_insights_enhanced = _clean_lines(key_insights_enhanced, limit=6)
+    short_recommendations = _clean_lines(short_recommendations, limit=5)
+
+    if not key_insights_enhanced:
+        key_insights_enhanced = ["Ключевые выводы сформированы на основе подтвержденных данных текущего цикла."]
+    if not short_recommendations:
+        short_recommendations = ["Сохранить текущую стратегию и перепроверить KPI на следующем цикле."]
+
+    if not _clean_text(ai_day_conclusion_email):
+        ai_day_conclusion_email = _build_ai_conclusion_fallback(
+            run_date=str(data.get("run_date") or ""),
+            daily_kpi=daily_kpi,
+            render_kpi=render_kpi,
+            cabinet_funnel=cabinet_funnel,
+            financial_finality_status=financial_finality_status,
+        )
 
     email_summary_payload = build_email_summary(
         daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
@@ -446,7 +558,7 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     email_summary_payload["ai_guidance_mode"] = "preliminary" if preliminary_ai_mode else "standard"
-    email_summary_payload["ai_guardrail_reasons"] = list(preliminary_ai_reasons)
+    email_summary_payload["ai_guardrail_reasons"] = [_clean_text(item) for item in preliminary_ai_reasons if _clean_text(item)]
     job["email_summary"] = email_summary_payload
 
     data.update(
@@ -460,11 +572,4 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
     return data
-
-
-
-
-
-
-
 

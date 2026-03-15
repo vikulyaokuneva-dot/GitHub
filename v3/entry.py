@@ -44,7 +44,7 @@ from .outputs.artifact_writer import (
     write_weekly_facts_and_warnings,
 )
 from .outputs.email_summary_builder import build_email_summary
-from .outputs.email_sender_orchestrator import orchestrate_daily_email_send
+from .outputs.email_sender_orchestrator import build_daily_email_body as _build_daily_email_body_ru, orchestrate_daily_email_send
 from .outputs.render_policy import format_int_or_unknown, format_money_or_unknown, format_pct_or_unknown
 from .outputs.facts_builder import (
     attach_daily_facts_sections,
@@ -714,127 +714,13 @@ def _build_management_email_body(
     run_date: str,
     summary: Dict[str, Any],
 ) -> str:
-    revenue = _safe_float(summary.get("financial_revenue", summary.get("revenue", 0.0)))
-    gross_profit = _safe_float(summary.get("gross_profit", 0.0))
-    net_profit = _safe_float(summary.get("profit", summary.get("net_profit", 0.0)))
-    cost_price = _safe_float(summary.get("cost_price", 0.0))
-    wb_commission = _safe_float(summary.get("wb_commission", 0.0))
-    logistics = _safe_float(summary.get("logistics", 0.0))
-    storage = _safe_float(summary.get("storage", 0.0))
-    penalties = _safe_float(summary.get("penalties", 0.0))
-    deductions = _safe_float(summary.get("deductions", 0.0))
-    ads_spend = _safe_float(summary.get("ads_spend", 0.0))
-    margin_pct = _safe_float(summary.get("margin_pct", 0.0))
-    profitability_pct = _safe_float(summary.get("profitability_pct", 0.0))
-    financial_completeness_pct = _safe_float(summary.get("financial_completeness_pct", 0.0))
-    financial_partial = bool(summary.get("financial_partial", False))
-    financial_finality_status = str(summary.get("financial_finality_status") or ("partial" if financial_partial else "final")).strip().lower()
-    financial_interpretation = "provisional" if financial_finality_status != "final" else "final"
-    ads_rows = int(round(_safe_float(summary.get("ads_rows", 0))))
-    ads_impressions = int(round(_safe_float(summary.get("ads_impressions", 0))))
-    ads_clicks = int(round(_safe_float(summary.get("ads_clicks", 0))))
-    ads_orders = int(round(_safe_float(summary.get("ads_orders", 0))))
-    ads_loaded_from_file = bool(summary.get("ads_loaded_from_file", False))
-    ads_source_file = str(summary.get("ads_source_file") or "")
-    ads_attribution_quality = str(summary.get("ads_attribution_quality") or "unknown")
-    ads_applied_to_profit = bool(summary.get("ads_applied_to_profit", False))
-    avg_check = _safe_float(summary.get("avg_check", 0.0))
-    daily_orders_count = int(round(_safe_float(summary.get("daily_orders_count", 0))))
-    daily_orders_amount = _safe_float(summary.get("daily_orders_amount", 0.0))
-    daily_buyouts_count = int(round(_safe_float(summary.get("daily_buyouts_count", 0))))
-    daily_buyouts_amount = _safe_float(summary.get("daily_buyouts_amount", 0.0))
-    orders_count_source = str(summary.get("data_source_orders_count") or summary.get("data_source_orders") or _SOURCE_UNKNOWN)
-    orders_amount_source = str(summary.get("data_source_orders_amount") or _SOURCE_UNKNOWN)
-    buyouts_source = str(summary.get("data_source_buyouts_count") or summary.get("data_source_buyouts") or _SOURCE_UNKNOWN)
-    display = summary.get("display", {})
-    if not isinstance(display, dict):
-        display = {}
-    event_date_model = summary.get("event_date_model", {})
-    if not isinstance(event_date_model, dict):
-        event_date_model = {}
-    daily_status_matrix = summary.get("daily_status_matrix", {})
-    if not isinstance(daily_status_matrix, dict):
-        daily_status_matrix = {}
-    operational_date = str(event_date_model.get("operational_date") or run_date)
-    orders_display = str(display.get("orders_count") or format_int_or_unknown(summary.get("daily_orders_count")))
-    orders_amount_display = str(display.get("orders_amount") or format_money_or_unknown(summary.get("daily_orders_amount")))
-    buyouts_display = str(display.get("buyouts_count") or format_int_or_unknown(summary.get("daily_buyouts_count")))
-    buyouts_amount_display = str(display.get("buyouts_amount") or format_money_or_unknown(summary.get("daily_buyouts_amount")))
-    avg_check_display = str(display.get("avg_check") or format_money_or_unknown(summary.get("avg_check")))
-    revenue_display = str(display.get("financial_revenue") or format_money_or_unknown(summary.get("financial_revenue"), decimals=0))
-    net_profit_display = str(display.get("net_profit") or format_money_or_unknown(summary.get("net_profit"), decimals=0))
-    margin_display = str(display.get("margin_pct") or format_pct_or_unknown(summary.get("margin_pct")))
-    profitability_display = str(display.get("profitability_pct") or format_pct_or_unknown(summary.get("profitability_pct")))
-    insights_raw = summary.get("key_insights", [])
-    recommendations_raw = summary.get("recommendations", [])
-    day_conclusion = str(summary.get("ai_day_conclusion", "")).strip()
-
-    insights = [str(item).strip() for item in insights_raw if str(item).strip()] if isinstance(insights_raw, list) else []
-    recommendations = (
-        [str(item).strip() for item in recommendations_raw if str(item).strip()]
-        if isinstance(recommendations_raw, list)
-        else []
+    safe_summary = summary if isinstance(summary, dict) else {}
+    return _build_daily_email_body_ru(
+        seller_id=seller_id,
+        run_date=run_date,
+        email_summary=safe_summary,
+        build_body=lambda _seller_id, _run_date, _summary: "",
     )
-
-    lines: List[str] = [
-        f"РЈРїСЂР°РІР»РµРЅС‡РµСЃРєРѕРµ СЂРµР·СЋРјРµ WB AI Agent v3 вЂ” РєР°Р±РёРЅРµС‚ {seller_id}",
-        f"Р”Р°С‚Р° РѕС‚С‡РµС‚Р°: {run_date}",
-        f"РћРїРµСЂР°С†РёРѕРЅРЅС‹Р№ РґРµРЅСЊ: {operational_date}",
-        "",
-        "COMMERCE KPI",
-        f"- Р—Р°РєР°Р·С‹: {orders_display}",
-        f"- Р’С‹РєСѓРїС‹: {buyouts_display}",
-        f"- Рљ РїРµСЂРµС‡РёСЃР»РµРЅРёСЋ РїРѕ РІС‹РєСѓРїР°Рј: {buyouts_amount_display}",
-        f"- РЎСѓРјРјР° Р·Р°РєР°Р·РѕРІ (РјРёРЅСѓСЃ РєРѕРјРёСЃСЃРёСЏ WB): {orders_amount_display}",
-        f"- РСЃС‚РѕС‡РЅРёРє orders_count: {orders_count_source}",
-        f"- РСЃС‚РѕС‡РЅРёРє orders_amount: {orders_amount_source}",
-        f"- РСЃС‚РѕС‡РЅРёРє buyouts: {buyouts_source}",
-        "",
-        "FINANCIAL KPI",
-        f"- Р’С‹СЂСѓС‡РєР° (С„РёРЅР°РЅСЃРѕРІР°СЏ Р°РіСЂРµРіР°С†РёСЏ): {revenue_display}",
-        f"- РЎРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ: {_format_money(cost_price)}",
-        f"- РљРѕРјРёСЃСЃРёСЏ WB: {_format_money(wb_commission)}",
-        f"- Р’Р°Р»РѕРІР°СЏ РїСЂРёР±С‹Р»СЊ: {_format_money(gross_profit)}",
-        f"- Р§РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ: {net_profit_display}",
-        f"- РњР°СЂР¶Р°: {margin_display}",
-        f"- Р РµРЅС‚Р°Р±РµР»СЊРЅРѕСЃС‚СЊ: {profitability_display}",
-        f"- Р›РѕРіРёСЃС‚РёРєР°: {_format_money(logistics)}",
-        f"- РҐСЂР°РЅРµРЅРёРµ: {_format_money(storage)}",
-        f"- РЁС‚СЂР°С„С‹: {_format_money(penalties)}",
-        f"- РЈРґРµСЂР¶Р°РЅРёСЏ: {_format_money(deductions)}",
-        f"- Р РµРєР»Р°РјР°: {_format_money(ads_spend)}",
-        f"- РџРѕР»РЅРѕС‚Р° С„РёРЅР°РЅСЃРѕРІС‹С… РґР°РЅРЅС‹С…: {_format_pct(financial_completeness_pct)}",
-        f"- Financial contour status: {financial_finality_status}",
-        f"- Financial KPI interpretation: {financial_interpretation}",
-        f"- Р РµРєР»Р°РјРЅС‹С… СЃС‚СЂРѕРє: {_format_int(ads_rows)}",
-        f"- РџРѕРєР°Р·С‹: {_format_int(ads_impressions)}",
-        f"- РљР»РёРєРё: {_format_int(ads_clicks)}",
-        f"- Р—Р°РєР°Р·Р°РЅРЅС‹Рµ С‚РѕРІР°СЂС‹ РёР· СЂРµРєР»Р°РјС‹: {_format_int(ads_orders)}",
-        f"- РСЃС‚РѕС‡РЅРёРє СЂРµРєР»Р°РјС‹: {ads_source_file or ('local_file' if ads_loaded_from_file else 'api_or_missing')}",
-        f"- РђС‚СЂРёР±СѓС†РёСЏ СЂРµРєР»Р°РјС‹: {ads_attribution_quality}",
-        f"- Р РµРєР»Р°РјР° СѓС‡С‚РµРЅР° РІ РїСЂРёР±С‹Р»Рё: {'Р”Р°' if ads_applied_to_profit else 'РќРµС‚'}",
-        f"- РЎСЂРµРґРЅРёР№ С‡РµРє: {avg_check_display}",
-        f"- РЎС‚Р°С‚СѓСЃС‹ РєРѕРЅС‚СѓСЂРѕРІ: orders={str(daily_status_matrix.get('orders') or 'unknown')}, buyouts={str(daily_status_matrix.get('buyouts') or 'unknown')}, financials={str(daily_status_matrix.get('financials') or 'unknown')}",
-        "",
-        "РљР›Р®Р§Р•Р’Р«Р• Р’Р«Р’РћР”Р« AI",
-    ]
-    if insights:
-        lines.extend(f"- {item}" for item in insights[:3])
-    else:
-        lines.append("- РЎСѓС‰РµСЃС‚РІРµРЅРЅС‹С… РѕС‚РєР»РѕРЅРµРЅРёР№ РЅРµ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅРѕ, РґРёРЅР°РјРёРєР° СЃС‚Р°Р±РёР»СЊРЅР°.")
-
-    lines.extend(["", "РљР РђРўРљРР• Р Р•РљРћРњР•РќР”РђР¦РР"])
-    if recommendations:
-        lines.extend(f"- {item}" for item in recommendations[:3])
-    else:
-        lines.append("- РџРѕРґРґРµСЂР¶РёРІР°С‚СЊ С‚РµРєСѓС‰СѓСЋ СЃС‚СЂР°С‚РµРіРёСЋ Рё РєРѕРЅС‚СЂРѕР»РёСЂРѕРІР°С‚СЊ KPI РІ РµР¶РµРґРЅРµРІРЅРѕРј С†РёРєР»Рµ.")
-
-    if day_conclusion:
-        lines.extend(["", "AI Р’Р«Р’РћР” Р”РќРЇ", day_conclusion])
-
-    lines.extend(["", "Р”РµС‚Р°Р»РёР·Р°С†РёСЏ вЂ” РІ РїСЂРёР»РѕР¶РµРЅРЅРѕРј PDF-РѕС‚С‡РµС‚Рµ."])
-    return "\n".join(lines)
-
 
 def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict[str, Any]:
     from .pipeline.daily_pipeline_runner import run_daily_pipeline_for_seller
@@ -1064,4 +950,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
