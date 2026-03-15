@@ -4,7 +4,7 @@ import os
 import re
 from typing import Any, Dict, List
 
-from ..pdf_render import normalize_pdf_text, repair_mojibake
+from ..pdf_render import normalize_pdf_text, repair_mojibake, write_daily_bi_pdf
 from ..pipeline.daily_stage_support import sync_from_entry
 from .email_sender_orchestrator import build_daily_email_body, build_daily_email_subject
 from .render_policy import format_int_or_unknown, format_money_or_unknown, format_pct_or_unknown, is_missing_value
@@ -915,14 +915,106 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         page_7,
     ]
     report_pages = [[_sanitize_line(str(line)) for line in page] for page in report_pages]
-    pdf_lines: List[str] = []
-    for idx, page in enumerate(report_pages):
-        if idx > 0:
-            pdf_lines.append("\f")
-        pdf_lines.extend(page)
 
-    pdf_lines = [normalize_pdf_text(str(line)) for line in pdf_lines]
-    font_info = write_text_pdf(os.path.join(out_dir, "report.pdf"), pdf_lines)
+    def _first_number_local(*items: Any) -> float | None:
+        for item in items:
+            number = _safe_float_local(item)
+            if number is not None:
+                return number
+        return None
+
+    financial_kpi_payload = data.get("financial_kpi", {})
+    if not isinstance(financial_kpi_payload, dict):
+        financial_kpi_payload = {}
+    email_summary_payload = job.get("email_summary", {})
+    if not isinstance(email_summary_payload, dict):
+        email_summary_payload = {}
+
+    watchlists_payload = sku_watchlists.get("watchlists", {}) if isinstance(sku_watchlists, dict) else {}
+    if not isinstance(watchlists_payload, dict):
+        watchlists_payload = {}
+
+    def _watch_count(key: str) -> int:
+        rows = watchlists_payload.get(key, [])
+        return len(rows) if isinstance(rows, list) else 0
+
+    growth_count = _watch_count("top_growth")
+    risk_count = _watch_count("top_risk")
+    liquidation_count = max(_watch_count("dead_stock"), len(decision_groups.get("liquidate", [])))
+    normal_base = int(data_quality.get("valid_sku_count", 0) or 0)
+    if normal_base <= 0:
+        normal_base = len([row for row in sku_metrics if isinstance(row, dict)])
+    normal_count = max(normal_base - growth_count - risk_count - liquidation_count, 0) if normal_base > 0 else _watch_count("watch_list")
+
+    seller_id_for_visual = str(data.get("seller_id") or "")
+    report_date_for_visual = str(data.get("run_date") or "")
+    operational_day_for_visual = str(event_date_model.get("operational_date") or report_date_for_visual)
+
+    revenue_visual = _first_number_local(
+        revenue_value,
+        data.get("revenue_total"),
+        financial_kpi_payload.get("revenue"),
+        email_summary_payload.get("financial_revenue"),
+    )
+    net_profit_visual = _first_number_local(
+        net_profit_value,
+        data.get("net_profit"),
+        financial_kpi_payload.get("net_profit"),
+        email_summary_payload.get("net_profit"),
+    )
+    ad_spend_visual = _first_number_local(
+        portfolio_ad_spend,
+        data.get("ads_spend_total"),
+        financial_kpi_payload.get("ads_spend"),
+        email_summary_payload.get("ads_spend"),
+    )
+    orders_visual = _first_number_local(
+        orders_count_value,
+        order_kpi.get("orders_count"),
+        funnel.get("orders"),
+        daily_kpi.get("daily_orders_count"),
+    )
+
+    expense_structure_payload = {
+        "commission": _first_number_local(data.get("wb_commission"), financial_kpi_payload.get("wb_commission"), email_summary_payload.get("wb_commission")),
+        "logistics": _first_number_local(data.get("logistics_total"), data.get("logistics"), financial_kpi_payload.get("logistics"), email_summary_payload.get("logistics")),
+        "storage": _first_number_local(data.get("storage_total"), data.get("storage"), financial_kpi_payload.get("storage"), email_summary_payload.get("storage")),
+        "ads": ad_spend_visual,
+        "cost_price": _first_number_local(data.get("cost_price_total"), financial_kpi_payload.get("cost_price"), email_summary_payload.get("cost_price")),
+        "tax": _first_number_local(data.get("tax_total"), financial_kpi_payload.get("tax"), email_summary_payload.get("tax")),
+    }
+
+    visual_payload: Dict[str, Any] = {
+        "seller_id": seller_id_for_visual,
+        "run_date": report_date_for_visual,
+        "operational_day": operational_day_for_visual,
+        "preview_dir": out_dir,
+        "kpi_cards": [
+            {"label": "\u0412\u044b\u0440\u0443\u0447\u043a\u0430", "value": revenue_visual, "value_type": "money"},
+            {"label": "\u0427\u0438\u0441\u0442\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c", "value": net_profit_visual, "value_type": "money"},
+            {"label": "\u0420\u0430\u0441\u0445\u043e\u0434 \u043d\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0443", "value": ad_spend_visual, "value_type": "money"},
+            {"label": "\u0417\u0430\u043a\u0430\u0437\u044b", "value": orders_visual, "value_type": "int"},
+        ],
+        "expense_structure": expense_structure_payload,
+        "funnel": {
+            "views": _first_number_local(funnel.get("views"), funnel.get("impressions")),
+            "add_to_cart": _first_number_local(funnel.get("add_to_cart"), funnel.get("cart_count")),
+            "orders": _first_number_local(funnel.get("orders"), orders_visual),
+            "buyouts": _first_number_local(funnel.get("buyouts"), buyouts_count_value),
+        },
+        "sku_status": {
+            "growth": growth_count,
+            "normal": normal_count,
+            "risk": risk_count,
+            "liquidation": liquidation_count,
+        },
+        "ads_efficiency": {
+            "ad_spend": ad_spend_visual,
+            "ad_revenue": _first_number_local(portfolio_revenue_from_ads, data.get("ads_revenue"), email_summary_payload.get("ads_revenue")),
+        },
+    }
+
+    font_info = write_daily_bi_pdf(os.path.join(out_dir, "report.pdf"), visual_payload)
     job["pdf_font"] = {
         "family": font_info.get("family", ""),
         "regular": font_info.get("regular", ""),
@@ -976,6 +1068,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "pdf_path": os.path.join(out_dir, "report.pdf"),
         "font": job["pdf_font"],
         "pages": int(str(font_info.get("pages", "1"))),
+        "visual_previews": font_info.get("preview_images", []),
         "daily_commerce_kpi": {
             "daily_orders_count": _int_or_none(orders_count_value),
             "daily_orders_amount": _round_or_none(orders_amount_value),
