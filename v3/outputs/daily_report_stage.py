@@ -984,6 +984,244 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "tax": _first_number_local(data.get("tax_total"), financial_kpi_payload.get("tax"), email_summary_payload.get("tax")),
     }
 
+    top_growth_rows = _watchlist_rows(sku_watchlists, "top_growth", limit=30)
+    top_risk_rows = _watchlist_rows(sku_watchlists, "top_risk", limit=30)
+    dead_stock_rows = _watchlist_rows(sku_watchlists, "dead_stock", limit=30)
+    ad_ineff_rows = _watchlist_rows(sku_watchlists, "ad_inefficiency", limit=30)
+    conversion_drop_rows = _watchlist_rows(sku_watchlists, "conversion_drop", limit=30)
+
+    def _safe_sku_local(row: Dict[str, Any]) -> str:
+        if not isinstance(row, dict):
+            return ""
+        return _sanitize_client_text(row.get("sku") or row.get("nm_id") or "")
+
+    def _reason_local(row: Dict[str, Any], default_text: str) -> str:
+        reason = _sanitize_client_text(
+            row.get("reason")
+            or row.get("issue_reason_ru")
+            or row.get("funnel_issue_reason")
+            or row.get("recommendation")
+            or row.get("action")
+            or ""
+        )
+        return reason or default_text
+
+    def _health_score_local(row: Dict[str, Any], status_ru: str) -> float:
+        default_map = {
+            "\u0420\u043e\u0441\u0442": 85.0,
+            "\u041d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e": 70.0,
+            "\u0420\u0438\u0441\u043a": 35.0,
+            "\u041b\u0438\u043a\u0432\u0438\u0434\u0430\u0446\u0438\u044f": 15.0,
+        }
+        score = _first_number_local(row.get("health_score"), row.get("score")) if isinstance(row, dict) else None
+        attention = _first_number_local(row.get("attention_score")) if isinstance(row, dict) else None
+        if score is None and attention is not None:
+            if status_ru in {"\u0420\u0438\u0441\u043a", "\u041b\u0438\u043a\u0432\u0438\u0434\u0430\u0446\u0438\u044f"}:
+                score = 100.0 - attention
+            else:
+                score = 60.0 + (100.0 - attention) * 0.25
+        if score is None:
+            score = default_map.get(status_ru, 60.0)
+        return max(0.0, min(100.0, float(score)))
+
+    sku_health_rows: List[Dict[str, Any]] = []
+    health_seen: set[str] = set()
+
+    def _append_health_rows(rows: List[Dict[str, Any]], status_ru: str, default_reason: str, limit: int = 12) -> None:
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            sku = _safe_sku_local(row)
+            if not sku or sku in health_seen:
+                continue
+            health_seen.add(sku)
+            sku_health_rows.append(
+                {
+                    "sku": sku,
+                    "health_score": _health_score_local(row, status_ru),
+                    "status": status_ru,
+                    "reason": _reason_local(row, default_reason),
+                }
+            )
+            if len([x for x in sku_health_rows if str(x.get("status") or "") == status_ru]) >= limit:
+                break
+
+    _append_health_rows(top_growth_rows, "\u0420\u043e\u0441\u0442", "\u041f\u043e\u043b\u043e\u0436\u0438\u0442\u0435\u043b\u044c\u043d\u0430\u044f \u0434\u0438\u043d\u0430\u043c\u0438\u043a\u0430 KPI")
+    _append_health_rows(top_risk_rows, "\u0420\u0438\u0441\u043a", "\u041d\u0443\u0436\u043d\u0430 \u043e\u043f\u0442\u0438\u043c\u0438\u0437\u0430\u0446\u0438\u044f \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0438 \u0438 \u0446\u0435\u043d\u044b")
+    _append_health_rows(dead_stock_rows, "\u041b\u0438\u043a\u0432\u0438\u0434\u0430\u0446\u0438\u044f", "\u041d\u0438\u0437\u043a\u0430\u044f \u043e\u0431\u043e\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u043c\u043e\u0441\u0442\u044c \u0442\u043e\u0432\u0430\u0440\u0430")
+    _append_health_rows(
+        [row for row in liquidate_rows if isinstance(row, dict)],
+        "\u041b\u0438\u043a\u0432\u0438\u0434\u0430\u0446\u0438\u044f",
+        "\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u043e\u0432\u0430\u043d\u0430 \u0443\u0441\u043a\u043e\u0440\u0435\u043d\u043d\u0430\u044f \u0440\u0430\u0441\u043f\u0440\u043e\u0434\u0430\u0436\u0430",
+    )
+
+    normal_target = 14
+    normal_added = 0
+    for row in sku_metrics:
+        if not isinstance(row, dict):
+            continue
+        sku = _safe_sku_local(row)
+        if not sku or sku in health_seen:
+            continue
+        health_seen.add(sku)
+        sku_health_rows.append(
+            {
+                "sku": sku,
+                "health_score": _health_score_local(row, "\u041d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e"),
+                "status": "\u041d\u043e\u0440\u043c\u0430\u043b\u044c\u043d\u043e",
+                "reason": _reason_local(row, "\u0421\u0442\u0430\u0431\u0438\u043b\u044c\u043d\u0430\u044f \u0434\u0438\u043d\u0430\u043c\u0438\u043a\u0430 \u043f\u043e SKU"),
+            }
+        )
+        normal_added += 1
+        if normal_added >= normal_target:
+            break
+
+    def _sku_list_local(rows: List[Dict[str, Any]], *, limit: int = 10) -> List[str]:
+        result: List[str] = []
+        seen: set[str] = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            sku = _safe_sku_local(row)
+            if not sku or sku in seen:
+                continue
+            seen.add(sku)
+            result.append(sku)
+            if len(result) >= limit:
+                break
+        return result
+
+    risk_problem_rows = [row for row in top_risk_rows if isinstance(row, dict)] + [
+        row for row in (fix_rows + watch_rows) if isinstance(row, dict)
+    ]
+    liquidation_problem_rows = [row for row in dead_stock_rows if isinstance(row, dict)] + [
+        row for row in liquidate_rows if isinstance(row, dict)
+    ]
+
+    key_problems_payload: Dict[str, List[str]] = {
+        "unprofitable_ads": _sku_list_local([row for row in ad_ineff_rows if isinstance(row, dict)], limit=10),
+        "conversion_drop": _sku_list_local([row for row in conversion_drop_rows if isinstance(row, dict)], limit=10),
+        "risk_skus": _sku_list_local(risk_problem_rows, limit=10),
+        "liquidation_skus": _sku_list_local(liquidation_problem_rows, limit=10),
+    }
+
+    def _action_ru_local(raw_action: Any, group: str) -> str:
+        token = str(raw_action or "").strip().lower().replace("_", " ")
+        if "increase ads" in token or "increase" in token:
+            return "\u0423\u0441\u0438\u043b\u0438\u0442\u044c \u0440\u0435\u043a\u043b\u0430\u043c\u0443"
+        if "improve listing" in token or "improve" in token:
+            return "\u0414\u043e\u0440\u0430\u0431\u043e\u0442\u0430\u0442\u044c \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0443"
+        if "rebalance stock" in token or "rebalance" in token:
+            return "\u041f\u0435\u0440\u0435\u0440\u0430\u0441\u043f\u0440\u0435\u0434\u0435\u043b\u0438\u0442\u044c \u043e\u0441\u0442\u0430\u0442\u043a\u0438"
+        if "discount" in token or "remove" in token:
+            return "\u0421\u043d\u0438\u0437\u0438\u0442\u044c \u0446\u0435\u043d\u0443 \u0438\u043b\u0438 \u0432\u044b\u0432\u043e\u0434\u0438\u0442\u044c \u0442\u043e\u0432\u0430\u0440"
+        if "monitor" in token:
+            return "\u041d\u0430\u0431\u043b\u044e\u0434\u0430\u0442\u044c"
+        defaults = {
+            "p1": "\u0421\u0440\u043e\u0447\u043d\u0430\u044f \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u0438\u0440\u043e\u0432\u043a\u0430 SKU",
+            "p2": "\u041e\u043f\u0442\u0438\u043c\u0438\u0437\u0430\u0446\u0438\u044f SKU",
+            "p3": "\u041c\u043e\u043d\u0438\u0442\u043e\u0440\u0438\u043d\u0433 SKU",
+        }
+        return defaults.get(group, "\u0414\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u043f\u043e SKU")
+
+    def _recommendation_rows(rows: List[Dict[str, Any]], *, group: str, limit: int = 10) -> List[Dict[str, str]]:
+        result: List[Dict[str, str]] = []
+        seen: set[str] = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            sku = _safe_sku_local(row)
+            if not sku or sku in seen:
+                continue
+            seen.add(sku)
+            reason = _reason_local(row, "\u0422\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044f \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u043f\u043e \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u0430\u043c AI-\u0430\u043d\u0430\u043b\u0438\u0437\u0430")
+            result.append(
+                {
+                    "action": _action_ru_local(row.get("action"), group),
+                    "reason": reason,
+                    "sku": sku,
+                }
+            )
+            if len(result) >= limit:
+                break
+        return result
+
+    p1_recommendations = _recommendation_rows(
+        [row for row in (liquidate_rows + fix_rows) if isinstance(row, dict)],
+        group="p1",
+        limit=12,
+    )
+    p2_recommendations = _recommendation_rows(
+        [row for row in scale_rows if isinstance(row, dict)],
+        group="p2",
+        limit=12,
+    )
+    p3_recommendations = _recommendation_rows(
+        [row for row in watch_rows if isinstance(row, dict)],
+        group="p3",
+        limit=12,
+    )
+    if not p3_recommendations:
+        p3_recommendations = _recommendation_rows(
+            [row for row in top_risk_rows if isinstance(row, dict)],
+            group="p3",
+            limit=12,
+        )
+
+    def _money_str_local(value: Any) -> str:
+        number = _first_number_local(value)
+        if number is None:
+            return "\u043d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445"
+        return f"{int(round(number)):,}".replace(",", " ") + " \u20bd"
+
+    sku_profit_candidates: List[Dict[str, Any]] = []
+    for row in sku_metrics:
+        if not isinstance(row, dict):
+            continue
+        sku = _safe_sku_local(row)
+        if not sku:
+            continue
+        revenue_num = _first_number_local(row.get("revenue"), row.get("orders_amount"), row.get("buyouts_amount"))
+        ads_num = _first_number_local(row.get("ads_spend"), row.get("ad_spend"), row.get("ads_cost"))
+        profit_num = _first_number_local(row.get("profit"), row.get("net_profit"))
+        if revenue_num is None and ads_num is None and profit_num is None:
+            continue
+        sku_profit_candidates.append(
+            {
+                "sku": sku,
+                "revenue_num": revenue_num,
+                "ads_num": ads_num,
+                "profit_num": profit_num,
+            }
+        )
+
+    sku_profit_candidates = sorted(
+        sku_profit_candidates,
+        key=lambda item: (
+            float(item.get("profit_num") or -10**12),
+            float(item.get("revenue_num") or -10**12),
+        ),
+        reverse=True,
+    )
+
+    sku_profit_rows: List[Dict[str, str]] = []
+    seen_profit_skus: set[str] = set()
+    for row in sku_profit_candidates:
+        sku = str(row.get("sku") or "").strip()
+        if not sku or sku in seen_profit_skus:
+            continue
+        seen_profit_skus.add(sku)
+        sku_profit_rows.append(
+            {
+                "sku": sku,
+                "revenue": _money_str_local(row.get("revenue_num")),
+                "ads_spend": _money_str_local(row.get("ads_num")),
+                "profit": _money_str_local(row.get("profit_num")),
+            }
+        )
+        if len(sku_profit_rows) >= 28:
+            break
+
     visual_payload: Dict[str, Any] = {
         "seller_id": seller_id_for_visual,
         "run_date": report_date_for_visual,
@@ -1012,6 +1250,14 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "ad_spend": ad_spend_visual,
             "ad_revenue": _first_number_local(portfolio_revenue_from_ads, data.get("ads_revenue"), email_summary_payload.get("ads_revenue")),
         },
+        "sku_health_rows": sku_health_rows[:36],
+        "key_problems": key_problems_payload,
+        "ai_recommendations": {
+            "p1": p1_recommendations,
+            "p2": p2_recommendations,
+            "p3": p3_recommendations,
+        },
+        "sku_profit_rows": sku_profit_rows,
     }
 
     font_info = write_daily_bi_pdf(os.path.join(out_dir, "report.pdf"), visual_payload)

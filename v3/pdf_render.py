@@ -367,6 +367,65 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         draw.line((x + 20, line_y, x + w - 20, line_y), fill=colors["border"], width=1)
         return (x + 24, y + 78, x + w - 24, y + h - 22)
 
+    def _fit_text(draw_obj: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_w: int) -> str:
+        prepared = normalize_pdf_text(str(text or "")).strip()
+        if not prepared:
+            return ""
+        if draw_obj.textlength(prepared, font=font) <= max_w:
+            return prepared
+        dots = "?"
+        candidate = prepared
+        while candidate and draw_obj.textlength(candidate + dots, font=font) > max_w:
+            candidate = candidate[:-1]
+        return (candidate + dots) if candidate else dots
+
+    def _draw_table(
+        draw_obj: ImageDraw.ImageDraw,
+        box: Tuple[int, int, int, int],
+        columns: List[Tuple[str, str, int]],
+        rows: List[Dict[str, Any]],
+        empty_text: str,
+    ) -> None:
+        x1, y1, x2, y2 = box
+        if not rows:
+            draw_obj.text((x1, y1 + 10), normalize_pdf_text(empty_text), font=fonts["body"], fill=colors["muted"])
+            return
+
+        header_h = 42
+        row_h = 36
+        width = x2 - x1
+        total_ratio = sum(max(1, ratio) for _, _, ratio in columns)
+
+        x_positions: List[int] = [x1]
+        consumed = 0
+        for idx, (_, _, ratio) in enumerate(columns):
+            if idx == len(columns) - 1:
+                col_w = width - consumed
+            else:
+                col_w = int(width * (max(1, ratio) / total_ratio))
+            consumed += col_w
+            x_positions.append(x_positions[-1] + col_w)
+
+        draw_obj.rectangle((x1, y1, x2, y1 + header_h), fill=(242, 245, 250), outline=colors["border"], width=1)
+
+        for idx, (title, _, _) in enumerate(columns):
+            cx1, cx2 = x_positions[idx], x_positions[idx + 1]
+            text = _fit_text(draw_obj, title, fonts["small"], max(16, cx2 - cx1 - 14))
+            draw_obj.text((cx1 + 8, y1 + 10), text, font=fonts["small"], fill=colors["title"])
+            if idx > 0:
+                draw_obj.line((cx1, y1, cx1, y2), fill=colors["border"], width=1)
+
+        max_rows = max(1, int((y2 - y1 - header_h) / row_h))
+        visible = rows[:max_rows]
+        y = y1 + header_h
+        for row in visible:
+            draw_obj.rectangle((x1, y, x2, y + row_h), fill=colors["panel"], outline=colors["border"], width=1)
+            for idx, (_, key, _) in enumerate(columns):
+                cx1, cx2 = x_positions[idx], x_positions[idx + 1]
+                value = _fit_text(draw_obj, str(row.get(key, "")), fonts["small"], max(16, cx2 - cx1 - 14))
+                draw_obj.text((cx1 + 8, y + 8), value, font=fonts["small"], fill=colors["text"])
+            y += row_h
+
     not_enough = normalize_pdf_text("Недостаточно данных для визуализации")
 
     # Page 1: KPI cards
@@ -675,12 +734,200 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
             legend_y += 54
     pages.append(page_3)
 
+    # Page 4: SKU health score
+    page_4, draw_4 = _new_page()
+    draw_4.text((margin, margin), normalize_pdf_text("Оценка товаров"), font=fonts["h1"], fill=colors["title"])
+    health_content = _draw_panel(
+        draw_4,
+        margin,
+        margin + 84,
+        width_px - margin * 2,
+        height_px - (margin + 84) - margin,
+        "\u041e\u0446\u0435\u043d\u043a\u0430 \u0437\u0434\u043e\u0440\u043e\u0432\u044c\u044f SKU",
+    )
+    health_rows_raw = payload.get("sku_health_rows", [])
+    if not isinstance(health_rows_raw, list):
+        health_rows_raw = []
+    health_rows: List[Dict[str, Any]] = []
+    for row in health_rows_raw:
+        if not isinstance(row, dict):
+            continue
+        sku = normalize_pdf_text(str(row.get("sku") or "").strip())
+        if not sku:
+            continue
+        score_value = _as_number(row.get("health_score"))
+        score_text = "нет данных"
+        if score_value is not None:
+            score_text = str(int(max(0, min(100, round(score_value)))))
+        health_rows.append(
+            {
+                "sku": sku,
+                "score": score_text,
+                "status": normalize_pdf_text(str(row.get("status") or "Нормально")),
+                "reason": normalize_pdf_text(str(row.get("reason") or "Без критичных сигналов")),
+            }
+        )
+    _draw_table(
+        draw_4,
+        health_content,
+        [
+            ("SKU", "sku", 20),
+            ("Health Score", "score", 17),
+            ("Статус", "status", 19),
+            ("Причина", "reason", 44),
+        ],
+        health_rows,
+        "Недостаточно данных для визуализации",
+    )
+    pages.append(page_4)
+
+    # Page 5: Key problems by SKU
+    page_5, draw_5 = _new_page()
+    draw_5.text((margin, margin), normalize_pdf_text("Ключевые проблемы"), font=fonts["h1"], fill=colors["title"])
+    key_problems = payload.get("key_problems", {})
+    if not isinstance(key_problems, dict):
+        key_problems = {}
+
+    def _problem_skus(key: str) -> List[str]:
+        rows = key_problems.get(key, [])
+        if not isinstance(rows, list):
+            return []
+        result: List[str] = []
+        seen: set[str] = set()
+        for item in rows:
+            sku = normalize_pdf_text(str(item or "").strip())
+            if not sku or sku in seen:
+                continue
+            seen.add(sku)
+            result.append(sku)
+            if len(result) >= 8:
+                break
+        return result
+
+    problems_layout = [
+        ("Убыточная реклама", _problem_skus("unprofitable_ads")),
+        ("Падение конверсии", _problem_skus("conversion_drop")),
+        ("Товары в зоне риска", _problem_skus("risk_skus")),
+        ("Товары на ликвидации", _problem_skus("liquidation_skus")),
+    ]
+
+    box_top = margin + 92
+    area_h = height_px - box_top - margin
+    box_h = int((area_h - panel_gap) / 2)
+    box_w = int((width_px - margin * 2 - panel_gap) / 2)
+
+    for idx, (title, skus) in enumerate(problems_layout):
+        row = idx // 2
+        col = idx % 2
+        x = margin + col * (box_w + panel_gap)
+        y = box_top + row * (box_h + panel_gap)
+        content = _draw_panel(draw_5, x, y, box_w, box_h, title)
+        cx1, cy1, cx2, cy2 = content
+        if not skus:
+            draw_5.text((cx1, cy1 + 8), normalize_pdf_text("нет данных"), font=fonts["body"], fill=colors["muted"])
+            continue
+        y_cursor = cy1 + 4
+        for sku in skus:
+            line = normalize_pdf_text(f"- SKU {sku}")
+            draw_5.text((cx1, y_cursor), _fit_text(draw_5, line, fonts["body"], cx2 - cx1 - 8), font=fonts["body"], fill=colors["text"])
+            y_cursor += 34
+            if y_cursor > cy2 - 28:
+                break
+    pages.append(page_5)
+
+    # Page 6: AI recommendations by priority
+    page_6, draw_6 = _new_page()
+    draw_6.text((margin, margin), normalize_pdf_text("Рекомендации AI"), font=fonts["h1"], fill=colors["title"])
+    rec_payload = payload.get("ai_recommendations", {})
+    if not isinstance(rec_payload, dict):
+        rec_payload = {}
+
+    rec_sections = [
+        ("P1 — срочные действия", rec_payload.get("p1", [])),
+        ("P2 — оптимизация", rec_payload.get("p2", [])),
+        ("P3 — наблюдение", rec_payload.get("p3", [])),
+    ]
+
+    section_top = margin + 92
+    section_h = int((height_px - section_top - margin - panel_gap * 2) / 3)
+    for idx, (title, rows_raw) in enumerate(rec_sections):
+        y = section_top + idx * (section_h + panel_gap)
+        content = _draw_panel(draw_6, margin, y, width_px - margin * 2, section_h, title)
+        cx1, cy1, cx2, cy2 = content
+        rows_formatted: List[Dict[str, Any]] = []
+        if isinstance(rows_raw, list):
+            for item in rows_raw:
+                if not isinstance(item, dict):
+                    continue
+                rows_formatted.append(
+                    {
+                        "action": normalize_pdf_text(str(item.get("action") or "")),
+                        "reason": normalize_pdf_text(str(item.get("reason") or "")),
+                        "sku": normalize_pdf_text(str(item.get("sku") or "")),
+                    }
+                )
+        _draw_table(
+            draw_6,
+            (cx1, cy1, cx2, cy2),
+            [
+                ("Действие", "action", 33),
+                ("Причина", "reason", 47),
+                ("SKU", "sku", 20),
+            ],
+            rows_formatted,
+            "Нет рекомендаций",
+        )
+    pages.append(page_6)
+
+    # Page 7: Profit by SKU
+    page_7, draw_7 = _new_page()
+    draw_7.text((margin, margin), normalize_pdf_text("Прибыль по SKU"), font=fonts["h1"], fill=colors["title"])
+    profit_content = _draw_panel(
+        draw_7,
+        margin,
+        margin + 84,
+        width_px - margin * 2,
+        height_px - (margin + 84) - margin,
+        "Товарная прибыль",
+    )
+    sku_profit_rows_raw = payload.get("sku_profit_rows", [])
+    if not isinstance(sku_profit_rows_raw, list):
+        sku_profit_rows_raw = []
+    sku_profit_rows: List[Dict[str, Any]] = []
+    for row in sku_profit_rows_raw:
+        if not isinstance(row, dict):
+            continue
+        sku = normalize_pdf_text(str(row.get("sku") or "").strip())
+        if not sku:
+            continue
+        sku_profit_rows.append(
+            {
+                "sku": sku,
+                "revenue": normalize_pdf_text(str(row.get("revenue") or "нет данных")),
+                "ads": normalize_pdf_text(str(row.get("ads_spend") or "нет данных")),
+                "profit": normalize_pdf_text(str(row.get("profit") or "нет данных")),
+            }
+        )
+    _draw_table(
+        draw_7,
+        profit_content,
+        [
+            ("SKU", "sku", 21),
+            ("Выручка", "revenue", 26),
+            ("Расход на рекламу", "ads", 27),
+            ("Прибыль", "profit", 26),
+        ],
+        sku_profit_rows,
+        "Недостаточно данных для визуализации",
+    )
+    pages.append(page_7)
+
     os.makedirs(os.path.dirname(path), exist_ok=True)
     preview_paths: List[str] = []
     preview_dir = str(payload.get("preview_dir") or os.path.dirname(path))
     if preview_dir:
         os.makedirs(preview_dir, exist_ok=True)
-        for idx, image in enumerate(pages[:3], start=1):
+        for idx, image in enumerate(pages, start=1):
             preview_path = os.path.join(preview_dir, f"report_preview_page_{idx}.png")
             image.save(preview_path, "PNG")
             preview_paths.append(preview_path)
@@ -689,3 +936,6 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     font_info["pages"] = str(len(pages))
     font_info["preview_images"] = preview_paths
     return font_info
+
+
+

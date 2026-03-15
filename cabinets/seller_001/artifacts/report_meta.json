@@ -12,11 +12,15 @@
     "regular": "D:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf",
     "bold": "D:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf"
   },
-  "pages": 3,
+  "pages": 7,
   "visual_previews": [
     "cabinets/seller_001/artifacts\\report_preview_page_1.png",
     "cabinets/seller_001/artifacts\\report_preview_page_2.png",
-    "cabinets/seller_001/artifacts\\report_preview_page_3.png"
+    "cabinets/seller_001/artifacts\\report_preview_page_3.png",
+    "cabinets/seller_001/artifacts\\report_preview_page_4.png",
+    "cabinets/seller_001/artifacts\\report_preview_page_5.png",
+    "cabinets/seller_001/artifacts\\report_preview_page_6.png",
+    "cabinets/seller_001/artifacts\\report_preview_page_7.png"
   ],
   "daily_commerce_kpi": {
     "daily_orders_count": null,

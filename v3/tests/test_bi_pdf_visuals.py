@@ -52,13 +52,14 @@ class TestBiPdfVisuals(unittest.TestCase):
                 return
 
             self.assertTrue(os.path.isfile(pdf_path))
-            self.assertEqual(str(font_info.get("pages")), "3")
+            self.assertEqual(str(font_info.get("pages")), "7")
             previews = font_info.get("preview_images", [])
             self.assertTrue(isinstance(previews, list))
-            self.assertGreaterEqual(len(previews), 3)
-            for preview in previews[:3]:
+            self.assertGreaterEqual(len(previews), 7)
+            for preview in previews[:7]:
                 self.assertTrue(os.path.isfile(str(preview)))
 
 
 if __name__ == "__main__":
     unittest.main()
+
