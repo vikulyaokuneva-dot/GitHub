@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta
@@ -450,6 +450,16 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     )
     warnings_collector.extend_warnings(input_debug_warning_additions)
 
+    data_mode = "api" if (source_mode == "wb_api" and not bool(local_financial_fallback_used)) else "raw_reports_fallback"
+    non_api_mode = not (data_mode == "api")
+    input_debug["data_mode"] = data_mode
+    input_debug["non_api_mode"] = non_api_mode
+    print(
+        "[pipeline] data_mode "
+        f"mode={data_mode} source_mode={source_mode} "
+        f"local_financial_fallback_used={str(bool(local_financial_fallback_used)).lower()}"
+    )
+
     return {
         "repo_root": repo_root,
         "seller_id": seller_id,
@@ -461,6 +471,8 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         "seller_name": seller_name,
         "token": token,
         "source_mode": source_mode,
+        "data_mode": data_mode,
+        "non_api_mode": non_api_mode,
         "warnings_collector": warnings_collector,
         "discovered_files": discovered_files,
         "input_debug": input_debug,

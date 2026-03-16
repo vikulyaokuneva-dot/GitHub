@@ -201,6 +201,20 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     sync_from_entry(globals())
 
     data: Dict[str, Any] = dict(payload or {})
+    source_mode = str(data.get("source_mode") or "").strip().lower()
+    data_mode = str(data.get("data_mode") or "").strip().lower()
+    if not data_mode:
+        data_mode = (
+            "api"
+            if (source_mode == "wb_api" and not bool(data.get("local_financial_fallback_used", False)))
+            else "raw_reports_fallback"
+        )
+    non_api_mode = bool(data.get("non_api_mode", data_mode != "api"))
+    non_api_label = "недостаточно данных (non-API mode)"
+    non_api_notice = (
+        "Отчет собран в ограниченном режиме по raw-отчетам WB, "
+        "часть метрик может быть недоступна до подключения API"
+    )
     out_dir = str(data.get("out_dir") or "")
     daily_kpi = data.get("daily_kpi", {})
     if not isinstance(daily_kpi, dict):
@@ -355,11 +369,22 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     margin_pct_value = render_kpi.get("margin_pct", data.get("margin_pct_total"))
     profitability_pct_value = render_kpi.get("profitability_pct", data.get("profitability_pct_total"))
 
+    if non_api_mode:
+        orders_count_value = None
+        orders_amount_value = None
+        buyouts_count_value = None
+        buyouts_amount_value = None
+        avg_check_value = None
+        margin_pct_value = None
+        profitability_pct_value = None
+
     funnel = cabinet_funnel.get("funnel", {}) if isinstance(cabinet_funnel, dict) else {}
     if not isinstance(funnel, dict):
         funnel = {}
 
     conversion_value = funnel.get("view_to_order_conversion", funnel.get("click_to_order_conversion_pct"))
+    if non_api_mode:
+        conversion_value = None
 
     ads_efficiency_mode = str(
         portfolio_ads_summary.get("analysis_mode", advertising_efficiency.get("analysis_mode", "disabled"))
@@ -380,6 +405,18 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         top_profitable_queries_ads = []
     top_unprofitable_queries_ads = portfolio_ads_summary.get("top_unprofitable_queries", []) if isinstance(portfolio_ads_summary, dict) else []
     if not isinstance(top_unprofitable_queries_ads, list):
+        top_unprofitable_queries_ads = []
+
+    if non_api_mode:
+        portfolio_orders_from_ads = None
+        portfolio_buyouts_from_ads = None
+        portfolio_revenue_from_ads = None
+        portfolio_profit_from_ads = None
+        portfolio_romi = None
+        portfolio_drr = None
+        portfolio_cpo = None
+        cpo_value = None
+        top_profitable_queries_ads = []
         top_unprofitable_queries_ads = []
 
     def _safe_text(value: Any) -> str:
@@ -547,7 +584,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         return total
 
     financial_preliminary = financial_finality_status != "final"
-    ads_preliminary = ads_efficiency_mode in {"preview", "disabled"} or not ads_analysis_enabled
+    ads_preliminary = non_api_mode or ads_efficiency_mode in {"preview", "disabled"} or not ads_analysis_enabled
 
     scale_rows = decision_groups.get("scale", []) if isinstance(decision_groups.get("scale"), list) else []
     fix_rows = decision_groups.get("fix", []) if isinstance(decision_groups.get("fix"), list) else []
@@ -971,6 +1008,18 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     email_summary_payload = job.get("email_summary", {})
     if not isinstance(email_summary_payload, dict):
         email_summary_payload = {}
+    financial_components_payload = (
+        financial_kpi_payload.get("components", {})
+        if isinstance(financial_kpi_payload.get("components"), dict)
+        else {}
+    )
+
+    def _component_available(*keys: str) -> bool:
+        for key in keys:
+            payload = financial_components_payload.get(key, {})
+            if isinstance(payload, dict) and payload.get("available") is not None:
+                return bool(payload.get("available"))
+        return True
 
     watchlists_payload = sku_watchlists.get("watchlists", {}) if isinstance(sku_watchlists, dict) else {}
     if not isinstance(watchlists_payload, dict):
@@ -1073,6 +1122,35 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     )
     tax_visual = _first_number_local(data.get("tax_total"), financial_kpi_payload.get("tax"), email_summary_payload.get("tax"))
 
+    if not _component_available("revenue", "seller_payout"):
+        seller_payout_visual = None
+        revenue_visual = None
+    if not _component_available("commission"):
+        commission_visual = None
+    if not _component_available("logistics"):
+        logistics_visual = None
+    if not _component_available("storage"):
+        storage_visual = None
+    if not _component_available("deductions"):
+        deductions_visual = None
+    if not _component_available("acquiring"):
+        acquiring_visual = None
+    if not _component_available("pvz_service"):
+        pvz_service_visual = None
+    if not _component_available("penalties"):
+        penalties_visual = None
+    if not _component_available("cost_price"):
+        cost_price_visual = None
+    if not _component_available("tax"):
+        tax_visual = None
+    if not _component_available("ads_spend"):
+        ad_spend_visual = None
+    if not _component_available("net_profit"):
+        net_profit_visual = None
+
+    if non_api_mode:
+        orders_visual = None
+
     def _nz(value: Any) -> float:
         return float(value) if value is not None else 0.0
 
@@ -1098,6 +1176,36 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         else None
     )
 
+    financial_structure_complete = all(
+        component is not None
+        for component in (
+            revenue_visual,
+            commission_visual,
+            acquiring_visual,
+            pvz_service_visual,
+            logistics_visual,
+            storage_visual,
+            deductions_visual,
+            cost_price_visual,
+            tax_visual,
+            ad_spend_visual,
+        )
+    )
+    net_profit_reliable = (
+        financial_structure_complete
+        and financial_finality_status == "final"
+        and float(data.get("financial_completeness_pct", 0.0) or 0.0) >= 95.0
+    )
+    if not net_profit_reliable:
+        net_profit_visual = None
+        explained_net_profit = None
+        net_profit_explain_delta = None
+    loyalty_total_visual = (
+        _nz(loyalty_program_visual) + _nz(loyalty_points_visual)
+        if (loyalty_program_visual is not None or loyalty_points_visual is not None)
+        else None
+    )
+
     expense_structure_payload = {
         "commission": commission_visual,
         "acquiring": acquiring_visual,
@@ -1108,7 +1216,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "deductions": deductions_visual,
         "loyalty_program": loyalty_program_visual,
         "loyalty_points_withheld": loyalty_points_visual,
-        "loyalty_total": _nz(loyalty_program_visual) + _nz(loyalty_points_visual),
+        "loyalty_total": loyalty_total_visual,
         "other_adjustments": other_adjustments_visual,
         "ads": ad_spend_visual,
         "cost_price": cost_price_visual,
@@ -1127,7 +1235,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "deductions": deductions_visual,
         "loyalty_program": loyalty_program_visual,
         "loyalty_points_withheld": loyalty_points_visual,
-        "loyalty_total": _nz(loyalty_program_visual) + _nz(loyalty_points_visual),
+        "loyalty_total": loyalty_total_visual,
         "other_adjustments": other_adjustments_visual,
         "cost_price": cost_price_visual,
         "tax": tax_visual,
@@ -1368,6 +1476,10 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         int(data.get("ads_rows_count", 0) or 0) > 0
         or (ad_spend_visual is not None and abs(float(ad_spend_visual)) > 1e-9)
     )
+    if non_api_mode:
+        traffic_data_sufficient = False
+        conversion_data_sufficient = False
+        ads_data_sufficient = False
 
     key_problem_reasons: Dict[str, str] = {}
     key_problem_data_status: Dict[str, str] = {}
@@ -1383,7 +1495,11 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     else:
         low_traffic_skus = []
         key_problem_data_status["low_traffic"] = "insufficient"
-        key_problem_reasons["low_traffic"] = "недостаточно данных: нет подтвержденных просмотров"
+        key_problem_reasons["low_traffic"] = (
+            "недостаточно данных (non-API mode): нет подтвержденных просмотров"
+            if non_api_mode
+            else "недостаточно данных: нет подтвержденных просмотров"
+        )
 
     if conversion_data_sufficient:
         conversion_drop_skus = _merge_sku_lists(
@@ -1398,7 +1514,9 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         conversion_drop_skus = []
         key_problem_data_status["conversion_drop"] = "insufficient"
         key_problem_reasons["conversion_drop"] = (
-            "недостаточно данных: нет согласованных просмотров/заказов за единый период"
+            "недостаточно данных (non-API mode): нет согласованных просмотров/заказов за единый период"
+            if non_api_mode
+            else "недостаточно данных: нет согласованных просмотров/заказов за единый период"
         )
 
     if ads_data_sufficient:
@@ -1414,7 +1532,9 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         inefficient_ads_skus = []
         key_problem_data_status["inefficient_ads"] = "insufficient"
         key_problem_reasons["inefficient_ads"] = (
-            "недостаточно данных: рекламные данные отсутствуют или равны нулю"
+            "недостаточно данных (non-API mode): рекламные данные отсутствуют или равны нулю"
+            if non_api_mode
+            else "недостаточно данных: рекламные данные отсутствуют или равны нулю"
         )
 
     liquidation_skus = _merge_sku_lists(
@@ -1550,10 +1670,43 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         if len(sku_profit_rows) >= 28:
             break
 
+    financial_events_payload: List[Dict[str, str]] = []
+    event_rows = event_ledger.get("events", []) if isinstance(event_ledger, dict) else []
+    if isinstance(event_rows, list):
+        for event in event_rows:
+            if not isinstance(event, dict):
+                continue
+            title = _sanitize_client_text(
+                event.get("event")
+                or event.get("name")
+                or event.get("category")
+                or event.get("type")
+                or ""
+            )
+            raw_field = _sanitize_client_text(event.get("field") or event.get("metric") or "")
+            amount = _first_number_local(event.get("amount"), event.get("value"), event.get("sum"))
+            source = _sanitize_client_text(event.get("source") or event.get("data_source") or "")
+            event_line = title or raw_field
+            if not event_line and amount is None:
+                continue
+            financial_events_payload.append(
+                {
+                    "event": event_line or "Событие",
+                    "field": raw_field or "нет данных",
+                    "amount": _money_str_local(amount) if amount is not None else "нет данных",
+                    "source": source or "нет данных",
+                }
+            )
+            if len(financial_events_payload) >= 36:
+                break
+
     visual_payload: Dict[str, Any] = {
         "seller_id": seller_id_for_visual,
         "run_date": report_date_for_visual,
         "operational_day": operational_day_for_visual,
+        "data_mode": data_mode,
+        "non_api_mode": non_api_mode,
+        "mode_notice": non_api_notice if non_api_mode else "",
         "preview_dir": out_dir,
         "kpi_cards": [
             {"label": "К перечислению продавцу", "value": revenue_visual, "value_type": "money"},
@@ -1564,17 +1717,21 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "expense_structure": expense_structure_payload,
         "financial_structure_day": financial_structure_day_payload,
         "funnel": {
-            "views": _first_number_local(funnel.get("views"), funnel.get("impressions")),
-            "add_to_cart": _first_number_local(funnel.get("add_to_cart"), funnel.get("cart_count")),
-            "orders": _first_number_local(funnel.get("orders"), orders_visual),
-            "buyouts": _first_number_local(funnel.get("buyouts"), buyouts_count_value),
-            "order_to_buyout_over_100": bool(funnel.get("order_to_buyout_over_100", False)),
-            "order_to_buyout_note": str(funnel.get("order_to_buyout_note") or ""),
+            "views": None if non_api_mode else _first_number_local(funnel.get("views"), funnel.get("impressions")),
+            "add_to_cart": None if non_api_mode else _first_number_local(funnel.get("add_to_cart"), funnel.get("cart_count")),
+            "orders": None if non_api_mode else _first_number_local(funnel.get("orders"), orders_visual),
+            "buyouts": None if non_api_mode else _first_number_local(funnel.get("buyouts"), buyouts_count_value),
+            "order_to_buyout_over_100": False if non_api_mode else bool(funnel.get("order_to_buyout_over_100", False)),
+            "order_to_buyout_note": non_api_label if non_api_mode else str(funnel.get("order_to_buyout_note") or ""),
         },
         "sku_status": sku_status_counts,
         "ads_efficiency": {
-            "ad_spend": ad_spend_visual,
-            "ad_revenue": _first_number_local(portfolio_revenue_from_ads, data.get("ads_revenue"), email_summary_payload.get("ads_revenue")),
+            "ad_spend": None if non_api_mode else ad_spend_visual,
+            "ad_revenue": (
+                None
+                if non_api_mode
+                else _first_number_local(portfolio_revenue_from_ads, data.get("ads_revenue"), email_summary_payload.get("ads_revenue"))
+            ),
         },
         "sku_health_rows": sku_health_rows[:36],
         "key_problems": key_problems_payload,
@@ -1586,6 +1743,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "p3": p3_recommendations,
         },
         "sku_profit_rows": sku_profit_rows,
+        "financial_events": financial_events_payload,
     }
 
     discovered_files_payload = data.get("discovered_files", {})
@@ -1638,7 +1796,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         f"commission={_round_or_none(commission_visual)} acquiring={_round_or_none(acquiring_visual)} "
         f"pvz_service={_round_or_none(pvz_service_visual)} logistics={_round_or_none(logistics_visual)} "
         f"storage={_round_or_none(storage_visual)} deductions={_round_or_none(deductions_visual)} "
-        f"loyalty_total={_round_or_none(_nz(loyalty_program_visual) + _nz(loyalty_points_visual))} "
+        f"loyalty_total={_round_or_none(loyalty_total_visual)} "
         f"other_adjustments={_round_or_none(other_adjustments_visual)} tax={_round_or_none(tax_visual)} "
         f"ads_spend={_round_or_none(ad_spend_visual)} net_profit={_round_or_none(net_profit_visual)} "
         f"explained_net_profit={_round_or_none(explained_net_profit)} delta={_round_or_none(net_profit_explain_delta)}"
@@ -1655,6 +1813,11 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         f"growth={sku_status_counts.get('growth', 0)} normal={sku_status_counts.get('normal', 0)} "
         f"risk={sku_status_counts.get('risk', 0)} liquidation={sku_status_counts.get('liquidation', 0)} "
         f"table_rows={len(sku_health_rows[:36])}"
+    )
+    print(
+        "[pipeline] mode_status "
+        f"source_mode={source_mode or 'unknown'} data_mode={data_mode} "
+        f"non_api_mode={str(non_api_mode).lower()}"
     )
 
     font_info = write_daily_bi_pdf(os.path.join(out_dir, "report.pdf"), visual_payload)
@@ -1718,6 +1881,9 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "font": job["pdf_font"],
         "pages": int(str(font_info.get("pages", "1"))),
         "visual_previews": font_info.get("preview_images", []),
+        "data_mode": data_mode,
+        "non_api_mode": non_api_mode,
+        "mode_notice": non_api_notice if non_api_mode else "",
         "daily_commerce_kpi": {
             "daily_orders_count": _int_or_none(orders_count_value),
             "daily_orders_amount": _round_or_none(orders_amount_value),

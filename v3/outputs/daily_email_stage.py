@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from typing import Any, Dict, List
@@ -341,6 +341,16 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     sync_from_entry(globals())
 
     data: Dict[str, Any] = dict(payload or {})
+    source_mode = str(data.get("source_mode") or "").strip().lower()
+    data_mode = str(data.get("data_mode") or "").strip().lower()
+    if not data_mode:
+        data_mode = "api" if (source_mode == "wb_api" and not bool(data.get("local_financial_fallback_used", False))) else "raw_reports_fallback"
+    non_api_mode = bool(data.get("non_api_mode", data_mode != "api"))
+    non_api_label = "недостаточно данных (non-API mode)"
+    non_api_notice = (
+        "Отчет собран в ограниченном режиме по raw-отчетам WB, "
+        "часть метрик может быть недоступна до подключения API"
+    )
     job = data.get("job", {})
     if not isinstance(job, dict):
         job = {}
@@ -514,8 +524,15 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     if sku_monitor_brief_lines:
         key_insights_enhanced.append("Мониторинг товаров сформирован по группам: рост, риск, неликвид, реклама, конверсия.")
-    if funnel_brief_lines:
+    if funnel_brief_lines and not non_api_mode:
         key_insights_enhanced.append("Воронка продаж включена в управленческое резюме.")
+
+    if non_api_mode:
+        key_insights_enhanced.insert(0, non_api_notice + ".")
+        short_recommendations.insert(
+            0,
+            "Фокусироваться только на подтвержденных финансовых событиях до подключения API.",
+        )
 
     key_insights_enhanced = _clean_lines(key_insights_enhanced, limit=6)
     short_recommendations = _clean_lines(short_recommendations, limit=5)
@@ -534,10 +551,66 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             financial_finality_status=financial_finality_status,
         )
 
+    net_profit_for_summary = data.get("net_profit")
+    margin_pct_for_summary = data.get("margin_pct_total")
+    profitability_pct_for_summary = data.get("profitability_pct_total")
+    daily_orders_count_for_summary = render_kpi.get("orders_count", data.get("daily_orders_count"))
+    avg_check_for_summary = render_kpi.get("avg_check", data.get("avg_check"))
+    daily_orders_amount_for_summary = render_kpi.get("orders_amount", data.get("daily_orders_amount"))
+    daily_buyouts_count_for_summary = render_kpi.get("buyouts_count", data.get("daily_buyouts_count"))
+    daily_buyouts_amount_for_summary = render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount"))
+    ads_summary_for_email = ads_summary if isinstance(ads_summary, dict) else {}
+    ads_rows_for_summary = int(data.get("ads_rows_count", 0) or 0)
+    ads_impressions_for_summary = int(data.get("ads_impressions", 0) or 0)
+    ads_clicks_for_summary = int(data.get("ads_clicks", 0) or 0)
+    ads_orders_for_summary = int(data.get("ads_orders", 0) or 0)
+    ads_loaded_from_file_for_summary = bool(data.get("ads_loaded_from_file", False))
+    ads_source_file_for_summary = str(data.get("ads_source_file") or "")
+    ads_attribution_quality_for_summary = str(data.get("ads_attribution_quality") or "unknown")
+    funnel_snapshot_for_summary = cabinet_funnel if isinstance(cabinet_funnel, dict) else {}
+
+    if non_api_mode:
+        daily_orders_count_for_summary = None
+        avg_check_for_summary = None
+        daily_orders_amount_for_summary = None
+        daily_buyouts_count_for_summary = None
+        daily_buyouts_amount_for_summary = None
+        margin_pct_for_summary = None
+        profitability_pct_for_summary = None
+        ads_summary_for_email = {}
+        ads_rows_for_summary = 0
+        ads_impressions_for_summary = 0
+        ads_clicks_for_summary = 0
+        ads_orders_for_summary = 0
+        ads_loaded_from_file_for_summary = False
+        ads_source_file_for_summary = ""
+        ads_attribution_quality_for_summary = "insufficient_data"
+
+        if (financial_finality_status != "final") or (float(financial_completeness_pct) < 95.0):
+            net_profit_for_summary = None
+
+        if isinstance(funnel_snapshot_for_summary, dict):
+            funnel_snapshot_for_summary = dict(funnel_snapshot_for_summary)
+            funnel_payload = funnel_snapshot_for_summary.get("funnel", {})
+            if isinstance(funnel_payload, dict):
+                funnel_payload = dict(funnel_payload)
+                funnel_payload["view_to_order_conversion"] = None
+                funnel_payload["click_to_order_conversion_pct"] = None
+                funnel_payload["buyout_rate"] = None
+                funnel_payload["order_to_buyout_conversion_pct"] = None
+                funnel_snapshot_for_summary["funnel"] = funnel_payload
+            status_payload = funnel_snapshot_for_summary.get("status", {})
+            if isinstance(status_payload, dict):
+                status_payload = dict(status_payload)
+                status_payload["traffic"] = "insufficient_data"
+                status_payload["conversion"] = "insufficient_data"
+                status_payload["buyout_stage"] = "insufficient_data"
+                funnel_snapshot_for_summary["status"] = status_payload
+
     email_summary_payload = build_email_summary(
         daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
-        ads_summary=ads_summary if isinstance(ads_summary, dict) else {},
-        net_profit=data.get("net_profit"),
+        ads_summary=ads_summary_for_email,
+        net_profit=net_profit_for_summary,
         gross_profit=data.get("gross_profit_total"),
         cost_price=data.get("cost_price_total"),
         wb_commission=data.get("wb_commission"),
@@ -546,24 +619,24 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         penalties=data.get("penalties_total"),
         deductions=data.get("deductions_total"),
         ads_spend_total=data.get("ads_spend_total"),
-        margin_pct=data.get("margin_pct_total"),
-        profitability_pct=data.get("profitability_pct_total"),
+        margin_pct=margin_pct_for_summary,
+        profitability_pct=profitability_pct_for_summary,
         financial_completeness_pct=float(data.get("financial_completeness_pct", 0.0) or 0.0),
         financial_partial=bool(data.get("financial_partial", False)),
-        ads_rows=int(data.get("ads_rows_count", 0) or 0),
-        ads_impressions=int(data.get("ads_impressions", 0) or 0),
-        ads_clicks=int(data.get("ads_clicks", 0) or 0),
-        ads_orders=int(data.get("ads_orders", 0) or 0),
-        ads_loaded_from_file=bool(data.get("ads_loaded_from_file", False)),
-        ads_source_file=str(data.get("ads_source_file") or ""),
-        ads_attribution_quality=str(data.get("ads_attribution_quality") or "unknown"),
+        ads_rows=ads_rows_for_summary,
+        ads_impressions=ads_impressions_for_summary,
+        ads_clicks=ads_clicks_for_summary,
+        ads_orders=ads_orders_for_summary,
+        ads_loaded_from_file=ads_loaded_from_file_for_summary,
+        ads_source_file=ads_source_file_for_summary,
+        ads_attribution_quality=ads_attribution_quality_for_summary,
         daily_revenue=render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount")),
         financial_revenue=render_kpi.get("revenue", data.get("revenue_total")),
-        daily_orders_count=render_kpi.get("orders_count", data.get("daily_orders_count")),
-        avg_check=render_kpi.get("avg_check", data.get("avg_check")),
-        daily_orders_amount=render_kpi.get("orders_amount", data.get("daily_orders_amount")),
-        daily_buyouts_count=render_kpi.get("buyouts_count", data.get("daily_buyouts_count")),
-        daily_buyouts_amount=render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount")),
+        daily_orders_count=daily_orders_count_for_summary,
+        avg_check=avg_check_for_summary,
+        daily_orders_amount=daily_orders_amount_for_summary,
+        daily_buyouts_count=daily_buyouts_count_for_summary,
+        daily_buyouts_amount=daily_buyouts_amount_for_summary,
         key_insights=key_insights_enhanced,
         recommendations=short_recommendations,
         ai_day_conclusion=ai_day_conclusion_email,
@@ -573,7 +646,7 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
         daily_status_matrix=daily_status_matrix if isinstance(daily_status_matrix, dict) else {},
         render_kpi=render_kpi if isinstance(render_kpi, dict) else {},
-        funnel_snapshot=cabinet_funnel if isinstance(cabinet_funnel, dict) else {},
+        funnel_snapshot=funnel_snapshot_for_summary,
         sku_watchlists=sku_watchlists if isinstance(sku_watchlists, dict) else {},
         sku_alerts=sku_alerts if isinstance(sku_alerts, dict) else {},
         sku_attribution_status=sku_attribution_status,
@@ -586,6 +659,20 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     email_summary_payload["ai_guidance_mode"] = "preliminary" if preliminary_ai_mode else "standard"
     email_summary_payload["ai_guardrail_reasons"] = [_clean_text(item) for item in preliminary_ai_reasons if _clean_text(item)]
+    email_summary_payload["data_mode"] = data_mode
+    email_summary_payload["non_api_mode"] = non_api_mode
+    email_summary_payload["non_api_notice"] = non_api_notice if non_api_mode else ""
+
+    if non_api_mode:
+        display_payload = email_summary_payload.get("display", {})
+        if not isinstance(display_payload, dict):
+            display_payload = {}
+        for key in ("orders_count", "buyouts_count", "orders_amount", "buyouts_amount", "avg_check", "margin_pct", "profitability_pct"):
+            display_payload[key] = non_api_label
+        if (financial_finality_status != "final") or (float(financial_completeness_pct) < 95.0):
+            display_payload["net_profit"] = non_api_label
+        email_summary_payload["display"] = display_payload
+
     job["email_summary"] = email_summary_payload
 
     data.update(
@@ -599,3 +686,8 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
     return data
+
+
+
+
+

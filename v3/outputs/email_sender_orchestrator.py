@@ -305,6 +305,15 @@ def build_daily_email_body(
 ) -> str:
     _ = build_body
     summary = email_summary if isinstance(email_summary, dict) else {}
+    non_api_mode = bool(summary.get("non_api_mode", False))
+    non_api_label = "недостаточно данных (non-API mode)"
+    non_api_notice = _clean_text(
+        summary.get(
+            "non_api_notice",
+            "Отчет собран в ограниченном режиме по raw-отчетам WB, часть метрик может быть недоступна до подключения API",
+        ),
+        reject_unsafe_raw=False,
+    )
 
     event_date_model = summary.get("event_date_model", {}) if isinstance(summary.get("event_date_model"), dict) else {}
     operational_day = str(event_date_model.get("operational_date") or run_date)
@@ -332,6 +341,17 @@ def build_daily_email_body(
     order_to_buyout = funnel.get("buyout_rate", funnel.get("order_to_buyout_conversion_pct"))
     view_to_order_text = _format_rate_for_email(view_to_order)
     order_to_buyout_text = _format_rate_for_email(order_to_buyout, lag_sensitive=True)
+
+    if non_api_mode:
+        orders_text = non_api_label
+        buyouts_text = non_api_label
+        orders_amount_text = non_api_label
+        buyouts_amount_text = non_api_label
+        avg_check_text = non_api_label
+        view_to_order_text = non_api_label
+        order_to_buyout_text = non_api_label
+        margin_text = non_api_label
+        profitability_text = non_api_label
 
     insights = _clean_list(summary.get("key_insights", []), limit=3)
     if not insights:
@@ -371,6 +391,10 @@ def build_daily_email_body(
         "",
         "ГЛАВНЫЕ ВЫВОДЫ",
     ]
+
+    if non_api_mode and non_api_notice:
+        lines.insert(5, non_api_notice)
+        lines.insert(6, "")
 
     lines.extend(f"- {line}" for line in insights[:3])
     lines.extend(["", "РЕКОМЕНДАЦИИ"])
