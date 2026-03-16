@@ -19,9 +19,10 @@ def _round_or_none(value: Any) -> float | None:
     if value is None:
         return None
     try:
-        return round(float(value), 2)
+        numeric = float(value)
     except (TypeError, ValueError):
         return None
+    return round(numeric, 2)
 
 
 def _int_or_none(value: Any) -> int | None:

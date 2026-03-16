@@ -347,9 +347,10 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         if value is None:
             return None
         try:
-            return round(float(value), 2)
+            numeric = float(value)
         except (TypeError, ValueError):
             return None
+        return round(numeric, 2)
 
     def _int_or_none(value: Any) -> int | None:
         if value is None:
@@ -1241,7 +1242,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "tax": tax_visual,
         "ads_spend": ad_spend_visual,
         "net_profit": net_profit_visual,
-        "explained_net_profit": round(explained_net_profit, 2),
+        "explained_net_profit": _round_or_none(explained_net_profit),
         "net_profit_explain_delta": net_profit_explain_delta,
     }
 
@@ -1949,7 +1950,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "net_profit_explain_delta": _round_or_none(net_profit_explain_delta),
             "margin_pct": _round_or_none(margin_pct_value),
             "profitability_pct": _round_or_none(profitability_pct_value),
-            "financial_completeness_pct": round(float(data.get("financial_completeness_pct", 0.0) or 0.0), 2),
+            "financial_completeness_pct": _round_or_none(data.get("financial_completeness_pct")) or 0.0,
             "financial_partial": bool(data.get("financial_partial", False)),
             "financial_finality_status": financial_finality_status,
             "display": {
