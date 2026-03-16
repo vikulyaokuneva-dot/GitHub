@@ -11,6 +11,25 @@ from ..pipeline.job_builder import apply_job_email_result
 from .render_policy import format_int_or_unknown, format_pct_or_unknown, is_missing_value
 
 
+def _format_rate_for_email(value: Any, *, lag_sensitive: bool = False) -> str:
+    unknown = "недостаточно данных"
+    lag_unknown = (
+        "недостаточно данных "
+        "(возможен лаг подтверждения выкупа)"
+    )
+    if is_missing_value(value):
+        return unknown
+    try:
+        rate = float(value)
+    except (TypeError, ValueError):
+        return unknown
+    if rate < 0:
+        return unknown
+    if rate > 100.0:
+        return lag_unknown if lag_sensitive else unknown
+    return format_pct_or_unknown(rate, unknown_label=unknown)
+
+
 def _mask_email_address(value: str) -> str:
     clean = str(value or "").strip()
     if not clean:
@@ -164,11 +183,9 @@ def _funnel_lines(summary: Dict[str, Any]) -> List[str]:
     cart_to_order = funnel.get("cart_to_order", funnel.get("cart_conversion_pct"))
     buyout_rate = funnel.get("buyout_rate", funnel.get("order_to_buyout_conversion_pct"))
 
-    conversion_text = (
-        "недостаточно данных"
-        if is_missing_value(conversion)
-        else format_pct_or_unknown(conversion, unknown_label="недостаточно данных")
-    )
+    conversion_text = _format_rate_for_email(conversion)
+    cart_to_order_text = _format_rate_for_email(cart_to_order)
+    buyout_rate_text = _format_rate_for_email(buyout_rate, lag_sensitive=True)
 
     lines = [
         (
@@ -183,10 +200,10 @@ def _funnel_lines(summary: Dict[str, Any]) -> List[str]:
         ),
         "Конверсия просмотр → заказ: " + conversion_text,
         (
-            "Доп. конверсии: корзина → заказ "
-            + format_pct_or_unknown(cart_to_order, unknown_label="недостаточно данных")
-            + ", заказ → выкуп "
-            + format_pct_or_unknown(buyout_rate, unknown_label="недостаточно данных")
+            "\u0414\u043e\u043f. \u043a\u043e\u043d\u0432\u0435\u0440\u0441\u0438\u0438: \u043a\u043e\u0440\u0437\u0438\u043d\u0430 \u2192 \u0437\u0430\u043a\u0430\u0437 "
+            + cart_to_order_text
+            + ", \u0437\u0430\u043a\u0430\u0437 \u2192 \u0432\u044b\u043a\u0443\u043f "
+            + buyout_rate_text
         ),
         (
             "Статусы: трафик — "
@@ -313,16 +330,8 @@ def build_daily_email_body(
     funnel = snapshot.get("funnel", {}) if isinstance(snapshot.get("funnel"), dict) else {}
     view_to_order = funnel.get("view_to_order_conversion", funnel.get("click_to_order_conversion_pct"))
     order_to_buyout = funnel.get("buyout_rate", funnel.get("order_to_buyout_conversion_pct"))
-    view_to_order_text = (
-        "недостаточно данных"
-        if is_missing_value(view_to_order)
-        else format_pct_or_unknown(view_to_order, unknown_label="недостаточно данных")
-    )
-    order_to_buyout_text = (
-        "недостаточно данных"
-        if is_missing_value(order_to_buyout)
-        else format_pct_or_unknown(order_to_buyout, unknown_label="недостаточно данных")
-    )
+    view_to_order_text = _format_rate_for_email(view_to_order)
+    order_to_buyout_text = _format_rate_for_email(order_to_buyout, lag_sensitive=True)
 
     insights = _clean_list(summary.get("key_insights", []), limit=3)
     if not insights:

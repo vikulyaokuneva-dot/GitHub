@@ -73,6 +73,40 @@ class TestEmailBodyRussianClean(unittest.TestCase):
         self.assertNotIn("в†", body)
 
 
+
+    def test_order_to_buyout_over_100_is_marked_as_lag(self) -> None:
+        summary = {
+            "display": {
+                "orders_count": "6",
+                "buyouts_count": "7",
+            },
+            "funnel_snapshot": {
+                "funnel": {
+                    "view_to_order_conversion": None,
+                    "buyout_rate": 116.7,
+                }
+            },
+            "key_insights": ["\u0422\u0435\u0441\u0442"],
+            "recommendations": ["\u0422\u0435\u0441\u0442"],
+            "ai_day_conclusion": "\u0422\u0435\u0441\u0442",
+        }
+
+        body = build_daily_email_body(
+            seller_id="seller_001",
+            run_date="2026-03-16",
+            email_summary=summary,
+            build_body=lambda _s, _d, _m: "",
+        )
+
+        self.assertIn(
+            "\u041a\u043e\u043d\u0432\u0435\u0440\u0441\u0438\u044f \u0437\u0430\u043a\u0430\u0437 \u2192 \u0432\u044b\u043a\u0443\u043f: "
+            "\u043d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0434\u0430\u043d\u043d\u044b\u0445 "
+            "(\u0432\u043e\u0437\u043c\u043e\u0436\u0435\u043d \u043b\u0430\u0433 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u044f \u0432\u044b\u043a\u0443\u043f\u0430)",
+            body,
+        )
+        self.assertNotIn("\u041a\u043e\u043d\u0432\u0435\u0440\u0441\u0438\u044f \u0437\u0430\u043a\u0430\u0437 \u2192 \u0432\u044b\u043a\u0443\u043f: 116.7 %", body)
+
+
 if __name__ == "__main__":
     unittest.main()
 

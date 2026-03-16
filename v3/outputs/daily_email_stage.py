@@ -9,6 +9,25 @@ from .email_summary_builder import build_email_summary
 from .render_policy import format_int_or_unknown, format_pct_or_unknown, is_missing_value
 
 
+def _format_rate_for_email(value: Any, *, lag_sensitive: bool = False) -> str:
+    unknown = "недостаточно данных"
+    lag_unknown = (
+        "недостаточно данных "
+        "(возможен лаг подтверждения выкупа)"
+    )
+    if is_missing_value(value):
+        return unknown
+    try:
+        rate = float(value)
+    except (TypeError, ValueError):
+        return unknown
+    if rate < 0:
+        return unknown
+    if rate > 100.0:
+        return lag_unknown if lag_sensitive else unknown
+    return format_pct_or_unknown(rate, unknown_label=unknown)
+
+
 def _safe_float(value: Any) -> float | None:
     if value is None:
         return None
@@ -155,12 +174,12 @@ def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dic
             + format_int_or_unknown(buyouts, unknown_label="нет данных")
         ),
         (
-            "Конверсия просмотр → заказ: "
-            + format_pct_or_unknown(view_to_order, unknown_label="недостаточно данных")
-            + ", корзина → заказ: "
-            + format_pct_or_unknown(cart_to_order, unknown_label="недостаточно данных")
-            + ", заказ → выкуп: "
-            + format_pct_or_unknown(buyout_rate, unknown_label="недостаточно данных")
+            "\u041a\u043e\u043d\u0432\u0435\u0440\u0441\u0438\u044f \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440 \u2192 \u0437\u0430\u043a\u0430\u0437: "
+            + _format_rate_for_email(view_to_order)
+            + ", \u043a\u043e\u0440\u0437\u0438\u043d\u0430 \u2192 \u0437\u0430\u043a\u0430\u0437: "
+            + _format_rate_for_email(cart_to_order)
+            + ", \u0437\u0430\u043a\u0430\u0437 \u2192 \u0432\u044b\u043a\u0443\u043f: "
+            + _format_rate_for_email(buyout_rate, lag_sensitive=True)
             + ", CPO: "
             + cpo_text
         ),
