@@ -80,12 +80,18 @@ def _clean_text(value: Any, *, reject_unsafe_raw: bool = True) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
+    if re.fullmatch(r"[?\s\.,:;!/\-]{4,}", raw):
+        return ""
+    if raw.count("?") >= 6 and not re.search(r"[А-Яа-яЁёA-Za-z0-9]", raw):
+        return ""
     if reject_unsafe_raw and _has_raw_mojibake_signs(raw):
         return ""
     text = normalize_pdf_text(raw)
     text = _translate_technical_values(text)
     text = re.sub(r"\s{2,}", " ", text).strip()
     if _has_raw_mojibake_signs(text):
+        return ""
+    if re.search(r"\?{4,}", text):
         return ""
     if reject_unsafe_raw and re.search(r"\b[A-Za-z]{4,}\b", text):
         return ""
@@ -286,20 +292,14 @@ def build_daily_email_body(
     event_date_model = summary.get("event_date_model", {}) if isinstance(summary.get("event_date_model"), dict) else {}
     operational_day = str(event_date_model.get("operational_date") or run_date)
 
-    financial_finality_status = _status_ru(summary.get("financial_finality_status") or "нет данных")
+    orders_text = _summary_text(summary, "orders_count", default="недостаточно данных")
+    buyouts_text = _summary_text(summary, "buyouts_count", default="недостаточно данных")
+    orders_amount_text = _summary_text(summary, "orders_amount", default="недостаточно данных")
+    buyouts_amount_text = _summary_text(summary, "buyouts_amount", default="недостаточно данных")
+    avg_check_text = _summary_text(summary, "avg_check", default="недостаточно данных")
 
-    ai_mode = _status_ru(summary.get("ai_guidance_mode") or "standard")
-    raw_reasons = summary.get("ai_guardrail_reasons", []) if isinstance(summary.get("ai_guardrail_reasons"), list) else []
-    reasons = [_clean_text(item) for item in raw_reasons if _clean_text(item)]
-
-    orders_text = _summary_text(summary, "orders_count", default="нет данных")
-    buyouts_text = _summary_text(summary, "buyouts_count", default="нет данных")
-    orders_amount_text = _summary_text(summary, "orders_amount", default="нет данных")
-    buyouts_amount_text = _summary_text(summary, "buyouts_amount", default="нет данных")
-    avg_check_text = _summary_text(summary, "avg_check", default="нет данных")
-
-    revenue_text = _summary_text(summary, "financial_revenue", default="нет данных")
-    net_profit_text = _summary_text(summary, "net_profit", default="нет данных")
+    revenue_text = _summary_text(summary, "financial_revenue", default="недостаточно данных")
+    net_profit_text = _summary_text(summary, "net_profit", default="недостаточно данных")
 
     margin_value = summary.get("margin_pct")
     if is_missing_value(margin_value):
@@ -309,8 +309,20 @@ def build_daily_email_body(
 
     profitability_text = _summary_text(summary, "profitability_pct", default="недостаточно данных для расчета")
 
-    funnel_lines = _funnel_lines(summary)
-    sku_monitor_lines = _sku_monitor_lines(summary)
+    snapshot = summary.get("funnel_snapshot", {}) if isinstance(summary.get("funnel_snapshot"), dict) else {}
+    funnel = snapshot.get("funnel", {}) if isinstance(snapshot.get("funnel"), dict) else {}
+    view_to_order = funnel.get("view_to_order_conversion", funnel.get("click_to_order_conversion_pct"))
+    order_to_buyout = funnel.get("buyout_rate", funnel.get("order_to_buyout_conversion_pct"))
+    view_to_order_text = (
+        "недостаточно данных"
+        if is_missing_value(view_to_order)
+        else format_pct_or_unknown(view_to_order, unknown_label="недостаточно данных")
+    )
+    order_to_buyout_text = (
+        "недостаточно данных"
+        if is_missing_value(order_to_buyout)
+        else format_pct_or_unknown(order_to_buyout, unknown_label="недостаточно данных")
+    )
 
     insights = _clean_list(summary.get("key_insights", []), limit=3)
     if not insights:
@@ -322,6 +334,10 @@ def build_daily_email_body(
 
     raw_conclusion = _clean_text(summary.get("ai_day_conclusion", ""), reject_unsafe_raw=True)
     conclusion = raw_conclusion or _fallback_conclusion(summary, operational_day)
+    if "\n" in conclusion:
+        conclusion = next((line.strip() for line in conclusion.splitlines() if line.strip()), conclusion)
+    if len(conclusion) > 420:
+        conclusion = conclusion[:417].rstrip() + "..."
 
     lines: List[str] = [
         "Управленческое резюме WB ИИ-агент v3",
@@ -335,49 +351,38 @@ def build_daily_email_body(
         f"- Заказы, сумма: {orders_amount_text}",
         f"- Выкупы, сумма: {buyouts_amount_text}",
         f"- Средний чек: {avg_check_text}",
+        f"- Конверсия просмотр → заказ: {view_to_order_text}",
+        f"- Конверсия заказ → выкуп: {order_to_buyout_text}",
         "",
         "ФИНАНСОВЫЕ ПОКАЗАТЕЛИ",
         f"- Выручка: {revenue_text}",
         f"- Чистая прибыль: {net_profit_text}",
         f"- Маржа: {margin_text}",
         f"- Рентабельность: {profitability_text}",
-        f"- Статус финансового контура: {financial_finality_status}",
         "",
-        "РЕЖИМ РЕКОМЕНДАЦИЙ ИИ",
-        f"- Режим: {ai_mode}",
-        ("- Основания: " + "; ".join(reasons)) if reasons else "- Основания: нет данных",
-        "",
-        "ВОРОНКА ПРОДАЖ",
+        "ГЛАВНЫЕ ВЫВОДЫ",
     ]
 
-    if funnel_lines:
-        lines.extend(f"- {line}" for line in funnel_lines[:4])
-    else:
-        lines.append("- Конверсия просмотр → заказ: недостаточно данных")
-
-    lines.extend(["", "МОНИТОРИНГ ТОВАРОВ"])
-    if sku_monitor_lines:
-        lines.extend(f"- {line}" for line in sku_monitor_lines[:5])
-    else:
-        lines.append("- Нет критичных изменений по SKU.")
-
-    lines.extend(["", "КЛЮЧЕВЫЕ ВЫВОДЫ"])
     lines.extend(f"- {line}" for line in insights[:3])
-
     lines.extend(["", "РЕКОМЕНДАЦИИ"])
     lines.extend(f"- {line}" for line in recommendations[:3])
-
-    lines.extend(["", "ВЫВОД ИИ ЗА ДЕНЬ", conclusion])
+    lines.extend(["", "ВЫВОД ДНЯ", conclusion, "", "Детали в PDF."])
 
     final_lines: List[str] = []
+    seen: set[str] = set()
     for line in lines:
         cleaned = _clean_text(line, reject_unsafe_raw=False)
         if not cleaned and str(line).strip():
             continue
-        final_lines.append(cleaned if cleaned else "")
+        normalized = cleaned if cleaned else ""
+        dedup_key = normalized.strip().lower()
+        if dedup_key and dedup_key in seen:
+            continue
+        if dedup_key:
+            seen.add(dedup_key)
+        final_lines.append(normalized)
 
     return "\n".join(final_lines)
-
 
 def send_daily_report_email(
     *,
@@ -461,18 +466,18 @@ def orchestrate_daily_email_send(
         out["email_body_text"] = email_body_text
         return out
     except Exception as exc:
-        print(f"[mail] send_failed: {exc}")
+        reason = str(exc)
+        failure_message = reason if "EMAIL DELIVERY FAILED" in reason else f"EMAIL DELIVERY FAILED: {reason}"
+        print(f"[mail] {failure_message}")
         out = apply_job_email_result(
             job=job,
             attempted=True,
             sent=False,
             email_to=email_to_masked,
-            error=str(exc),
+            error=failure_message,
         )
         if email_subject:
             out["email_subject"] = email_subject
         if email_body_text:
             out["email_body_text"] = email_body_text
         return out
-
-

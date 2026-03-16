@@ -1,4 +1,4 @@
-﻿import unittest
+import unittest
 
 from v3.outputs.email_sender_orchestrator import build_daily_email_body
 
@@ -58,19 +58,21 @@ class TestEmailBodyRussianClean(unittest.TestCase):
 
         self.assertIn("КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ", body)
         self.assertIn("ФИНАНСОВЫЕ ПОКАЗАТЕЛИ", body)
-        self.assertIn("РЕЖИМ РЕКОМЕНДАЦИЙ ИИ", body)
-        self.assertIn("ВОРОНКА ПРОДАЖ", body)
-        self.assertIn("МОНИТОРИНГ ТОВАРОВ", body)
-        self.assertIn("ВЫВОД ИИ ЗА ДЕНЬ", body)
+        self.assertIn("ГЛАВНЫЕ ВЫВОДЫ", body)
+        self.assertIn("РЕКОМЕНДАЦИИ", body)
+        self.assertIn("ВЫВОД ДНЯ", body)
         self.assertIn("Маржа: недостаточно данных для расчета", body)
         self.assertIn("Конверсия просмотр → заказ: недостаточно данных", body)
         self.assertIn("Данные по заказам пока не подтверждены", body)
         self.assertNotIn("COMMERCE KPI", body)
         self.assertNotIn("FINANCIAL KPI", body)
         self.assertNotIn("AI Conclusion", body)
+        self.assertNotIn("РЕЖИМ РЕКОМЕНДАЦИЙ ИИ", body)
+        self.assertNotIn("МОНИТОРИНГ ТОВАРОВ", body)
         self.assertNotIn("РќР", body)
         self.assertNotIn("в†", body)
 
 
 if __name__ == "__main__":
     unittest.main()
+

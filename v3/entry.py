@@ -828,10 +828,15 @@ def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str |
         if status == "success":
             print(f"[{seller_id}] pipeline finished successfully")
         elif status == "partial_success":
-            print(
-                f"[{seller_id}] pipeline finished with partial_success: "
-                f"{result.get('error') or result.get('email_error')}"
-            )
+            base_error = str(result.get("error") or "").strip()
+            email_error = str(result.get("email_error") or "").strip()
+            if email_error and email_error != base_error:
+                details = f"{base_error}; {email_error}" if base_error else email_error
+            else:
+                details = base_error or email_error
+            print(f"[{seller_id}] pipeline finished with partial_success: {details}")
+            if email_error:
+                print(f"[{seller_id}] EMAIL DELIVERY FAILED: {email_error}")
         else:
             print(f"[{seller_id}] pipeline failed: {result.get('error')}")
         return result
@@ -950,5 +955,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

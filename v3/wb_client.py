@@ -649,9 +649,19 @@ class WBClient:
                             ("sum", "spend", "cost", "expenses", "price"),
                             default=0.0,
                         )
+                        impressions = self._pick_first_float(
+                            nm,
+                            ("impressions", "views", "shows", "imps"),
+                            default=0.0,
+                        )
                         clicks = self._pick_first_float(
                             nm,
                             ("clicks", "click"),
+                            default=0.0,
+                        )
+                        add_to_cart = self._pick_first_float(
+                            nm,
+                            ("addToCart", "add_to_cart", "atbs", "cart_count"),
                             default=0.0,
                         )
                         orders = self._pick_first_float(
@@ -660,20 +670,31 @@ class WBClient:
                             default=0.0,
                         )
                         if sku not in bucket:
-                            bucket[sku] = {"ads_spend": 0.0, "clicks": 0.0, "orders": 0.0}
+                            bucket[sku] = {"ads_spend": 0.0, "impressions": 0.0, "clicks": 0.0, "add_to_cart": 0.0, "orders": 0.0}
                         bucket[sku]["ads_spend"] += spend
+                        bucket[sku]["impressions"] += impressions
                         bucket[sku]["clicks"] += clicks
+                        bucket[sku]["add_to_cart"] += add_to_cart
                         bucket[sku]["orders"] += orders
 
         out: List[Dict[str, Any]] = []
         for sku, agg in bucket.items():
             orders = float(agg.get("orders", 0.0))
             ads_spend = float(agg.get("ads_spend", 0.0))
+            impressions = float(agg.get("impressions", 0.0))
+            clicks = float(agg.get("clicks", 0.0))
+            add_to_cart = float(agg.get("add_to_cart", 0.0))
+            ctr = (clicks / impressions * 100.0) if impressions > 0 else None
             cpo = (ads_spend / orders) if orders > 0 else None
             out.append(
                 {
                     "sku": sku,
                     "ads_spend": round(ads_spend, 2),
+                    "impressions": int(round(impressions)),
+                    "clicks": int(round(clicks)),
+                    "add_to_cart": int(round(add_to_cart)),
+                    "orders": int(round(orders)),
+                    "ctr": round(ctr, 2) if ctr is not None else None,
                     "cpo": round(cpo, 2) if cpo is not None else None,
                 }
             )

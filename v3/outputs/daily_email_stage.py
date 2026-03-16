@@ -56,12 +56,18 @@ def _clean_text(value: Any, *, reject_unsafe_raw: bool = True) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
+    if re.fullmatch(r"[?\s\.,:;!/\-]{4,}", raw):
+        return ""
+    if raw.count("?") >= 6 and not re.search(r"[А-Яа-яЁёA-Za-z0-9]", raw):
+        return ""
     if reject_unsafe_raw and _is_mojibake_text(raw):
         return ""
     text = normalize_pdf_text(raw)
     text = _translate_technical_words(text)
     text = re.sub(r"\s{2,}", " ", text).strip()
     if _is_mojibake_text(text):
+        return ""
+    if re.search(r"\?{4,}", text):
         return ""
     if reject_unsafe_raw and re.search(r"\b[A-Za-z]{4,}\b", text):
         return ""
@@ -77,6 +83,8 @@ def _clean_lines(items: Any, *, limit: int = 6) -> List[str]:
         if not line:
             continue
         if re.search(r"\b(?:COMMERCE|FINANCIAL|INSIGHTS|RECOMMENDATIONS|CONCLUSION|statuses|preview-only)\b", line, re.IGNORECASE):
+            continue
+        if re.search(r"\?{4,}", line):
             continue
         if re.search(r"\b[A-Za-z]{4,}\b", line):
             continue
@@ -572,4 +580,3 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
     return data
-

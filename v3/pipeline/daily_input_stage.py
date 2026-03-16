@@ -8,6 +8,83 @@ from ..domain.event_model import build_event_date_model
 from .daily_stage_support import sync_from_entry
 
 
+def _safe_float_metric(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _sum_metric(rows: List[Dict[str, Any]], keys: tuple[str, ...]) -> float | None:
+    total = 0.0
+    found = False
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for key in keys:
+            value = _safe_float_metric(row.get(key))
+            if value is None:
+                continue
+            total += value
+            found = True
+            break
+    if not found:
+        return None
+    return round(total, 2)
+
+
+def _api_probe_metrics(
+    *,
+    api_orders_rows: List[Dict[str, Any]],
+    api_sales_rows: List[Dict[str, Any]],
+    api_realization_rows: List[Dict[str, Any]],
+    api_ads_rows: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    orders_count = len([row for row in api_orders_rows if isinstance(row, dict)]) or None
+    orders_amount = _sum_metric(api_orders_rows, ("price", "revenue", "totalPrice", "finishedPrice"))
+    buyouts = len([row for row in api_sales_rows if isinstance(row, dict)]) or None
+    if buyouts is None:
+        buyouts = len([row for row in api_realization_rows if isinstance(row, dict)]) or None
+    views = _sum_metric(api_ads_rows, ("impressions", "views", "shows"))
+    add_to_cart = _sum_metric(api_ads_rows, ("add_to_cart", "addToCart", "cart_count", "atbs"))
+    ads_spend = _sum_metric(api_ads_rows, ("ads_spend", "spend", "cost", "sum"))
+    return {
+        "orders_count": orders_count,
+        "orders_amount": orders_amount,
+        "buyouts": buyouts,
+        "views": views,
+        "add_to_cart": add_to_cart,
+        "ads_spend": ads_spend,
+    }
+
+
+def _log_api_probe_metrics(metrics: Dict[str, Any]) -> None:
+    if not isinstance(metrics, dict):
+        metrics = {}
+
+    def _as_text(key: str) -> str:
+        value = metrics.get(key)
+        if value is None:
+            return "missing"
+        if key in {"orders_count", "buyouts", "views", "add_to_cart"}:
+            return str(int(round(float(value))))
+        return f"{float(value):.2f}"
+
+    print(
+        "[wb] api_probe "
+        f"orders_count={_as_text('orders_count')} "
+        f"orders_amount={_as_text('orders_amount')} "
+        f"buyouts={_as_text('buyouts')} "
+        f"views={_as_text('views')} "
+        f"add_to_cart={_as_text('add_to_cart')} "
+        f"ads_spend={_as_text('ads_spend')}"
+    )
+    if any(metrics.get(key) is None for key in ("orders_count", "orders_amount", "buyouts", "views", "add_to_cart", "ads_spend")):
+        print("API DATA MISSING")
+
+
 def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict[str, Any]:
     sync_from_entry(globals())
 
@@ -20,11 +97,16 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     started_at = _utc_now_iso()
     seller_name = str(cfg.get("seller_name") or seller_id)
 
-    token = str(os.getenv("WB_API_TOKEN", "")).strip()
+    warnings_collector = WarningsCollector()
+    token = str(os.environ.get("WB_API_TOKEN", "")).strip()
+    ci_flag = str(os.environ.get("GITHUB_ACTIONS") or os.environ.get("CI") or "").strip().lower()
+    if ci_flag in {"1", "true", "yes"} and not token:
+        print("WB API token not configured in environment")
+        warnings_collector.add_warning("wb_token_missing", "WB API token not configured in environment")
+
     discovered_files: Dict[str, List[str]] = {"sales": [], "ads": [], "stocks": [], "unknown": []}
     input_debug: Dict[str, Any] = {}
     api_debug: Dict[str, Any] = {}
-    warnings_collector = WarningsCollector()
     sales_rows: List[Dict[str, Any]] = []
     ads_rows: List[Dict[str, Any]] = []
     stocks_rows: List[Dict[str, Any]] = []
@@ -41,6 +123,12 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     ads_rows_count = 0
     ads_attribution_quality = "unknown"
     supplier_goods_daily = load_supplier_goods_daily_kpi(seller_input_dir)
+    api_probe = _api_probe_metrics(
+        api_orders_rows=api_orders_rows,
+        api_sales_rows=api_sales_rows,
+        api_realization_rows=api_realization_rows,
+        api_ads_rows=api_ads_rows,
+    )
 
     if token:
         source_mode = "wb_api"
@@ -219,6 +307,14 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
                 "Financial contour is missing: no realization rows and no local financial fallback.",
             )
 
+        api_probe = _api_probe_metrics(
+            api_orders_rows=api_orders_rows,
+            api_sales_rows=api_sales_rows,
+            api_realization_rows=api_realization_rows,
+            api_ads_rows=api_ads_rows,
+        )
+        _log_api_probe_metrics(api_probe)
+
         api_debug = {
             "sales_rows": len(api_sales_rows),
             "orders_rows": len(api_orders_rows),
@@ -238,6 +334,7 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
                 if api_realization_rows
                 else ("local.sales_fallback" if local_financial_fallback_used else "missing")
             ),
+            "probe_metrics": api_probe,
         }
         event_date_model = build_event_date_model(
             run_date=run_date,
@@ -298,7 +395,9 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "shifted_to_previous_day": False,
             "local_financial_fallback_used": bool(len(sales_rows) > 0),
             "financial_contour_source": "local.report" if sales_rows else "missing",
+            "probe_metrics": api_probe,
         }
+        _log_api_probe_metrics(api_probe)
         event_date_model = build_event_date_model(
             run_date=run_date,
             api_debug=api_debug,

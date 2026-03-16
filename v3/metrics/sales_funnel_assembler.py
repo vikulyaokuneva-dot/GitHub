@@ -37,6 +37,11 @@ def _first_present(*values: Any) -> Any:
     return None
 
 
+def _is_unknown_source(value: Any) -> bool:
+    token = str(value or "").strip().lower()
+    return token in {"", "unknown", "not_confirmed", "missing", "unavailable"}
+
+
 def _build_status(*, views: int | None, add_to_cart: int | None, orders: int | None, buyouts: int | None) -> Dict[str, str]:
     if views is not None and add_to_cart is not None:
         traffic = "confirmed"
@@ -162,10 +167,44 @@ def assemble_sales_funnel(
         )
     )
 
-    orders_value = _to_int_or_none(safe_commerce_kpi.get("daily_orders_count"))
-    buyouts_value = _to_int_or_none(safe_commerce_kpi.get("daily_buyouts_count"))
+    orders_value = _to_int_or_none(
+        _first_present(
+            safe_commerce_kpi.get("daily_orders_count"),
+            safe_daily_kpi.get("daily_orders_count"),
+        )
+    )
+    buyouts_value = _to_int_or_none(
+        _first_present(
+            safe_commerce_kpi.get("daily_buyouts_count"),
+            safe_daily_kpi.get("daily_buyouts_count"),
+        )
+    )
     orders = orders_value if orders_confirmed else None
     buyouts = buyouts_value if buyouts_confirmed else None
+
+    orders_source = _first_present(
+        safe_data_sources.get("orders_count"),
+        safe_daily_kpi.get("data_source_orders_count"),
+        safe_daily_kpi.get("source_count"),
+    )
+    buyouts_source = _first_present(
+        safe_data_sources.get("buyouts_count"),
+        safe_daily_kpi.get("data_source_buyouts_count"),
+        safe_daily_kpi.get("source_count"),
+    )
+
+    # Keep conversion metrics available when counts are present in known sources,
+    # even if confirmation flags are not final yet.
+    orders_for_calc = orders
+    if orders_for_calc is None:
+        orders_totals_value = _to_int_or_none(safe_totals.get("orders"))
+        if orders_totals_value is not None and (orders_totals_value > 0 or not _is_unknown_source(orders_source)):
+            orders_for_calc = orders_totals_value
+    buyouts_for_calc = buyouts
+    if buyouts_for_calc is None:
+        buyouts_totals_value = _to_int_or_none(safe_totals.get("buys"))
+        if buyouts_totals_value is not None and (buyouts_totals_value > 0 or not _is_unknown_source(buyouts_source)):
+            buyouts_for_calc = buyouts_totals_value
 
     views = _to_int_or_none(
         _first_present(
@@ -217,8 +256,8 @@ def assemble_sales_funnel(
     cabinet_metrics = calculate_funnel_metrics(
         views=views,
         add_to_cart=add_to_cart,
-        orders=orders,
-        buyouts=buyouts,
+        orders=orders_for_calc,
+        buyouts=buyouts_for_calc,
         ads_spend=ads_spend,
         revenue=revenue,
         commission=commission,
@@ -288,9 +327,11 @@ def assemble_sales_funnel(
         "orders": cabinet_metrics["orders"],
         "buyouts": cabinet_metrics["buyouts"],
         "view_to_order_conversion": cabinet_metrics["view_to_order_conversion"],
+        "view_to_order": cabinet_metrics["view_to_order_conversion"],
         "cart_rate": cabinet_metrics["cart_rate"],
         "cart_to_order": cabinet_metrics["cart_to_order"],
         "buyout_rate": cabinet_metrics["buyout_rate"],
+        "order_to_buyout": cabinet_metrics["buyout_rate"],
         "ads_spend": cabinet_metrics["ads_spend"],
         "cpo": cabinet_metrics["cpo"],
         # Backward-compatible aliases for existing report/email blocks.
@@ -305,6 +346,11 @@ def assemble_sales_funnel(
             float(clicks) if clicks is not None else None,
         ),
         "order_to_buyout_conversion_pct": cabinet_metrics["buyout_rate"],
+        "conversion_rates": {
+            "view_to_order": cabinet_metrics["view_to_order_conversion"],
+            "cart_to_order": cabinet_metrics["cart_to_order"],
+            "order_to_buyout": cabinet_metrics["buyout_rate"],
+        },
         "marketing_layer": cabinet_metrics["marketing_layer"],
         "financial_layer": cabinet_metrics["financial_layer"],
     }

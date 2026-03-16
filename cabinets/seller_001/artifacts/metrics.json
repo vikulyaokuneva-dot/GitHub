@@ -960,7 +960,7 @@
     "financial_finality_status": "partial",
     "is_partial": true,
     "basis": "buyouts",
-    "date": "2026-03-15",
+    "date": "2026-03-04",
     "confirmed": false
   },
   "ads_diagnostics": {
@@ -1393,16 +1393,16 @@
     }
   },
   "event_date_model": {
-    "report_date": "2026-03-15",
-    "operational_date": "2026-03-15",
-    "orders_date": "2026-03-15",
-    "buyouts_date": "2026-03-15",
-    "financial_date": "2026-03-15",
+    "report_date": "2026-03-04",
+    "operational_date": "2026-03-04",
+    "orders_date": "2026-03-04",
+    "buyouts_date": "2026-03-04",
+    "financial_date": "2026-03-04",
     "shifted_to_previous_day": false,
     "timezone": "Europe/Moscow"
   },
   "order_kpi": {
-    "date": "2026-03-15",
+    "date": "2026-03-04",
     "orders_count": null,
     "orders_amount": null,
     "orders_count_confirmed": false,
@@ -1411,7 +1411,7 @@
     "source_amount": "unknown"
   },
   "buyout_kpi": {
-    "date": "2026-03-15",
+    "date": "2026-03-04",
     "buyouts_count": null,
     "buyouts_amount": null,
     "buyouts_count_confirmed": false,
@@ -1522,12 +1522,12 @@
     "profitability_pct": null
   },
   "event_ledger": {
-    "report_date": "2026-03-15",
-    "operational_date": "2026-03-15",
+    "report_date": "2026-03-04",
+    "operational_date": "2026-03-04",
     "events": [
       {
         "event_type": "orders_snapshot",
-        "event_date": "2026-03-15",
+        "event_date": "2026-03-04",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -1535,7 +1535,7 @@
       },
       {
         "event_type": "buyouts_snapshot",
-        "event_date": "2026-03-15",
+        "event_date": "2026-03-04",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -1543,7 +1543,7 @@
       },
       {
         "event_type": "financial_snapshot",
-        "event_date": "2026-03-15",
+        "event_date": "2026-03-04",
         "source": "local.supplier_goods",
         "confirmed": false,
         "rows": 0,
@@ -1552,16 +1552,18 @@
     ]
   },
   "sales_funnel": {
-    "date": "2026-03-15",
+    "date": "2026-03-04",
     "funnel": {
       "views": 1359,
       "add_to_cart": null,
       "orders": null,
       "buyouts": null,
       "view_to_order_conversion": null,
+      "view_to_order": null,
       "cart_rate": null,
       "cart_to_order": null,
       "buyout_rate": null,
+      "order_to_buyout": null,
       "ads_spend": 643.91,
       "cpo": null,
       "impressions": 1359,
@@ -1572,6 +1574,11 @@
       "cart_rate_pct": null,
       "click_to_order_conversion_pct": null,
       "order_to_buyout_conversion_pct": null,
+      "conversion_rates": {
+        "view_to_order": null,
+        "cart_to_order": null,
+        "order_to_buyout": null
+      },
       "marketing_layer": {
         "basis": "orders",
         "orders": null,
@@ -1853,7 +1860,7 @@
       }
     ],
     "sku_diagnostics": {
-      "date": "2026-03-15",
+      "date": "2026-03-04",
       "status": "partial_success",
       "thresholds": {
         "min_views_for_analysis": 50.0,
@@ -2055,7 +2062,7 @@
     }
   },
   "sales_funnel_diagnostics": {
-    "date": "2026-03-15",
+    "date": "2026-03-04",
     "status": "partial_success",
     "thresholds": {
       "min_views_for_analysis": 50.0,
@@ -2490,7 +2497,7 @@
     }
   ],
   "keyword_monitoring": {
-    "date": "2026-03-15",
+    "date": "2026-03-04",
     "status": "insufficient_data",
     "warnings": [
       {
@@ -2575,7 +2582,7 @@
   },
   "advertising_efficiency": {
     "seller_id": "seller_001",
-    "report_date": "2026-03-15",
+    "report_date": "2026-03-04",
     "status": "partial",
     "analysis_mode": "preview",
     "data_quality_status": "partial_buyout_confirmation",
@@ -3226,7 +3233,7 @@
   },
   "territorial_distribution": {
     "seller_id": "seller_001",
-    "report_date": "2026-03-15",
+    "report_date": "2026-03-04",
     "status": "insufficient_data",
     "warnings": [
       {
@@ -3242,8 +3249,8 @@
       "engine": "territorial_distribution_engine",
       "version": "2.1",
       "seller_id": "seller_001",
-      "run_date": "2026-03-15",
-      "generated_at": "2026-03-15T21:36:06Z",
+      "run_date": "2026-03-04",
+      "generated_at": "2026-03-16T10:28:12Z",
       "wb_irp_effective_date": "2026-03-23",
       "source_artifacts": [
         "metrics.json"

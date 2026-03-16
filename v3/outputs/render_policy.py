@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-UNKNOWN_LABEL_RU = "не подтверждено"
+UNKNOWN_LABEL_RU = "недостаточно данных"
 DASH_LABEL = "—"
 
 _MISSING_LITERALS = {
@@ -77,3 +77,4 @@ def format_pct_or_unknown(
     if is_missing_value(value):
         return unknown_label
     return f"{_safe_float(value):.{decimals}f} %"
+

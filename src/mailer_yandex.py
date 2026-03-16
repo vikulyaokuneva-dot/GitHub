@@ -59,6 +59,9 @@ def send_email_with_pdf(subject: str, body: str, pdf_path: str) -> None:
             s.send_message(msg)
     except smtplib.SMTPAuthenticationError as e:
         raise RuntimeError(
-            "Yandex SMTP auth failed. Usually this means app password is required "
+            "EMAIL DELIVERY FAILED: Yandex SMTP auth failed. Usually this means app password is required "
             "(not your mailbox password), or YANDEX_SMTP_USER does not match the mailbox."
         ) from e
+    except (smtplib.SMTPException, OSError, TimeoutError) as e:
+        raise RuntimeError(f"EMAIL DELIVERY FAILED: {e}") from e
+

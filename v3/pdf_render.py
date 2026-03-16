@@ -373,7 +373,7 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
             return ""
         if draw_obj.textlength(prepared, font=font) <= max_w:
             return prepared
-        dots = "?"
+        dots = "..."
         candidate = prepared
         while candidate and draw_obj.textlength(candidate + dots, font=font) > max_w:
             candidate = candidate[:-1]
@@ -472,7 +472,7 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         else:
             value = _format_int(value_num)
         value_font = fonts["kpi_value"]
-        if value == "??? ??????" or len(value) >= 10:
+        if value == "нет данных" or len(value) >= 10:
             value_font = fonts["h2"]
         elif len(value) >= 8:
             value_font = fonts["h3"]
@@ -936,6 +936,3 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     font_info["pages"] = str(len(pages))
     font_info["preview_images"] = preview_paths
     return font_info
-
-
-
