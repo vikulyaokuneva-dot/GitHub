@@ -144,8 +144,12 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         date_from = str(period.get("date_from") or run_date)
         date_to = str(period.get("date_to") or run_date)
         print(
-            f"[wb] period_resolved run_date={run_date} timezone={period.get('timezone')} "
-            f"date_from={date_from} date_to={date_to} shifted_to_previous_day={period.get('shifted_to_previous_day')}"
+            "[date] "
+            f"requested_date={run_date} "
+            f"resolved_date={date_from} "
+            f"timezone={period.get('timezone')} "
+            f"shifted_to_previous_day={str(bool(period.get('shifted_to_previous_day'))).lower()} "
+            "resolution_source=wb_api_period"
         )
 
         api_endpoint_debug: List[Dict[str, Any]] = []
@@ -336,6 +340,11 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             ),
             "probe_metrics": api_probe,
         }
+        print(
+            "[wb] rows_loaded "
+            f"orders_rows={len(api_orders_rows)} buyouts_rows={len(api_sales_rows)} "
+            f"financial_rows={len(sales_rows)} ads_rows={len(api_ads_rows)}"
+        )
         event_date_model = build_event_date_model(
             run_date=run_date,
             api_debug=api_debug,
@@ -398,10 +407,23 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "probe_metrics": api_probe,
         }
         _log_api_probe_metrics(api_probe)
+        print(
+            "[date] "
+            f"requested_date={run_date} "
+            f"resolved_date={run_date} "
+            f"timezone={api_debug.get('timezone')} "
+            "shifted_to_previous_day=false "
+            "resolution_source=local_reports"
+        )
+        print(
+            "[wb] rows_loaded "
+            "orders_rows=0 buyouts_rows=0 "
+            f"financial_rows={len(sales_rows)} ads_rows=0"
+        )
         event_date_model = build_event_date_model(
             run_date=run_date,
             api_debug=api_debug,
-            timezone=str(api_debug.get("timezone") or "Europe/Berlin"),
+            timezone=str(api_debug.get("timezone") or "Europe/Moscow"),
         )
 
     input_debug_bundle = build_input_debug(
@@ -460,3 +482,4 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         "ads_attribution_quality": ads_attribution_quality,
         "supplier_goods_daily": supplier_goods_daily,
     }
+

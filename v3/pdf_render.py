@@ -132,10 +132,10 @@ def repair_mojibake(text: str) -> str:
 
 def normalize_pdf_text(text: str) -> str:
     source = str(text or "")
-    normalized = repair_mojibake(source).replace("\ufeff", "")
+    normalized = repair_mojibake(source).replace("﻿", "")
     normalized = unicodedata.normalize("NFC", normalized)
     # Fix common mojibake punctuation that can survive codec repair heuristics.
-    for bad_dash in ("\u00e2\u20ac\u201d", "\u0420\u0406\u0420\u201a\u0432\u0402\u045c", "\u00e2\u20ac\u201c", "\u0420\u0406\u0420\u201a\u0432\u0402\u201c", "\u0432\u0402\u201d"):
+    for bad_dash in ("â€”", "РІР‚вЂќ", "â€“", "РІР‚вЂ“", "вЂ”"):
         normalized = normalized.replace(bad_dash, "—")
     return _strip_unsafe_controls(normalized)
 
@@ -504,53 +504,39 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         margin + 84,
         width_px - margin * 2,
         top_panel_h,
-        "Структура расходов",
+        "Финансовая структура дня",
     )
     left, top, right, bottom = top_content
-
-    expenses = payload.get("expense_structure", {})
-    if not isinstance(expenses, dict):
-        expenses = {}
-    expense_rows = [
-        ("Комиссия WB", _as_number(expenses.get("commission")), colors["gray"]),
-        ("Логистика", _as_number(expenses.get("logistics")), colors["orange"]),
-        ("Хранение", _as_number(expenses.get("storage")), colors["gray"]),
-        ("Реклама", _as_number(expenses.get("ads")), colors["red"]),
-        ("Себестоимость", _as_number(expenses.get("cost_price")), colors["blue"]),
-        ("Налог", _as_number(expenses.get("tax")), colors["dark_gray"]),
+    financial_structure = payload.get("financial_structure_day", {})
+    if not isinstance(financial_structure, dict):
+        financial_structure = {}
+    fs_rows_raw = [
+        ("Выручка", _as_number(financial_structure.get("revenue"))),
+        ("Комиссия WB", _as_number(financial_structure.get("commission"))),
+        ("Логистика", _as_number(financial_structure.get("logistics"))),
+        ("Хранение", _as_number(financial_structure.get("storage"))),
+        ("Себестоимость", _as_number(financial_structure.get("cost_price"))),
+        ("Налог", _as_number(financial_structure.get("tax"))),
+        ("Расход на рекламу", _as_number(financial_structure.get("ads_spend"))),
+        ("Чистая прибыль", _as_number(financial_structure.get("net_profit"))),
     ]
-    numeric_values = [abs(v) for _, v, _ in expense_rows if v is not None]
-    if not numeric_values:
-        draw_2.text((left, top + 18), not_enough, font=fonts["body"], fill=colors["muted"])
-    else:
-        max_value = max(max(numeric_values), 1.0)
-        row_h = int((bottom - top - 24) / max(len(expense_rows), 1))
-        label_w = 245
-        value_w = 110
-        bar_max_w = max(60, (right - left - label_w - value_w - 32))
-        for idx, (label, value, color) in enumerate(expense_rows):
-            y = top + idx * row_h + 6
-            draw_2.text((left, y + 6), normalize_pdf_text(label), font=fonts["body"], fill=colors["text"])
-            bar_x = left + label_w
-            bar_y = y + 14
-            draw_2.rounded_rectangle(
-                (bar_x, bar_y, bar_x + bar_max_w, bar_y + 24),
-                radius=8,
-                fill=(237, 240, 246),
-                outline=(228, 232, 240),
-            )
-            if value is not None:
-                bar_w = int((abs(value) / max_value) * bar_max_w)
-                draw_2.rounded_rectangle(
-                    (bar_x, bar_y, bar_x + max(2, bar_w), bar_y + 24),
-                    radius=8,
-                    fill=color,
-                    outline=color,
-                )
-                val_text = _format_money(abs(value))
-            else:
-                val_text = "нет данных"
-            draw_2.text((bar_x + bar_max_w + 12, y + 6), normalize_pdf_text(val_text), font=fonts["body"], fill=colors["text"])
+    fs_rows = [
+        {
+            "metric": normalize_pdf_text(label),
+            "value": normalize_pdf_text(_format_money(value) if value is not None else "нет данных"),
+        }
+        for label, value in fs_rows_raw
+    ]
+    _draw_table(
+        draw_2,
+        top_content,
+        [
+            ("Показатель", "metric", 58),
+            ("Значение", "value", 42),
+        ],
+        fs_rows,
+        "Недостаточно данных для визуализации",
+    )
 
     bottom_panel_y = margin + 84 + top_panel_h + panel_gap
     bottom_panel_h = height_px - bottom_panel_y - margin
@@ -743,7 +729,7 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         margin + 84,
         width_px - margin * 2,
         height_px - (margin + 84) - margin,
-        "\u041e\u0446\u0435\u043d\u043a\u0430 \u0437\u0434\u043e\u0440\u043e\u0432\u044c\u044f SKU",
+        "Оценка здоровья SKU",
     )
     health_rows_raw = payload.get("sku_health_rows", [])
     if not isinstance(health_rows_raw, list):
@@ -805,10 +791,10 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         return result
 
     problems_layout = [
-        ("Убыточная реклама", _problem_skus("unprofitable_ads")),
+        ("Низкий трафик", _problem_skus("low_traffic")),
         ("Падение конверсии", _problem_skus("conversion_drop")),
-        ("Товары в зоне риска", _problem_skus("risk_skus")),
-        ("Товары на ликвидации", _problem_skus("liquidation_skus")),
+        ("Неэффективная реклама", _problem_skus("inefficient_ads")),
+        ("SKU в зоне ликвидации", _problem_skus("liquidation_skus")),
     ]
 
     box_top = margin + 92

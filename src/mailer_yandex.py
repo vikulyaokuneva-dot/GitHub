@@ -1,8 +1,49 @@
 import os
+import socket
 import smtplib
 from email.header import Header
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Any, Dict
+
+
+def normalize_email_failure_reason(exc: BaseException) -> str:
+    text = str(exc or "")
+    winerror = getattr(exc, "winerror", None)
+    if winerror == 10013 or "WinError 10013" in text:
+        return "SMTP connection blocked by runtime environment"
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return "SMTP authentication failed"
+    if isinstance(exc, (TimeoutError, socket.timeout)):
+        return "SMTP connection timeout"
+    if isinstance(exc, smtplib.SMTPConnectError):
+        return "SMTP connection failed"
+    if isinstance(exc, smtplib.SMTPServerDisconnected):
+        return "SMTP server disconnected unexpectedly"
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        return "SMTP recipients refused by server"
+    if isinstance(exc, smtplib.SMTPSenderRefused):
+        return "SMTP sender address refused by server"
+    if isinstance(exc, smtplib.SMTPDataError):
+        return "SMTP send failed"
+    if isinstance(exc, smtplib.SMTPException):
+        return "SMTP protocol error"
+    if isinstance(exc, OSError):
+        return "SMTP connection failed"
+    return "SMTP transport failed"
+
+
+class EmailDeliveryError(RuntimeError):
+    def __init__(self, *, stage: str, cause: BaseException):
+        self.email_stage = str(stage or "unknown")
+        self.raw_reason = str(cause or "")
+        self.failure_reason_normalized = normalize_email_failure_reason(cause)
+        message = (
+            f"EMAIL DELIVERY FAILED [{self.email_stage}]: "
+            f"{self.failure_reason_normalized} ({self.raw_reason})"
+        )
+        super().__init__(message)
+        self.__cause__ = cause
 
 
 def build_email_message(
@@ -29,7 +70,7 @@ def build_email_message(
     return msg
 
 
-def send_email_with_pdf(subject: str, body: str, pdf_path: str) -> None:
+def send_email_with_pdf(subject: str, body: str, pdf_path: str) -> Dict[str, Any]:
     smtp_user = os.environ["YANDEX_SMTP_USER"].strip()
     smtp_pass = os.environ["YANDEX_SMTP_APP_PASS"].strip().replace(" ", "")
     to_addr = os.environ["EMAIL_TO"].strip()
@@ -50,18 +91,55 @@ def send_email_with_pdf(subject: str, body: str, pdf_path: str) -> None:
         pdf_filename=filename,
     )
 
-    host = os.environ.get("YANDEX_SMTP_HOST", "smtp.yandex.com")
+    host = os.environ.get("YANDEX_SMTP_HOST", "smtp.yandex.com").strip() or "smtp.yandex.com"
     port = int(os.environ.get("YANDEX_SMTP_PORT", "465"))
+    security_mode = str(os.environ.get("YANDEX_SMTP_SECURITY", "ssl") or "ssl").strip().lower()
+    if security_mode not in {"ssl", "starttls"}:
+        security_mode = "ssl"
+    timeout_seconds = float(os.environ.get("YANDEX_SMTP_TIMEOUT_SECONDS", "30") or "30")
+
+    print(f"[mail][smtp] host={host} port={port} security={security_mode}")
+    client: smtplib.SMTP | smtplib.SMTP_SSL | None = None
+    try:
+        print("[mail][smtp] stage=connect started")
+        if security_mode == "ssl":
+            client = smtplib.SMTP_SSL(host, port, timeout=timeout_seconds)
+        else:
+            client = smtplib.SMTP(host, port, timeout=timeout_seconds)
+            client.ehlo()
+            print("[mail][smtp] stage=connect starttls")
+            client.starttls()
+            client.ehlo()
+        print("[mail][smtp] stage=connect ok")
+    except (smtplib.SMTPException, OSError, TimeoutError, socket.timeout) as exc:
+        raise EmailDeliveryError(stage="connect", cause=exc) from exc
 
     try:
-        with smtplib.SMTP_SSL(host, port) as s:
-            s.login(smtp_user, smtp_pass)
-            s.send_message(msg)
-    except smtplib.SMTPAuthenticationError as e:
-        raise RuntimeError(
-            "EMAIL DELIVERY FAILED: Yandex SMTP auth failed. Usually this means app password is required "
-            "(not your mailbox password), or YANDEX_SMTP_USER does not match the mailbox."
-        ) from e
-    except (smtplib.SMTPException, OSError, TimeoutError) as e:
-        raise RuntimeError(f"EMAIL DELIVERY FAILED: {e}") from e
+        print("[mail][smtp] stage=login started")
+        client.login(smtp_user, smtp_pass)
+        print("[mail][smtp] stage=login ok")
+    except (smtplib.SMTPAuthenticationError, smtplib.SMTPException, OSError, TimeoutError, socket.timeout) as exc:
+        raise EmailDeliveryError(stage="login", cause=exc) from exc
+
+    try:
+        print("[mail][smtp] stage=send started")
+        client.send_message(msg)
+        print("[mail][smtp] stage=send ok")
+    except (smtplib.SMTPException, OSError, TimeoutError, socket.timeout) as exc:
+        raise EmailDeliveryError(stage="send", cause=exc) from exc
+    finally:
+        if client is not None:
+            try:
+                client.quit()
+            except Exception:
+                pass
+
+    return {
+        "email_stage": "send",
+        "email_transport_status": "success",
+        "email_failure_reason_normalized": "",
+        "smtp_host": host,
+        "smtp_port": port,
+        "smtp_security": security_mode,
+    }
 

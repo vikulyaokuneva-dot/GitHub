@@ -7,6 +7,11 @@ from .job_runner import run_job
 
 _FALLBACK_SELLER_ID = "__missing_seller__"
 _ALLOW_FALLBACK_ENV = "WB_ALLOW_MISSING_SELLER"
+_BOOTSTRAP_MODE_ENV = "WB_BOOTSTRAP_MODE"
+
+
+def _bootstrap_mode_enabled() -> bool:
+    return str(os.getenv(_BOOTSTRAP_MODE_ENV, "")).strip() == "1" or bool(os.getenv("PYTEST_CURRENT_TEST"))
 
 
 def _candidate_cabinets_dirs(repo_root: str) -> List[Path]:
@@ -49,36 +54,37 @@ def list_sellers(repo_root: str) -> List[str]:
 
 def _resolve_seller_repo_root(repo_root: str, seller_id: str) -> str:
     locations = _discover_seller_locations(repo_root)
+    bootstrap_mode = _bootstrap_mode_enabled()
     if seller_id in locations:
         return locations[seller_id]
 
     discovered = sorted(locations.keys())
     if seller_id == _FALLBACK_SELLER_ID:
-        allow_fallback = str(os.getenv(_ALLOW_FALLBACK_ENV, "")).strip() == "1"
-        if allow_fallback:
+        allow_fallback = str(os.getenv(_ALLOW_FALLBACK_ENV, "")).strip() == "1" and bootstrap_mode
+        if allow_fallback and not discovered:
             print(
-                f"[warn] fallback seller '{_FALLBACK_SELLER_ID}' enabled via {_ALLOW_FALLBACK_ENV}=1; "
-                "using debug fallback cabinet paths."
+                f"[warn] fallback seller '{_FALLBACK_SELLER_ID}' enabled via "
+                f"{_ALLOW_FALLBACK_ENV}=1 and {_BOOTSTRAP_MODE_ENV}=1; using debug fallback cabinet paths."
             )
             return repo_root
-        if discovered:
-            raise ValueError(
-                f"Refusing fallback seller '{_FALLBACK_SELLER_ID}' because real sellers exist: {', '.join(discovered)}. "
-                f"Set {_ALLOW_FALLBACK_ENV}=1 to force debug fallback."
-            )
-        print(
-            f"[warn] using fallback seller '{_FALLBACK_SELLER_ID}' because no real sellers were discovered in "
-            f"{Path(repo_root) / 'cabinets'}."
+        raise ValueError(
+            f"Refusing fallback seller '{_FALLBACK_SELLER_ID}'. "
+            f"Fallback is allowed only in bootstrap/test mode "
+            f"({_ALLOW_FALLBACK_ENV}=1 and {_BOOTSTRAP_MODE_ENV}=1)."
         )
-        return repo_root
 
     if discovered:
         raise FileNotFoundError(f"Seller '{seller_id}' not found. Discovered sellers: {', '.join(discovered)}")
-    print(
-        f"[warn] seller '{seller_id}' not discovered; running in bootstrap mode because no sellers exist in "
-        f"{Path(repo_root) / 'cabinets'}."
+    if bootstrap_mode:
+        print(
+            f"[warn] seller '{seller_id}' not discovered; running in bootstrap mode because no sellers exist in "
+            f"{Path(repo_root) / 'cabinets'}."
+        )
+        return repo_root
+    raise FileNotFoundError(
+        f"No valid sellers found in {Path(repo_root) / 'cabinets'}. "
+        f"Refusing bootstrap fallback in production mode. Set {_BOOTSTRAP_MODE_ENV}=1 to allow bootstrap run."
     )
-    return repo_root
 
 
 def run_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict[str, Any]:

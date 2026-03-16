@@ -23,6 +23,9 @@ def build_run_summary(
     email_sent: bool | None = None,
     email_to: str | None = None,
     email_error: str | None = None,
+    email_stage: str | None = None,
+    email_transport_status: str | None = None,
+    email_failure_reason_normalized: str | None = None,
 ) -> Dict[str, Any]:
     resolved_status = str(status or "").strip()
     if not resolved_status:
@@ -35,10 +38,6 @@ def build_run_summary(
             if financial_data_missing_flag
             else ("финансовая атрибуция частичная" if facts_financial_status == "partial" else None)
         )
-
-    if bool(email_attempted) and not bool(email_sent) and resolved_status == "success":
-        resolved_status = "partial_success"
-        resolved_error = email_error or "Email sending failed"
 
     summary: Dict[str, Any] = {
         "seller_id": seller_id,
@@ -63,5 +62,10 @@ def build_run_summary(
         summary["email_sent"] = bool(email_sent)
         summary["email_to"] = str(email_to or "")
         summary["email_error"] = email_error
+        summary["email_stage"] = str(email_stage or "unknown")
+        summary["email_transport_status"] = str(
+            email_transport_status or ("success" if bool(email_sent) else ("failed" if bool(email_attempted) else "skipped"))
+        )
+        summary["email_failure_reason_normalized"] = str(email_failure_reason_normalized or "")
 
     return summary

@@ -119,6 +119,9 @@ def apply_job_email_result(
     sent: bool,
     email_to: str,
     error: str | None,
+    email_stage: str | None = None,
+    email_transport_status: str | None = None,
+    email_failure_reason_normalized: str | None = None,
 ) -> Dict[str, Any]:
     safe_job = dict(job if isinstance(job, dict) else {})
     summary_patch = build_run_summary(
@@ -138,6 +141,9 @@ def apply_job_email_result(
         email_sent=bool(sent),
         email_to=str(email_to or ""),
         email_error=error,
+        email_stage=str(email_stage or "unknown"),
+        email_transport_status=str(email_transport_status or ("success" if sent else ("failed" if attempted else "skipped"))),
+        email_failure_reason_normalized=str(email_failure_reason_normalized or ""),
     )
     safe_job.update(summary_patch)
     return safe_job

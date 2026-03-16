@@ -2,15 +2,25 @@ name: WB Daily Report
 
 on:
   schedule:
-    # 03:00 UTC ~= 04:00 Europe/Berlin зимой (CET).
-    # Летом будет сдвиг. Для PoC ок, потом сделаем двойной cron или логику пропуска.
     - cron: "0 5 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      seller_id:
+        description: "Seller ID (default: seller_001)"
+        required: false
+        default: "seller_001"
+      run_date:
+        description: "Optional report date (YYYY-MM-DD). Leave empty for auto-resolve"
+        required: false
+        default: ""
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      WB_SELLER_ID: ${{ github.event.inputs.seller_id || 'seller_001' }}
+      WB_REQUESTED_DATE: ${{ github.event.inputs.run_date || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -31,16 +41,79 @@ jobs:
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           GIGACHAT_AUTH_KEY: ${{ secrets.GIGACHAT_AUTH_KEY }}
           GIGACHAT_SCOPE: ${{ secrets.GIGACHAT_SCOPE }}
-          TZ: "Europe/Berlin"
+          TZ: "Europe/Moscow"
           GIGACHAT_DEBUG: "1"
           GIGACHAT_VERIFY_SSL_CERTS: "false"
           GIGACHAT_MODEL: "GigaChat-2"
           GIGACHAT_TIMEOUT_SEC: "60"
         run: |
-          python -m v3.entry daily --seller seller_001
+          set -euo pipefail
+          echo "[workflow] pipeline started"
+          echo "[workflow] seller resolved: ${WB_SELLER_ID}"
+          if [ -n "${WB_REQUESTED_DATE}" ]; then
+            echo "[workflow] requested date: ${WB_REQUESTED_DATE}"
+            DATE_ARGS=(--date "${WB_REQUESTED_DATE}")
+          else
+            echo "[workflow] requested date: <empty> (pipeline auto-resolve by timezone)"
+            DATE_ARGS=()
+          fi
+          python -m v3.entry daily --seller "${WB_SELLER_ID}" "${DATE_ARGS[@]}"
+          echo "[workflow] pipeline finished"
+
+      - name: Print run summary
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          seller = str(os.environ.get("WB_SELLER_ID") or "").strip()
+          artifacts_dir = Path("cabinets") / seller / "artifacts"
+          job_path = artifacts_dir / "job.json"
+          print(f"[workflow] artifacts_dir={artifacts_dir}")
+          if not job_path.is_file():
+              print("[workflow] summary unavailable: job.json not found")
+              raise SystemExit(0)
+
+          with job_path.open("r", encoding="utf-8") as fh:
+              job = json.load(fh)
+
+          api = job.get("api_debug", {}) if isinstance(job.get("api_debug"), dict) else {}
+          event = job.get("event_date_model", {}) if isinstance(job.get("event_date_model"), dict) else {}
+          decisions = job.get("decisions", {}) if isinstance(job.get("decisions"), dict) else {}
+          health = job.get("health_score", {}) if isinstance(job.get("health_score"), dict) else {}
+
+          decisions_count = 0
+          if isinstance(decisions.get("rows"), list):
+              decisions_count = len(decisions.get("rows", []))
+          elif isinstance(decisions.get("items"), list):
+              decisions_count = len(decisions.get("items", []))
+
+          health_count = len(health.get("items", [])) if isinstance(health.get("items"), list) else 0
+
+          print(
+              "[workflow] summary "
+              f"seller_id={job.get('seller_id')} "
+              f"report_date={event.get('report_date') or job.get('run_date')} "
+              f"orders_rows={int(api.get('orders_rows', 0) or 0)} "
+              f"buyouts_rows={int(api.get('sales_rows', 0) or 0)} "
+              f"financial_rows={int(api.get('financial_rows', 0) or 0)} "
+              f"ads_rows={int(api.get('ads_rows', 0) or 0)} "
+              f"decisions_count={decisions_count} "
+              f"health_score_count={health_count}"
+          )
+          print(
+              "[workflow] email "
+              f"attempted={job.get('email_attempted')} "
+              f"sent={job.get('email_sent')} "
+              f"transport_status={job.get('email_transport_status')} "
+              f"stage={job.get('email_stage')} "
+              f"reason={job.get('email_failure_reason_normalized')}"
+          )
+          PY
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wb-report
-          path: cabinets/**/artifacts/**
+          name: wb-report-${{ env.WB_SELLER_ID }}
+          path: cabinets/${{ env.WB_SELLER_ID }}/artifacts/**

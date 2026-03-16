@@ -77,10 +77,39 @@ from .sources.wb_reports_loader import (
 
 _FALLBACK_SELLER_ID = "__missing_seller__"
 _ALLOW_FALLBACK_ENV = "WB_ALLOW_MISSING_SELLER"
+_BOOTSTRAP_MODE_ENV = "WB_BOOTSTRAP_MODE"
 
 
-def _default_date() -> str:
-    return date.today().isoformat()
+def _bootstrap_mode_enabled() -> bool:
+    return str(os.getenv(_BOOTSTRAP_MODE_ENV, "")).strip() == "1" or bool(os.getenv("PYTEST_CURRENT_TEST"))
+
+
+def _default_date(timezone_name: str | None = None) -> str:
+    resolved_timezone = str(timezone_name or os.getenv("TZ") or "Europe/Moscow").strip() or "Europe/Moscow"
+    try:
+        return datetime.now(ZoneInfo(resolved_timezone)).date().isoformat()
+    except Exception:
+        return date.today().isoformat()
+
+
+def _resolve_requested_run_date(run_date: str | None, timezone_name: str) -> Dict[str, str]:
+    requested_date = str(run_date or "").strip()
+    if requested_date:
+        datetime.strptime(requested_date, "%Y-%m-%d")
+        return {
+            "requested_date": requested_date,
+            "resolved_date": requested_date,
+            "resolution_reason": "explicit_cli_or_call_arg",
+            "timezone": timezone_name,
+        }
+
+    resolved_date = _default_date(timezone_name)
+    return {
+        "requested_date": "",
+        "resolved_date": resolved_date,
+        "resolution_reason": "default_current_day_in_timezone",
+        "timezone": timezone_name,
+    }
 
 
 def _utc_now_iso() -> str:
@@ -94,7 +123,7 @@ def _resolve_report_timezone(cfg: Dict[str, Any]) -> str:
     cfg_tz = str(cfg.get("timezone") or "").strip()
     if cfg_tz:
         return cfg_tz
-    return "Europe/Berlin"
+    return "Europe/Moscow"
 
 
 def _resolve_wb_period(run_date: str, timezone_name: str) -> Dict[str, Any]:
@@ -759,35 +788,37 @@ def _batch_summary(run_date: str, results: List[Dict[str, Any]]) -> Dict[str, An
 
 def _resolve_seller_repo_root(repo_root: str, seller_id: str) -> str:
     discovered = discover_sellers(repo_root)
+    bootstrap_mode = _bootstrap_mode_enabled()
     if seller_id in discovered:
         return repo_root
     if seller_id == _FALLBACK_SELLER_ID:
-        allow_fallback = str(os.getenv(_ALLOW_FALLBACK_ENV, "")).strip() == "1"
-        if allow_fallback:
+        allow_fallback = str(os.getenv(_ALLOW_FALLBACK_ENV, "")).strip() == "1" and bootstrap_mode
+        if allow_fallback and not discovered:
             print(
-                f"[warn] fallback seller '{_FALLBACK_SELLER_ID}' enabled via {_ALLOW_FALLBACK_ENV}=1; "
-                "using debug fallback cabinet paths."
+                f"[warn] fallback seller '{_FALLBACK_SELLER_ID}' enabled via "
+                f"{_ALLOW_FALLBACK_ENV}=1 and {_BOOTSTRAP_MODE_ENV}=1; using debug fallback cabinet paths."
             )
             return repo_root
-        if discovered:
-            raise ValueError(
-                f"Refusing fallback seller '{_FALLBACK_SELLER_ID}' because real sellers exist: {', '.join(discovered)}. "
-                f"Set {_ALLOW_FALLBACK_ENV}=1 to force debug fallback."
-            )
-        print(
-            f"[warn] using fallback seller '{_FALLBACK_SELLER_ID}' because no real sellers were discovered in "
-            f"{Path(repo_root) / 'cabinets'}."
+        raise ValueError(
+            f"Refusing fallback seller '{_FALLBACK_SELLER_ID}'. "
+            f"Fallback is allowed only in bootstrap/test mode "
+            f"({_ALLOW_FALLBACK_ENV}=1 and {_BOOTSTRAP_MODE_ENV}=1)."
         )
-        return repo_root
 
     if discovered:
         raise FileNotFoundError(f"Seller '{seller_id}' not found. Discovered sellers: {', '.join(discovered)}")
 
-    print(
-        f"[warn] seller '{seller_id}' not discovered; running in bootstrap mode because no sellers exist in "
-        f"{Path(repo_root) / 'cabinets'}."
+    if bootstrap_mode:
+        print(
+            f"[warn] seller '{seller_id}' not discovered; running in bootstrap mode because no sellers exist in "
+            f"{Path(repo_root) / 'cabinets'}."
+        )
+        return repo_root
+    raise FileNotFoundError(
+        f"No valid sellers found in {Path(repo_root) / 'cabinets'}. "
+        f"Refusing bootstrap fallback in production mode. "
+        f"Set {_BOOTSTRAP_MODE_ENV}=1 to allow bootstrap run."
     )
-    return repo_root
 
 
 def _debug_seller_paths(repo_root: str, seller_id: str) -> None:
@@ -803,11 +834,63 @@ def _debug_seller_paths(repo_root: str, seller_id: str) -> None:
     print(f"[debug] discovered_files={len(discovered_files)}")
 
 
+def _log_result_summary(result: Dict[str, Any]) -> None:
+    if not isinstance(result, dict):
+        return
+    api_debug = result.get("api_debug", {}) if isinstance(result.get("api_debug"), dict) else {}
+    event_date_model = result.get("event_date_model", {}) if isinstance(result.get("event_date_model"), dict) else {}
+
+    decisions_count = 0
+    decisions = result.get("decisions", {})
+    if isinstance(decisions, dict):
+        if isinstance(decisions.get("rows"), list):
+            decisions_count = len(decisions.get("rows", []))
+        elif isinstance(decisions.get("items"), list):
+            decisions_count = len(decisions.get("items", []))
+
+    health_score_count = 0
+    health_score = result.get("health_score", {})
+    if isinstance(health_score, dict) and isinstance(health_score.get("items"), list):
+        health_score_count = len(health_score.get("items", []))
+
+    seller_id = str(result.get("seller_id") or "")
+    report_date = str(event_date_model.get("report_date") or result.get("run_date") or "")
+    print(
+        "[summary] "
+        f"seller_id={seller_id} report_date={report_date} "
+        f"orders_rows={int(api_debug.get('orders_rows', 0) or 0)} "
+        f"buyouts_rows={int(api_debug.get('sales_rows', 0) or 0)} "
+        f"financial_rows={int(api_debug.get('financial_rows', 0) or 0)} "
+        f"ads_rows={int(api_debug.get('ads_rows', 0) or 0)} "
+        f"decisions_count={decisions_count} "
+        f"health_score_count={health_score_count}"
+    )
+    if "email_transport_status" in result or "email_sent" in result or "email_attempted" in result:
+        print(
+            "[summary] "
+            f"email_attempted={result.get('email_attempted')} "
+            f"email_sent={result.get('email_sent')} "
+            f"email_transport_status={result.get('email_transport_status')} "
+            f"email_stage={result.get('email_stage')} "
+            f"email_failure_reason_normalized={result.get('email_failure_reason_normalized')}"
+        )
+
+
 def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str | None = None) -> Dict[str, Any]:
     resolved_repo_root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    resolved_run_date = run_date or _default_date()
+    cfg_for_date = load_seller_config(resolved_repo_root, seller_id)
+    report_timezone = _resolve_report_timezone(cfg_for_date)
+    date_resolution = _resolve_requested_run_date(run_date, report_timezone)
+    requested_run_date = str(date_resolution.get("requested_date") or "")
+    resolved_run_date = str(date_resolution.get("resolved_date") or "")
+    print(
+        f"[date] seller={seller_id} requested_date={requested_run_date or '<empty>'} "
+        f"resolved_date={resolved_run_date} timezone={report_timezone} "
+        f"reason={date_resolution.get('resolution_reason')}"
+    )
     try:
         seller_repo_root = _resolve_seller_repo_root(resolved_repo_root, seller_id)
+        print(f"[resolve] seller_requested={seller_id} seller_resolved={seller_id}")
         print(f"[{seller_id}] pipeline started")
         _debug_seller_paths(seller_repo_root, seller_id)
         result = _run_daily_for_seller(seller_repo_root, seller_id, resolved_run_date)
@@ -835,10 +918,15 @@ def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str |
             else:
                 details = base_error or email_error
             print(f"[{seller_id}] pipeline finished with partial_success: {details}")
-            if email_error:
-                print(f"[{seller_id}] EMAIL DELIVERY FAILED: {email_error}")
+            if str(result.get("email_transport_status") or "").strip().lower() == "failed":
+                print(
+                    f"[{seller_id}] email_failed "
+                    f"stage={result.get('email_stage')} "
+                    f"reason={result.get('email_failure_reason_normalized')}"
+                )
         else:
             print(f"[{seller_id}] pipeline failed: {result.get('error')}")
+        _log_result_summary(result if isinstance(result, dict) else {})
         return result
     except Exception as exc:
         print(f"[{seller_id}] pipeline failed: {exc}")
@@ -868,11 +956,12 @@ def run_for_all_sellers(run_date: str | None = None, repo_root: str | None = Non
     return summary
 
 
-def run_daily_batch(repo_root: str, seller_id: str | None, run_date: str) -> Dict[str, Any]:
+def run_daily_batch(repo_root: str, seller_id: str | None, run_date: str | None) -> Dict[str, Any]:
     if seller_id:
         print(f"[batch] explicit seller: {seller_id}")
         result = run_for_seller(seller_id, run_date=run_date, repo_root=repo_root)
-        summary = _batch_summary(run_date, [result])
+        summary_run_date = str(result.get("run_date") or run_date or "")
+        summary = _batch_summary(summary_run_date, [result])
         print("[batch] completed")
         print(f"success: {summary['success_count']}")
         print(f"partial_success: {summary['partial_success_count']}")
@@ -881,7 +970,7 @@ def run_daily_batch(repo_root: str, seller_id: str | None, run_date: str) -> Dic
     return run_for_all_sellers(run_date=run_date, repo_root=repo_root)
 
 
-def _run_daily(repo_root: str, seller_id: str | None, run_date: str) -> List[Dict[str, Any]]:
+def _run_daily(repo_root: str, seller_id: str | None, run_date: str | None) -> List[Dict[str, Any]]:
     if seller_id:
         return [run_for_seller(seller_id, run_date=run_date, repo_root=repo_root)]
     batch = run_for_all_sellers(run_date=run_date, repo_root=repo_root)
@@ -924,16 +1013,16 @@ def main() -> None:
 
     p_daily = sub.add_parser("daily", help="Run daily pipeline")
     p_daily.add_argument("--seller", default=None, help="seller_id, Р ВµРЎРѓР В»Р С‘ Р Р…Р Вµ Р В·Р В°Р Т‘Р В°Р Р… РІР‚вЂќ Р В·Р В°Р С—РЎС“РЎРѓРЎвЂљР С‘РЎвЂљ Р С—Р С• Р Р†РЎРѓР ВµР С cabinets/*")
-    p_daily.add_argument("--date", default=_default_date(), help="YYYY-MM-DD")
+    p_daily.add_argument("--date", default=None, help="YYYY-MM-DD")
 
     p_weekly = sub.add_parser("weekly", help="Run weekly intelligence from history snapshots")
     p_weekly.add_argument("--seller", default=None, help="seller_id, РµСЃР»Рё РЅРµ Р·Р°РґР°РЅ вЂ” Р·Р°РїСѓСЃС‚РёС‚ РїРѕ РІСЃРµРј cabinets/*")
-    p_weekly.add_argument("--date", default=_default_date(), help="YYYY-MM-DD")
+    p_weekly.add_argument("--date", default=None, help="YYYY-MM-DD")
 
     p_audit = sub.add_parser("audit", help="Run audit pipeline (Excel input)")
     p_audit.add_argument("--seller", required=True, help="seller_id")
     p_audit.add_argument("--input", required=True, help="Path to Excel file")
-    p_audit.add_argument("--date", default=_default_date(), help="YYYY-MM-DD")
+    p_audit.add_argument("--date", default=None, help="YYYY-MM-DD")
 
     args = parser.parse_args()
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -941,9 +1030,14 @@ def main() -> None:
     if args.cmd == "daily":
         results = _run_daily(repo_root=repo_root, seller_id=args.seller, run_date=args.date)
     elif args.cmd == "weekly":
-        results = _run_weekly(repo_root=repo_root, seller_id=args.seller, run_date=args.date)
+        results = _run_weekly(repo_root=repo_root, seller_id=args.seller, run_date=str(args.date or _default_date()))
     else:
-        results = run_audit(repo_root=repo_root, seller_id=args.seller, run_date=args.date, audit_input=args.input)
+        results = run_audit(
+            repo_root=repo_root,
+            seller_id=args.seller,
+            run_date=str(args.date or _default_date()),
+            audit_input=args.input,
+        )
 
     ok = sum(1 for r in results if r.get("status") == "success")
     partial = sum(1 for r in results if r.get("status") == "partial_success")

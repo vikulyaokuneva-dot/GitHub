@@ -4,7 +4,7 @@ import os
 import re
 from typing import Any, Callable, Dict, List
 
-from src.mailer_yandex import send_email_with_pdf
+from src.mailer_yandex import EmailDeliveryError, normalize_email_failure_reason, send_email_with_pdf
 
 from ..pdf_render import normalize_pdf_text
 from ..pipeline.job_builder import apply_job_email_result
@@ -422,12 +422,15 @@ def send_daily_report_email(
         email_summary=email_summary if isinstance(email_summary, dict) else {},
         build_body=build_body,
     )
-    send_email_with_pdf(subject=subject, body=body, pdf_path=report_pdf_path)
+    transport = send_email_with_pdf(subject=subject, body=body, pdf_path=report_pdf_path)
     print("[mail] send_success")
     return {
         "email_to_masked": email_to_masked,
         "subject": subject,
         "body": body,
+        "email_stage": str(transport.get("email_stage") or "send") if isinstance(transport, dict) else "send",
+        "email_transport_status": str(transport.get("email_transport_status") or "success") if isinstance(transport, dict) else "success",
+        "email_failure_reason_normalized": str(transport.get("email_failure_reason_normalized") or "") if isinstance(transport, dict) else "",
     }
 
 
@@ -443,6 +446,11 @@ def orchestrate_daily_email_send(
     email_to_masked = mask_email_targets(str(os.getenv("EMAIL_TO", "")).strip())
     email_subject = ""
     email_body_text = ""
+    email_stage = "unknown"
+    email_transport_status = "skipped"
+    email_failure_reason_normalized = ""
+    attempted = False
+    sent = False
     try:
         send_result = send_daily_report_email(
             seller_id=seller_id,
@@ -455,26 +463,67 @@ def orchestrate_daily_email_send(
             email_to_masked = str(send_result.get("email_to_masked") or email_to_masked)
             email_subject = str(send_result.get("subject") or "")
             email_body_text = str(send_result.get("body") or "")
+            email_stage = str(send_result.get("email_stage") or "send")
+            email_transport_status = str(send_result.get("email_transport_status") or "success")
+            email_failure_reason_normalized = str(send_result.get("email_failure_reason_normalized") or "")
+        attempted = True
+        sent = True
         out = apply_job_email_result(
             job=job,
-            attempted=True,
-            sent=True,
+            attempted=attempted,
+            sent=sent,
             email_to=email_to_masked,
             error=None,
+            email_stage=email_stage,
+            email_transport_status=email_transport_status,
+            email_failure_reason_normalized=email_failure_reason_normalized,
         )
         out["email_subject"] = email_subject
         out["email_body_text"] = email_body_text
         return out
     except Exception as exc:
         reason = str(exc)
-        failure_message = reason if "EMAIL DELIVERY FAILED" in reason else f"EMAIL DELIVERY FAILED: {reason}"
+        raw_reason = reason
+        if isinstance(exc, EmailDeliveryError):
+            email_stage = str(getattr(exc, "email_stage", "unknown") or "unknown")
+            email_failure_reason_normalized = str(
+                getattr(exc, "failure_reason_normalized", "") or normalize_email_failure_reason(exc)
+            )
+            raw_reason = str(getattr(exc, "raw_reason", "") or reason)
+            attempted = email_stage in {"connect", "login", "send"}
+            email_transport_status = "failed"
+        elif reason.startswith("Missing required env vars:"):
+            email_stage = "unknown"
+            email_failure_reason_normalized = "Email configuration missing required environment variables"
+            attempted = False
+            email_transport_status = "skipped"
+        elif reason.startswith("Attachment not found:"):
+            email_stage = "unknown"
+            email_failure_reason_normalized = "Email attachment is missing"
+            attempted = False
+            email_transport_status = "skipped"
+        else:
+            email_stage = "unknown"
+            email_failure_reason_normalized = normalize_email_failure_reason(exc)
+            attempted = False
+            email_transport_status = "failed"
+
+        sent = False
+        failure_message = (
+            f"EMAIL DELIVERY FAILED [{email_stage}]: {email_failure_reason_normalized} ({raw_reason})"
+            if raw_reason
+            else f"EMAIL DELIVERY FAILED [{email_stage}]: {email_failure_reason_normalized}"
+        )
         print(f"[mail] {failure_message}")
         out = apply_job_email_result(
             job=job,
-            attempted=True,
-            sent=False,
+            attempted=attempted,
+            sent=sent,
             email_to=email_to_masked,
             error=failure_message,
+            email_stage=email_stage,
+            email_transport_status=email_transport_status,
+            email_failure_reason_normalized=email_failure_reason_normalized,
         )
         if email_subject:
             out["email_subject"] = email_subject
