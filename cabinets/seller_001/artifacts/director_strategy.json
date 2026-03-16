@@ -2,55 +2,16 @@
   "strategy": {
     "scale": [],
     "fix": [],
-    "watch": [
-      "283212418",
-      "414589567",
-      "453526507",
-      "590614192",
-      "739384273"
-    ],
-    "liquidate": [
-      "430679462"
-    ]
+    "watch": [],
+    "liquidate": []
   },
-  "tasks": [
-    {
-      "sku": "283212418",
-      "task": "monitor",
-      "priority": "P3"
-    },
-    {
-      "sku": "414589567",
-      "task": "monitor",
-      "priority": "P3"
-    },
-    {
-      "sku": "453526507",
-      "task": "monitor",
-      "priority": "P3"
-    },
-    {
-      "sku": "590614192",
-      "task": "monitor",
-      "priority": "P3"
-    },
-    {
-      "sku": "739384273",
-      "task": "monitor",
-      "priority": "P3"
-    },
-    {
-      "sku": "430679462",
-      "task": "discount_or_remove",
-      "priority": "P4"
-    }
-  ],
+  "tasks": [],
   "signals": [],
   "territorial_analysis_enabled": false,
   "territorial_actionable_enabled": false,
   "territorial_analysis_mode": "disabled",
   "territorial_recommendation_status": "blocked_by_data",
   "territorial_confidence_level": "low",
-  "sku_attribution_status": "degraded",
+  "sku_attribution_status": "ok",
   "profit_contribution_enabled": true
 }

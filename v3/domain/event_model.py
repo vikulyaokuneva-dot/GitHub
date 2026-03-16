@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from typing import Any, Dict
@@ -94,7 +94,7 @@ def build_event_date_model(
     operational_date = str(safe_api.get("date_from") or report_date).strip()
     if not operational_date:
         operational_date = report_date
-    tz_value = str(safe_api.get("timezone") or timezone or "Europe/Berlin").strip() or "Europe/Berlin"
+    tz_value = str(safe_api.get("timezone") or timezone or "Europe/Moscow").strip() or "Europe/Moscow"
     shifted = bool(safe_api.get("shifted_to_previous_day", False))
     return {
         "report_date": report_date,
@@ -395,4 +395,5 @@ def build_event_ledger(
             },
         ],
     }
+
 
