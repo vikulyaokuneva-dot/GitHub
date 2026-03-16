@@ -160,7 +160,8 @@ def _build_funnel_email_brief(cabinet_funnel: Dict[str, Any], funnel_alerts: Dic
     buyout_rate = funnel.get("buyout_rate", funnel.get("order_to_buyout_conversion_pct"))
     cpo = funnel.get("cpo", funnel.get("CPO"))
 
-    cpo_text = f"{round(float(cpo), 2):.2f}" if _safe_float(cpo) is not None else "недостаточно данных"
+    cpo_value = _safe_float(cpo)
+    cpo_text = f"{cpo_value:.2f}" if cpo_value is not None else "недостаточно данных"
 
     lines = [
         (
