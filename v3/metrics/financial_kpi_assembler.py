@@ -18,18 +18,51 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
     safe_totals = totals if isinstance(totals, dict) else {}
     safe_data_quality = data_quality if isinstance(data_quality, dict) else {}
 
-    revenue = _safe_float(safe_totals.get("total_revenue", safe_totals.get("revenue", 0.0)))
+    gross_revenue = _safe_float(safe_totals.get("gross_revenue", 0.0))
+    wb_realized_revenue = _safe_float(safe_totals.get("wb_realized_revenue", 0.0))
+    seller_payout = _safe_float(
+        safe_totals.get(
+            "seller_payout",
+            safe_totals.get("total_revenue", safe_totals.get("revenue", 0.0)),
+        )
+    )
+    revenue = (
+        seller_payout
+        if abs(seller_payout) > 1e-9
+        else _safe_float(safe_totals.get("total_revenue", safe_totals.get("revenue", 0.0)))
+    )
+
     cost_price = _safe_float(safe_totals.get("cost_price", 0.0))
     wb_commission = _safe_float(safe_totals.get("wb_commission", 0.0))
+    acquiring = _safe_float(safe_totals.get("acquiring", 0.0))
+    pvz_service = _safe_float(safe_totals.get("pvz_service", 0.0))
     logistics = _safe_float(safe_totals.get("logistics", 0.0))
     storage = _safe_float(safe_totals.get("storage", 0.0))
     penalties = _safe_float(safe_totals.get("penalties", 0.0))
     deductions = _safe_float(safe_totals.get("deductions", 0.0))
+    loyalty_program = _safe_float(safe_totals.get("loyalty_program", 0.0))
+    loyalty_points_withheld = _safe_float(safe_totals.get("loyalty_points_withheld", 0.0))
+    other_adjustments = _safe_float(safe_totals.get("other_adjustments", 0.0))
     tax = _safe_float(safe_totals.get("tax", 0.0))
     ads_spend = _safe_float(safe_totals.get("ads_spend_total", safe_totals.get("ads_spend", 0.0)))
 
     gross_profit = revenue - cost_price - wb_commission
-    net_profit = revenue - cost_price - wb_commission - logistics - storage - penalties - deductions - ads_spend
+    net_profit = (
+        revenue
+        - cost_price
+        - wb_commission
+        - acquiring
+        - pvz_service
+        - logistics
+        - storage
+        - penalties
+        - deductions
+        - loyalty_program
+        - loyalty_points_withheld
+        - other_adjustments
+        - ads_spend
+        - tax
+    )
     margin_pct = (net_profit / revenue * 100.0) if revenue > 0 else 0.0
     profitability_pct = (net_profit / cost_price * 100.0) if cost_price > 0 else 0.0
 
@@ -38,11 +71,18 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
     sku_attribution_status = str(safe_data_quality.get("sku_attribution_status") or "ok")
 
     has_financial_activity = bool(
-        revenue > 0
-        or abs(logistics) > 0
-        or abs(storage) > 0
-        or abs(penalties) > 0
-        or abs(deductions) > 0
+        abs(revenue) > 1e-9
+        or abs(acquiring) > 1e-9
+        or abs(pvz_service) > 1e-9
+        or abs(logistics) > 1e-9
+        or abs(storage) > 1e-9
+        or abs(penalties) > 1e-9
+        or abs(deductions) > 1e-9
+        or abs(loyalty_program) > 1e-9
+        or abs(loyalty_points_withheld) > 1e-9
+        or abs(other_adjustments) > 1e-9
+        or abs(tax) > 1e-9
+        or abs(ads_spend) > 1e-9
     )
     cost_price_missing = bool(has_financial_activity and abs(cost_price) <= 1e-9)
     wb_commission_missing = bool(has_financial_activity and abs(wb_commission) <= 1e-9)
@@ -67,12 +107,22 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
 
     financial_kpi = {
         "revenue": round(revenue, 2),
+        "gross_revenue": round(gross_revenue, 2),
+        "wb_realized_revenue": round(wb_realized_revenue, 2),
+        "seller_payout": round(seller_payout, 2),
+        "revenue_basis": "seller_payout",
         "cost_price": round(cost_price, 2),
         "wb_commission": round(wb_commission, 2),
+        "acquiring": round(acquiring, 2),
+        "pvz_service": round(pvz_service, 2),
         "logistics": round(logistics, 2),
         "storage": round(storage, 2),
         "penalties": round(penalties, 2),
         "deductions": round(deductions, 2),
+        "loyalty_program": round(loyalty_program, 2),
+        "loyalty_points_withheld": round(loyalty_points_withheld, 2),
+        "loyalty_total": round(loyalty_program + loyalty_points_withheld, 2),
+        "other_adjustments": round(other_adjustments, 2),
         "tax": round(tax, 2),
         "cogs": round(cost_price, 2),
         "ads_spend": round(ads_spend, 2),
@@ -92,6 +142,23 @@ def assemble_financial_kpi(*, totals: Dict[str, Any], data_quality: Dict[str, An
         "financial_finality_status": financial_finality_status,
         "is_partial": net_profit_partial,
         "basis": "buyouts",
+        "net_profit_formula": {
+            "revenue_basis": round(revenue, 2),
+            "cost_price": round(cost_price, 2),
+            "wb_commission": round(wb_commission, 2),
+            "acquiring": round(acquiring, 2),
+            "pvz_service": round(pvz_service, 2),
+            "logistics": round(logistics, 2),
+            "storage": round(storage, 2),
+            "penalties": round(penalties, 2),
+            "deductions": round(deductions, 2),
+            "loyalty_program": round(loyalty_program, 2),
+            "loyalty_points_withheld": round(loyalty_points_withheld, 2),
+            "other_adjustments": round(other_adjustments, 2),
+            "ads_spend": round(ads_spend, 2),
+            "tax": round(tax, 2),
+            "net_profit": round(net_profit, 2),
+        },
     }
 
     warning_additions: List[Dict[str, Any]] = []

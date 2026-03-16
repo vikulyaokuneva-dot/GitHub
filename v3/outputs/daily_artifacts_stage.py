@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -268,17 +268,25 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
 
     cost_price_total = financial_kpi.get("cost_price")
     wb_commission = financial_kpi.get("wb_commission")
+    acquiring_total = financial_kpi.get("acquiring")
+    pvz_service_total = financial_kpi.get("pvz_service")
     logistics_total = financial_kpi.get("logistics")
     storage_total = financial_kpi.get("storage")
     penalties_total = financial_kpi.get("penalties")
     deductions_total = financial_kpi.get("deductions")
+    loyalty_program_total = financial_kpi.get("loyalty_program")
+    loyalty_points_withheld_total = financial_kpi.get("loyalty_points_withheld")
+    other_adjustments_total = financial_kpi.get("other_adjustments")
+    tax_total = financial_kpi.get("tax")
     ads_spend_total = financial_kpi.get("ads_spend")
     revenue_total = render_kpi.get("revenue")
+    gross_revenue_total = financial_kpi.get("gross_revenue")
+    wb_realized_revenue_total = financial_kpi.get("wb_realized_revenue")
+    seller_payout_total = financial_kpi.get("seller_payout", revenue_total)
     gross_profit_total = render_kpi.get("gross_profit")
     net_profit = render_kpi.get("net_profit")
     margin_pct_total = render_kpi.get("margin_pct")
     profitability_pct_total = render_kpi.get("profitability_pct")
-
     financial_status = str(daily_status_matrix.get("financials") or "unknown")
     if financial_status in {"confirmed", "partial"}:
         if revenue_total is None:
@@ -287,6 +295,10 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             cost_price_total = _safe_float(financial_kpi.get("cost_price", totals.get("cost_price", 0.0)))
         if wb_commission is None:
             wb_commission = _safe_float(financial_kpi.get("wb_commission", totals.get("wb_commission", 0.0)))
+        if acquiring_total is None:
+            acquiring_total = _safe_float(financial_kpi.get("acquiring", totals.get("acquiring", 0.0)))
+        if pvz_service_total is None:
+            pvz_service_total = _safe_float(financial_kpi.get("pvz_service", totals.get("pvz_service", 0.0)))
         if logistics_total is None:
             logistics_total = _safe_float(financial_kpi.get("logistics", totals.get("logistics", 0.0)))
         if storage_total is None:
@@ -295,8 +307,22 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             penalties_total = _safe_float(financial_kpi.get("penalties", totals.get("penalties", 0.0)))
         if deductions_total is None:
             deductions_total = _safe_float(financial_kpi.get("deductions", totals.get("deductions", 0.0)))
+        if loyalty_program_total is None:
+            loyalty_program_total = _safe_float(financial_kpi.get("loyalty_program", totals.get("loyalty_program", 0.0)))
+        if loyalty_points_withheld_total is None:
+            loyalty_points_withheld_total = _safe_float(financial_kpi.get("loyalty_points_withheld", totals.get("loyalty_points_withheld", 0.0)))
+        if other_adjustments_total is None:
+            other_adjustments_total = _safe_float(financial_kpi.get("other_adjustments", totals.get("other_adjustments", 0.0)))
+        if tax_total is None:
+            tax_total = _safe_float(financial_kpi.get("tax", totals.get("tax", 0.0)))
         if ads_spend_total is None:
             ads_spend_total = _safe_float(financial_kpi.get("ads_spend", totals.get("ads_spend", 0.0)))
+        if gross_revenue_total is None:
+            gross_revenue_total = _safe_float(financial_kpi.get("gross_revenue", totals.get("gross_revenue", 0.0)))
+        if wb_realized_revenue_total is None:
+            wb_realized_revenue_total = _safe_float(financial_kpi.get("wb_realized_revenue", totals.get("wb_realized_revenue", 0.0)))
+        if seller_payout_total is None:
+            seller_payout_total = _safe_float(financial_kpi.get("seller_payout", totals.get("seller_payout", revenue_total)))
         if gross_profit_total is None:
             gross_profit_total = _safe_float(
                 financial_kpi.get(
@@ -406,7 +432,7 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             ]
     elif territorial_analysis_mode in {"preview", "disabled"} or territorial_suppressed:
         key_insights = list(key_insights) + [
-            "Территориальные выводы предварительные: для уверенных решений нужны подтвержденные данные по складам и логистике."
+            "РўРµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅС‹Рµ РІС‹РІРѕРґС‹ РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅС‹Рµ: РґР»СЏ СѓРІРµСЂРµРЅРЅС‹С… СЂРµС€РµРЅРёР№ РЅСѓР¶РЅС‹ РїРѕРґС‚РІРµСЂР¶РґРµРЅРЅС‹Рµ РґР°РЅРЅС‹Рµ РїРѕ СЃРєР»Р°РґР°Рј Рё Р»РѕРіРёСЃС‚РёРєРµ."
         ]
 
     if weighted_localization_share > 0:
@@ -463,6 +489,9 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "ads_source_file": ads_source_file,
             "ads_attribution_quality": ads_attribution_quality,
             "revenue_total": revenue_total,
+            "gross_revenue_total": gross_revenue_total,
+            "wb_realized_revenue_total": wb_realized_revenue_total,
+            "seller_payout_total": seller_payout_total,
             "revenue_total_legacy": revenue_total_legacy,
             "profit_total": profit_total,
             "daily_orders_count": daily_orders_count,
@@ -477,10 +506,16 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "avg_check_legacy": avg_check_legacy,
             "cost_price_total": cost_price_total,
             "wb_commission": wb_commission,
+            "acquiring_total": acquiring_total,
+            "pvz_service_total": pvz_service_total,
             "logistics_total": logistics_total,
             "storage_total": storage_total,
             "penalties_total": penalties_total,
             "deductions_total": deductions_total,
+            "loyalty_program_total": loyalty_program_total,
+            "loyalty_points_withheld_total": loyalty_points_withheld_total,
+            "other_adjustments_total": other_adjustments_total,
+            "tax_total": tax_total,
             "ads_spend_total": ads_spend_total,
             "gross_profit_total": gross_profit_total,
             "net_profit": net_profit,
@@ -502,4 +537,10 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     )
     payload = apply_report_guardrails(payload)
     return payload
+
+
+
+
+
+
 

@@ -364,7 +364,7 @@ def build_daily_email_body(
         f"- Конверсия заказ → выкуп: {order_to_buyout_text}",
         "",
         "ФИНАНСОВЫЕ ПОКАЗАТЕЛИ",
-        f"- Выручка: {revenue_text}",
+        f"- К перечислению продавцу: {revenue_text}",
         f"- Чистая прибыль: {net_profit_text}",
         f"- Маржа: {margin_text}",
         f"- Рентабельность: {profitability_text}",

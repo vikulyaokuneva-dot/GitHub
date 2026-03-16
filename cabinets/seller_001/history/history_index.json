@@ -275,13 +275,13 @@
         "warnings.json"
       ],
       "kpi": {
-        "revenue": 438.4,
-        "profit": -291.37,
+        "revenue": 0.0,
+        "profit": 0.0,
         "buyouts": 0,
-        "ads_spend": 643.91,
-        "sku_count": 8,
-        "valid_sku_count": 8,
-        "invalid_sku_rows": 3
+        "ads_spend": 0.0,
+        "sku_count": 0,
+        "valid_sku_count": 0,
+        "invalid_sku_rows": 0
       },
       "seller_id": "seller_001"
     },

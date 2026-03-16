@@ -39,5 +39,25 @@ class TestSalesFunnelAssembler(unittest.TestCase):
         self.assertEqual(funnel.get("order_to_buyout_conversion_pct"), 40.0)
 
 
+    def test_over_100_order_to_buyout_is_marked_with_note(self) -> None:
+        payload = assemble_sales_funnel(
+            run_date="2026-03-04",
+            metrics={
+                "totals": {"views": 1000, "orders": 6, "buys": 7},
+                "data_sources": {"orders_count": "api.orders", "buyouts_count": "api.sales", "ads_spend": "unknown"},
+                "daily_kpi": {},
+                "commerce_kpi": {},
+                "financial_kpi": {},
+            },
+            ads_diagnostics={},
+        )
+
+        funnel = payload.get("funnel", {}) if isinstance(payload, dict) else {}
+        status = payload.get("status", {}) if isinstance(payload, dict) else {}
+        self.assertTrue(bool(funnel.get("order_to_buyout_over_100", False)))
+        self.assertTrue(bool(str(funnel.get("order_to_buyout_note") or "").strip()))
+        self.assertEqual(str(status.get("buyout_stage") or ""), "partial")
+
+
 if __name__ == "__main__":
     unittest.main()

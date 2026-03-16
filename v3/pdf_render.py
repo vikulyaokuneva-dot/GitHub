@@ -510,15 +510,39 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     financial_structure = payload.get("financial_structure_day", {})
     if not isinstance(financial_structure, dict):
         financial_structure = {}
+    seller_payout_value = _as_number(
+        financial_structure.get("seller_payout")
+        if financial_structure.get("seller_payout") is not None
+        else financial_structure.get("revenue")
+    )
+    gross_revenue_value = _as_number(financial_structure.get("gross_revenue"))
+    wb_realized_revenue_value = _as_number(financial_structure.get("wb_realized_revenue"))
+    loyalty_total_value = _as_number(financial_structure.get("loyalty_total"))
+    if loyalty_total_value is None:
+        loyalty_program_value = _as_number(financial_structure.get("loyalty_program"))
+        loyalty_points_value = _as_number(financial_structure.get("loyalty_points_withheld"))
+        if loyalty_program_value is not None or loyalty_points_value is not None:
+            loyalty_total_value = float(loyalty_program_value or 0.0) + float(loyalty_points_value or 0.0)
+
     fs_rows_raw = [
-        ("Выручка", _as_number(financial_structure.get("revenue"))),
+        ("Валовая выручка", gross_revenue_value),
+        ("WB реализовал", wb_realized_revenue_value),
+        ("К перечислению продавцу", seller_payout_value),
         ("Комиссия WB", _as_number(financial_structure.get("commission"))),
+        ("Эквайринг", _as_number(financial_structure.get("acquiring"))),
+        ("ПВЗ / выдача-возврат", _as_number(financial_structure.get("pvz_service"))),
         ("Логистика", _as_number(financial_structure.get("logistics"))),
         ("Хранение", _as_number(financial_structure.get("storage"))),
+        ("Штрафы", _as_number(financial_structure.get("penalties"))),
+        ("Удержания", _as_number(financial_structure.get("deductions"))),
+        ("Лояльность / бонусные удержания", loyalty_total_value),
+        ("Прочие корректировки", _as_number(financial_structure.get("other_adjustments"))),
         ("Себестоимость", _as_number(financial_structure.get("cost_price"))),
         ("Налог", _as_number(financial_structure.get("tax"))),
         ("Расход на рекламу", _as_number(financial_structure.get("ads_spend"))),
         ("Чистая прибыль", _as_number(financial_structure.get("net_profit"))),
+        ("Проверка прибыли (по компонентам)", _as_number(financial_structure.get("explained_net_profit"))),
+        ("Дельта расчета прибыли", _as_number(financial_structure.get("net_profit_explain_delta"))),
     ]
     fs_rows = [
         {
@@ -653,9 +677,12 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
                 conversion = None
                 if value is not None and value > 0 and next_val is not None:
                     conversion = (next_val / value) * 100.0
+                conversion_text = _format_pct(conversion)
+                if idx == len(funnel_stages) - 2 and bool(funnel.get("order_to_buyout_over_100", False)):
+                    conversion_text = "недостаточно данных (возможен лаг выкупа)"
                 draw_3.text(
                     (cx + max_w // 2 + 26, y1 + 44),
-                    normalize_pdf_text(f"Конверсия: {_format_pct(conversion)}"),
+                    normalize_pdf_text(f"Конверсия: {conversion_text}"),
                     font=fonts["small"],
                     fill=colors["text"],
                 )
@@ -773,6 +800,9 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     key_problems = payload.get("key_problems", {})
     if not isinstance(key_problems, dict):
         key_problems = {}
+    key_problem_reasons = payload.get("key_problem_reasons", {})
+    if not isinstance(key_problem_reasons, dict):
+        key_problem_reasons = {}
 
     def _problem_skus(key: str) -> List[str]:
         rows = key_problems.get(key, [])
@@ -790,11 +820,15 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
                 break
         return result
 
+    def _problem_reason(key: str) -> str:
+        reason = normalize_pdf_text(str(key_problem_reasons.get(key) or "").strip())
+        return reason or normalize_pdf_text("нет данных")
+
     problems_layout = [
-        ("Низкий трафик", _problem_skus("low_traffic")),
-        ("Падение конверсии", _problem_skus("conversion_drop")),
-        ("Неэффективная реклама", _problem_skus("inefficient_ads")),
-        ("SKU в зоне ликвидации", _problem_skus("liquidation_skus")),
+        ("Низкий трафик", "low_traffic", _problem_skus("low_traffic")),
+        ("Падение конверсии", "conversion_drop", _problem_skus("conversion_drop")),
+        ("Неэффективная реклама", "inefficient_ads", _problem_skus("inefficient_ads")),
+        ("SKU в зоне ликвидации", "liquidation_skus", _problem_skus("liquidation_skus")),
     ]
 
     box_top = margin + 92
@@ -802,7 +836,7 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     box_h = int((area_h - panel_gap) / 2)
     box_w = int((width_px - margin * 2 - panel_gap) / 2)
 
-    for idx, (title, skus) in enumerate(problems_layout):
+    for idx, (title, problem_key, skus) in enumerate(problems_layout):
         row = idx // 2
         col = idx % 2
         x = margin + col * (box_w + panel_gap)
@@ -810,7 +844,8 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         content = _draw_panel(draw_5, x, y, box_w, box_h, title)
         cx1, cy1, cx2, cy2 = content
         if not skus:
-            draw_5.text((cx1, cy1 + 8), normalize_pdf_text("нет данных"), font=fonts["body"], fill=colors["muted"])
+            reason_text = _fit_text(draw_5, _problem_reason(problem_key), fonts["body"], cx2 - cx1 - 8)
+            draw_5.text((cx1, cy1 + 8), reason_text, font=fonts["body"], fill=colors["muted"])
             continue
         y_cursor = cy1 + 4
         for sku in skus:
@@ -899,7 +934,7 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         profit_content,
         [
             ("SKU", "sku", 21),
-            ("Выручка", "revenue", 26),
+            ("К перечислению продавцу", "revenue", 26),
             ("Расход на рекламу", "ads", 27),
             ("Прибыль", "profit", 26),
         ],

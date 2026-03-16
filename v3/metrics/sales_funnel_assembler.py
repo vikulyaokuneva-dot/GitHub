@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Dict, List
 
@@ -321,6 +321,16 @@ def assemble_sales_funnel(
     }
     status = _build_status(views=views, add_to_cart=add_to_cart, orders=orders, buyouts=buyouts)
 
+    buyout_rate_value = _to_float_or_none(cabinet_metrics.get("buyout_rate"))
+    order_to_buyout_over_100 = bool(buyout_rate_value is not None and buyout_rate_value > 100.0)
+    order_to_buyout_note = (
+        "order_to_buyout_conversion_gt_100: possible date shift between orders and buyouts"
+        if order_to_buyout_over_100
+        else ""
+    )
+    if order_to_buyout_over_100 and isinstance(status, dict):
+        status["buyout_stage"] = "partial"
+
     funnel_payload = {
         "views": cabinet_metrics["views"],
         "add_to_cart": cabinet_metrics["add_to_cart"],
@@ -332,6 +342,8 @@ def assemble_sales_funnel(
         "cart_to_order": cabinet_metrics["cart_to_order"],
         "buyout_rate": cabinet_metrics["buyout_rate"],
         "order_to_buyout": cabinet_metrics["buyout_rate"],
+        "order_to_buyout_over_100": order_to_buyout_over_100,
+        "order_to_buyout_note": order_to_buyout_note,
         "ads_spend": cabinet_metrics["ads_spend"],
         "cpo": cabinet_metrics["cpo"],
         # Backward-compatible aliases for existing report/email blocks.
@@ -350,6 +362,8 @@ def assemble_sales_funnel(
             "view_to_order": cabinet_metrics["view_to_order_conversion"],
             "cart_to_order": cabinet_metrics["cart_to_order"],
             "order_to_buyout": cabinet_metrics["buyout_rate"],
+            "order_to_buyout_over_100": order_to_buyout_over_100,
+            "order_to_buyout_note": order_to_buyout_note,
         },
         "marketing_layer": cabinet_metrics["marketing_layer"],
         "financial_layer": cabinet_metrics["financial_layer"],
@@ -364,3 +378,8 @@ def assemble_sales_funnel(
         "financial_layer": cabinet_metrics["financial_layer"],
         "sku_funnel": sku_funnel,
     }
+
+
+
+
+

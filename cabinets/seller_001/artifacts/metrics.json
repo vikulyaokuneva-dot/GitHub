@@ -276,7 +276,7 @@
     "financial_finality_status": "unavailable",
     "is_partial": true,
     "basis": "buyouts",
-    "date": "2026-03-16",
+    "date": "2026-03-15",
     "confirmed": false
   },
   "ads_diagnostics": {
@@ -697,16 +697,16 @@
     }
   },
   "event_date_model": {
-    "report_date": "2026-03-16",
-    "operational_date": "2026-03-16",
-    "orders_date": "2026-03-16",
-    "buyouts_date": "2026-03-16",
-    "financial_date": "2026-03-16",
+    "report_date": "2026-03-15",
+    "operational_date": "2026-03-15",
+    "orders_date": "2026-03-15",
+    "buyouts_date": "2026-03-15",
+    "financial_date": "2026-03-15",
     "shifted_to_previous_day": false,
     "timezone": "Europe/Moscow"
   },
   "order_kpi": {
-    "date": "2026-03-16",
+    "date": "2026-03-15",
     "orders_count": null,
     "orders_amount": null,
     "orders_count_confirmed": false,
@@ -715,7 +715,7 @@
     "source_amount": "unknown"
   },
   "buyout_kpi": {
-    "date": "2026-03-16",
+    "date": "2026-03-15",
     "buyouts_count": null,
     "buyouts_amount": null,
     "buyouts_count_confirmed": false,
@@ -826,12 +826,12 @@
     "profitability_pct": null
   },
   "event_ledger": {
-    "report_date": "2026-03-16",
-    "operational_date": "2026-03-16",
+    "report_date": "2026-03-15",
+    "operational_date": "2026-03-15",
     "events": [
       {
         "event_type": "orders_snapshot",
-        "event_date": "2026-03-16",
+        "event_date": "2026-03-15",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -839,7 +839,7 @@
       },
       {
         "event_type": "buyouts_snapshot",
-        "event_date": "2026-03-16",
+        "event_date": "2026-03-15",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -847,7 +847,7 @@
       },
       {
         "event_type": "financial_snapshot",
-        "event_date": "2026-03-16",
+        "event_date": "2026-03-15",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -856,7 +856,7 @@
     ]
   },
   "sales_funnel": {
-    "date": "2026-03-16",
+    "date": "2026-03-15",
     "funnel": {
       "views": 0,
       "add_to_cart": null,
@@ -931,7 +931,7 @@
     },
     "sku_funnel": [],
     "sku_diagnostics": {
-      "date": "2026-03-16",
+      "date": "2026-03-15",
       "status": "partial_success",
       "thresholds": {
         "min_views_for_analysis": 50.0,
@@ -968,7 +968,7 @@
     }
   },
   "sales_funnel_diagnostics": {
-    "date": "2026-03-16",
+    "date": "2026-03-15",
     "status": "partial_success",
     "thresholds": {
       "min_views_for_analysis": 50.0,
@@ -1005,7 +1005,7 @@
   },
   "sku_sales_funnel": [],
   "keyword_monitoring": {
-    "date": "2026-03-16",
+    "date": "2026-03-15",
     "status": "insufficient_data",
     "warnings": [
       {
@@ -1082,7 +1082,7 @@
   },
   "advertising_efficiency": {
     "seller_id": "seller_001",
-    "report_date": "2026-03-16",
+    "report_date": "2026-03-15",
     "status": "disabled",
     "analysis_mode": "disabled",
     "data_quality_status": "missing_ads_data",
@@ -1238,7 +1238,7 @@
   },
   "territorial_distribution": {
     "seller_id": "seller_001",
-    "report_date": "2026-03-16",
+    "report_date": "2026-03-15",
     "status": "insufficient_data",
     "warnings": [
       {
@@ -1254,8 +1254,8 @@
       "engine": "territorial_distribution_engine",
       "version": "2.1",
       "seller_id": "seller_001",
-      "run_date": "2026-03-16",
-      "generated_at": "2026-03-16T11:50:35Z",
+      "run_date": "2026-03-15",
+      "generated_at": "2026-03-16T12:42:36Z",
       "wb_irp_effective_date": "2026-03-23",
       "source_artifacts": [
         "metrics.json"
