@@ -1,17 +1,17 @@
-"""Metrics Stage skeleton.
+﻿"""Metrics stage for v4 pipeline.
 
-Input: stage context payload.
-Output: stage context payload.
-Does not execute production logic in stage 1.
+Input: NormalizedBundle.
+Output: MetricsBundle.
+Does not execute facts/decisions/output stages.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from ...core.contracts import MetricsBundle, NormalizedBundle
+from ...metrics.core.engine import build_metrics_bundle
 
 
-def run(context: Dict[str, Any]) -> Dict[str, Any]:
-    out = dict(context or {})
-    out.setdefault("stage_trace", []).append("metrics_stage")
-    out["status"] = "not_implemented"
-    return out
+def run(normalized_bundle: NormalizedBundle) -> MetricsBundle:
+    if not isinstance(normalized_bundle, NormalizedBundle):
+        raise TypeError("metrics_stage.run expects NormalizedBundle")
+    return build_metrics_bundle(normalized_bundle)

@@ -22,7 +22,13 @@ from .normalized import (
     NormalizedSaleRecord,
     NormalizedStockRecord,
 )
-from .metrics import MetricValue, MetricsBundle
+from .metrics import (
+    DailyMetricsSection,
+    FinancialMetricsSection,
+    MetricStatus,
+    MetricValue,
+    MetricsBundle,
+)
 from .facts import FactsBundle
 from .decisions import DecisionItem, DecisionsBundle
 from .report import ReportPayload
@@ -46,7 +52,10 @@ __all__ = [
     "NormalizedAdsStatRecord",
     "NormalizedFunnelRecord",
     "NormalizedBundle",
+    "MetricStatus",
     "MetricValue",
+    "FinancialMetricsSection",
+    "DailyMetricsSection",
     "MetricsBundle",
     "FactsBundle",
     "DecisionItem",
