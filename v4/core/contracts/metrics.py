@@ -1,16 +1,16 @@
-"""Metrics contracts.
+﻿"""Metrics contracts.
 
 Input: NormalizedBundle.
 Output: MetricsBundle.
-Does not render output and does not decide actions.
+Does not render outputs and does not make decisions.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
-from .raw import RunContext, SourceStatus
+from .raw import RunContext, SourceKind, SourceStatus
 
 
 @dataclass(frozen=True)
@@ -20,11 +20,11 @@ class MetricValue:
     Rule: value=None means missing/insufficient and must not be converted to 0.
     """
 
-    value: Optional[float]
+    value: float | int | None
     status: str
-    source: str
-    note: Optional[str] = None
-    diagnostics: Dict[str, Any] = field(default_factory=dict)
+    source: SourceKind
+    note: str | None = None
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -32,6 +32,12 @@ class MetricsBundle:
     """Top-level metrics payload for downstream layers."""
 
     context: RunContext
-    sections: Dict[str, Dict[str, MetricValue]] = field(default_factory=dict)
-    source_status: Dict[str, SourceStatus] = field(default_factory=dict)
-    diagnostics: Dict[str, Any] = field(default_factory=dict)
+    sections: dict[str, dict[str, MetricValue]] = field(default_factory=dict)
+    source_status: dict[str, SourceStatus] = field(default_factory=dict)
+    diagnostics: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def run_context(self) -> RunContext:
+        """Alias for consistency with raw/report contracts."""
+
+        return self.context

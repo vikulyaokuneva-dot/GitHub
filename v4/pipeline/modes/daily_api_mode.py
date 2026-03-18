@@ -1,29 +1,39 @@
-"""Daily API mode contract.
+﻿"""Daily API mode descriptor.
 
-Input: none (static mode description).
-Output: mode capabilities and source requirements.
+Input: none.
+Output: static mode capabilities and source requirements.
 Does not execute ingestion.
 """
 
 from __future__ import annotations
 
-MODE_NAME = "daily_api_mode"
-REQUIRED_SOURCES = ("orders_api", "sales_api", "realization_api")
-OPTIONAL_SOURCES = ("ads_api", "stocks_api", "funnel_api")
-AVAILABLE_BLOCKS = (
-    "key_metrics",
-    "financial",
-    "funnel",
-    "ads",
-    "stock",
-    "decisions",
+from dataclasses import dataclass
+
+from ...core.contracts import RunMode
+
+
+@dataclass(frozen=True)
+class ModeDescriptor:
+    """Declarative mode profile used by orchestration layers."""
+
+    mode: RunMode
+    required_sources: tuple[str, ...]
+    optional_sources: tuple[str, ...]
+    available_blocks: tuple[str, ...]
+
+
+MODE_DESCRIPTOR = ModeDescriptor(
+    mode=RunMode.DAILY_API,
+    required_sources=("orders", "sales", "realization"),
+    optional_sources=("stocks", "ads", "funnel"),
+    available_blocks=("raw_ingestion", "diagnostics"),
 )
 
 
-def describe() -> dict:
+def describe() -> dict[str, object]:
     return {
-        "mode": MODE_NAME,
-        "required_sources": list(REQUIRED_SOURCES),
-        "optional_sources": list(OPTIONAL_SOURCES),
-        "available_blocks": list(AVAILABLE_BLOCKS),
+        "mode": MODE_DESCRIPTOR.mode.value,
+        "required_sources": list(MODE_DESCRIPTOR.required_sources),
+        "optional_sources": list(MODE_DESCRIPTOR.optional_sources),
+        "available_blocks": list(MODE_DESCRIPTOR.available_blocks),
     }
