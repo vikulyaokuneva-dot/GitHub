@@ -3,7 +3,7 @@
 import unittest
 from unittest.mock import patch
 
-from v4.entry import cli, daily
+from v4.entry import audit, cli, daily
 
 
 class TestCliEntrypoints(unittest.TestCase):
@@ -51,6 +51,42 @@ class TestCliEntrypoints(unittest.TestCase):
         run_daily_mock.assert_called_once()
         payload = run_daily_mock.call_args.args[0]
         self.assertIsNone(payload["output_dir"])
+
+    def test_audit_entry_calls_runner(self) -> None:
+        with patch("v4.entry.audit.run_audit_pipeline", return_value={"ok": True}) as runner:
+            result = audit.run(
+                {
+                    "input_path": "./audit_input",
+                    "seller_id": "seller_001",
+                    "run_date": "2026-03-15",
+                    "output_dir": "tmp_out",
+                }
+            )
+
+        self.assertEqual(result, {"ok": True})
+        runner.assert_called_once()
+        self.assertEqual(runner.call_args.kwargs["input_path"], "./audit_input")
+        self.assertEqual(runner.call_args.kwargs["output_dir"], "tmp_out")
+
+    def test_cli_audit_with_output_dir(self) -> None:
+        with patch("v4.entry.cli.run_audit", return_value={"ok": True}) as run_audit_mock:
+            code = cli.main([
+                "audit",
+                "--input-path",
+                "./audit_input",
+                "--seller",
+                "seller_001",
+                "--date",
+                "2026-03-15",
+                "--output-dir",
+                "tmp_out",
+            ])
+
+        self.assertEqual(code, 0)
+        run_audit_mock.assert_called_once()
+        payload = run_audit_mock.call_args.args[0]
+        self.assertEqual(payload["input_path"], "./audit_input")
+        self.assertEqual(payload["output_dir"], "tmp_out")
 
 
 if __name__ == "__main__":

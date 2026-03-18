@@ -1,0 +1,20 @@
+{
+  "build_timestamp": null,
+  "build_timestamp_note": "deterministic stage: timestamp omitted by design",
+  "mode": "daily",
+  "sections_present": [
+    "financial",
+    "daily",
+    "funnel",
+    "ads",
+    "stock"
+  ],
+  "decision_counts_by_priority": {
+    "P1": 2,
+    "P2": 2,
+    "P3": 1
+  },
+  "warnings_count": 42,
+  "partial_flag": true,
+  "audit_note": null
+}

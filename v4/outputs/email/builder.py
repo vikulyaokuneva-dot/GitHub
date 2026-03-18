@@ -1,4 +1,4 @@
-"""Email payload builder over facts + decisions.
+﻿"""Email payload builder over facts + decisions.
 
 Input: FactsBundle and DecisionsBundle.
 Output: EmailPayload (plain text friendly).
@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from ...core.contracts import DecisionItem, DecisionsBundle, FactItem, FactsBundle
 from .contracts import EmailPayload, EmailSection
+
+
+AUDIT_DISCLAIMER = "Отчет построен в audit_file_mode; выводы ограничены доступными файлами."
 
 
 def _priority_value(item: DecisionItem) -> int:
@@ -76,7 +79,7 @@ def _build_summary_lines(facts_bundle: FactsBundle, decisions_bundle: DecisionsB
         )
 
     if mode == "audit":
-        lines.append("Отчет построен в audit_file_mode; выводы ограничены доступными файлами.")
+        lines.append(AUDIT_DISCLAIMER)
 
     return lines
 
@@ -132,7 +135,7 @@ def _build_quality_section(facts_bundle: FactsBundle, mode: str) -> EmailSection
         f"Warnings count: {len(warnings)}",
     ]
     if mode == "audit":
-        lines.append("Отчет построен в audit_file_mode; выводы ограничены доступными файлами.")
+        lines.append(AUDIT_DISCLAIMER)
     status = "partial" if partial_sections or unavailable_sections else "info"
     return EmailSection(title="Качество данных", lines=lines, status=status)
 
@@ -175,6 +178,8 @@ def build_email_payload(
         "summary_lines_count": len(summary_lines),
         "decisions_count": len(decisions_bundle.items),
         "facts_sections_available": list(facts_bundle.sections.keys()),
+        "mode": normalized_mode,
+        "audit_disclaimer_included": normalized_mode == "audit",
     }
 
     return EmailPayload(
@@ -186,4 +191,3 @@ def build_email_payload(
         warnings=warnings,
         diagnostics=diagnostics,
     )
-

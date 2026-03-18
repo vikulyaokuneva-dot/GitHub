@@ -1,4 +1,4 @@
-"""Artifacts writer for outputs layer.
+﻿"""Artifacts writer for outputs layer.
 
 Input: FactsBundle + DecisionsBundle.
 Output: serializable payloads and optional JSON files on disk.
@@ -15,6 +15,9 @@ from pathlib import Path
 from typing import Any
 
 from ...core.contracts import DecisionsBundle, FactsBundle
+
+
+AUDIT_DISCLAIMER = "Отчет построен в audit_file_mode; выводы ограничены доступными файлами."
 
 
 def _to_serializable(value: Any) -> Any:
@@ -41,21 +44,28 @@ def _decision_counts_by_priority(decisions_bundle: DecisionsBundle) -> dict[str,
     return counts
 
 
-def build_artifact_payloads(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle) -> dict[str, Any]:
+def build_artifact_payloads(
+    facts_bundle: FactsBundle,
+    decisions_bundle: DecisionsBundle,
+    mode: str = "daily",
+) -> dict[str, Any]:
     facts_payload = _to_serializable(facts_bundle)
     decisions_payload = _to_serializable(decisions_bundle)
 
     sections_present = list(facts_bundle.sections.keys())
     warnings_count = len(facts_bundle.warnings) + len(decisions_bundle.warnings)
     partial_flag = bool(facts_bundle.data_quality.get("partial_sections") or facts_bundle.data_quality.get("unavailable_sections"))
+    normalized_mode = "audit" if str(mode).strip().lower() == "audit" else "daily"
 
     outputs_summary = {
         "build_timestamp": None,
         "build_timestamp_note": "deterministic stage: timestamp omitted by design",
+        "mode": normalized_mode,
         "sections_present": sections_present,
         "decision_counts_by_priority": _decision_counts_by_priority(decisions_bundle),
         "warnings_count": warnings_count,
         "partial_flag": partial_flag,
+        "audit_note": AUDIT_DISCLAIMER if normalized_mode == "audit" else None,
     }
 
     return {

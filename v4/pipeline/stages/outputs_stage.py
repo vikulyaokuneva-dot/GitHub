@@ -21,7 +21,7 @@ def run(
     mode: str = "daily",
     output_dir: str | None = None,
 ) -> dict:
-    artifacts_payloads = build_artifact_payloads(facts_bundle, decisions_bundle)
+    artifacts_payloads = build_artifact_payloads(facts_bundle, decisions_bundle, mode=mode)
     saved_files: dict[str, str] = {}
     if output_dir:
         saved_files = save_artifact_payloads(artifacts_payloads, output_dir)
@@ -55,4 +55,3 @@ def run(
         "pdf": pdf_payload,
         "diagnostics": diagnostics,
     }
-

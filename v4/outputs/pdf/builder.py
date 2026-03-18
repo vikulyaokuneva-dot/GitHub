@@ -1,4 +1,4 @@
-"""PDF-ready payload builder over facts + decisions.
+﻿"""PDF-ready payload builder over facts + decisions.
 
 Input: FactsBundle and DecisionsBundle.
 Output: PdfPayload suitable for future renderer.
@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from ...core.contracts import DecisionItem, DecisionsBundle, FactItem, FactsBundle
 from .contracts import PdfBlock, PdfPage, PdfPayload
+
+
+AUDIT_DISCLAIMER = "Отчет построен в audit_file_mode; выводы ограничены доступными файлами."
 
 
 def _decision_status_text(item: DecisionItem) -> str:
@@ -40,11 +43,9 @@ def _render_fact_value(fact_item: FactItem | None) -> str:
         if value is None:
             return "частично"
         return f"{value} (частично)"
-    if status == "confirmed":
-        return "нет данных" if value is None else str(value)
-    if status == "info":
-        return "нет данных" if value is None else str(value)
-    return "нет данных" if value is None else str(value)
+    if value is None:
+        return "нет данных"
+    return str(value)
 
 
 def _executive_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle, mode: str) -> PdfPage:
@@ -56,7 +57,9 @@ def _executive_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle
         {"label": "Decisions count", "value": len(decisions_bundle.items), "status": "info"},
         {"label": "Partial flag", "value": partial_flag, "status": "info"},
     ]
-    block = PdfBlock(title="Executive Summary", rows=rows, status="info", diagnostics={})
+    if mode == "audit":
+        rows.append({"label": "Audit note", "value": AUDIT_DISCLAIMER, "status": "info"})
+    block = PdfBlock(title="Executive Summary", rows=rows, status="info", diagnostics={"mode": mode})
     return PdfPage(title="Executive Summary", blocks=[block])
 
 
@@ -147,11 +150,11 @@ def _stock_page(facts_bundle: FactsBundle) -> PdfPage | None:
     return PdfPage(title="Stock", blocks=[block])
 
 
-def _data_quality_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle) -> PdfPage | None:
+def _data_quality_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle, mode: str) -> PdfPage | None:
     warnings_count = len(facts_bundle.warnings) + len(decisions_bundle.warnings)
     partial_sections = list(facts_bundle.data_quality.get("partial_sections", []))
     unavailable_sections = list(facts_bundle.data_quality.get("unavailable_sections", []))
-    if not partial_sections and not unavailable_sections and warnings_count == 0:
+    if not partial_sections and not unavailable_sections and warnings_count == 0 and mode != "audit":
         return None
 
     rows = [
@@ -163,11 +166,18 @@ def _data_quality_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBun
         },
         {"label": "Warnings count", "value": str(warnings_count), "status": "info"},
     ]
+    if mode == "audit":
+        rows.append({"label": "Audit note", "value": AUDIT_DISCLAIMER, "status": "info"})
+
     block = PdfBlock(
         title="Data Quality",
         rows=rows,
         status="partial" if partial_sections or unavailable_sections else "info",
-        diagnostics={"facts_warnings": len(facts_bundle.warnings), "decisions_warnings": len(decisions_bundle.warnings)},
+        diagnostics={
+            "facts_warnings": len(facts_bundle.warnings),
+            "decisions_warnings": len(decisions_bundle.warnings),
+            "mode": mode,
+        },
     )
     return PdfPage(title="Data Quality", blocks=[block])
 
@@ -188,7 +198,7 @@ def build_pdf_payload(
     if stock_page is not None:
         pages.append(stock_page)
 
-    quality_page = _data_quality_page(facts_bundle, decisions_bundle)
+    quality_page = _data_quality_page(facts_bundle, decisions_bundle, normalized_mode)
     if quality_page is not None:
         pages.append(quality_page)
 
@@ -198,6 +208,7 @@ def build_pdf_payload(
         "mode": normalized_mode,
         "facts_sections_available": list(facts_bundle.sections.keys()),
         "decisions_count": len(decisions_bundle.items),
+        "audit_disclaimer_included": normalized_mode == "audit",
     }
     return PdfPayload(
         mode=normalized_mode,
@@ -205,4 +216,3 @@ def build_pdf_payload(
         warnings=warnings,
         diagnostics=diagnostics,
     )
-
