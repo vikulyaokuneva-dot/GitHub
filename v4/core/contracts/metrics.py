@@ -135,10 +135,26 @@ class AdsMetricsSection:
 
 
 @dataclass
+class StockMetricsSection:
+    """Stock contour metrics aggregated on run level."""
+
+    total_stock_units: MetricValue = field(default_factory=_default_unavailable_metric)
+    in_stock_items_count: MetricValue = field(default_factory=_default_unavailable_metric)
+    out_of_stock_items_count: MetricValue = field(default_factory=_default_unavailable_metric)
+    distinct_nm_ids_count: MetricValue = field(default_factory=_default_unavailable_metric)
+    distinct_warehouses_count: MetricValue = field(default_factory=_default_unavailable_metric)
+
+    stock_coverage_note: str | None = None
+    source_quality: dict[str, str] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    note: str | None = None
+
+
+@dataclass
 class MetricsBundle:
     """Top-level metrics payload for downstream layers.
 
-    On this stage, financial, daily, funnel, and ads sections are assembled.
+    On this stage, financial, daily, funnel, ads, and stock sections are assembled.
     """
 
     run_context: RunContext
@@ -146,6 +162,7 @@ class MetricsBundle:
     daily: DailyMetricsSection | None = None
     funnel: FunnelMetricsSection | None = None
     ads: AdsMetricsSection | None = None
+    stock: StockMetricsSection | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
     source_flags: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
@@ -172,4 +189,5 @@ class MetricsBundle:
             "daily": self.daily,
             "funnel": self.funnel,
             "ads": self.ads,
+            "stock": self.stock,
         }

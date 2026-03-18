@@ -56,7 +56,10 @@ class TestMetricsBundleBuild(unittest.TestCase):
         self.assertIn("realization_fallback_used", metrics.diagnostics)
         self.assertIn("funnel_status", metrics.diagnostics)
         self.assertIn("normalized warning", metrics.warnings)
-        self.assertEqual(metrics.diagnostics["metrics_sections_built"], ["financial", "daily", "funnel", "ads"])
+        self.assertEqual(
+            metrics.diagnostics["metrics_sections_built"],
+            ["financial", "daily", "funnel", "ads", "stock"],
+        )
 
 
 if __name__ == "__main__":

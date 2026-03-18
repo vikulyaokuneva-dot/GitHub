@@ -1,7 +1,7 @@
 ﻿"""Metrics engine foundation.
 
 Input: NormalizedBundle.
-Output: MetricsBundle (financial + daily + funnel + ads).
+Output: MetricsBundle (financial + daily + funnel + ads + stock).
 Does not build facts/decisions/outputs.
 """
 
@@ -12,6 +12,7 @@ from ..ads.summary_assembler import assemble_ads_metrics
 from ..daily.resolver import build_daily_metrics_from_financial
 from ..financial.assembler import assemble_financial_metrics
 from ..funnel.assembler import assemble_funnel_metrics
+from ..stock.assembler import assemble_stock_metrics
 
 
 def _financial_status(financial) -> str:
@@ -82,11 +83,27 @@ def _ads_status(ads) -> str:
     return MetricStatus.UNAVAILABLE.value
 
 
+def _stock_status(stock) -> str:
+    statuses = {
+        stock.total_stock_units.status,
+        stock.in_stock_items_count.status,
+        stock.out_of_stock_items_count.status,
+        stock.distinct_nm_ids_count.status,
+        stock.distinct_warehouses_count.status,
+    }
+    if statuses == {MetricStatus.CONFIRMED.value}:
+        return MetricStatus.CONFIRMED.value
+    if MetricStatus.CONFIRMED.value in statuses or MetricStatus.PARTIAL.value in statuses:
+        return MetricStatus.PARTIAL.value
+    return MetricStatus.UNAVAILABLE.value
+
+
 def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
     financial = assemble_financial_metrics(normalized_bundle)
     daily = build_daily_metrics_from_financial(financial)
     funnel = assemble_funnel_metrics(normalized_bundle)
     ads = assemble_ads_metrics(normalized_bundle)
+    stock = assemble_stock_metrics(normalized_bundle)
 
     source_flags = {
         source_name: (
@@ -101,6 +118,7 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
     warnings.extend(financial.warnings)
     warnings.extend(funnel.warnings)
     warnings.extend(ads.warnings)
+    warnings.extend(stock.warnings)
 
     diagnostics = dict(normalized_bundle.diagnostics)
     diagnostics.update(
@@ -122,7 +140,10 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
             "ads_campaigns_status": ads.source_quality.get("campaigns", "missing"),
             "ads_stats_status": ads.source_quality.get("stats", "missing"),
             "ads_warnings_count": len(ads.warnings),
-            "metrics_sections_built": ["financial", "daily", "funnel", "ads"],
+            "stock_status": _stock_status(stock),
+            "stock_records_count": len(normalized_bundle.stocks),
+            "stock_warnings_count": len(stock.warnings),
+            "metrics_sections_built": ["financial", "daily", "funnel", "ads", "stock"],
         }
     )
 
@@ -132,6 +153,7 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
         daily=daily,
         funnel=funnel,
         ads=ads,
+        stock=stock,
         diagnostics=diagnostics,
         source_flags=source_flags,
         warnings=warnings,
@@ -143,4 +165,3 @@ def build_metrics(bundle: NormalizedBundle) -> MetricsBundle:
     """Back-compat alias for stage-1 API."""
 
     return build_metrics_bundle(bundle)
-

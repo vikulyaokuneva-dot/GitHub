@@ -30,6 +30,7 @@ from .metrics import (
     MetricStatus,
     MetricValue,
     MetricsBundle,
+    StockMetricsSection,
 )
 from .facts import FactsBundle
 from .decisions import DecisionItem, DecisionsBundle
@@ -60,6 +61,7 @@ __all__ = [
     "DailyMetricsSection",
     "FunnelMetricsSection",
     "AdsMetricsSection",
+    "StockMetricsSection",
     "MetricsBundle",
     "FactsBundle",
     "DecisionItem",
