@@ -78,6 +78,19 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     )
     normalized_bundle = normalize_raw_bundle(raw_bundle)
     metrics = build_metrics_from_normalized(normalized_bundle)
+    if isinstance(metrics, dict):
+        diagnostics_payload = metrics.get("diagnostics", {})
+        if not isinstance(diagnostics_payload, dict):
+            diagnostics_payload = {}
+        diagnostics_payload.update(
+            {
+                "realization_target_date": api_debug.get("realization_target_date"),
+                "realization_actual_source_date": api_debug.get("realization_actual_source_date"),
+                "realization_fallback_used": bool(api_debug.get("realization_fallback_used", False)),
+                "realization_fallback_lag_days": int(api_debug.get("realization_fallback_lag_days", 0) or 0),
+            }
+        )
+        metrics["diagnostics"] = diagnostics_payload
     if isinstance(input_debug, dict):
         input_debug["raw_layer"] = {
             "source_mode": raw_bundle.source_mode,

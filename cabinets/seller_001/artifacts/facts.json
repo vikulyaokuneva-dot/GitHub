@@ -2,7 +2,7 @@
   "seller_id": "seller_001",
   "seller_name": "seller_001",
   "run_date": "2026-03-15",
-  "generated_at": "2026-03-18T12:26:53Z",
+  "generated_at": "2026-03-18T18:08:44Z",
   "data_confidence": "low",
   "source_mode": "local_reports",
   "daily_orders_count": 0,
@@ -106,55 +106,55 @@
       "revenue": {
         "available": false,
         "confirmed": true,
-        "source": "aggregated_rows",
+        "source": "fallback",
         "trusted_for_final_reporting": false
       },
       "commission": {
         "available": false,
         "confirmed": true,
-        "source": "aggregated_rows",
+        "source": "fallback",
         "trusted_for_final_reporting": false
       },
       "logistics": {
         "available": false,
         "confirmed": true,
-        "source": "aggregated_rows",
+        "source": "fallback",
         "trusted_for_final_reporting": false
       },
       "storage": {
         "available": false,
         "confirmed": true,
-        "source": "aggregated_rows",
+        "source": "fallback",
         "trusted_for_final_reporting": false
       },
       "penalties": {
         "available": false,
         "confirmed": true,
-        "source": "aggregated_rows",
+        "source": "fallback",
         "trusted_for_final_reporting": false
       },
       "deductions": {
         "available": false,
         "confirmed": true,
-        "source": "aggregated_rows",
+        "source": "fallback",
         "trusted_for_final_reporting": false
       },
       "cost_price": {
         "available": false,
         "confirmed": true,
-        "source": "aggregated_rows",
+        "source": "fallback",
         "trusted_for_final_reporting": false
       },
       "tax": {
         "available": false,
         "confirmed": true,
-        "source": "aggregated_rows",
+        "source": "fallback",
         "trusted_for_final_reporting": false
       },
       "ads_spend": {
         "available": false,
         "confirmed": true,
-        "source": "aggregated_rows",
+        "source": "fallback",
         "trusted_for_final_reporting": false
       }
     },
@@ -162,7 +162,26 @@
     "total_components": 9,
     "financial_finality_status": "unavailable",
     "is_partial": true,
+    "financial_status": "partial",
+    "financial_partial": true,
     "basis": "buyouts",
+    "source_priority": {
+      "revenue": "fallback",
+      "seller_payout": "fallback",
+      "wb_commission": "fallback",
+      "logistics": "fallback",
+      "ads_spend": "fallback",
+      "net_profit": "fallback",
+      "acquiring": "fallback",
+      "pvz_service": "fallback",
+      "storage": "fallback",
+      "penalties": "fallback",
+      "deductions": "fallback",
+      "loyalty_program": "fallback",
+      "loyalty_points_withheld": "fallback",
+      "other_adjustments": "fallback",
+      "tax": "fallback"
+    },
     "net_profit_formula": {
       "revenue_basis": 0.0,
       "cost_price": 0.0,
@@ -240,8 +259,21 @@
     "run_date_requested": "2026-03-15",
     "timezone": "Europe/Moscow",
     "shifted_to_previous_day": false,
+    "input_files_detected": 0,
     "local_financial_fallback_used": false,
     "financial_contour_source": "missing",
+    "funnel_source": "missing",
+    "supplier_goods_daily_found": false,
+    "local_funnel_report_found": false,
+    "local_funnel_source_file": "",
+    "archive_scan": {
+      "archives_found": 0,
+      "archives_processed": 0,
+      "archives": [],
+      "unpacked_files_count": 0,
+      "unpacked_files": [],
+      "archive_errors": []
+    },
     "probe_metrics": {
       "orders_count": null,
       "orders_amount": null,
@@ -249,7 +281,11 @@
       "views": null,
       "add_to_cart": null,
       "ads_spend": null
-    }
+    },
+    "realization_target_date": "2026-03-15",
+    "realization_actual_source_date": null,
+    "realization_fallback_used": false,
+    "realization_fallback_lag_days": 0
   },
   "ads_file_candidates_found": 0,
   "ads_file_detected": false,
@@ -504,7 +540,7 @@
   "sales_funnel": {
     "date": "2026-03-15",
     "funnel": {
-      "views": 0,
+      "views": null,
       "add_to_cart": null,
       "orders": null,
       "buyouts": null,
@@ -516,6 +552,8 @@
       "order_to_buyout": null,
       "order_to_buyout_over_100": false,
       "order_to_buyout_note": "",
+      "orders_amount": null,
+      "buyouts_amount": null,
       "ads_spend": null,
       "cpo": null,
       "impressions": 0,
@@ -551,15 +589,17 @@
       }
     },
     "data_sources": {
-      "views": "totals.ads_impressions_proxy",
+      "views": "unknown",
       "add_to_cart": "unknown",
       "orders": "unknown",
       "buyouts": "unknown",
+      "orders_amount": "unknown",
+      "buyouts_amount": "unknown",
       "ads_spend": "unknown",
       "cpo": "derived"
     },
     "status": {
-      "traffic": "partial",
+      "traffic": "unknown",
       "conversion": "unknown",
       "buyout_stage": "unknown"
     },
@@ -642,6 +682,204 @@
     "insufficient_data": 0
   },
   "sales_funnel_top_problem_groups": [],
+  "finance": {
+    "revenue": null,
+    "gross_revenue": 0.0,
+    "wb_realized_revenue": 0.0,
+    "seller_payout": 0.0,
+    "revenue_basis": "seller_payout",
+    "cost_price": null,
+    "wb_commission": null,
+    "acquiring": 0.0,
+    "pvz_service": 0.0,
+    "logistics": null,
+    "storage": null,
+    "penalties": null,
+    "deductions": null,
+    "loyalty_program": 0.0,
+    "loyalty_points_withheld": 0.0,
+    "loyalty_total": 0.0,
+    "other_adjustments": 0.0,
+    "tax": 0.0,
+    "cogs": 0.0,
+    "ads_spend": null,
+    "gross_profit": null,
+    "net_profit": null,
+    "margin_pct": null,
+    "profitability_pct": null,
+    "cost_price_missing": false,
+    "wb_commission_missing": false,
+    "expense_attribution_partial": false,
+    "net_profit_partial": true,
+    "financial_margin_not_final": true,
+    "completeness_pct": 0.0,
+    "components": {
+      "revenue": {
+        "available": false,
+        "confirmed": true,
+        "source": "fallback",
+        "trusted_for_final_reporting": false
+      },
+      "commission": {
+        "available": false,
+        "confirmed": true,
+        "source": "fallback",
+        "trusted_for_final_reporting": false
+      },
+      "logistics": {
+        "available": false,
+        "confirmed": true,
+        "source": "fallback",
+        "trusted_for_final_reporting": false
+      },
+      "storage": {
+        "available": false,
+        "confirmed": true,
+        "source": "fallback",
+        "trusted_for_final_reporting": false
+      },
+      "penalties": {
+        "available": false,
+        "confirmed": true,
+        "source": "fallback",
+        "trusted_for_final_reporting": false
+      },
+      "deductions": {
+        "available": false,
+        "confirmed": true,
+        "source": "fallback",
+        "trusted_for_final_reporting": false
+      },
+      "cost_price": {
+        "available": false,
+        "confirmed": true,
+        "source": "fallback",
+        "trusted_for_final_reporting": false
+      },
+      "tax": {
+        "available": false,
+        "confirmed": true,
+        "source": "fallback",
+        "trusted_for_final_reporting": false
+      },
+      "ads_spend": {
+        "available": false,
+        "confirmed": true,
+        "source": "fallback",
+        "trusted_for_final_reporting": false
+      }
+    },
+    "available_components": 0,
+    "total_components": 9,
+    "financial_finality_status": "unavailable",
+    "is_partial": true,
+    "financial_status": "partial",
+    "financial_partial": true,
+    "basis": "buyouts",
+    "source_priority": {
+      "revenue": "fallback",
+      "seller_payout": "fallback",
+      "wb_commission": "fallback",
+      "logistics": "fallback",
+      "ads_spend": "fallback",
+      "net_profit": "fallback",
+      "acquiring": "fallback",
+      "pvz_service": "fallback",
+      "storage": "fallback",
+      "penalties": "fallback",
+      "deductions": "fallback",
+      "loyalty_program": "fallback",
+      "loyalty_points_withheld": "fallback",
+      "other_adjustments": "fallback",
+      "tax": "fallback"
+    },
+    "net_profit_formula": {
+      "revenue_basis": 0.0,
+      "cost_price": 0.0,
+      "wb_commission": 0.0,
+      "acquiring": 0.0,
+      "pvz_service": 0.0,
+      "logistics": 0.0,
+      "storage": 0.0,
+      "penalties": 0.0,
+      "deductions": 0.0,
+      "loyalty_program": 0.0,
+      "loyalty_points_withheld": 0.0,
+      "other_adjustments": 0.0,
+      "ads_spend": 0.0,
+      "tax": 0.0,
+      "net_profit": 0.0
+    },
+    "date": "2026-03-15",
+    "confirmed": false
+  },
+  "funnel": {
+    "views": null,
+    "add_to_cart": null,
+    "orders": null,
+    "buyouts": null,
+    "view_to_order_conversion": null,
+    "view_to_order": null,
+    "cart_rate": null,
+    "cart_to_order": null,
+    "buyout_rate": null,
+    "order_to_buyout": null,
+    "order_to_buyout_over_100": false,
+    "order_to_buyout_note": "",
+    "orders_amount": null,
+    "buyouts_amount": null,
+    "ads_spend": null,
+    "cpo": null,
+    "impressions": 0,
+    "clicks": 0,
+    "ctr": null,
+    "cart_count": null,
+    "cart_conversion_pct": null,
+    "cart_rate_pct": null,
+    "click_to_order_conversion_pct": null,
+    "order_to_buyout_conversion_pct": null,
+    "conversion_rates": {
+      "view_to_order": null,
+      "cart_to_order": null,
+      "order_to_buyout": null,
+      "order_to_buyout_over_100": false,
+      "order_to_buyout_note": ""
+    },
+    "marketing_layer": {
+      "basis": "orders",
+      "orders": null,
+      "ads_spend": null,
+      "cpo": null
+    },
+    "financial_layer": {
+      "basis": "buyouts",
+      "buyouts": null,
+      "revenue": 0.0,
+      "commission": 0.0,
+      "logistics": 0.0,
+      "tax": 0.0,
+      "cogs": 0.0,
+      "profit": 0.0
+    }
+  },
+  "ads": {
+    "spend": 0.0,
+    "spend_total": 0.0,
+    "impressions": 0,
+    "impressions_total": 0,
+    "clicks": 0,
+    "clicks_total": 0,
+    "ctr": 0.0,
+    "orders": 0,
+    "orders_total": 0,
+    "revenue": 0.0,
+    "revenue_total": 0.0,
+    "acos": 0.0,
+    "romi": 0.0,
+    "rows": 0,
+    "campaign_total_rows": 0,
+    "attribution_quality": "unknown"
+  },
   "profit_contribution_summary": {
     "p1_count": 0,
     "p2_count": 0,

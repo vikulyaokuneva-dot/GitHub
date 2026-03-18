@@ -1,7 +1,7 @@
 [
   {
     "code": "input_files_found",
-    "message": "Input files found: total=0, sales=0, ads=0, stocks=0, unknown=0"
+    "message": "Input files found: total=0, sales=0, ads=0, stocks=0, funnel=0, supplier_goods=0, unknown=0"
   },
   {
     "code": "input_files_missing",

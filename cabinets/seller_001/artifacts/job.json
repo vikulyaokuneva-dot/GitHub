@@ -3,8 +3,8 @@
   "mode": "daily",
   "run_date": "2026-03-15",
   "status": "partial_success",
-  "started_at": "2026-03-18T12:26:53Z",
-  "finished_at": "2026-03-18T12:26:54Z",
+  "started_at": "2026-03-18T18:08:44Z",
+  "finished_at": "2026-03-18T18:08:44Z",
   "error": "данные о продажах не получены",
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
   "source_mode": "local_reports",
@@ -45,17 +45,30 @@
     "input_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input",
     "input_files_detected": 0,
     "discovered": {
-      "sales": [],
       "ads": [],
+      "funnel": [],
+      "sales": [],
       "stocks": [],
+      "supplier_goods": [],
       "unknown": []
     },
     "details": {},
+    "archive_scan": {
+      "archives_found": 0,
+      "archives_processed": 0,
+      "archives": [],
+      "unpacked_files_count": 0,
+      "unpacked_files": [],
+      "archive_errors": []
+    },
     "supplier_goods_candidates": [],
+    "funnel_candidates": [],
     "ads_candidates": [],
     "detection_reason": "",
     "primary_sales_source": "",
     "primary_sales_columns": {},
+    "funnel_report_detected": false,
+    "funnel_source_file": "",
     "ads_file_candidates_found": 0,
     "ads_file_detected": false,
     "ads_source_file": "",
@@ -93,8 +106,21 @@
       "run_date_requested": "2026-03-15",
       "timezone": "Europe/Moscow",
       "shifted_to_previous_day": false,
+      "input_files_detected": 0,
       "local_financial_fallback_used": false,
       "financial_contour_source": "missing",
+      "funnel_source": "missing",
+      "supplier_goods_daily_found": false,
+      "local_funnel_report_found": false,
+      "local_funnel_source_file": "",
+      "archive_scan": {
+        "archives_found": 0,
+        "archives_processed": 0,
+        "archives": [],
+        "unpacked_files_count": 0,
+        "unpacked_files": [],
+        "archive_errors": []
+      },
       "probe_metrics": {
         "orders_count": null,
         "orders_amount": null,
@@ -102,14 +128,21 @@
         "views": null,
         "add_to_cart": null,
         "ads_spend": null
-      }
+      },
+      "realization_target_date": "2026-03-15",
+      "realization_actual_source_date": null,
+      "realization_fallback_used": false,
+      "realization_fallback_lag_days": 0
     },
     "ads_rows": 0,
+    "funnel_files_found": 0,
+    "supplier_goods_files_found": 0,
     "source_priority": {
-      "sales": "api.realization -> local.sales",
+      "sales": "local.daily_detailed -> api.realization -> local.sales",
       "orders_kpi_count": "supplier_goods_confirmed_count -> api.orders -> api.sales -> unknown",
       "buyouts_kpi_count": "supplier_goods_confirmed_count -> api.sales -> api.realization -> unknown",
       "stocks": "api.stocks -> local.stocks",
+      "funnel": "local.funnel_xlsx -> api.derived -> unknown",
       "ads": "api.ads_legacy -> local.ads",
       "supplier_goods_daily": "local_excel_financial_source"
     },
@@ -117,6 +150,14 @@
       "found": false,
       "input_files_detected": 0,
       "supplier_goods_candidates": [],
+      "archive_scan": {
+        "archives_found": 0,
+        "archives_processed": 0,
+        "archives": [],
+        "unpacked_files_count": 0,
+        "unpacked_files": [],
+        "archive_errors": []
+      },
       "detection_reason": ""
     },
     "data_mode": "raw_reports_fallback",
@@ -233,8 +274,21 @@
     "run_date_requested": "2026-03-15",
     "timezone": "Europe/Moscow",
     "shifted_to_previous_day": false,
+    "input_files_detected": 0,
     "local_financial_fallback_used": false,
     "financial_contour_source": "missing",
+    "funnel_source": "missing",
+    "supplier_goods_daily_found": false,
+    "local_funnel_report_found": false,
+    "local_funnel_source_file": "",
+    "archive_scan": {
+      "archives_found": 0,
+      "archives_processed": 0,
+      "archives": [],
+      "unpacked_files_count": 0,
+      "unpacked_files": [],
+      "archive_errors": []
+    },
     "probe_metrics": {
       "orders_count": null,
       "orders_amount": null,
@@ -242,7 +296,11 @@
       "views": null,
       "add_to_cart": null,
       "ads_spend": null
-    }
+    },
+    "realization_target_date": "2026-03-15",
+    "realization_actual_source_date": null,
+    "realization_fallback_used": false,
+    "realization_fallback_lag_days": 0
   },
   "daily_orders_count": 0,
   "daily_orders_amount": 0.0,
@@ -448,10 +506,10 @@
     "profitability_pct": null,
     "financial_completeness_pct": 0.0,
     "financial_partial": true,
-    "ads_rows": 0,
-    "ads_impressions": 0,
-    "ads_clicks": 0,
-    "ads_orders": 0,
+    "ads_rows": null,
+    "ads_impressions": null,
+    "ads_clicks": null,
+    "ads_orders": null,
     "ads_loaded_from_file": false,
     "ads_source_file": "",
     "ads_attribution_quality": "insufficient_data",
@@ -482,7 +540,7 @@
       "Рекомендации ниже являются гипотезами до подтверждения данных (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме; недостаточно данных по рекламе).",
       "Гипотеза: сохранить текущий курс и перепроверить показатели на следующем цикле."
     ],
-    "ai_day_conclusion": "Предварительный вывод: высокие по влиянию действия требуют подтверждения (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме; недостаточно данных по рекламе).\nВОРОНКА ПРОДАЖ:\n- Просмотры: 0, в корзину: нет данных, заказы: нет данных, выкупы: нет данных\n- Конверсия просмотр → заказ: недостаточно данных, корзина → заказ: недостаточно данных, заказ → выкуп: недостаточно данных, CPO: недостаточно данных\n- Статусы воронки: трафик — частичный, конверсия — нет данных, выкуп — нет данных",
+    "ai_day_conclusion": "Предварительный вывод: высокие по влиянию действия требуют подтверждения (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме; недостаточно данных по рекламе).\nВОРОНКА ПРОДАЖ:\n- Просмотры: нет данных, в корзину: нет данных, заказы: нет данных, выкупы: нет данных\n- Конверсия просмотр → заказ: недостаточно данных, корзина → заказ: недостаточно данных, заказ → выкуп: недостаточно данных, CPO: недостаточно данных\n- Статусы воронки: трафик — нет данных, конверсия — нет данных, выкуп — нет данных",
     "event_date_model": {
       "report_date": "2026-03-15",
       "operational_date": "2026-03-15",
@@ -545,55 +603,55 @@
         "revenue": {
           "available": false,
           "confirmed": true,
-          "source": "aggregated_rows",
+          "source": "fallback",
           "trusted_for_final_reporting": false
         },
         "commission": {
           "available": false,
           "confirmed": true,
-          "source": "aggregated_rows",
+          "source": "fallback",
           "trusted_for_final_reporting": false
         },
         "logistics": {
           "available": false,
           "confirmed": true,
-          "source": "aggregated_rows",
+          "source": "fallback",
           "trusted_for_final_reporting": false
         },
         "storage": {
           "available": false,
           "confirmed": true,
-          "source": "aggregated_rows",
+          "source": "fallback",
           "trusted_for_final_reporting": false
         },
         "penalties": {
           "available": false,
           "confirmed": true,
-          "source": "aggregated_rows",
+          "source": "fallback",
           "trusted_for_final_reporting": false
         },
         "deductions": {
           "available": false,
           "confirmed": true,
-          "source": "aggregated_rows",
+          "source": "fallback",
           "trusted_for_final_reporting": false
         },
         "cost_price": {
           "available": false,
           "confirmed": true,
-          "source": "aggregated_rows",
+          "source": "fallback",
           "trusted_for_final_reporting": false
         },
         "tax": {
           "available": false,
           "confirmed": true,
-          "source": "aggregated_rows",
+          "source": "fallback",
           "trusted_for_final_reporting": false
         },
         "ads_spend": {
           "available": false,
           "confirmed": true,
-          "source": "aggregated_rows",
+          "source": "fallback",
           "trusted_for_final_reporting": false
         }
       },
@@ -601,7 +659,26 @@
       "total_components": 9,
       "financial_finality_status": "unavailable",
       "is_partial": true,
+      "financial_status": "partial",
+      "financial_partial": true,
       "basis": "buyouts",
+      "source_priority": {
+        "revenue": "fallback",
+        "seller_payout": "fallback",
+        "wb_commission": "fallback",
+        "logistics": "fallback",
+        "ads_spend": "fallback",
+        "net_profit": "fallback",
+        "acquiring": "fallback",
+        "pvz_service": "fallback",
+        "storage": "fallback",
+        "penalties": "fallback",
+        "deductions": "fallback",
+        "loyalty_program": "fallback",
+        "loyalty_points_withheld": "fallback",
+        "other_adjustments": "fallback",
+        "tax": "fallback"
+      },
       "net_profit_formula": {
         "revenue_basis": 0.0,
         "cost_price": 0.0,
@@ -644,7 +721,7 @@
     "funnel_snapshot": {
       "date": "2026-03-15",
       "funnel": {
-        "views": 0,
+        "views": null,
         "add_to_cart": null,
         "orders": null,
         "buyouts": null,
@@ -656,6 +733,8 @@
         "order_to_buyout": null,
         "order_to_buyout_over_100": false,
         "order_to_buyout_note": "",
+        "orders_amount": null,
+        "buyouts_amount": null,
         "ads_spend": null,
         "cpo": null,
         "impressions": 0,
@@ -691,10 +770,12 @@
         }
       },
       "data_sources": {
-        "views": "totals.ads_impressions_proxy",
+        "views": "unknown",
         "add_to_cart": "unknown",
         "orders": "unknown",
         "buyouts": "unknown",
+        "orders_amount": "unknown",
+        "buyouts_amount": "unknown",
         "ads_spend": "unknown",
         "cpo": "derived"
       },
@@ -781,7 +862,7 @@
       "buyouts_count": "недостаточно данных (non-API mode)",
       "buyouts_amount": "недостаточно данных (non-API mode)",
       "avg_check": "недостаточно данных (non-API mode)",
-      "financial_revenue": "недостаточно данных",
+      "financial_revenue": "нет данных",
       "net_profit": "недостаточно данных (non-API mode)",
       "margin_pct": "недостаточно данных (non-API mode)",
       "profitability_pct": "недостаточно данных (non-API mode)"
@@ -828,7 +909,7 @@
   "warnings": [
     {
       "code": "input_files_found",
-      "message": "Input files found: total=0, sales=0, ads=0, stocks=0, unknown=0"
+      "message": "Input files found: total=0, sales=0, ads=0, stocks=0, funnel=0, supplier_goods=0, unknown=0"
     },
     {
       "code": "input_files_missing",
@@ -928,10 +1009,12 @@
     }
   ],
   "email_attempted": true,
-  "email_sent": false,
+  "email_sent": true,
   "email_to": "vi***@yandex.ru",
-  "email_error": "EMAIL DELIVERY FAILED [connect]: SMTP connection blocked by runtime environment ([WinError 10013] Сделана попытка доступа к сокету методом, запрещенным правами доступа)",
-  "email_stage": "connect",
-  "email_transport_status": "failed",
-  "email_failure_reason_normalized": "SMTP connection blocked by runtime environment"
+  "email_error": null,
+  "email_stage": "send",
+  "email_transport_status": "success",
+  "email_failure_reason_normalized": "",
+  "email_subject": "WB ИИ-агент v3 — управленческое резюме: seller_001 (2026-03-15)",
+  "email_body_text": "Управленческое резюме WB ИИ-агент v3\nКабинет: seller_001\nДата отчета: 2026-03-15\nОперационный день: 2026-03-15\n\nОтчет собран в ограниченном режиме по raw-отчетам WB, часть метрик может быть недоступна до подключения API\n\nКЛЮЧЕВЫЕ ПОКАЗАТЕЛИ\n- Заказы: недостаточно данных (non-API mode)\n- Выкупы: недостаточно данных (non-API mode)\n- Заказы, сумма: недостаточно данных (non-API mode)\n- Выкупы, сумма: недостаточно данных (non-API mode)\n- Средний чек: недостаточно данных (non-API mode)\n- Конверсия просмотр → заказ: недостаточно данных (non-API mode)\n- Конверсия заказ → выкуп: недостаточно данных (non-API mode)\n\nФИНАНСОВЫЕ ПОКАЗАТЕЛИ\n- К перечислению продавцу: нет данных\n- Чистая прибыль: недостаточно данных\n- Маржа: недостаточно данных (non-API mode)\n- Рентабельность: недостаточно данных (non-API mode)\n\nГЛАВНЫЕ ВЫВОДЫ\n- Отчет собран в ограниченном режиме по raw-отчетам WB, часть метрик может быть недоступна до подключения API.\n- Финансовые показатели за день предварительные и требуют повторной проверки после финализации данных.\n- Рекомендации переведены в режим гипотез до подтверждения качества данных.\n\nРЕКОМЕНДАЦИИ\n- Фокусироваться только на подтвержденных финансовых событиях до подключения API.\n- Рекомендации ниже являются гипотезами до подтверждения данных (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме; недостаточно данных по рекламе).\n- Гипотеза: сохранить текущий курс и перепроверить показатели на следующем цикле.\n\nВЫВОД ДНЯ\nПредварительный вывод: высокие по влиянию действия требуют подтверждения (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме; недостаточно данных по рекламе).\n\nДетали в PDF."
 }

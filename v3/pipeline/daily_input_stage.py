@@ -1,8 +1,8 @@
 ﻿from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from datetime import date, datetime, timedelta
+from typing import Any, Callable, Dict, List
 
 from ..domain.event_model import build_event_date_model
 from .daily_stage_support import sync_from_entry
@@ -83,6 +83,84 @@ def _log_api_probe_metrics(metrics: Dict[str, Any]) -> None:
     )
     if any(metrics.get(key) is None for key in ("orders_count", "orders_amount", "buyouts", "views", "add_to_cart", "ads_spend")):
         print("API DATA MISSING")
+
+
+def _parse_iso_date(value: Any) -> date | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.strptime(text[:10], "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _load_realization_with_lag(
+    *,
+    client: Any,
+    date_from: str,
+    date_to: str,
+    max_lag_days: int,
+    loader: Callable[..., Dict[str, Any]],
+) -> Dict[str, Any]:
+    safe_lag = max(int(max_lag_days or 0), 0)
+    parsed_from = _parse_iso_date(date_from)
+    parsed_to = _parse_iso_date(date_to) or parsed_from
+    if parsed_from is None or parsed_to is None:
+        bundle = loader(client, date_from=date_from, date_to=date_to)
+        return {
+            "bundle": bundle if isinstance(bundle, dict) else {"rows": [], "api_debug": {}},
+            "attempts": [bundle.get("api_debug", {})] if isinstance(bundle, dict) and isinstance(bundle.get("api_debug"), dict) else [],
+            "target_date": str(date_to or date_from),
+            "actual_source_date": str(date_to or date_from),
+            "fallback_used": False,
+            "fallback_lag_days": 0,
+        }
+
+    target_date = parsed_to.isoformat()
+    selected_bundle: Dict[str, Any] = {}
+    attempts: List[Dict[str, Any]] = []
+    selected_source_date = target_date
+    selected_lag_days = 0
+    bundle_last: Dict[str, Any] = {}
+
+    for lag in range(0, safe_lag + 1):
+        attempt_from = (parsed_from - timedelta(days=lag)).isoformat()
+        attempt_to = (parsed_to - timedelta(days=lag)).isoformat()
+        bundle = loader(client, date_from=attempt_from, date_to=attempt_to)
+        bundle_last = bundle if isinstance(bundle, dict) else {"rows": [], "api_debug": {}}
+        attempt_debug = bundle_last.get("api_debug", {})
+        if not isinstance(attempt_debug, dict):
+            attempt_debug = {}
+        attempt_payload = dict(attempt_debug)
+        attempt_payload["realization_lag_days"] = lag
+        attempt_payload["realization_attempt_date_from"] = attempt_from
+        attempt_payload["realization_attempt_date_to"] = attempt_to
+        attempt_payload["realization_target_date"] = target_date
+        attempts.append(attempt_payload)
+
+        rows = bundle_last.get("rows", [])
+        if isinstance(rows, list) and rows:
+            selected_bundle = bundle_last
+            selected_source_date = attempt_to
+            selected_lag_days = lag
+            break
+
+    if not selected_bundle:
+        selected_bundle = bundle_last if isinstance(bundle_last, dict) else {"rows": [], "api_debug": {}}
+        selected_source_date = target_date
+        selected_lag_days = 0
+
+    selected_rows = selected_bundle.get("rows", [])
+    has_selected_rows = isinstance(selected_rows, list) and len(selected_rows) > 0
+    return {
+        "bundle": selected_bundle,
+        "attempts": attempts,
+        "target_date": target_date,
+        "actual_source_date": selected_source_date if has_selected_rows else None,
+        "fallback_used": bool(has_selected_rows and selected_lag_days > 0),
+        "fallback_lag_days": int(selected_lag_days if has_selected_rows else 0),
+    }
 
 
 def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict[str, Any]:
@@ -193,11 +271,38 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         api_endpoint_debug: List[Dict[str, Any]] = []
         client = WBApiClient(token)
 
-        realization_bundle = load_realization_from_api(client, date_from=date_from, date_to=date_to)
+        try:
+            max_finance_lag_days = max(int(os.environ.get("WB_MAX_FINANCE_LAG_DAYS", "3") or 3), 0)
+        except Exception:
+            max_finance_lag_days = 3
+        realization_attempt = _load_realization_with_lag(
+            client=client,
+            date_from=date_from,
+            date_to=date_to,
+            max_lag_days=max_finance_lag_days,
+            loader=load_realization_from_api,
+        )
+        realization_bundle = realization_attempt.get("bundle", {})
+        if not isinstance(realization_bundle, dict):
+            realization_bundle = {"rows": [], "api_debug": {}}
         api_realization_rows = list(realization_bundle.get("rows", []))
-        realization_debug = realization_bundle.get("api_debug", {})
-        if isinstance(realization_debug, dict):
-            api_endpoint_debug.append(realization_debug)
+        realization_attempt_debug = realization_attempt.get("attempts", [])
+        if isinstance(realization_attempt_debug, list):
+            api_endpoint_debug.extend(
+                [dict(item) for item in realization_attempt_debug if isinstance(item, dict)]
+            )
+        realization_target_date = str(realization_attempt.get("target_date") or date_to or date_from)
+        realization_actual_source_date = realization_attempt.get("actual_source_date")
+        if realization_actual_source_date is not None:
+            realization_actual_source_date = str(realization_actual_source_date)
+        realization_fallback_used = bool(realization_attempt.get("fallback_used", False))
+        realization_fallback_lag_days = int(realization_attempt.get("fallback_lag_days", 0) or 0)
+        if realization_fallback_used and realization_actual_source_date:
+            warnings_collector.add_warning(
+                "wb_api_realization_lag_fallback_used",
+                "WB realization data loaded with lag fallback from "
+                f"{realization_actual_source_date} (target {realization_target_date}, lag {realization_fallback_lag_days} days).",
+            )
 
         sales_bundle = load_sales_from_api(client, date_from=date_from, date_to=date_to)
         api_sales_rows = list(sales_bundle.get("rows", []))
@@ -253,10 +358,22 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
                 }
             )
 
+        endpoint_status: Dict[str, Dict[str, bool]] = {}
+        for item in api_endpoint_debug:
+            if not isinstance(item, dict):
+                continue
+            endpoint_name = str(item.get("endpoint") or "").strip()
+            if not endpoint_name:
+                continue
+            state = endpoint_status.setdefault(endpoint_name, {"success": False, "fail": False})
+            if bool(item.get("success", False)):
+                state["success"] = True
+            if not bool(item.get("success", False)):
+                state["fail"] = True
         failed_endpoints = [
-            str(item.get("endpoint") or "")
-            for item in api_endpoint_debug
-            if isinstance(item, dict) and not bool(item.get("success", False))
+            endpoint_name
+            for endpoint_name, state in endpoint_status.items()
+            if bool(state.get("fail", False)) and not bool(state.get("success", False))
         ]
         if failed_endpoints:
             warnings_collector.add_warning(
@@ -340,7 +457,11 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         financial_contour_source = (
             "local_report"
             if local_financial_fallback_used
-            else ("api.realization" if api_realization_rows else "missing")
+            else (
+                "api.realization_fallback"
+                if (api_realization_rows and realization_fallback_used)
+                else ("api.realization" if api_realization_rows else "missing")
+            )
         )
         funnel_contour_source = "local_report" if local_funnel_found else ("api" if api_ads_rows else "missing")
 
@@ -366,6 +487,10 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "local_funnel_source_file": local_funnel_source_file,
             "archive_scan": local_archive_scan if isinstance(local_archive_scan, dict) else {},
             "probe_metrics": api_probe,
+            "realization_target_date": realization_target_date,
+            "realization_actual_source_date": realization_actual_source_date,
+            "realization_fallback_used": realization_fallback_used,
+            "realization_fallback_lag_days": realization_fallback_lag_days,
         }
         print(
             "[wb] rows_loaded "
@@ -447,6 +572,10 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "local_funnel_source_file": local_funnel_source_file,
             "archive_scan": local_archive_scan if isinstance(local_archive_scan, dict) else {},
             "probe_metrics": api_probe,
+            "realization_target_date": run_date,
+            "realization_actual_source_date": None,
+            "realization_fallback_used": False,
+            "realization_fallback_lag_days": 0,
         }
         _log_api_probe_metrics(api_probe)
         print(
