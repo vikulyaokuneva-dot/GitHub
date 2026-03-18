@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, is_dataclass
+from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -19,8 +20,12 @@ from ...core.contracts import DecisionsBundle, FactsBundle
 def _to_serializable(value: Any) -> Any:
     if is_dataclass(value):
         return _to_serializable(asdict(value))
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
     if isinstance(value, Enum):
         return value.value
+    if isinstance(value, Path):
+        return str(value)
     if isinstance(value, dict):
         return {str(key): _to_serializable(item) for key, item in value.items()}
     if isinstance(value, (list, tuple, set)):
@@ -80,4 +85,3 @@ def save_artifact_payloads(payloads: dict[str, Any], output_dir: str) -> dict[st
         )
         written[payload_key] = str(target)
     return written
-
