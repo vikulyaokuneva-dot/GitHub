@@ -112,16 +112,40 @@ class FunnelMetricsSection:
 
 
 @dataclass
+class AdsMetricsSection:
+    """Ads contour metrics with campaigns/stats source separation."""
+
+    campaigns_count: MetricValue = field(default_factory=_default_unavailable_metric)
+    active_campaigns_count: MetricValue = field(default_factory=_default_unavailable_metric)
+
+    impressions: MetricValue = field(default_factory=_default_unavailable_metric)
+    clicks: MetricValue = field(default_factory=_default_unavailable_metric)
+    spend: MetricValue = field(default_factory=_default_unavailable_metric)
+
+    ctr: MetricValue = field(default_factory=_default_unavailable_metric)
+    cpc: MetricValue = field(default_factory=_default_unavailable_metric)
+
+    orders: MetricValue = field(default_factory=_default_unavailable_metric)
+    revenue: MetricValue = field(default_factory=_default_unavailable_metric)
+    conversion_click_to_order: MetricValue = field(default_factory=_default_unavailable_metric)
+
+    source_quality: dict[str, str] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    note: str | None = None
+
+
+@dataclass
 class MetricsBundle:
     """Top-level metrics payload for downstream layers.
 
-    On this stage, only financial and daily sections are assembled.
+    On this stage, financial, daily, funnel, and ads sections are assembled.
     """
 
     run_context: RunContext
     financial: FinancialMetricsSection | None = None
     daily: DailyMetricsSection | None = None
     funnel: FunnelMetricsSection | None = None
+    ads: AdsMetricsSection | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
     source_flags: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
@@ -147,4 +171,5 @@ class MetricsBundle:
             "financial": self.financial,
             "daily": self.daily,
             "funnel": self.funnel,
+            "ads": self.ads,
         }

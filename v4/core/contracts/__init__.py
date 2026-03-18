@@ -23,6 +23,7 @@ from .normalized import (
     NormalizedStockRecord,
 )
 from .metrics import (
+    AdsMetricsSection,
     DailyMetricsSection,
     FinancialMetricsSection,
     FunnelMetricsSection,
@@ -58,6 +59,7 @@ __all__ = [
     "FinancialMetricsSection",
     "DailyMetricsSection",
     "FunnelMetricsSection",
+    "AdsMetricsSection",
     "MetricsBundle",
     "FactsBundle",
     "DecisionItem",
