@@ -11,7 +11,17 @@ from .raw import (
     SourceStatusCode,
     coerce_iso_date,
 )
-from .normalized import NormalizedBundle, NormalizedRecord
+from .normalized import (
+    NormalizedAdsCampaignRecord,
+    NormalizedAdsStatRecord,
+    NormalizedBundle,
+    NormalizedFunnelRecord,
+    NormalizedOrderRecord,
+    NormalizedRealizationRecord,
+    NormalizedRecord,
+    NormalizedSaleRecord,
+    NormalizedStockRecord,
+)
 from .metrics import MetricValue, MetricsBundle
 from .facts import FactsBundle
 from .decisions import DecisionItem, DecisionsBundle
@@ -27,8 +37,15 @@ __all__ = [
     "SourceStatus",
     "SourceStatusCode",
     "coerce_iso_date",
-    "NormalizedBundle",
     "NormalizedRecord",
+    "NormalizedOrderRecord",
+    "NormalizedSaleRecord",
+    "NormalizedRealizationRecord",
+    "NormalizedStockRecord",
+    "NormalizedAdsCampaignRecord",
+    "NormalizedAdsStatRecord",
+    "NormalizedFunnelRecord",
+    "NormalizedBundle",
     "MetricValue",
     "MetricsBundle",
     "FactsBundle",
