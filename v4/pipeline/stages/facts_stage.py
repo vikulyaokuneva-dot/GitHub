@@ -1,17 +1,18 @@
-"""Facts Stage skeleton.
+"""Facts stage for v4 pipeline.
 
-Input: stage context payload.
-Output: stage context payload.
-Does not execute production logic in stage 1.
+Input: MetricsBundle.
+Output: FactsBundle.
+Does not execute decisions/output stages.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from ...core.contracts import FactsBundle, MetricsBundle
+from ...outputs.facts.builder import build_facts_bundle
 
 
-def run(context: Dict[str, Any]) -> Dict[str, Any]:
-    out = dict(context or {})
-    out.setdefault("stage_trace", []).append("facts_stage")
-    out["status"] = "not_implemented"
-    return out
+def run(metrics_bundle: MetricsBundle) -> FactsBundle:
+    if not isinstance(metrics_bundle, MetricsBundle):
+        raise TypeError("facts_stage.run expects MetricsBundle")
+    return build_facts_bundle(metrics_bundle)
+

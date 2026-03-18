@@ -32,7 +32,7 @@ from .metrics import (
     MetricsBundle,
     StockMetricsSection,
 )
-from .facts import FactsBundle
+from .facts import FactItem, FactSection, FactsBundle, FactValue
 from .decisions import DecisionItem, DecisionsBundle
 from .report import ReportPayload
 
@@ -63,6 +63,9 @@ __all__ = [
     "AdsMetricsSection",
     "StockMetricsSection",
     "MetricsBundle",
+    "FactValue",
+    "FactItem",
+    "FactSection",
     "FactsBundle",
     "DecisionItem",
     "DecisionsBundle",
