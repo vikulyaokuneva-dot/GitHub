@@ -14,6 +14,48 @@ from ..pipeline.facts_payload_builder import (
 from ..sources.wb_reports_loader import build_facts_from_reports
 
 
+def _dict_or_empty(value: Any) -> Dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _build_facts_sections_from_metrics(
+    *,
+    metrics: Dict[str, Any],
+    financial_kpi: Dict[str, Any],
+    ads_summary: Dict[str, Any],
+    data_quality: Dict[str, Any],
+) -> Dict[str, Any]:
+    safe_metrics = metrics if isinstance(metrics, dict) else {}
+
+    finance_source = (
+        safe_metrics.get("financial_kpi")
+        if isinstance(safe_metrics.get("financial_kpi"), dict)
+        else (financial_kpi if isinstance(financial_kpi, dict) else {})
+    )
+
+    sales_funnel = safe_metrics.get("sales_funnel")
+    if not isinstance(sales_funnel, dict):
+        sales_funnel = {}
+    funnel_source: Dict[str, Any] = {}
+    if isinstance(sales_funnel.get("funnel"), dict):
+        funnel_source = dict(sales_funnel.get("funnel") or {})
+    elif isinstance(safe_metrics.get("funnel"), dict):
+        funnel_source = dict(safe_metrics.get("funnel") or {})
+
+    ads_source = (
+        safe_metrics.get("ads")
+        if isinstance(safe_metrics.get("ads"), dict)
+        else (ads_summary if isinstance(ads_summary, dict) else {})
+    )
+
+    return {
+        "finance": _dict_or_empty(finance_source),
+        "funnel": _dict_or_empty(funnel_source),
+        "ads": _dict_or_empty(ads_source),
+        "data_quality": _dict_or_empty(data_quality),
+    }
+
+
 def build_daily_facts_base(
     *,
     seller_id: str,
@@ -100,6 +142,21 @@ def build_daily_facts_base(
     )
     if isinstance(patched_data_quality, dict):
         facts["data_quality"] = patched_data_quality
+    sections = _build_facts_sections_from_metrics(
+        metrics=metrics if isinstance(metrics, dict) else {},
+        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+        ads_summary=ads_summary if isinstance(ads_summary, dict) else {},
+        data_quality=(
+            patched_data_quality
+            if isinstance(patched_data_quality, dict)
+            else (metrics.get("data_quality") if isinstance(metrics, dict) and isinstance(metrics.get("data_quality"), dict) else {})
+        ),
+    )
+    facts["finance"] = _dict_or_empty(sections.get("finance"))
+    facts["funnel"] = _dict_or_empty(sections.get("funnel"))
+    facts["ads"] = _dict_or_empty(sections.get("ads"))
+    if isinstance(sections.get("data_quality"), dict):
+        facts["data_quality"] = dict(sections.get("data_quality") or {})
     return facts
 
 
