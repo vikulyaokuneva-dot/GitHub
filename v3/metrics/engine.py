@@ -65,6 +65,30 @@ def _to_metrics_stock_rows(rows: List[NormalizedStockRow]) -> List[Dict[str, Any
     return out
 
 
+def _dict_or_empty(value: Any) -> Dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def _funnel_snapshot(metrics: Dict[str, Any]) -> Dict[str, Any]:
+    safe_metrics = metrics if isinstance(metrics, dict) else {}
+    sales_funnel = safe_metrics.get("sales_funnel")
+    if isinstance(sales_funnel, dict):
+        embedded = sales_funnel.get("funnel")
+        if isinstance(embedded, dict):
+            return dict(embedded)
+    funnel = safe_metrics.get("funnel")
+    return dict(funnel) if isinstance(funnel, dict) else {}
+
+
+def _has_funnel_data(funnel: Dict[str, Any]) -> bool:
+    if not isinstance(funnel, dict) or not funnel:
+        return False
+    for key in ("views", "add_to_cart", "orders", "buyouts", "view_to_order_conversion", "buyout_rate"):
+        if funnel.get(key) is not None:
+            return True
+    return False
+
+
 def build_metrics_from_normalized(bundle: NormalizedBundle) -> Dict[str, Any]:
     sales_rows = _to_metrics_sales_rows(bundle.sales)
     ads_rows = _to_metrics_ads_rows(bundle.ads)
@@ -83,4 +107,62 @@ def build_metrics_from_normalized(bundle: NormalizedBundle) -> Dict[str, Any]:
         }
     )
     metrics["layer_trace"] = layer_trace
+
+    financial_kpi = _dict_or_empty(metrics.get("financial_kpi"))
+    financial_block = _dict_or_empty(metrics.get("financial"))
+    if not financial_block:
+        financial_block = {
+            "revenue": financial_kpi.get("revenue"),
+            "seller_payout": financial_kpi.get("seller_payout"),
+            "commission": financial_kpi.get("wb_commission"),
+            "logistics": financial_kpi.get("logistics"),
+            "ads": financial_kpi.get("ads_spend"),
+            "profit": financial_kpi.get("net_profit"),
+            "financial_status": financial_kpi.get("financial_status"),
+            "financial_partial": financial_kpi.get("financial_partial"),
+        }
+    else:
+        financial_block.setdefault("revenue", financial_kpi.get("revenue"))
+        financial_block.setdefault("seller_payout", financial_kpi.get("seller_payout"))
+        financial_block.setdefault("commission", financial_kpi.get("wb_commission"))
+        financial_block.setdefault("logistics", financial_kpi.get("logistics"))
+        financial_block.setdefault("ads", financial_kpi.get("ads_spend"))
+        financial_block.setdefault("profit", financial_kpi.get("net_profit"))
+        financial_block.setdefault("financial_status", financial_kpi.get("financial_status"))
+        financial_block.setdefault("financial_partial", financial_kpi.get("financial_partial"))
+    metrics["financial"] = financial_block
+
+    funnel_block = _funnel_snapshot(metrics)
+    metrics["funnel"] = funnel_block
+
+    ads_block = _dict_or_empty(metrics.get("ads"))
+    if not ads_block:
+        ads_summary = _dict_or_empty(metrics.get("ads_diagnostics"))
+        ads_block = {
+            "spend": financial_kpi.get("ads_spend"),
+            "rows": len(ads_rows),
+            "diagnostics": ads_summary,
+        }
+    metrics["ads"] = ads_block
+
+    sales_rows_count = len(sales_rows)
+    ads_rows_count = len(ads_rows)
+    stocks_rows_count = len(stocks_rows)
+    diagnostics = _dict_or_empty(metrics.get("diagnostics"))
+    diagnostics.update(
+        {
+            "has_daily_report": bool(sales_rows_count > 0),
+            "has_funnel": bool(_has_funnel_data(funnel_block)),
+            "rows": {
+                "sales_rows": int(sales_rows_count),
+                "ads_rows": int(ads_rows_count),
+                "stocks_rows": int(stocks_rows_count),
+                "orders_api_rows": int(len(bundle.orders_api)),
+                "sales_api_rows": int(len(bundle.sales_api)),
+                "realization_api_rows": int(len(bundle.realization_api)),
+                "supplier_goods_financial_rows": int(len(bundle.supplier_goods_financial)),
+            },
+        }
+    )
+    metrics["diagnostics"] = diagnostics
     return metrics
