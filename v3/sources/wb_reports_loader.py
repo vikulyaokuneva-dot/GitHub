@@ -810,6 +810,161 @@ def _read_table(path: str, max_rows: int | None = None) -> Tuple[List[str], List
     return _read_xls_table(path, max_rows=max_rows)
 
 
+def parse_funnel_report_xlsx(path: str) -> Dict[str, Any]:
+    totals: Dict[str, float] = {
+        "views": 0.0,
+        "add_to_cart": 0.0,
+        "orders": 0.0,
+        "buyouts": 0.0,
+        "orders_amount": 0.0,
+        "buyouts_amount": 0.0,
+    }
+    empty_result: Dict[str, Any] = {"cabinet_totals": dict(totals), "sku_rows": []}
+
+    ext = os.path.splitext(path)[1].lower()
+    if ext not in EXCEL_EXTENSIONS:
+        return empty_result
+
+    field_tokens: Dict[str, Tuple[str, ...]] = {
+        "sku": ("артикул_wb", "артикул wb", "артикулwb", "nm_id", "nmid"),
+        "views": ("показы",),
+        "add_to_cart": ("положили_в_корзину", "добавили_в_корзину", "в_корзину"),
+        "orders": ("заказали_шт", "заказали,шт", "заказали"),
+        "buyouts": ("выкупили_шт", "выкупили,шт", "выкупили"),
+        "orders_amount": ("заказали_на_сумму", "заказали_на_сумму_руб", "заказали_на_сумму"),
+        "buyouts_amount": ("выкупили_на_сумму", "выкупили_на_сумму_руб", "выкупили_на_сумму"),
+    }
+    required_fields = ("sku", "views", "add_to_cart", "orders", "buyouts")
+
+    def _resolve_field_map(header_tokens: List[str]) -> Dict[str, int]:
+        mapping: Dict[str, int] = {}
+        for field, variants in field_tokens.items():
+            normalized_variants = [_normalize_text(v) for v in variants if str(v).strip()]
+            found_index = -1
+            for idx, token in enumerate(header_tokens):
+                if not token:
+                    continue
+                if any(var == token or var in token for var in normalized_variants):
+                    found_index = idx
+                    break
+            if found_index >= 0:
+                mapping[field] = found_index
+        return mapping
+
+    if pd is not None:
+        workbook = pd.ExcelFile(path)
+        sheet_names = [str(name) for name in list(workbook.sheet_names or [])]
+        target_sheet = sheet_names[0] if sheet_names else 0
+        for sheet_name in sheet_names:
+            if "товар" in _normalize_text(sheet_name):
+                target_sheet = sheet_name
+                break
+
+        frame = workbook.parse(sheet_name=target_sheet, header=None)
+        if frame.empty:
+            return empty_result
+
+        max_scan = min(40, len(frame.index))
+        best_mapping: Dict[str, int] = {}
+        best_data_start = 0
+        best_score = -1
+
+        for i in range(max_scan):
+            row_single = [str(x).strip() if str(x).strip().lower() != "nan" else "" for x in list(frame.iloc[i].tolist())]
+            single_tokens = [_normalize_text(x) if x else "" for x in row_single]
+            single_mapping = _resolve_field_map(single_tokens)
+            single_score = sum(1 for key in required_fields if key in single_mapping)
+            if single_score > best_score:
+                best_score = single_score
+                best_mapping = single_mapping
+                best_data_start = i + 1
+
+            if i + 1 >= len(frame.index):
+                continue
+            row_next = [str(x).strip() if str(x).strip().lower() != "nan" else "" for x in list(frame.iloc[i + 1].tolist())]
+            joined_headers: List[str] = []
+            max_len = max(len(row_single), len(row_next))
+            for idx in range(max_len):
+                left = row_single[idx] if idx < len(row_single) else ""
+                right = row_next[idx] if idx < len(row_next) else ""
+                joined = f"{left} {right}".strip() if left or right else ""
+                joined_headers.append(joined)
+            double_tokens = [_normalize_text(x) if x else "" for x in joined_headers]
+            double_mapping = _resolve_field_map(double_tokens)
+            double_score = sum(1 for key in required_fields if key in double_mapping)
+            if double_score > best_score:
+                best_score = double_score
+                best_mapping = double_mapping
+                best_data_start = i + 2
+
+        if best_score <= 0 or "sku" not in best_mapping:
+            return empty_result
+
+        sku_rows: List[Dict[str, Any]] = []
+        for row_idx in range(best_data_start, len(frame.index)):
+            row_vals = list(frame.iloc[row_idx].tolist())
+            sku_idx = best_mapping.get("sku", -1)
+            if sku_idx < 0 or sku_idx >= len(row_vals):
+                continue
+            sku_raw = row_vals[sku_idx]
+            sku_text = str(sku_raw).strip()
+            if not sku_text or sku_text.lower() == "nan":
+                continue
+
+            row_item: Dict[str, Any] = {"sku": sku_text}
+            has_metric = False
+            for metric in ("views", "add_to_cart", "orders", "buyouts", "orders_amount", "buyouts_amount"):
+                metric_idx = best_mapping.get(metric, -1)
+                if metric_idx < 0 or metric_idx >= len(row_vals):
+                    continue
+                number = _as_float(row_vals[metric_idx])
+                if number is None:
+                    continue
+                row_item[metric] = float(number)
+                totals[metric] += float(number)
+                has_metric = True
+
+            if not has_metric:
+                continue
+            sku_rows.append(row_item)
+
+        return {"cabinet_totals": dict(totals), "sku_rows": sku_rows}
+
+    columns, records = _read_table(path)
+    if not columns or not records:
+        return empty_result
+    normalized_columns, normalized_rows = _normalize_records(columns, records)
+
+    fallback_mapping = _resolve_field_map(normalized_columns)
+    if "sku" not in fallback_mapping:
+        return empty_result
+
+    sku_rows_fallback: List[Dict[str, Any]] = []
+    for row in normalized_rows:
+        sku_col = normalized_columns[fallback_mapping["sku"]]
+        sku_text = str(row.get(sku_col) or "").strip()
+        if not sku_text or sku_text.lower() == "nan":
+            continue
+        row_item: Dict[str, Any] = {"sku": sku_text}
+        has_metric = False
+        for metric in ("views", "add_to_cart", "orders", "buyouts", "orders_amount", "buyouts_amount"):
+            metric_idx = fallback_mapping.get(metric, -1)
+            if metric_idx < 0:
+                continue
+            metric_col = normalized_columns[metric_idx]
+            number = _as_float(row.get(metric_col))
+            if number is None:
+                continue
+            row_item[metric] = float(number)
+            totals[metric] += float(number)
+            has_metric = True
+        if not has_metric:
+            continue
+        sku_rows_fallback.append(row_item)
+
+    return {"cabinet_totals": dict(totals), "sku_rows": sku_rows_fallback}
+
+
 def _match_supplier_goods_column(columns: List[str], variants: Tuple[str, ...]) -> str:
     normalized_variants = {_normalize_text(item) for item in variants if str(item).strip()}
     if not normalized_variants:
