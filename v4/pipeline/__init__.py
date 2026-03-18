@@ -1,1 +1,5 @@
-"""pipeline package for v4 skeleton."""
+"""Pipeline package exports."""
+
+from .contracts import PipelineRunResult
+
+__all__ = ["PipelineRunResult"]

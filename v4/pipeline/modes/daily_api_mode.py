@@ -26,7 +26,15 @@ MODE_DESCRIPTOR = ModeDescriptor(
     mode=RunMode.DAILY_API,
     required_sources=("orders", "sales", "realization"),
     optional_sources=("stocks", "ads", "funnel"),
-    available_blocks=("raw_ingestion", "diagnostics"),
+    available_blocks=(
+        "raw_ingestion",
+        "normalization",
+        "metrics",
+        "facts",
+        "decisions",
+        "outputs",
+        "diagnostics",
+    ),
 )
 
 
