@@ -104,7 +104,14 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         print("WB API token not configured in environment")
         warnings_collector.add_warning("wb_token_missing", "WB API token not configured in environment")
 
-    discovered_files: Dict[str, List[str]] = {"sales": [], "ads": [], "stocks": [], "unknown": []}
+    discovered_files: Dict[str, List[str]] = {
+        "sales": [],
+        "ads": [],
+        "stocks": [],
+        "funnel": [],
+        "supplier_goods": [],
+        "unknown": [],
+    }
     input_debug: Dict[str, Any] = {}
     api_debug: Dict[str, Any] = {}
     sales_rows: List[Dict[str, Any]] = []
@@ -122,7 +129,38 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     ads_source_file = ""
     ads_rows_count = 0
     ads_attribution_quality = "unknown"
+    local_bundle = load_local_reports(seller_input_dir)
+    if isinstance(local_bundle.get("files"), dict):
+        discovered_files = dict(local_bundle.get("files") or discovered_files)
+    local_input_debug = local_bundle.get("debug", {}) if isinstance(local_bundle.get("debug"), dict) else {}
+    local_sales_rows = list(local_bundle.get("sales_rows", []))
+    local_ads_rows = list(local_bundle.get("ads_rows", []))
+    local_stocks_rows = list(local_bundle.get("stocks_rows", []))
+    local_warnings = list(local_bundle.get("warnings", [])) if isinstance(local_bundle.get("warnings"), list) else []
+
     supplier_goods_daily = load_supplier_goods_daily_kpi(seller_input_dir)
+    local_input_files_detected = int(local_input_debug.get("input_files_detected", 0) or 0)
+    local_funnel_found = bool(local_input_debug.get("funnel_report_detected", False))
+    local_funnel_source_file = str(local_input_debug.get("funnel_source_file") or "")
+    local_archive_scan = (
+        local_input_debug.get("archive_scan", {})
+        if isinstance(local_input_debug.get("archive_scan"), dict)
+        else {}
+    )
+
+    print(
+        "[input] local_scan "
+        f"input_files_detected={local_input_files_detected} "
+        f"supplier_goods_found={str(bool(supplier_goods_daily.get('found', False))).lower()} "
+        f"funnel_found={str(local_funnel_found).lower()} "
+        f"archives_unpacked={int(local_archive_scan.get('unpacked_files_count', 0) or 0)}"
+    )
+    if local_archive_scan.get("archive_errors"):
+        warnings_collector.add_warning(
+            "input_archive_extract_error",
+            "Archive extraction errors: "
+            + "; ".join(str(item) for item in list(local_archive_scan.get("archive_errors", []))[:5]),
+        )
     api_probe = _api_probe_metrics(
         api_orders_rows=api_orders_rows,
         api_sales_rows=api_sales_rows,
@@ -243,69 +281,48 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
                 "WB API sales rows are present, but realization rows are empty; financial contour is not confirmed.",
             )
 
-        need_local_sales = not sales_rows
+        local_financial_report_found = bool(local_sales_rows) or bool(supplier_goods_daily.get("found", False))
+        if local_sales_rows:
+            sales_rows = list(local_sales_rows)
+            local_financial_fallback_used = True
+            warnings_collector.add_warning(
+                "wb_local_sales_fallback_used",
+                "Local WB detailed report was selected as primary financial source.",
+            )
+        elif local_financial_report_found:
+            local_financial_fallback_used = True
+            warnings_collector.add_warning(
+                "wb_local_financial_kpi_detected",
+                "Local WB detailed KPI report detected and used for financial fallback.",
+            )
+
         need_local_ads = not ads_rows
         need_local_stocks = not stocks_rows
-        if need_local_sales or need_local_ads or need_local_stocks:
-            local_bundle = load_local_reports(seller_input_dir)
-            discovered_files = local_bundle.get("files", discovered_files)
-            local_sales_rows = list(local_bundle.get("sales_rows", []))
-            local_ads_rows = list(local_bundle.get("ads_rows", []))
-            local_stocks_rows = list(local_bundle.get("stocks_rows", []))
-            local_warnings = list(local_bundle.get("warnings", []))
-            local_debug = local_bundle.get("debug", {}) if isinstance(local_bundle.get("debug"), dict) else {}
-            if isinstance(local_debug, dict):
-                local_input_debug = local_debug
-
-            if need_local_sales and local_sales_rows:
-                sales_rows = local_sales_rows
-                local_financial_fallback_used = True
+        if need_local_ads:
+            if local_ads_rows:
+                ads_rows = list(local_ads_rows)
+                ads_loaded_from_file = bool(local_input_debug.get("ads_loaded_from_file", len(local_ads_rows) > 0))
+                ads_source_file = str(local_input_debug.get("ads_source_file") or "")
                 warnings_collector.add_warning(
-                    "wb_local_sales_fallback_used",
-                    "WB API sales data is empty; local sales files were used as fallback.",
+                    "wb_local_ads_fallback_used",
+                    "WB API ads data is empty; local ads files were used as fallback.",
                 )
-            if need_local_ads:
-                if local_ads_rows:
-                    ads_rows = local_ads_rows
-                    ads_loaded_from_file = bool(local_debug.get("ads_loaded_from_file", len(local_ads_rows) > 0))
-                    ads_source_file = str(local_debug.get("ads_source_file") or "")
-                    warnings_collector.add_warning(
-                        "wb_local_ads_fallback_used",
-                        "WB API ads data is empty; local ads files were used as fallback.",
-                    )
-                elif bool(local_debug.get("ads_file_detected", False)):
-                    warnings_collector.add_warning(
-                        "ads_file_detected_but_not_parsed",
-                        f"Ads file detected but not parsed: {str(local_debug.get('ads_source_file') or 'local_input')}",
-                    )
-            if need_local_stocks and local_stocks_rows:
-                stocks_rows = local_stocks_rows
+            elif bool(local_input_debug.get("ads_file_detected", False)):
                 warnings_collector.add_warning(
-                    "wb_local_stocks_fallback_used",
-                    "WB API stocks data is empty; local stocks files were used as fallback.",
+                    "ads_file_detected_but_not_parsed",
+                    f"Ads file detected but not parsed: {str(local_input_debug.get('ads_source_file') or 'local_input')}",
                 )
-            if need_local_sales:
-                warnings_collector.extend_warnings(local_warnings)
-            else:
-                for item in local_warnings:
-                    if not isinstance(item, dict):
-                        continue
-                    code = str(item.get("code") or "")
-                    message = str(item.get("message") or "").lower()
-                    include_ads = need_local_ads and (
-                        code.startswith("ads_")
-                        or "ads report" in message
-                        or " ads " in f" {message} "
-                    )
-                    include_stocks = need_local_stocks and (
-                        code.startswith("stocks_")
-                        or "stocks report" in message
-                        or " stocks " in f" {message} "
-                    )
-                    if include_ads or include_stocks:
-                        warnings_collector.extend_warnings([item])
+        if need_local_stocks and local_stocks_rows:
+            stocks_rows = list(local_stocks_rows)
+            warnings_collector.add_warning(
+                "wb_local_stocks_fallback_used",
+                "WB API stocks data is empty; local stocks files were used as fallback.",
+            )
 
-        if not sales_rows:
+        if local_financial_fallback_used or local_funnel_found or need_local_ads or need_local_stocks:
+            warnings_collector.extend_warnings(local_warnings)
+
+        if not sales_rows and not local_financial_report_found:
             warnings_collector.add_warning(
                 "financial_data_missing",
                 "Financial contour is missing: no realization rows and no local financial fallback.",
@@ -318,6 +335,14 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             api_ads_rows=api_ads_rows,
         )
         _log_api_probe_metrics(api_probe)
+
+        source_mode = "local_reports_fallback" if (local_financial_fallback_used or local_funnel_found) else "wb_api"
+        financial_contour_source = (
+            "local_report"
+            if local_financial_fallback_used
+            else ("api.realization" if api_realization_rows else "missing")
+        )
+        funnel_contour_source = "local_report" if local_funnel_found else ("api" if api_ads_rows else "missing")
 
         api_debug = {
             "sales_rows": len(api_sales_rows),
@@ -332,18 +357,26 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "run_date_requested": run_date,
             "timezone": str(period.get("timezone") or report_timezone),
             "shifted_to_previous_day": bool(period.get("shifted_to_previous_day")),
+            "input_files_detected": int(local_input_files_detected),
             "local_financial_fallback_used": local_financial_fallback_used,
-            "financial_contour_source": (
-                "api.realization"
-                if api_realization_rows
-                else ("local.sales_fallback" if local_financial_fallback_used else "missing")
-            ),
+            "financial_contour_source": financial_contour_source,
+            "funnel_source": funnel_contour_source,
+            "supplier_goods_daily_found": bool(supplier_goods_daily.get("found", False)),
+            "local_funnel_report_found": bool(local_funnel_found),
+            "local_funnel_source_file": local_funnel_source_file,
+            "archive_scan": local_archive_scan if isinstance(local_archive_scan, dict) else {},
             "probe_metrics": api_probe,
         }
         print(
             "[wb] rows_loaded "
             f"orders_rows={len(api_orders_rows)} buyouts_rows={len(api_sales_rows)} "
             f"financial_rows={len(sales_rows)} ads_rows={len(api_ads_rows)}"
+        )
+        print(
+            "[input] primary_sources "
+            f"financial={financial_contour_source} "
+            f"funnel={funnel_contour_source} "
+            f"ads={'local_report' if ads_loaded_from_file else ('api' if len(api_ads_rows) > 0 else 'missing')}"
         )
         event_date_model = build_event_date_model(
             run_date=run_date,
@@ -361,6 +394,12 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         }
         if isinstance(local_input_debug, dict) and local_input_debug:
             for key in (
+                "input_files_detected",
+                "archive_scan",
+                "supplier_goods_candidates",
+                "funnel_candidates",
+                "funnel_report_detected",
+                "funnel_source_file",
                 "ads_file_candidates_found",
                 "ads_file_detected",
                 "ads_source_file",
@@ -377,16 +416,13 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             warnings_collector.add_warning("wb_api_empty", "WB API returned no rows")
     else:
         source_mode = "local_reports"
-        local_bundle = load_local_reports(seller_input_dir)
-        discovered_files = local_bundle.get("files", discovered_files)
-        input_debug = local_bundle.get("debug", {})
-        warnings_collector.extend_warnings(
-            list(local_bundle.get("warnings", [])) if isinstance(local_bundle.get("warnings"), list) else []
-        )
-        sales_rows = list(local_bundle.get("sales_rows", []))
-        ads_rows = list(local_bundle.get("ads_rows", []))
-        stocks_rows = list(local_bundle.get("stocks_rows", []))
-        if isinstance(input_debug, dict):
+        warnings_collector.extend_warnings(local_warnings)
+        sales_rows = list(local_sales_rows)
+        ads_rows = list(local_ads_rows)
+        stocks_rows = list(local_stocks_rows)
+        local_financial_fallback_used = bool(len(local_sales_rows) > 0 or bool(supplier_goods_daily.get("found", False)))
+        if isinstance(local_input_debug, dict):
+            input_debug = dict(local_input_debug)
             ads_loaded_from_file = bool(input_debug.get("ads_loaded_from_file", len(ads_rows) > 0))
             ads_source_file = str(input_debug.get("ads_source_file") or "")
         api_debug = {
@@ -402,8 +438,14 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "run_date_requested": run_date,
             "timezone": _resolve_report_timezone(cfg),
             "shifted_to_previous_day": False,
-            "local_financial_fallback_used": bool(len(sales_rows) > 0),
-            "financial_contour_source": "local.report" if sales_rows else "missing",
+            "input_files_detected": int(local_input_files_detected),
+            "local_financial_fallback_used": bool(local_financial_fallback_used),
+            "financial_contour_source": "local_report" if local_financial_fallback_used else "missing",
+            "funnel_source": "local_report" if local_funnel_found else "missing",
+            "supplier_goods_daily_found": bool(supplier_goods_daily.get("found", False)),
+            "local_funnel_report_found": bool(local_funnel_found),
+            "local_funnel_source_file": local_funnel_source_file,
+            "archive_scan": local_archive_scan if isinstance(local_archive_scan, dict) else {},
             "probe_metrics": api_probe,
         }
         _log_api_probe_metrics(api_probe)
@@ -419,6 +461,12 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "[wb] rows_loaded "
             "orders_rows=0 buyouts_rows=0 "
             f"financial_rows={len(sales_rows)} ads_rows=0"
+        )
+        print(
+            "[input] primary_sources "
+            f"financial={api_debug.get('financial_contour_source')} "
+            f"funnel={api_debug.get('funnel_source')} "
+            f"ads={'local_report' if ads_loaded_from_file else 'missing'}"
         )
         event_date_model = build_event_date_model(
             run_date=run_date,
@@ -450,10 +498,16 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     )
     warnings_collector.extend_warnings(input_debug_warning_additions)
 
+    input_debug["input_files_detected"] = int(input_debug.get("input_files_detected", local_input_files_detected) or 0)
+    input_debug["supplier_goods_daily"] = (
+        supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {"found": False}
+    )
+
     data_mode = "api" if (source_mode == "wb_api" and not bool(local_financial_fallback_used)) else "raw_reports_fallback"
     non_api_mode = not (data_mode == "api")
     input_debug["data_mode"] = data_mode
     input_debug["non_api_mode"] = non_api_mode
+    ads_rows_count = len(ads_rows)
     print(
         "[pipeline] data_mode "
         f"mode={data_mode} source_mode={source_mode} "

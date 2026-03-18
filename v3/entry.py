@@ -761,7 +761,7 @@ def _excel_candidate_paths(
 ) -> List[str]:
     candidates: List[str] = []
     safe_discovered = discovered_files if isinstance(discovered_files, dict) else {}
-    for key in ("sales", "unknown", "stocks", "ads"):
+    for key in ("sales", "funnel", "supplier_goods", "unknown", "stocks", "ads"):
         for raw_path in safe_discovered.get(key, []) if isinstance(safe_discovered.get(key), list) else []:
             path = str(raw_path or "").strip()
             if not path:
@@ -773,15 +773,16 @@ def _excel_candidate_paths(
                 candidates.append(path)
 
     if os.path.isdir(seller_input_dir):
-        for name in sorted(os.listdir(seller_input_dir)):
-            path = os.path.join(seller_input_dir, name)
-            if not os.path.isfile(path):
-                continue
-            ext = os.path.splitext(path)[1].lower()
-            if ext not in {".xlsx", ".xls"}:
-                continue
-            if path not in candidates:
-                candidates.append(path)
+        for root, _, files in os.walk(seller_input_dir):
+            for name in sorted(files):
+                path = os.path.join(root, name)
+                if not os.path.isfile(path):
+                    continue
+                ext = os.path.splitext(path)[1].lower()
+                if ext not in {".xlsx", ".xls"}:
+                    continue
+                if path not in candidates:
+                    candidates.append(path)
     return candidates
 
 

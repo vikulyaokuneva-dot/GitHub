@@ -23,11 +23,12 @@ def _as_str(value: Any) -> str:
 
 
 def _normalize_discovered(discovered_files: Dict[str, Any]) -> Dict[str, List[str]]:
-    default = {"sales": [], "ads": [], "stocks": [], "unknown": []}
+    default = {"sales": [], "ads": [], "stocks": [], "funnel": [], "supplier_goods": [], "unknown": []}
     if not isinstance(discovered_files, dict):
         return default
     out: Dict[str, List[str]] = {}
-    for key in ("sales", "ads", "stocks", "unknown"):
+    all_keys = set(default.keys()) | {str(key) for key in discovered_files.keys()}
+    for key in sorted(all_keys):
         value = discovered_files.get(key, [])
         if isinstance(value, list):
             out[key] = [str(item) for item in value if str(item).strip()]
@@ -70,9 +71,16 @@ def build_input_debug(
     }
     out["discovered"] = safe_discovered
 
+    discovered_unique = {
+        str(path)
+        for values in safe_discovered.values()
+        if isinstance(values, list)
+        for path in values
+        if str(path).strip()
+    }
     if "input_files_detected" not in out:
-        out["input_files_detected"] = sum(len(value) for value in safe_discovered.values())
-    out["input_files_detected"] = _as_int(out.get("input_files_detected"), sum(len(value) for value in safe_discovered.values()))
+        out["input_files_detected"] = len(discovered_unique)
+    out["input_files_detected"] = _as_int(out.get("input_files_detected"), len(discovered_unique))
 
     details = out.get("details", {})
     out["details"] = details if isinstance(details, dict) else {}
@@ -113,12 +121,19 @@ def build_input_debug(
     out["ads_rows"] = int(ads_rows_count)
     out["ads_loaded_from_file"] = bool(ads_loaded_from_file or _as_bool(out.get("ads_loaded_from_file"), False))
     out["ads_source_file"] = _as_str(ads_source_file or out.get("ads_source_file"))
+    out["funnel_report_detected"] = _as_bool(out.get("funnel_report_detected"), False)
+    out["funnel_source_file"] = _as_str(out.get("funnel_source_file"))
+    out["funnel_files_found"] = len(safe_discovered.get("funnel", [])) if isinstance(safe_discovered.get("funnel"), list) else 0
+    out["supplier_goods_files_found"] = (
+        len(safe_discovered.get("supplier_goods", [])) if isinstance(safe_discovered.get("supplier_goods"), list) else 0
+    )
 
     out["source_priority"] = {
-        "sales": "api.realization -> local.sales",
+        "sales": "local.daily_detailed -> api.realization -> local.sales",
         "orders_kpi_count": "supplier_goods_confirmed_count -> api.orders -> api.sales -> unknown",
         "buyouts_kpi_count": "supplier_goods_confirmed_count -> api.sales -> api.realization -> unknown",
         "stocks": "api.stocks -> local.stocks",
+        "funnel": "local.funnel_xlsx -> api.derived -> unknown",
         "ads": "api.ads_legacy -> local.ads",
         "supplier_goods_daily": "local_excel_financial_source",
     }

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import os
 import re
+import shutil
 import zipfile
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Tuple
@@ -21,6 +23,8 @@ from ..validation.data_integrity import (
 )
 
 ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv"}
+ARCHIVE_EXTENSIONS = {".zip"}
+UNPACK_DIR_NAME = "__unpacked"
 
 REPORT_NAME_KEYWORDS = {
     "sales": ["воронка", "продаж", "реализац", "детализирован", "еженедель", "sales", "sale", "realization", "статистик"],
@@ -33,6 +37,17 @@ ADS_SHEET_KEYWORDS = ("статистика", "statistics")
 EXCEL_EXTENSIONS = {".xlsx", ".xls"}
 ADS_REPORT_NAME_KEYWORDS = ("статистика", "ads", "реклама")
 ADS_REQUIRED_COLUMN_HINT = "затраты_rub"
+
+FUNNEL_NAME_KEYWORDS = ("воронка", "funnel", "товары", "карточ", "показы")
+DAILY_DETAILED_NAME_KEYWORDS = (
+    "ежеднев",
+    "детализ",
+    "supplier",
+    "goods",
+    "daily",
+    "realization",
+    "финанс",
+)
 
 SUPPLIER_GOODS_NAME_KEYWORDS = ("ежедневный", "детализированный", "supplier", "goods", "report")
 SUPPLIER_GOODS_REQUIRED_COLUMN_HINTS = (
@@ -366,6 +381,104 @@ def _input_hint_path(input_dir: str) -> str:
     if m:
         return f"cabinets/{m.group(1)}/input"
     return input_dir
+
+
+def _name_contains_any(normalized_name: str, tokens: Iterable[str]) -> bool:
+    if not normalized_name:
+        return False
+    for token in tokens:
+        normalized_token = _normalize_text(token)
+        if normalized_token and normalized_token in normalized_name:
+            return True
+    return False
+
+
+def _looks_like_funnel_name(name: str) -> bool:
+    return _name_contains_any(_normalize_text(name), FUNNEL_NAME_KEYWORDS)
+
+
+def _looks_like_daily_detailed_name(name: str) -> bool:
+    return _name_contains_any(_normalize_text(name), DAILY_DETAILED_NAME_KEYWORDS)
+
+
+def _safe_unpack_subdir_name(path: str) -> str:
+    base = os.path.splitext(os.path.basename(path))[0]
+    safe = re.sub(r"[^a-zA-Z0-9._-]+", "_", base).strip("._")
+    if not safe:
+        safe = "archive"
+    suffix = hashlib.md5(path.encode("utf-8", errors="ignore")).hexdigest()[:8]
+    return f"{safe}_{suffix}"
+
+
+def _iter_candidate_input_files(input_dir: str, include_archives: bool = False) -> List[str]:
+    if not os.path.isdir(input_dir):
+        return []
+
+    allowed_exts = set(ALLOWED_EXTENSIONS)
+    if include_archives:
+        allowed_exts |= ARCHIVE_EXTENSIONS
+
+    out: List[str] = []
+    for root, dirs, files in os.walk(input_dir):
+        dirs[:] = [name for name in dirs if name != "__pycache__"]
+        for name in files:
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in allowed_exts:
+                continue
+            path = os.path.join(root, name)
+            if os.path.isfile(path):
+                out.append(path)
+
+    out.sort()
+    return out
+
+
+def _extract_archives_into_input(input_dir: str) -> Dict[str, Any]:
+    archive_paths = [path for path in _iter_candidate_input_files(input_dir, include_archives=True) if os.path.splitext(path)[1].lower() in ARCHIVE_EXTENSIONS]
+    unpack_root = os.path.join(input_dir, UNPACK_DIR_NAME)
+    unpacked_files: List[str] = []
+    processed_archives: List[str] = []
+    errors: List[str] = []
+
+    if archive_paths:
+        os.makedirs(unpack_root, exist_ok=True)
+
+    for archive_path in archive_paths:
+        target_root = os.path.join(unpack_root, _safe_unpack_subdir_name(archive_path))
+        os.makedirs(target_root, exist_ok=True)
+        processed_archives.append(archive_path)
+        try:
+            with zipfile.ZipFile(archive_path, "r") as zf:
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    inner_name = str(info.filename or "").strip()
+                    if not inner_name:
+                        continue
+                    normalized_inner = inner_name.replace("\\", "/")
+                    if normalized_inner.startswith("/") or ".." in normalized_inner.split("/"):
+                        continue
+                    ext = os.path.splitext(normalized_inner)[1].lower()
+                    if ext not in ALLOWED_EXTENSIONS:
+                        continue
+                    destination_path = os.path.normpath(os.path.join(target_root, normalized_inner))
+                    if not destination_path.startswith(os.path.normpath(target_root)):
+                        continue
+                    os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+                    with zf.open(info, "r") as source_fh, open(destination_path, "wb") as target_fh:
+                        shutil.copyfileobj(source_fh, target_fh)
+                    unpacked_files.append(destination_path)
+        except Exception as exc:
+            errors.append(f"{os.path.basename(archive_path)}: {exc}")
+
+    return {
+        "archives_found": len(archive_paths),
+        "archives_processed": len(processed_archives),
+        "archives": processed_archives,
+        "unpacked_files_count": len(unpacked_files),
+        "unpacked_files": sorted(unpacked_files),
+        "archive_errors": errors,
+    }
 
 
 def _dedupe_columns(columns: List[str]) -> List[str]:
@@ -1143,6 +1256,29 @@ def _extract_supplier_goods_daily_kpi(path: str) -> Dict[str, Any]:
     }
 
 
+def parse_daily_report(path: str) -> Dict[str, Any]:
+    if os.path.isfile(path):
+        try:
+            extracted = _extract_supplier_goods_daily_kpi(path)
+        except Exception:
+            extracted = {}
+        if isinstance(extracted, dict) and extracted:
+            out = dict(extracted)
+            out["found"] = True
+            out.setdefault("source_file", os.path.basename(path))
+            out.setdefault("source_path", path)
+            return out
+        return {}
+
+    input_root = path if os.path.isdir(path) else os.path.dirname(path)
+    payload = load_supplier_goods_daily_kpi(input_root)
+    if not isinstance(payload, dict):
+        return {}
+    if not bool(payload.get("found", False)):
+        return {}
+    return dict(payload)
+
+
 def load_supplier_goods_daily_kpi(input_dir: str) -> Dict[str, Any]:
     if not os.path.isdir(input_dir):
         return {
@@ -1152,16 +1288,13 @@ def load_supplier_goods_daily_kpi(input_dir: str) -> Dict[str, Any]:
             "detection_reason": "",
         }
 
+    archive_scan = _extract_archives_into_input(input_dir)
+    candidate_files = _iter_candidate_input_files(input_dir)
     supplier_candidates: List[Dict[str, Any]] = []
-    input_files_detected = 0
+    input_files_detected = len(candidate_files)
     candidates: List[Dict[str, Any]] = []
-    for name in sorted(os.listdir(input_dir)):
-        path = os.path.join(input_dir, name)
-        if not os.path.isfile(path):
-            continue
-        if os.path.splitext(name)[1].lower() not in ALLOWED_EXTENSIONS:
-            continue
-        input_files_detected += 1
+    for path in candidate_files:
+        name = os.path.basename(path)
 
         file_name_norm = _normalize_text(name)
         supplier_name_hint = _name_hint_token(file_name_norm, SUPPLIER_GOODS_NAME_KEYWORDS)
@@ -1170,6 +1303,8 @@ def load_supplier_goods_daily_kpi(input_dir: str) -> Dict[str, Any]:
         candidate_reasons: List[str] = []
         if supplier_name_hint:
             candidate_reasons.append(f"name:{supplier_name_hint}")
+        if _looks_like_daily_detailed_name(name):
+            candidate_reasons.append("name:daily_detailed")
         if supplier_sheet_hint:
             candidate_reasons.append(f"workbook_columns:{supplier_sheet_hint}")
         if supplier_financial_sheet_hint:
@@ -1244,6 +1379,7 @@ def load_supplier_goods_daily_kpi(input_dir: str) -> Dict[str, Any]:
             "found": False,
             "input_files_detected": int(input_files_detected),
             "supplier_goods_candidates": supplier_candidates,
+            "archive_scan": archive_scan if isinstance(archive_scan, dict) else {},
             "detection_reason": "",
         }
 
@@ -1260,6 +1396,7 @@ def load_supplier_goods_daily_kpi(input_dir: str) -> Dict[str, Any]:
     best["candidates_found"] = len(candidates)
     best["input_files_detected"] = int(input_files_detected)
     best["supplier_goods_candidates"] = supplier_candidates
+    best["archive_scan"] = archive_scan if isinstance(archive_scan, dict) else {}
     best["detection_reason"] = str(best.get("detection_reason") or "")
     best["kpi_confirmed"] = bool(best.get("kpi_confirmed", True))
     best["orders_count_confirmed"] = bool(best.get("orders_count_confirmed", False))
@@ -1357,9 +1494,16 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
         for w in words:
             if _normalize_text(w) in norm_name:
                 name_scores[t] += 1
+    if _looks_like_daily_detailed_name(name):
+        name_scores["sales"] += 4
+    if _looks_like_funnel_name(name):
+        name_scores["sales"] += 2
     if ads_name_hint:
         name_scores["ads"] += 3
-    if ext in EXCEL_EXTENSIONS and norm_name.startswith(_normalize_text("статистика")):
+    if ext in EXCEL_EXTENSIONS and (
+        norm_name.startswith(_normalize_text("статистика"))
+        or norm_name.startswith(_normalize_text("statistics"))
+    ):
         name_scores["ads"] += 1
     by_name = _pick_type(name_scores)
 
@@ -1435,9 +1579,18 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
     supplier_goods_candidate_reasons: List[str] = []
     if supplier_name_hint_token:
         supplier_goods_candidate_reasons.append(f"name:{supplier_name_hint_token}")
+    if _looks_like_daily_detailed_name(name):
+        supplier_goods_candidate_reasons.append("name:daily_detailed")
     if supplier_goods_sheet_found:
         supplier_goods_candidate_reasons.append(f"workbook_columns:{supplier_goods_sheet_found}")
     supplier_goods_candidate = bool(supplier_goods_candidate_reasons)
+
+    funnel_candidate_reasons: List[str] = []
+    if _looks_like_funnel_name(name):
+        funnel_candidate_reasons.append("name:funnel")
+    if _column_hint_present([_normalize_text(col) for col in columns], ("показы", "заказали", "выкупили")):
+        funnel_candidate_reasons.append("columns:funnel_kpi")
+    funnel_candidate = bool(funnel_candidate_reasons)
 
     ads_candidate_reasons: List[str] = []
     if ads_name_hint_token:
@@ -1471,6 +1624,8 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
         "supplier_goods_sheet_found": supplier_goods_sheet_found,
         "supplier_goods_candidate": supplier_goods_candidate,
         "supplier_goods_reason": ", ".join(supplier_goods_candidate_reasons),
+        "funnel_candidate": funnel_candidate,
+        "funnel_candidate_reason": ", ".join(funnel_candidate_reasons),
         "ads_candidate": ads_candidate,
         "ads_candidate_reason": ", ".join(ads_candidate_reasons),
         "ads_spend_column_found": ads_spend_column_found,
@@ -1480,29 +1635,52 @@ def _detect_report_type(path: str) -> Dict[str, Any]:
     }
 
 
-def _discover_files(input_dir: str) -> Tuple[Dict[str, List[str]], List[Dict[str, Any]]]:
-    files = {"sales": [], "ads": [], "stocks": [], "unknown": []}
+def _discover_files(input_dir: str) -> Tuple[Dict[str, List[str]], List[Dict[str, Any]], Dict[str, Any]]:
+    files: Dict[str, List[str]] = {
+        "sales": [],
+        "ads": [],
+        "stocks": [],
+        "funnel": [],
+        "supplier_goods": [],
+        "unknown": [],
+    }
     details: List[Dict[str, Any]] = []
     if not os.path.isdir(input_dir):
-        return files, details
-    for name in sorted(os.listdir(input_dir)):
-        path = os.path.join(input_dir, name)
-        if not os.path.isfile(path):
-            continue
+        return files, details, {"archives_found": 0, "unpacked_files_count": 0, "unpacked_files": [], "archive_errors": []}
+
+    archive_scan = _extract_archives_into_input(input_dir)
+    for path in _iter_candidate_input_files(input_dir):
+        name = os.path.basename(path)
         if os.path.splitext(name)[1].lower() not in ALLOWED_EXTENSIONS:
             continue
         detail = _detect_report_type(path)
         details.append(detail)
-        t = detail.get("type")
-        if t in ("sales", "ads", "stocks"):
-            files[t].append(path)
+        detail_type = str(detail.get("type") or "").strip()
+        if detail_type in ("sales", "ads", "stocks"):
+            files[detail_type].append(path)
         else:
             files["unknown"].append(path)
-    return files, details
+
+        if bool(detail.get("supplier_goods_candidate", False)):
+            files["supplier_goods"].append(path)
+        if bool(detail.get("funnel_candidate", False)):
+            files["funnel"].append(path)
+
+    for key in list(files.keys()):
+        unique_paths: List[str] = []
+        seen_paths: set[str] = set()
+        for path in files.get(key, []):
+            if path in seen_paths:
+                continue
+            seen_paths.add(path)
+            unique_paths.append(path)
+        files[key] = unique_paths
+
+    return files, details, archive_scan
 
 
 def discover_input_files(input_dir: str) -> Dict[str, List[str]]:
-    files, _ = _discover_files(input_dir)
+    files, _, _ = _discover_files(input_dir)
     return files
 
 
@@ -1781,7 +1959,7 @@ def load_stocks_report(path: str) -> List[Dict[str, Any]]:
 
 
 def load_local_reports(input_dir: str) -> Dict[str, Any]:
-    discovered, details = _discover_files(input_dir)
+    discovered, details, archive_scan = _discover_files(input_dir)
     detail_by_path = {str(item.get("path")): item for item in details}
     warnings: List[Dict[str, Any]] = []
     sales_rows: List[Dict[str, Any]] = []
@@ -1797,6 +1975,7 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
     ads_loader_issues: List[str] = []
     input_files_detected = len(details)
     supplier_goods_candidates: List[Dict[str, str]] = []
+    funnel_candidates: List[Dict[str, str]] = []
     ads_candidates: List[Dict[str, str]] = []
     detection_reason: Dict[str, str] = {}
 
@@ -1809,6 +1988,13 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
                 {
                     "file": file_name,
                     "reason": str(item.get("supplier_goods_reason") or "candidate"),
+                }
+            )
+        if bool(item.get("funnel_candidate")):
+            funnel_candidates.append(
+                {
+                    "file": file_name,
+                    "reason": str(item.get("funnel_candidate_reason") or "candidate"),
                 }
             )
         if bool(item.get("ads_candidate")):
@@ -1849,12 +2035,33 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
         if path and path not in ads_candidate_paths:
             ads_candidate_paths.append(path)
 
+    funnel_candidate_paths: List[str] = []
+    for detail in details:
+        if not bool(detail.get("funnel_candidate")):
+            continue
+        path = str(detail.get("path") or "")
+        if path and path not in funnel_candidate_paths:
+            funnel_candidate_paths.append(path)
+
     if not discovered.get("ads") and ads_candidate_paths:
         discovered["ads"] = list(ads_candidate_paths)
         discovered["unknown"] = [path for path in discovered.get("unknown", []) if path not in set(discovered["ads"])]
+    if not discovered.get("funnel") and funnel_candidate_paths:
+        discovered["funnel"] = list(funnel_candidate_paths)
 
-    total = len(discovered["sales"]) + len(discovered["ads"]) + len(discovered["stocks"]) + len(discovered["unknown"])
-    warnings.append({"code": "input_files_found", "message": f"Input files found: total={total}, sales={len(discovered['sales'])}, ads={len(discovered['ads'])}, stocks={len(discovered['stocks'])}, unknown={len(discovered['unknown'])}"})
+    total = len(details)
+    warnings.append(
+        {
+            "code": "input_files_found",
+            "message": (
+                "Input files found: "
+                f"total={total}, sales={len(discovered.get('sales', []))}, "
+                f"ads={len(discovered.get('ads', []))}, stocks={len(discovered.get('stocks', []))}, "
+                f"funnel={len(discovered.get('funnel', []))}, supplier_goods={len(discovered.get('supplier_goods', []))}, "
+                f"unknown={len(discovered.get('unknown', []))}"
+            ),
+        }
+    )
 
     if total == 0:
         warnings.append({"code": "input_files_missing", "message": f"No local input files found in {_input_hint_path(input_dir)}"})
@@ -1898,9 +2105,9 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
             if "profit" in canon:
                 score += 3
 
-            if "еженедель" in file_name or "детализирован" in file_name:
+            if _looks_like_daily_detailed_name(file_name):
                 score += 4
-            if "воронка" in file_name and "sku" not in canon:
+            if _looks_like_funnel_name(file_name) and "sku" not in canon:
                 score -= 6
             scored.append((score, path))
 
@@ -2059,11 +2266,19 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
             "input_files_detected": int(input_files_detected),
             "discovered": discovered,
             "details": details,
+            "archive_scan": archive_scan if isinstance(archive_scan, dict) else {},
             "supplier_goods_candidates": supplier_goods_candidates,
+            "funnel_candidates": funnel_candidates,
             "ads_candidates": ads_candidates,
             "detection_reason": detection_reason,
             "primary_sales_source": primary_sales_source,
             "primary_sales_columns": primary_sales_columns,
+            "funnel_report_detected": bool(discovered.get("funnel")),
+            "funnel_source_file": (
+                os.path.basename(discovered.get("funnel", [""])[0])
+                if isinstance(discovered.get("funnel"), list) and discovered.get("funnel")
+                else ""
+            ),
             "ads_file_candidates_found": len(ads_candidate_paths),
             "ads_file_detected": bool(discovered.get("ads")),
             "ads_source_file": ads_source_file,
