@@ -1004,53 +1004,90 @@ def _is_summary_row(row: Dict[str, Any]) -> bool:
     return False
 
 
+def _sum_metric_for_rows(rows: List[Dict[str, Any]], column_name: str) -> float | None:
+    if not rows or not column_name:
+        return None
+    total = 0.0
+    found = False
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if _is_summary_row(row):
+            continue
+        value = _as_float(row.get(column_name))
+        if value is None:
+            continue
+        total += float(value)
+        found = True
+    if not found:
+        return None
+    return float(total)
+
+
+def _first_existing_column(canon: Dict[str, str], *keys: str) -> str:
+    for key in keys:
+        col = str(canon.get(key) or "").strip()
+        if col:
+            return col
+    return ""
+
+
 def _extract_supplier_goods_daily_kpi(path: str) -> Dict[str, Any]:
     cols, recs = _read_table(path)
     if not cols or not recs:
         return {}
 
     normalized_columns, normalized_rows = _normalize_records(cols, recs)
-    column_map: Dict[str, str] = {}
-    for field, variants in _SUPPLIER_GOODS_DAILY_FIELD_SYNONYMS.items():
-        matched = _match_supplier_goods_column(normalized_columns, variants)
-        if not matched:
-            return {}
-        column_map[field] = matched
+    payment_reason_column = _find_daily_payment_reason_column(normalized_columns)
+    grouped_rows = _split_daily_detailed_rows_by_reason(normalized_rows, payment_reason_column)
+    sales_rows = list(grouped_rows.get("sales_rows", []))
+    logistics_rows = list(grouped_rows.get("logistics_rows", []))
+    pvz_rows = list(grouped_rows.get("pvz_rows", []))
+    storage_rows = list(grouped_rows.get("storage_rows", []))
+    deductions_rows = list(grouped_rows.get("deductions_rows", []))
 
-    totals = {
-        "orders_count": 0.0,
-        "orders_amount": 0.0,
-        "buyouts_count": 0.0,
-        "buyouts_amount": 0.0,
-    }
-    used_rows = 0
-    for row in normalized_rows:
-        if not isinstance(row, dict):
-            continue
-        if _is_summary_row(row):
-            continue
-
-        row_has_numeric = False
-        row_values: Dict[str, float] = {}
-        for field, col in column_map.items():
-            number = _as_float(row.get(col))
-            if number is None:
-                number = 0.0
-            else:
-                row_has_numeric = True
-            row_values[field] = float(number)
-        if not row_has_numeric:
-            continue
-
-        used_rows += 1
-        for field in totals:
-            totals[field] += float(row_values.get(field, 0.0))
-
-    if used_rows <= 0:
+    if not sales_rows and not logistics_rows and not pvz_rows and not storage_rows and not deductions_rows:
         return {}
 
-    orders_count_col = str(column_map.get("orders_count") or "")
-    buyouts_count_col = str(column_map.get("buyouts_count") or "")
+    canon = _canonical_columns(normalized_columns)
+
+    quantity_col = _first_existing_column(canon, "sales_count", "buys", "orders")
+    revenue_col = _first_existing_column(canon, "wb_realized_revenue", "gross_revenue", "revenue")
+    seller_payout_col = _first_existing_column(canon, "seller_payout")
+    commission_col = _first_existing_column(canon, "wb_commission")
+    logistics_col = _first_existing_column(canon, "logistics")
+    pvz_col = _first_existing_column(canon, "pvz_service")
+    storage_col = _first_existing_column(canon, "storage")
+    deductions_col = _first_existing_column(canon, "deductions")
+
+    orders_count_raw = _sum_metric_for_rows(sales_rows, quantity_col)
+    buyouts_count_raw = _sum_metric_for_rows(sales_rows, quantity_col)
+    revenue_raw = _sum_metric_for_rows(sales_rows, revenue_col)
+    seller_payout_raw = _sum_metric_for_rows(sales_rows, seller_payout_col)
+    commission_raw = _sum_metric_for_rows(sales_rows, commission_col)
+    logistics_raw = _sum_metric_for_rows(logistics_rows, logistics_col)
+    if logistics_raw is None:
+        logistics_raw = _sum_metric_for_rows(pvz_rows, pvz_col)
+    storage_raw = _sum_metric_for_rows(storage_rows, storage_col)
+    deductions_raw = _sum_metric_for_rows(deductions_rows, deductions_col)
+
+    orders_amount_col = _first_existing_column(canon, "gross_revenue", "revenue", "wb_realized_revenue")
+    buyouts_amount_col = _first_existing_column(canon, "seller_payout", "revenue", "wb_realized_revenue")
+    orders_amount_raw = _sum_metric_for_rows(sales_rows, orders_amount_col)
+    buyouts_amount_raw = _sum_metric_for_rows(sales_rows, buyouts_amount_col)
+
+    rows_used = (
+        len(sales_rows)
+        + len(logistics_rows)
+        + len(pvz_rows)
+        + len(storage_rows)
+        + len(deductions_rows)
+    )
+    if rows_used <= 0:
+        return {}
+
+    orders_count_col = quantity_col
+    buyouts_count_col = quantity_col
     orders_count_confirmed = _is_confirmed_supplier_count_column(
         orders_count_col,
         _SUPPLIER_GOODS_CONFIRMED_ORDERS_COUNT_HINTS,
@@ -1063,16 +1100,46 @@ def _extract_supplier_goods_daily_kpi(path: str) -> Dict[str, Any]:
     return {
         "source_file": os.path.basename(path),
         "source_path": path,
-        "rows_used": used_rows,
-        "matched_columns": column_map,
-        "orders_count": int(round(totals["orders_count"])),
-        "orders_amount": round(totals["orders_amount"], 2),
-        "buyouts_count": int(round(totals["buyouts_count"])),
-        "buyouts_amount": round(totals["buyouts_amount"], 2),
-        "orders_count_confirmed": bool(orders_count_confirmed),
-        "buyouts_count_confirmed": bool(buyouts_count_confirmed),
-        "amounts_confirmed": True,
-        "kpi_confirmed": bool(orders_count_confirmed and buyouts_count_confirmed),
+        "rows_used": rows_used,
+        "matched_columns": {
+            "payment_reason": payment_reason_column,
+            "quantity": quantity_col,
+            "revenue": revenue_col,
+            "seller_payout": seller_payout_col,
+            "commission": commission_col,
+            "logistics": logistics_col,
+            "pvz_service": pvz_col,
+            "storage": storage_col,
+            "deductions": deductions_col,
+            "orders_amount": orders_amount_col,
+            "buyouts_amount": buyouts_amount_col,
+        },
+        "grouped_rows": {
+            "sales_rows": sales_rows,
+            "logistics_rows": logistics_rows,
+            "pvz_rows": pvz_rows,
+            "storage_rows": storage_rows,
+            "deductions_rows": deductions_rows,
+        },
+        "orders_count": int(round(orders_count_raw)) if orders_count_raw is not None else None,
+        "buyouts_count": int(round(buyouts_count_raw)) if buyouts_count_raw is not None else None,
+        "orders_amount": round(orders_amount_raw, 2) if orders_amount_raw is not None else None,
+        "buyouts_amount": round(buyouts_amount_raw, 2) if buyouts_amount_raw is not None else None,
+        "revenue": round(revenue_raw, 2) if revenue_raw is not None else None,
+        "seller_payout": round(seller_payout_raw, 2) if seller_payout_raw is not None else None,
+        "commission": round(commission_raw, 2) if commission_raw is not None else None,
+        "logistics": round(logistics_raw, 2) if logistics_raw is not None else None,
+        "storage": round(storage_raw, 2) if storage_raw is not None else None,
+        "deductions": round(deductions_raw, 2) if deductions_raw is not None else None,
+        "orders_count_confirmed": bool(orders_count_confirmed and orders_count_raw is not None),
+        "buyouts_count_confirmed": bool(buyouts_count_confirmed and buyouts_count_raw is not None),
+        "amounts_confirmed": bool((orders_amount_raw is not None) and (buyouts_amount_raw is not None)),
+        "kpi_confirmed": bool(
+            orders_count_confirmed
+            and buyouts_count_confirmed
+            and orders_count_raw is not None
+            and buyouts_count_raw is not None
+        ),
     }
 
 
@@ -1131,10 +1198,16 @@ def load_supplier_goods_daily_kpi(input_dir: str) -> Dict[str, Any]:
                 "source_path": path,
                 "rows_used": 0,
                 "matched_columns": {},
-                "orders_count": 0,
-                "orders_amount": 0.0,
-                "buyouts_count": 0,
-                "buyouts_amount": 0.0,
+                "orders_count": None,
+                "orders_amount": None,
+                "buyouts_count": None,
+                "buyouts_amount": None,
+                "revenue": None,
+                "seller_payout": None,
+                "commission": None,
+                "logistics": None,
+                "storage": None,
+                "deductions": None,
                 "kpi_confirmed": False,
                 "orders_count_confirmed": False,
                 "buyouts_count_confirmed": False,
