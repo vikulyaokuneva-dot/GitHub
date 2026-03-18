@@ -35,6 +35,15 @@ class MetricValue:
     note: str | None = None
 
 
+def _default_unavailable_metric() -> MetricValue:
+    return MetricValue(
+        value=None,
+        status=MetricStatus.UNAVAILABLE.value,
+        source=None,
+        note=None,
+    )
+
+
 @dataclass
 class FinancialMetricsSection:
     """Financial contour foundation metrics."""
@@ -50,12 +59,23 @@ class FinancialMetricsSection:
     deductions_amount: MetricValue
     net_realization_amount: MetricValue
 
-    realization_target_date: str | None
-    realization_actual_date: str | None
-    fallback_used: bool | None
-    lag_days: int | None
+    revenue_gross: MetricValue = field(default_factory=_default_unavailable_metric)
+    commission_amount: MetricValue = field(default_factory=_default_unavailable_metric)
+    acquiring_amount: MetricValue = field(default_factory=_default_unavailable_metric)
+    pvz_amount: MetricValue = field(default_factory=_default_unavailable_metric)
+    penalties_amount: MetricValue = field(default_factory=_default_unavailable_metric)
+    other_costs_amount: MetricValue = field(default_factory=_default_unavailable_metric)
+    gross_profit_like: MetricValue = field(default_factory=_default_unavailable_metric)
+    net_profit_like: MetricValue = field(default_factory=_default_unavailable_metric)
+    profit_formula_note: str | None = None
+
+    realization_target_date: str | None = None
+    realization_actual_date: str | None = None
+    fallback_used: bool | None = None
+    lag_days: int | None = None
 
     source_quality: dict[str, str] = field(default_factory=dict)
+    component_quality: dict[str, str] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
 
 

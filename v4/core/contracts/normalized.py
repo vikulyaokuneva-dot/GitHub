@@ -66,6 +66,7 @@ class NormalizedRealizationRecord:
     quantity: float | None
     source_tag: str
     raw_ref: str | None
+    operation_label: str | None = None
 
 
 @dataclass(frozen=True)

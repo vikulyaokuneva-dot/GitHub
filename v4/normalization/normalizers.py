@@ -291,6 +291,7 @@ def normalize_realization_source(raw_source_payload: RawSourcePayload | None) ->
                 quantity=_pick_float(row, ("quantity", "sa_quantity", "saleQty", "sales_qty", "qty")),
                 source_tag=source_tag,
                 raw_ref=_make_raw_ref("realization", index, record_id),
+                operation_label=event_type_raw,
             )
         )
 
