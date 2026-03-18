@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 
 def _to_float_or_none(value: Any) -> float | None:
@@ -35,6 +35,86 @@ def _first_present(*values: Any) -> Any:
             continue
         return value
     return None
+
+
+def _source_is_known(value: Any) -> bool:
+    return not _is_unknown_source(value)
+
+
+def _sanitize_count(value: Any, *, source: Any) -> int | None:
+    normalized = _to_int_or_none(value)
+    if normalized is None:
+        return None
+    if normalized == 0 and not _source_is_known(source):
+        return None
+    return normalized
+
+
+def _extract_funnel_xlsx_payload(metrics: Dict[str, Any], explicit: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    if isinstance(explicit, dict) and isinstance(explicit.get("cabinet_totals"), dict):
+        return explicit
+
+    candidates: List[Any] = []
+    if isinstance(metrics, dict):
+        candidates.extend(
+            [
+                metrics.get("funnel_xlsx"),
+                metrics.get("funnel_report_xlsx"),
+                metrics.get("funnel_report"),
+                metrics.get("local_funnel"),
+                metrics.get("wb_funnel_xlsx"),
+            ]
+        )
+        input_debug = metrics.get("input_debug", {})
+        if isinstance(input_debug, dict):
+            candidates.extend(
+                [
+                    input_debug.get("funnel_xlsx"),
+                    input_debug.get("funnel_report"),
+                    input_debug.get("local_funnel"),
+                ]
+            )
+
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        if isinstance(candidate.get("cabinet_totals"), dict):
+            return candidate
+        if any(key in candidate for key in ("views", "add_to_cart", "orders", "buyouts")):
+            return {
+                "cabinet_totals": {
+                    "views": candidate.get("views"),
+                    "add_to_cart": candidate.get("add_to_cart"),
+                    "orders": candidate.get("orders"),
+                    "buyouts": candidate.get("buyouts"),
+                    "orders_amount": candidate.get("orders_amount"),
+                    "buyouts_amount": candidate.get("buyouts_amount"),
+                },
+                "sku_rows": candidate.get("sku_rows") if isinstance(candidate.get("sku_rows"), list) else [],
+            }
+    return {}
+
+
+def _pick_priority_metric(*, xlsx_value: Any, api_value: Any, api_source: str) -> Tuple[int | None, str]:
+    xlsx_count = _to_int_or_none(xlsx_value)
+    if xlsx_count is not None:
+        return xlsx_count, "funnel_xlsx"
+    api_count = _sanitize_count(api_value, source=api_source)
+    if api_count is not None:
+        return api_count, "api"
+    return None, "unknown"
+
+
+def _pick_priority_float(*, xlsx_value: Any, api_value: Any, api_source: str) -> Tuple[float | None, str]:
+    xlsx_number = _to_float_or_none(xlsx_value)
+    if xlsx_number is not None:
+        return xlsx_number, "funnel_xlsx"
+    api_number = _to_float_or_none(api_value)
+    if api_number is None:
+        return None, "unknown"
+    if abs(api_number) <= 1e-12 and not _source_is_known(api_source):
+        return None, "unknown"
+    return api_number, "api"
 
 
 def _is_unknown_source(value: Any) -> bool:
@@ -88,7 +168,14 @@ def calculate_funnel_metrics(
     view_to_order_conversion = _pct(float(orders) if orders is not None else None, float(views) if views is not None else None)
     cart_rate = _pct(float(add_to_cart) if add_to_cart is not None else None, float(views) if views is not None else None)
     cart_to_order = _pct(float(orders) if orders is not None else None, float(add_to_cart) if add_to_cart is not None else None)
-    buyout_rate = _pct(float(buyouts) if buyouts is not None else None, float(orders) if orders is not None else None)
+    raw_buyout_rate = _pct(float(buyouts) if buyouts is not None else None, float(orders) if orders is not None else None)
+    buyout_rate_over_100 = bool(raw_buyout_rate is not None and raw_buyout_rate > 100.0)
+    buyout_rate_note = (
+        "order_to_buyout_conversion_gt_100: possible date shift between orders and buyouts"
+        if buyout_rate_over_100
+        else ""
+    )
+    buyout_rate = None if buyout_rate_over_100 else raw_buyout_rate
 
     cpo: float | None = None
     if ads_spend is not None and orders is not None and orders > 0:
@@ -120,6 +207,8 @@ def calculate_funnel_metrics(
         "cart_rate": cart_rate,
         "cart_to_order": cart_to_order,
         "buyout_rate": buyout_rate,
+        "buyout_rate_over_100": buyout_rate_over_100,
+        "buyout_rate_note": buyout_rate_note,
         "ads_spend": round(float(ads_spend), 2) if ads_spend is not None else None,
         "cpo": cpo,
         "marketing_layer": marketing_layer,
@@ -132,6 +221,7 @@ def assemble_sales_funnel(
     run_date: str,
     metrics: Dict[str, Any],
     ads_diagnostics: Dict[str, Any],
+    funnel_xlsx_payload: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     safe_metrics = metrics if isinstance(metrics, dict) else {}
     safe_totals = safe_metrics.get("totals", {})
@@ -153,6 +243,10 @@ def assemble_sales_funnel(
     selected_totals = safe_ads_diag.get("selected_totals", {})
     if not isinstance(selected_totals, dict):
         selected_totals = {}
+    safe_funnel_xlsx = _extract_funnel_xlsx_payload(safe_metrics, funnel_xlsx_payload)
+    funnel_xlsx_totals = safe_funnel_xlsx.get("cabinet_totals", {})
+    if not isinstance(funnel_xlsx_totals, dict):
+        funnel_xlsx_totals = {}
 
     orders_confirmed = bool(
         safe_commerce_kpi.get(
@@ -192,6 +286,16 @@ def assemble_sales_funnel(
         safe_daily_kpi.get("data_source_buyouts_count"),
         safe_daily_kpi.get("source_count"),
     )
+    traffic_source = _first_present(
+        safe_data_sources.get("views"),
+        safe_data_sources.get("orders_count"),
+        safe_daily_kpi.get("data_source_orders_count"),
+    )
+    add_to_cart_source = _first_present(
+        safe_data_sources.get("add_to_cart"),
+        safe_data_sources.get("orders_count"),
+        safe_daily_kpi.get("data_source_orders_count"),
+    )
 
     # Keep conversion metrics available when counts are present in known sources,
     # even if confirmation flags are not final yet.
@@ -205,8 +309,18 @@ def assemble_sales_funnel(
         buyouts_totals_value = _to_int_or_none(safe_totals.get("buys"))
         if buyouts_totals_value is not None and (buyouts_totals_value > 0 or not _is_unknown_source(buyouts_source)):
             buyouts_for_calc = buyouts_totals_value
+    orders_for_calc, orders_source_final = _pick_priority_metric(
+        xlsx_value=funnel_xlsx_totals.get("orders"),
+        api_value=orders_for_calc,
+        api_source=str(orders_source or "unknown"),
+    )
+    buyouts_for_calc, buyouts_source_final = _pick_priority_metric(
+        xlsx_value=funnel_xlsx_totals.get("buyouts"),
+        api_value=buyouts_for_calc,
+        api_source=str(buyouts_source or "unknown"),
+    )
 
-    views = _to_int_or_none(
+    api_views = _to_int_or_none(
         _first_present(
             safe_commerce_kpi.get("views"),
             safe_daily_kpi.get("views"),
@@ -216,13 +330,24 @@ def assemble_sales_funnel(
             safe_totals.get("ads_impressions"),
         )
     )
-    add_to_cart = _to_int_or_none(
+    views, views_source_final = _pick_priority_metric(
+        xlsx_value=funnel_xlsx_totals.get("views"),
+        api_value=api_views,
+        api_source=str(traffic_source or "unknown"),
+    )
+
+    api_add_to_cart = _to_int_or_none(
         _first_present(
             safe_commerce_kpi.get("add_to_cart"),
             safe_daily_kpi.get("add_to_cart"),
             safe_totals.get("add_to_cart"),
             safe_totals.get("cart_count"),
         )
+    )
+    add_to_cart, add_to_cart_source_final = _pick_priority_metric(
+        xlsx_value=funnel_xlsx_totals.get("add_to_cart"),
+        api_value=api_add_to_cart,
+        api_source=str(add_to_cart_source or "unknown"),
     )
     clicks = _to_int_or_none(_first_present(selected_totals.get("ads_clicks"), safe_totals.get("ads_clicks")))
     impressions = _to_int_or_none(
@@ -252,6 +377,17 @@ def assemble_sales_funnel(
     tax = _to_float_or_none(_first_present(safe_financial_kpi.get("tax"), safe_totals.get("tax")))
     cogs = _to_float_or_none(_first_present(safe_financial_kpi.get("cost_price"), safe_totals.get("cost_price")))
     profit = _to_float_or_none(_first_present(safe_financial_kpi.get("net_profit"), safe_totals.get("net_profit"), safe_totals.get("profit")))
+
+    orders_amount, orders_amount_source = _pick_priority_float(
+        xlsx_value=funnel_xlsx_totals.get("orders_amount"),
+        api_value=None,
+        api_source="unknown",
+    )
+    buyouts_amount, buyouts_amount_source = _pick_priority_float(
+        xlsx_value=funnel_xlsx_totals.get("buyouts_amount"),
+        api_value=None,
+        api_source="unknown",
+    )
 
     cabinet_metrics = calculate_funnel_metrics(
         views=views,
@@ -308,26 +444,19 @@ def assemble_sales_funnel(
         sku_funnel.append(sku_metrics)
 
     data_sources = {
-        "views": (
-            "totals.views"
-            if safe_totals.get("views") is not None
-            else ("totals.ads_impressions_proxy" if views is not None else "unknown")
-        ),
-        "add_to_cart": "totals.add_to_cart" if add_to_cart is not None else "unknown",
-        "orders": str(safe_data_sources.get("orders_count") or safe_daily_kpi.get("data_source_orders_count") or "unknown"),
-        "buyouts": str(safe_data_sources.get("buyouts_count") or safe_daily_kpi.get("data_source_buyouts_count") or "unknown"),
+        "views": views_source_final,
+        "add_to_cart": add_to_cart_source_final,
+        "orders": orders_source_final,
+        "buyouts": buyouts_source_final,
+        "orders_amount": orders_amount_source,
+        "buyouts_amount": buyouts_amount_source,
         "ads_spend": str(safe_data_sources.get("ads_spend") or "unknown"),
         "cpo": "derived",
     }
     status = _build_status(views=views, add_to_cart=add_to_cart, orders=orders, buyouts=buyouts)
 
-    buyout_rate_value = _to_float_or_none(cabinet_metrics.get("buyout_rate"))
-    order_to_buyout_over_100 = bool(buyout_rate_value is not None and buyout_rate_value > 100.0)
-    order_to_buyout_note = (
-        "order_to_buyout_conversion_gt_100: possible date shift between orders and buyouts"
-        if order_to_buyout_over_100
-        else ""
-    )
+    order_to_buyout_over_100 = bool(cabinet_metrics.get("buyout_rate_over_100", False))
+    order_to_buyout_note = str(cabinet_metrics.get("buyout_rate_note") or "")
     if order_to_buyout_over_100 and isinstance(status, dict):
         status["buyout_stage"] = "partial"
 
@@ -344,6 +473,8 @@ def assemble_sales_funnel(
         "order_to_buyout": cabinet_metrics["buyout_rate"],
         "order_to_buyout_over_100": order_to_buyout_over_100,
         "order_to_buyout_note": order_to_buyout_note,
+        "orders_amount": round(orders_amount, 2) if orders_amount is not None else None,
+        "buyouts_amount": round(buyouts_amount, 2) if buyouts_amount is not None else None,
         "ads_spend": cabinet_metrics["ads_spend"],
         "cpo": cabinet_metrics["cpo"],
         # Backward-compatible aliases for existing report/email blocks.
