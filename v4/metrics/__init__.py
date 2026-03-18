@@ -7,6 +7,7 @@ from .financial import (
     classify_realization_components,
     resolve_realization_window,
 )
+from .funnel import assemble_funnel_metrics
 
 __all__ = [
     "build_metrics",
@@ -15,4 +16,5 @@ __all__ = [
     "assemble_financial_metrics",
     "classify_realization_components",
     "resolve_realization_window",
+    "assemble_funnel_metrics",
 ]

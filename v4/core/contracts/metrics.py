@@ -91,6 +91,27 @@ class DailyMetricsSection:
 
 
 @dataclass
+class FunnelMetricsSection:
+    """Funnel contour metrics aggregated on run level."""
+
+    impressions: MetricValue = field(default_factory=_default_unavailable_metric)
+    opens: MetricValue = field(default_factory=_default_unavailable_metric)
+    cart_adds: MetricValue = field(default_factory=_default_unavailable_metric)
+    orders: MetricValue = field(default_factory=_default_unavailable_metric)
+    buys: MetricValue = field(default_factory=_default_unavailable_metric)
+
+    ctr_open_from_impressions: MetricValue = field(default_factory=_default_unavailable_metric)
+    cr_cart_from_opens: MetricValue = field(default_factory=_default_unavailable_metric)
+    cr_orders_from_cart: MetricValue = field(default_factory=_default_unavailable_metric)
+    cr_buys_from_orders: MetricValue = field(default_factory=_default_unavailable_metric)
+    cr_buys_from_impressions: MetricValue = field(default_factory=_default_unavailable_metric)
+
+    source_quality: dict[str, str] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    note: str | None = None
+
+
+@dataclass
 class MetricsBundle:
     """Top-level metrics payload for downstream layers.
 
@@ -100,6 +121,7 @@ class MetricsBundle:
     run_context: RunContext
     financial: FinancialMetricsSection | None = None
     daily: DailyMetricsSection | None = None
+    funnel: FunnelMetricsSection | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
     source_flags: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
@@ -124,4 +146,5 @@ class MetricsBundle:
         return {
             "financial": self.financial,
             "daily": self.daily,
+            "funnel": self.funnel,
         }

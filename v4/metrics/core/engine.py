@@ -1,7 +1,7 @@
 ﻿"""Metrics engine foundation.
 
 Input: NormalizedBundle.
-Output: MetricsBundle (financial + daily subset only).
+Output: MetricsBundle (financial + daily + funnel).
 Does not build facts/decisions/outputs.
 """
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 from ...core.contracts import MetricStatus, MetricsBundle, NormalizedBundle
 from ..daily.resolver import build_daily_metrics_from_financial
 from ..financial.assembler import assemble_financial_metrics
+from ..funnel.assembler import assemble_funnel_metrics
 
 
 def _financial_status(financial) -> str:
@@ -40,9 +41,30 @@ def _financial_status(financial) -> str:
     return MetricStatus.UNAVAILABLE.value
 
 
+def _funnel_status(funnel) -> str:
+    statuses = {
+        funnel.impressions.status,
+        funnel.opens.status,
+        funnel.cart_adds.status,
+        funnel.orders.status,
+        funnel.buys.status,
+        funnel.ctr_open_from_impressions.status,
+        funnel.cr_cart_from_opens.status,
+        funnel.cr_orders_from_cart.status,
+        funnel.cr_buys_from_orders.status,
+        funnel.cr_buys_from_impressions.status,
+    }
+    if statuses == {MetricStatus.CONFIRMED.value}:
+        return MetricStatus.CONFIRMED.value
+    if MetricStatus.CONFIRMED.value in statuses or MetricStatus.PARTIAL.value in statuses:
+        return MetricStatus.PARTIAL.value
+    return MetricStatus.UNAVAILABLE.value
+
+
 def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
     financial = assemble_financial_metrics(normalized_bundle)
     daily = build_daily_metrics_from_financial(financial)
+    funnel = assemble_funnel_metrics(normalized_bundle)
 
     source_flags = {
         source_name: (
@@ -55,6 +77,7 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
 
     warnings = list(normalized_bundle.warnings)
     warnings.extend(financial.warnings)
+    warnings.extend(funnel.warnings)
 
     diagnostics = dict(normalized_bundle.diagnostics)
     diagnostics.update(
@@ -69,7 +92,10 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
                 1 for warning in financial.warnings if "realization" in str(warning).lower()
             ),
             "fallback_used": financial.fallback_used,
-            "metrics_sections_built": ["financial", "daily"],
+            "funnel_status": _funnel_status(funnel),
+            "funnel_records_count": len(normalized_bundle.funnel),
+            "funnel_warnings_count": len(funnel.warnings),
+            "metrics_sections_built": ["financial", "daily", "funnel"],
         }
     )
 
@@ -77,6 +103,7 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
         run_context=normalized_bundle.run_context,
         financial=financial,
         daily=daily,
+        funnel=funnel,
         diagnostics=diagnostics,
         source_flags=source_flags,
         warnings=warnings,

@@ -49,12 +49,14 @@ class TestMetricsBundleBuild(unittest.TestCase):
 
         self.assertIsNotNone(metrics.financial)
         self.assertIsNotNone(metrics.daily)
+        self.assertIsNotNone(metrics.funnel)
         self.assertEqual(metrics.source_flags["orders"], "ok")
         self.assertEqual(metrics.source_flags["realization"], "partial")
         self.assertIn("financial_status", metrics.diagnostics)
         self.assertIn("realization_fallback_used", metrics.diagnostics)
+        self.assertIn("funnel_status", metrics.diagnostics)
         self.assertIn("normalized warning", metrics.warnings)
-        self.assertEqual(metrics.diagnostics["metrics_sections_built"], ["financial", "daily"])
+        self.assertEqual(metrics.diagnostics["metrics_sections_built"], ["financial", "daily", "funnel"])
 
 
 if __name__ == "__main__":

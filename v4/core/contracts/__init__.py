@@ -25,6 +25,7 @@ from .normalized import (
 from .metrics import (
     DailyMetricsSection,
     FinancialMetricsSection,
+    FunnelMetricsSection,
     MetricStatus,
     MetricValue,
     MetricsBundle,
@@ -56,6 +57,7 @@ __all__ = [
     "MetricValue",
     "FinancialMetricsSection",
     "DailyMetricsSection",
+    "FunnelMetricsSection",
     "MetricsBundle",
     "FactsBundle",
     "DecisionItem",
