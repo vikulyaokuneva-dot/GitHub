@@ -37,6 +37,13 @@ def _safe_float(value: Any) -> float | None:
         return None
 
 
+def _safe_int(value: Any) -> int | None:
+    numeric = _safe_float(value)
+    if numeric is None:
+        return None
+    return int(numeric)
+
+
 def _is_mojibake_text(text: str) -> bool:
     sample = str(text or "")
     if not sample:
@@ -459,17 +466,14 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         data_quality.get("financial_finality_status", report_guardrails.get("financial_finality_status", "unavailable"))
         or "unavailable"
     ).strip().lower()
-    financial_completeness_pct = (
-        _safe_float(
-            data.get(
-                "financial_completeness_pct",
-                financial_kpi.get(
-                    "completeness_pct",
-                    data_quality.get("financial_completeness_pct", 0.0),
-                ),
-            )
+    financial_completeness_pct = _safe_float(
+        data.get(
+            "financial_completeness_pct",
+            financial_kpi.get(
+                "completeness_pct",
+                data_quality.get("financial_completeness_pct"),
+            ),
         )
-        or 0.0
     )
 
     territorial_analysis_mode = str(
@@ -485,11 +489,11 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     territorial_actionable_enabled = bool(report_guardrails.get("territorial_actionable_enabled", False))
     territorial_suppressed_due_to_data_quality = bool(data_quality.get("territorial_suppressed_due_to_data_quality", False))
     ads_analysis_enabled = bool(report_guardrails.get("ads_analysis_enabled", True))
-    ads_rows_count = int(data.get("ads_rows_count", 0) or 0)
+    ads_rows_count = int(_safe_int(data.get("ads_rows_count")) or 0)
 
     preliminary_ai_reasons = _resolve_preliminary_ai_reasons(
         financial_finality_status=financial_finality_status,
-        financial_completeness_pct=float(financial_completeness_pct),
+        financial_completeness_pct=float(financial_completeness_pct or 0.0),
         territorial_analysis_mode=territorial_analysis_mode,
         territorial_recommendation_status=territorial_recommendation_status,
         territorial_actionable_enabled=territorial_actionable_enabled,
@@ -561,10 +565,10 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     daily_buyouts_count_for_summary = render_kpi.get("buyouts_count", data.get("daily_buyouts_count"))
     daily_buyouts_amount_for_summary = render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount"))
     ads_summary_for_email = ads_summary if isinstance(ads_summary, dict) else {}
-    ads_rows_for_summary = int(data.get("ads_rows_count", 0) or 0)
-    ads_impressions_for_summary = int(data.get("ads_impressions", 0) or 0)
-    ads_clicks_for_summary = int(data.get("ads_clicks", 0) or 0)
-    ads_orders_for_summary = int(data.get("ads_orders", 0) or 0)
+    ads_rows_for_summary = _safe_int(data.get("ads_rows_count"))
+    ads_impressions_for_summary = _safe_int(data.get("ads_impressions"))
+    ads_clicks_for_summary = _safe_int(data.get("ads_clicks"))
+    ads_orders_for_summary = _safe_int(data.get("ads_orders"))
     ads_loaded_from_file_for_summary = bool(data.get("ads_loaded_from_file", False))
     ads_source_file_for_summary = str(data.get("ads_source_file") or "")
     ads_attribution_quality_for_summary = str(data.get("ads_attribution_quality") or "unknown")
@@ -579,15 +583,15 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         margin_pct_for_summary = None
         profitability_pct_for_summary = None
         ads_summary_for_email = {}
-        ads_rows_for_summary = 0
-        ads_impressions_for_summary = 0
-        ads_clicks_for_summary = 0
-        ads_orders_for_summary = 0
+        ads_rows_for_summary = None
+        ads_impressions_for_summary = None
+        ads_clicks_for_summary = None
+        ads_orders_for_summary = None
         ads_loaded_from_file_for_summary = False
         ads_source_file_for_summary = ""
         ads_attribution_quality_for_summary = "insufficient_data"
 
-        if (financial_finality_status != "final") or (float(financial_completeness_pct) < 95.0):
+        if (financial_finality_status != "final") or (float(financial_completeness_pct or 0.0) < 95.0):
             net_profit_for_summary = None
 
         if isinstance(funnel_snapshot_for_summary, dict):
@@ -622,7 +626,7 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         ads_spend_total=data.get("ads_spend_total"),
         margin_pct=margin_pct_for_summary,
         profitability_pct=profitability_pct_for_summary,
-        financial_completeness_pct=float(data.get("financial_completeness_pct", 0.0) or 0.0),
+        financial_completeness_pct=financial_completeness_pct,
         financial_partial=bool(data.get("financial_partial", False)),
         ads_rows=ads_rows_for_summary,
         ads_impressions=ads_impressions_for_summary,
@@ -670,7 +674,7 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             display_payload = {}
         for key in ("orders_count", "buyouts_count", "orders_amount", "buyouts_amount", "avg_check", "margin_pct", "profitability_pct"):
             display_payload[key] = non_api_label
-        if (financial_finality_status != "final") or (float(financial_completeness_pct) < 95.0):
+        if (financial_finality_status != "final") or (float(financial_completeness_pct or 0.0) < 95.0):
             display_payload["net_profit"] = non_api_label
         email_summary_payload["display"] = display_payload
 

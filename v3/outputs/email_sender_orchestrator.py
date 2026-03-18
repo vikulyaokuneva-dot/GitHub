@@ -151,6 +151,20 @@ def _summary_text(summary: Dict[str, Any], key: str, default: str = "нет да
         return text
     return default
 
+def _mark_preliminary(text: str, *, preliminary: bool) -> str:
+    value = str(text or '').strip()
+    if not value or not preliminary:
+        return value
+    lowered = value.lower()
+    if (
+        'insufficient' in lowered
+        or '\u043d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445' in lowered
+        or '\u043d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0434\u0430\u043d\u043d\u044b\u0445' in lowered
+    ):
+        return value
+    if 'preliminary' in lowered or '\u043f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u043e' in lowered:
+        return value
+    return f"{value} (\u043f\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043b\u044c\u043d\u043e)"
 
 def _clean_list(items: Any, *, limit: int = 3) -> List[str]:
     if not isinstance(items, list):
@@ -306,6 +320,7 @@ def build_daily_email_body(
     _ = build_body
     summary = email_summary if isinstance(email_summary, dict) else {}
     non_api_mode = bool(summary.get("non_api_mode", False))
+    financial_preliminary = bool(summary.get("financial_partial", False)) or str(summary.get("financial_finality_status", "")).strip().lower() != "final"
     non_api_label = "недостаточно данных (non-API mode)"
     non_api_notice = _clean_text(
         summary.get(
@@ -352,6 +367,11 @@ def build_daily_email_body(
         order_to_buyout_text = non_api_label
         margin_text = non_api_label
         profitability_text = non_api_label
+    else:
+        revenue_text = _mark_preliminary(revenue_text, preliminary=financial_preliminary)
+        net_profit_text = _mark_preliminary(net_profit_text, preliminary=financial_preliminary)
+        margin_text = _mark_preliminary(margin_text, preliminary=financial_preliminary)
+        profitability_text = _mark_preliminary(profitability_text, preliminary=financial_preliminary)
 
     insights = _clean_list(summary.get("key_insights", []), limit=3)
     if not insights:

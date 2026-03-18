@@ -6,13 +6,13 @@ from ..domain.source_policy import SOURCE_UNKNOWN
 from .render_policy import format_int_or_unknown, format_money_or_unknown, format_pct_or_unknown
 
 
-def _safe_float(value: Any) -> float:
+def _safe_float(value: Any) -> float | None:
     try:
         if value is None:
-            return 0.0
+            return None
         return float(value)
     except (TypeError, ValueError):
-        return 0.0
+        return None
 
 
 def _round_or_none(value: Any) -> float | None:
@@ -49,12 +49,12 @@ def build_email_summary(
     ads_spend_total: Any,
     margin_pct: Any,
     profitability_pct: Any,
-    financial_completeness_pct: float,
+    financial_completeness_pct: Any,
     financial_partial: bool,
-    ads_rows: int,
-    ads_impressions: int,
-    ads_clicks: int,
-    ads_orders: int,
+    ads_rows: Any,
+    ads_impressions: Any,
+    ads_clicks: Any,
+    ads_orders: Any,
     ads_loaded_from_file: bool,
     ads_source_file: str,
     ads_attribution_quality: str,
@@ -93,7 +93,7 @@ def build_email_summary(
     safe_sku_watchlists = sku_watchlists if isinstance(sku_watchlists, dict) else {}
     safe_sku_alerts = sku_alerts if isinstance(sku_alerts, dict) else {}
     ads_spend = _round_or_none(safe_ads_summary.get("ads_spend", ads_spend_total))
-    ads_spend_numeric = _safe_float(ads_spend if ads_spend is not None else 0.0)
+    ads_spend_numeric = _safe_float(ads_spend)
 
     summary = {
         "profit": _round_or_none(net_profit),
@@ -108,16 +108,16 @@ def build_email_summary(
         "ads_spend": ads_spend,
         "margin_pct": _round_or_none(margin_pct),
         "profitability_pct": _round_or_none(profitability_pct),
-        "financial_completeness_pct": round(_safe_float(financial_completeness_pct), 2),
+        "financial_completeness_pct": _round_or_none(financial_completeness_pct),
         "financial_partial": financial_partial,
-        "ads_rows": ads_rows,
-        "ads_impressions": ads_impressions,
-        "ads_clicks": ads_clicks,
-        "ads_orders": ads_orders,
+        "ads_rows": _int_or_none(ads_rows),
+        "ads_impressions": _int_or_none(ads_impressions),
+        "ads_clicks": _int_or_none(ads_clicks),
+        "ads_orders": _int_or_none(ads_orders),
         "ads_loaded_from_file": bool(ads_loaded_from_file),
         "ads_source_file": ads_source_file,
         "ads_attribution_quality": ads_attribution_quality,
-        "ads_applied_to_profit": bool(ads_spend_numeric > 0),
+        "ads_applied_to_profit": bool(ads_spend_numeric is not None and ads_spend_numeric > 0),
         "revenue": _round_or_none(daily_revenue),
         "financial_revenue": _round_or_none(financial_revenue),
         "orders": _int_or_none(daily_orders_count),
@@ -160,14 +160,14 @@ def build_email_summary(
     }
 
     summary["display"] = {
-        "orders_count": format_int_or_unknown(summary.get("daily_orders_count")),
-        "orders_amount": format_money_or_unknown(summary.get("daily_orders_amount")),
-        "buyouts_count": format_int_or_unknown(summary.get("daily_buyouts_count")),
-        "buyouts_amount": format_money_or_unknown(summary.get("daily_buyouts_amount")),
-        "avg_check": format_money_or_unknown(summary.get("avg_check")),
-        "financial_revenue": format_money_or_unknown(summary.get("financial_revenue"), decimals=0),
-        "net_profit": format_money_or_unknown(summary.get("net_profit"), decimals=0),
-        "margin_pct": format_pct_or_unknown(summary.get("margin_pct")),
-        "profitability_pct": format_pct_or_unknown(summary.get("profitability_pct")),
+        "orders_count": format_int_or_unknown(summary.get("daily_orders_count"), unknown_label="нет данных"),
+        "orders_amount": format_money_or_unknown(summary.get("daily_orders_amount"), unknown_label="нет данных"),
+        "buyouts_count": format_int_or_unknown(summary.get("daily_buyouts_count"), unknown_label="нет данных"),
+        "buyouts_amount": format_money_or_unknown(summary.get("daily_buyouts_amount"), unknown_label="нет данных"),
+        "avg_check": format_money_or_unknown(summary.get("avg_check"), unknown_label="нет данных"),
+        "financial_revenue": format_money_or_unknown(summary.get("financial_revenue"), unknown_label="нет данных", decimals=0),
+        "net_profit": format_money_or_unknown(summary.get("net_profit"), unknown_label="нет данных", decimals=0),
+        "margin_pct": format_pct_or_unknown(summary.get("margin_pct"), unknown_label="нет данных"),
+        "profitability_pct": format_pct_or_unknown(summary.get("profitability_pct"), unknown_label="нет данных"),
     }
     return summary

@@ -392,11 +392,11 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(advertising_efficiency, dict)
         else "disabled"
     ).strip().lower()
-    portfolio_ad_spend = _safe_float_local(portfolio_ads_summary.get("portfolio_ad_spend", data.get("ads_spend_total", 0.0)))
-    portfolio_orders_from_ads = _safe_float_local(portfolio_ads_summary.get("portfolio_orders_from_ads", data.get("ads_orders", 0)))
-    portfolio_buyouts_from_ads = _safe_float_local(portfolio_ads_summary.get("portfolio_buyouts_from_ads", 0.0))
-    portfolio_revenue_from_ads = _safe_float_local(portfolio_ads_summary.get("portfolio_revenue_from_ads", data.get("ads_revenue", 0.0)))
-    portfolio_profit_from_ads = _safe_float_local(portfolio_ads_summary.get("portfolio_profit_from_ads", 0.0))
+    portfolio_ad_spend = _safe_float_local(portfolio_ads_summary.get("portfolio_ad_spend", data.get("ads_spend_total")))
+    portfolio_orders_from_ads = _safe_float_local(portfolio_ads_summary.get("portfolio_orders_from_ads", data.get("ads_orders")))
+    portfolio_buyouts_from_ads = _safe_float_local(portfolio_ads_summary.get("portfolio_buyouts_from_ads"))
+    portfolio_revenue_from_ads = _safe_float_local(portfolio_ads_summary.get("portfolio_revenue_from_ads", data.get("ads_revenue")))
+    portfolio_profit_from_ads = _safe_float_local(portfolio_ads_summary.get("portfolio_profit_from_ads"))
     portfolio_romi = _safe_float_local(portfolio_ads_summary.get("portfolio_ROMI", data.get("ads_romi")))
     portfolio_drr = _safe_float_local(portfolio_ads_summary.get("portfolio_DRR"))
     portfolio_cpo = _safe_float_local(portfolio_ads_summary.get("portfolio_CPO"))
@@ -640,7 +640,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         f"?????? ??????? | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
         f"????? | {_pct_text(margin_pct_value, preliminary=financial_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
         f"?????????????? | {_pct_text(profitability_pct_value, preliminary=financial_preliminary)}",
-        f"??????? ?????????? ?????? | {_pct_text(data.get('financial_completeness_pct', 0.0))}",
+        f"??????? ?????????? ?????? | {_pct_text(data.get('financial_completeness_pct'))}",
         "",
         "## ????????????? ???????",
         "?????????? | ????????",
@@ -803,7 +803,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         f"???????? ?????? (SKU) | {_int_text(data_quality.get('valid_sku_count', 0))}",
         f"?????? ? ???????? | {_int_text(data_quality.get('invalid_sku_rows', 0))}",
         f"?? ?????????????? ?????? | {_int_text(data_quality.get('unassigned_rows_true', data_quality.get('unassigned_rows', 0)))}",
-        f"??????? ?????????? ?????? | {_pct_text(data.get('financial_completeness_pct', 0.0))}",
+        f"??????? ?????????? ?????? | {_pct_text(data.get('financial_completeness_pct'))}",
         f"?????? ??????????? ??????? | {_contour_status_ru(financial_finality_status)}",
         f"?????????? ?????? | {_reliability_ru(str(data_quality.get('report_reliability_level', 'medium')))}",
         "",
@@ -891,7 +891,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         _ru("К перечислению продавцу") + f" | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
         _ru("Р§РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ") + f" | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
         "Маржа" + f" | {_pct_text(margin_pct_value, preliminary=financial_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
-        _ru("РџРѕР»РЅРѕС‚Р° С„РёРЅР°РЅСЃРѕРІС‹С… РґР°РЅРЅС‹С…") + f" | {_pct_text(data.get('financial_completeness_pct', 0.0))}",
+        _ru("РџРѕР»РЅРѕС‚Р° С„РёРЅР°РЅСЃРѕРІС‹С… РґР°РЅРЅС‹С…") + f" | {_pct_text(data.get('financial_completeness_pct'))}",
         "",
         "## " + _ru("Р­С„С„РµРєС‚РёРІРЅРѕСЃС‚СЊ СЂРµРєР»Р°РјС‹"),
         _ru("РџРѕРєР°Р·Р°С‚РµР»СЊ") + " | " + _ru("Р—РЅР°С‡РµРЅРёРµ"),
@@ -954,7 +954,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         _ru("Р’Р°Р»РёРґРЅС‹Рµ С‚РѕРІР°СЂС‹ (SKU)") + f" | {_int_text(data_quality.get('valid_sku_count', 0))}",
         _ru("РЎС‚СЂРѕРєРё СЃ РѕС€РёР±РєР°РјРё") + f" | {_int_text(data_quality.get('invalid_sku_rows', 0))}",
         _ru("РќРµ СЂР°СЃРїСЂРµРґРµР»С‘РЅРЅС‹Рµ СЃС‚СЂРѕРєРё") + f" | {_int_text(data_quality.get('unassigned_rows_true', data_quality.get('unassigned_rows', 0)))}",
-        _ru("РџРѕР»РЅРѕС‚Р° С„РёРЅР°РЅСЃРѕРІС‹С… РґР°РЅРЅС‹С…") + f" | {_pct_text(data.get('financial_completeness_pct', 0.0))}",
+        _ru("РџРѕР»РЅРѕС‚Р° С„РёРЅР°РЅСЃРѕРІС‹С… РґР°РЅРЅС‹С…") + f" | {_pct_text(data.get('financial_completeness_pct'))}",
         _ru("РЎС‚Р°С‚СѓСЃ С„РёРЅР°РЅСЃРѕРІРѕРіРѕ РєРѕРЅС‚СѓСЂР°") + f" | {_contour_status_ru(financial_finality_status)}",
         _ru("РќР°РґРµР¶РЅРѕСЃС‚СЊ РѕС‚С‡РµС‚Р°") + f" | {_reliability_ru(str(data_quality.get('report_reliability_level', 'medium')))}",
         "",
@@ -1912,10 +1912,10 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "buyouts_count_confirmed": bool(daily_kpi.get("buyouts_count_confirmed", False)),
             "display": {
                 "daily_orders_count": format_int_or_unknown(orders_count_value, unknown_label=NO_DATA_LABEL),
-                "daily_orders_amount": format_money_or_unknown(orders_amount_value),
+                "daily_orders_amount": format_money_or_unknown(orders_amount_value, unknown_label=NO_DATA_LABEL),
                 "daily_buyouts_count": format_int_or_unknown(buyouts_count_value, unknown_label=NO_DATA_LABEL),
-                "daily_buyouts_amount": format_money_or_unknown(buyouts_amount_value),
-                "avg_check": format_money_or_unknown(avg_check_value),
+                "daily_buyouts_amount": format_money_or_unknown(buyouts_amount_value, unknown_label=NO_DATA_LABEL),
+                "avg_check": format_money_or_unknown(avg_check_value, unknown_label=NO_DATA_LABEL),
             },
         },
         "daily_financial_kpi": {
@@ -1937,10 +1937,10 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "other_adjustments": _round_or_none(other_adjustments_visual),
             "tax": _round_or_none(tax_visual),
             "ads_spend": _round_or_none(ad_spend_visual),
-            "ads_impressions": int(data.get("ads_impressions", 0) or 0),
-            "ads_clicks": int(data.get("ads_clicks", 0) or 0),
-            "ads_orders": int(data.get("ads_orders", 0) or 0),
-            "ads_rows": int(data.get("ads_rows_count", 0) or 0),
+            "ads_impressions": _int_or_none(data.get("ads_impressions")),
+            "ads_clicks": _int_or_none(data.get("ads_clicks")),
+            "ads_orders": _int_or_none(data.get("ads_orders")),
+            "ads_rows": _int_or_none(data.get("ads_rows_count")),
             "ads_source_file": str(data.get("ads_source_file") or ""),
             "ads_loaded_from_file": bool(data.get("ads_loaded_from_file", False)),
             "ads_attribution_quality": str(data.get("ads_attribution_quality") or "unknown"),
@@ -1950,14 +1950,14 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "net_profit_explain_delta": _round_or_none(net_profit_explain_delta),
             "margin_pct": _round_or_none(margin_pct_value),
             "profitability_pct": _round_or_none(profitability_pct_value),
-            "financial_completeness_pct": _round_or_none(data.get("financial_completeness_pct")) or 0.0,
+            "financial_completeness_pct": _round_or_none(data.get("financial_completeness_pct")),
             "financial_partial": bool(data.get("financial_partial", False)),
             "financial_finality_status": financial_finality_status,
             "display": {
-                "seller_payout": format_money_or_unknown(revenue_visual, decimals=0),
-                "net_profit": format_money_or_unknown(net_profit_visual, decimals=0),
+                "seller_payout": format_money_or_unknown(revenue_visual, unknown_label=NO_DATA_LABEL, decimals=0),
+                "net_profit": format_money_or_unknown(net_profit_visual, unknown_label=NO_DATA_LABEL, decimals=0),
                 "margin_pct": format_pct_or_unknown(margin_pct_value, unknown_label=INSUFFICIENT_DATA_LABEL),
-                "profitability_pct": format_pct_or_unknown(profitability_pct_value),
+                "profitability_pct": format_pct_or_unknown(profitability_pct_value, unknown_label=NO_DATA_LABEL),
             },
         },
         "event_date_model": event_date_model if isinstance(event_date_model, dict) else {},
