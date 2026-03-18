@@ -1,17 +1,18 @@
-"""Decisions Stage skeleton.
+"""Decisions stage for v4 pipeline.
 
-Input: stage context payload.
-Output: stage context payload.
-Does not execute production logic in stage 1.
+Input: FactsBundle.
+Output: DecisionsBundle.
+Does not execute output/render stages.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from ...core.contracts import DecisionsBundle, FactsBundle
+from ...decisions.builder import build_decisions_bundle
 
 
-def run(context: Dict[str, Any]) -> Dict[str, Any]:
-    out = dict(context or {})
-    out.setdefault("stage_trace", []).append("decisions_stage")
-    out["status"] = "not_implemented"
-    return out
+def run(facts_bundle: FactsBundle) -> DecisionsBundle:
+    if not isinstance(facts_bundle, FactsBundle):
+        raise TypeError("decisions_stage.run expects FactsBundle")
+    return build_decisions_bundle(facts_bundle)
+

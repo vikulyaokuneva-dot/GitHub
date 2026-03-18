@@ -33,7 +33,7 @@ from .metrics import (
     StockMetricsSection,
 )
 from .facts import FactItem, FactSection, FactsBundle, FactValue
-from .decisions import DecisionItem, DecisionsBundle
+from .decisions import DecisionItem, DecisionPriority, DecisionStatus, DecisionsBundle
 from .report import ReportPayload
 
 __all__ = [
@@ -67,6 +67,8 @@ __all__ = [
     "FactItem",
     "FactSection",
     "FactsBundle",
+    "DecisionPriority",
+    "DecisionStatus",
     "DecisionItem",
     "DecisionsBundle",
     "ReportPayload",
