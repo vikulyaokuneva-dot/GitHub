@@ -112,6 +112,20 @@ _SUPPLIER_GOODS_FILE_TOKENS = (
     "воронка",
 )
 
+_DAILY_PAYMENT_REASON_COLUMN_HINTS = (
+    "обоснование_для_оплаты",
+    "обоснование",
+    "основание_для_оплаты",
+)
+
+_DAILY_PAYMENT_REASON_TOKENS = {
+    "sales_rows": ("продажа", "продаж"),
+    "logistics_rows": ("логистика",),
+    "pvz_rows": ("пвз",),
+    "storage_rows": ("хранение",),
+    "deductions_rows": ("удержан",),
+}
+
 FIELD_SYNONYMS = {
     "sku": ["sku", "nm_id", "nmid", "артикул", "артикул_wb", "артикул_продавца", "номенклатура", "код_товара", "код_номенклатуры", "наименование", "товар", "предмет"],
     "seller_sku": ["seller_sku", "supplier_sku", "артикул_поставщика", "артикул_продавца", "артикул", "vendor_code"],
@@ -373,6 +387,48 @@ def _normalize_records(columns: List[str], records: Iterable[Dict[str, Any]]) ->
             item[_normalize_text(key)] = val
         rows.append(item)
     return ncols, rows
+
+
+def _find_daily_payment_reason_column(normalized_columns: List[str]) -> str:
+    for hint in _DAILY_PAYMENT_REASON_COLUMN_HINTS:
+        token = _normalize_text(hint)
+        if token in normalized_columns:
+            return token
+    for col in normalized_columns:
+        if any(_normalize_text(hint) in col for hint in _DAILY_PAYMENT_REASON_COLUMN_HINTS):
+            return col
+    return ""
+
+
+def _split_daily_detailed_rows_by_reason(
+    normalized_rows: List[Dict[str, Any]], payment_reason_column: str
+) -> Dict[str, List[Dict[str, Any]]]:
+    grouped: Dict[str, List[Dict[str, Any]]] = {
+        "sales_rows": [],
+        "logistics_rows": [],
+        "pvz_rows": [],
+        "storage_rows": [],
+        "deductions_rows": [],
+    }
+    if not payment_reason_column:
+        grouped["sales_rows"] = list(normalized_rows)
+        return grouped
+
+    for row in normalized_rows:
+        reason_value = str(row.get(payment_reason_column) or "").strip()
+        reason_normalized = _normalize_text(reason_value)
+        if not reason_normalized or reason_normalized == "nan":
+            continue
+
+        placed = False
+        for bucket_name, tokens in _DAILY_PAYMENT_REASON_TOKENS.items():
+            if any(token in reason_normalized for token in tokens):
+                grouped[bucket_name].append(row)
+                placed = True
+                break
+        if not placed and "продаж" in reason_normalized:
+            grouped["sales_rows"].append(row)
+    return grouped
 
 
 def _read_csv_table(path: str, max_rows: int | None = None) -> Tuple[List[str], List[Dict[str, Any]]]:
@@ -1226,6 +1282,8 @@ def _rows_from_table(
     columns: List[str], records: List[Dict[str, Any]], report_type: str
 ) -> Tuple[List[Dict[str, Any]], List[str], Dict[str, str]]:
     ncols, nrows = _normalize_records(columns, records)
+    payment_reason_column = ""
+    daily_detailed_rows: Dict[str, List[Dict[str, Any]]] | None = None
     canon = _canonical_columns(ncols)
     if report_type == "sales":
         required, useful = ["sku"], [
@@ -1265,6 +1323,8 @@ def _rows_from_table(
             if preferred in ncols:
                 canon["warehouse"] = preferred
                 break
+        payment_reason_column = _find_daily_payment_reason_column(ncols)
+        daily_detailed_rows = _split_daily_detailed_rows_by_reason(nrows, payment_reason_column)
     elif report_type == "ads":
         required, useful = ["sku"], [
             "ads_spend",
@@ -1320,6 +1380,8 @@ def _rows_from_table(
     matched_columns = {field: canon[field] for field in useful + string_fields if field in canon}
     if "sku" in canon:
         matched_columns["sku"] = canon["sku"]
+    if report_type == "sales" and payment_reason_column:
+        matched_columns["payment_reason"] = payment_reason_column
     if report_type == "ads":
         ads_metric_fields = ("ads_spend", "impressions", "clicks", "ctr", "cpc", "cpo", "orders", "revenue")
         if not any(field in canon for field in ads_metric_fields):
@@ -1328,7 +1390,11 @@ def _rows_from_table(
             return [], missing, matched_columns
 
     rows: List[Dict[str, Any]] = []
-    for r in nrows:
+    source_rows = nrows
+    if report_type == "sales" and daily_detailed_rows is not None:
+        source_rows = daily_detailed_rows.get("sales_rows", [])
+
+    for r in source_rows:
         if report_type == "ads" and _is_ads_campaign_total_row(r):
             total_item: Dict[str, Any] = {"_is_campaign_total": True}
             for field in useful:
