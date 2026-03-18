@@ -76,6 +76,7 @@ from .sources.wb_reports_loader import (
     parse_funnel_report_xlsx,
     load_supplier_goods_daily_kpi,
 )
+from .sources import wb_reports_loader as _wb_reports_loader
 
 _FALLBACK_SELLER_ID = "__missing_seller__"
 _ALLOW_FALLBACK_ENV = "WB_ALLOW_MISSING_SELLER"
@@ -753,7 +754,7 @@ def _build_management_email_body(
         build_body=lambda _seller_id, _run_date, _summary: "",
     )
 
-def _funnel_candidate_paths(
+def _excel_candidate_paths(
     *,
     seller_input_dir: str,
     discovered_files: Dict[str, Any],
@@ -784,6 +785,23 @@ def _funnel_candidate_paths(
     return candidates
 
 
+def _looks_like_daily_file(path: str) -> bool:
+    token = str(os.path.basename(path) or "").strip().lower()
+    return any(
+        marker in token
+        for marker in (
+            "ежеднев",
+            "детализ",
+            "daily",
+            "supplier",
+            "goods",
+            "report",
+            "реализац",
+            "financial",
+        )
+    )
+
+
 def _looks_like_funnel_file(path: str) -> bool:
     token = str(os.path.basename(path) or "").strip().lower()
     return any(
@@ -798,12 +816,66 @@ def _looks_like_funnel_file(path: str) -> bool:
     )
 
 
+def parse_daily_report(path: str) -> Dict[str, Any]:
+    try:
+        if os.path.isfile(path):
+            extracted = _wb_reports_loader._extract_supplier_goods_daily_kpi(path)  # type: ignore[attr-defined]
+            if isinstance(extracted, dict) and extracted:
+                out = dict(extracted)
+                out["found"] = True
+                out.setdefault("source_file", os.path.basename(path))
+                out.setdefault("source_path", path)
+                return out
+    except Exception:
+        pass
+
+    input_root = path if os.path.isdir(path) else os.path.dirname(path)
+    payload = load_supplier_goods_daily_kpi(input_root)
+    if not isinstance(payload, dict):
+        return {}
+    if not bool(payload.get("found", False)):
+        return {}
+    return dict(payload)
+
+
+def _parse_local_daily_payload(
+    *,
+    seller_input_dir: str,
+    discovered_files: Dict[str, Any],
+) -> Dict[str, Any]:
+    candidates = _excel_candidate_paths(
+        seller_input_dir=seller_input_dir,
+        discovered_files=discovered_files if isinstance(discovered_files, dict) else {},
+    )
+    if not candidates:
+        return {}
+
+    ordered_candidates = sorted(
+        candidates,
+        key=lambda path: (0 if _looks_like_daily_file(path) else 1, os.path.basename(path).lower()),
+    )
+    for path in ordered_candidates:
+        parsed = parse_daily_report(path)
+        if not isinstance(parsed, dict) or not parsed:
+            continue
+        if not bool(parsed.get("found", False)):
+            continue
+        parsed.setdefault("source_file", os.path.basename(path))
+        parsed.setdefault("source_path", path)
+        return parsed
+
+    parsed_from_dir = parse_daily_report(seller_input_dir)
+    if isinstance(parsed_from_dir, dict) and bool(parsed_from_dir.get("found", False)):
+        return parsed_from_dir
+    return {}
+
+
 def _parse_local_funnel_payload(
     *,
     seller_input_dir: str,
     discovered_files: Dict[str, Any],
 ) -> Dict[str, Any]:
-    candidates = _funnel_candidate_paths(
+    candidates = _excel_candidate_paths(
         seller_input_dir=seller_input_dir,
         discovered_files=discovered_files if isinstance(discovered_files, dict) else {},
     )
@@ -831,6 +903,29 @@ def _parse_local_funnel_payload(
             "sku_rows": sku_rows,
         }
     return {}
+
+
+def _inject_parsed_daily_into_context(context: Dict[str, Any], daily_payload: Dict[str, Any]) -> Dict[str, Any]:
+    ctx = dict(context or {})
+    if not isinstance(daily_payload, dict) or not daily_payload:
+        return ctx
+    if not bool(daily_payload.get("found", False)):
+        return ctx
+
+    ctx["parsed_daily"] = daily_payload
+    ctx["supplier_goods_daily"] = daily_payload
+
+    input_debug = ctx.get("input_debug", {})
+    if not isinstance(input_debug, dict):
+        input_debug = {}
+    input_debug["parsed_daily_report"] = {
+        "found": True,
+        "source_file": str(daily_payload.get("source_file") or ""),
+        "source_path": str(daily_payload.get("source_path") or ""),
+        "rows_used": int(daily_payload.get("rows_used", 0) or 0),
+    }
+    ctx["input_debug"] = input_debug
+    return ctx
 
 
 def _inject_parsed_funnel_into_context(context: Dict[str, Any], funnel_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -887,6 +982,23 @@ def _apply_parsed_funnel_after_metrics(context: Dict[str, Any]) -> Dict[str, Any
     return ctx
 
 
+def build_metrics(
+    *,
+    daily_data: Dict[str, Any],
+    funnel_data: Dict[str, Any],
+    api_data: Dict[str, Any],
+    context: Dict[str, Any],
+    run_metrics_stage: Any,
+) -> Dict[str, Any]:
+    _ = api_data
+    ctx = dict(context or {})
+    ctx = _inject_parsed_daily_into_context(ctx, daily_data if isinstance(daily_data, dict) else {})
+    ctx = _inject_parsed_funnel_into_context(ctx, funnel_data if isinstance(funnel_data, dict) else {})
+    ctx = run_metrics_stage(ctx)
+    ctx = _apply_parsed_funnel_after_metrics(ctx)
+    return ctx
+
+
 def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict[str, Any]:
     from .pipeline.daily_ai_stage import run_daily_ai_stage
     from .pipeline.daily_input_stage import run_daily_input_stage
@@ -898,16 +1010,26 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     print("[pipeline] stage=load_reports finished")
 
     print("[pipeline] stage=parse started")
+    parsed_daily = _parse_local_daily_payload(
+        seller_input_dir=str(context.get("seller_input_dir") or ""),
+        discovered_files=context.get("discovered_files", {}) if isinstance(context.get("discovered_files"), dict) else {},
+    )
     funnel_payload = _parse_local_funnel_payload(
         seller_input_dir=str(context.get("seller_input_dir") or ""),
         discovered_files=context.get("discovered_files", {}) if isinstance(context.get("discovered_files"), dict) else {},
     )
+    context = _inject_parsed_daily_into_context(context, parsed_daily if isinstance(parsed_daily, dict) else {})
     context = _inject_parsed_funnel_into_context(context, funnel_payload if isinstance(funnel_payload, dict) else {})
     print("[pipeline] stage=parse finished")
 
     print("[pipeline] stage=metrics started")
-    context = run_daily_metrics_stage(context)
-    context = _apply_parsed_funnel_after_metrics(context)
+    context = build_metrics(
+        daily_data=parsed_daily if isinstance(parsed_daily, dict) else {},
+        funnel_data=funnel_payload if isinstance(funnel_payload, dict) else {},
+        api_data=context.get("api_debug", {}) if isinstance(context.get("api_debug"), dict) else {},
+        context=context,
+        run_metrics_stage=run_daily_metrics_stage,
+    )
     print("[pipeline] stage=metrics finished")
 
     print("[pipeline] stage=facts started")
