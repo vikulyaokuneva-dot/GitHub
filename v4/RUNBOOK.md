@@ -45,7 +45,7 @@ python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --output-dir 
 ```bash
 python v4/scripts/preflight_daily.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
 python v4/scripts/smoke_daily_operator.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
-python v4/scripts/scheduled_daily_run.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4 --dry-run
+python v4/scripts/scheduled_daily_run.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs/scheduled_daily --production-mode v4 --dry-run
 ```
 
 ## Dry-run semantics
@@ -143,4 +143,3 @@ python -m compileall v4
 
 ## Release Gate
 Чеклист релиза: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
-

@@ -34,7 +34,7 @@ jobs:
       RUN_DATE: ${{ github.event.inputs.run_date || vars.V4_SCHEDULE_RUN_DATE || '' }}
       PRODUCTION_MODE: ${{ github.event.inputs.production_mode || vars.V4_SCHEDULE_PRODUCTION_MODE || 'v4' }}
       DRY_RUN: ${{ github.event.inputs.dry_run || vars.V4_SCHEDULE_DRY_RUN || 'true' }}
-      OUTPUT_DIR: ./.tmp/v4_scheduled_daily
+      OUTPUT_DIR: ./.tmp/v4_outputs/scheduled_daily
       TZ: Europe/Moscow
     steps:
       - uses: actions/checkout@v4
@@ -77,5 +77,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: v4-daily-${{ env.SELLER_ID }}
-          path: .tmp/v4_scheduled_daily/**
-
+          path: .tmp/v4_outputs/scheduled_daily/**

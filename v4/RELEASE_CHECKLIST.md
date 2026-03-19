@@ -83,6 +83,7 @@ python v4/scripts/smoke_email_payload.py --mode daily --seller seller_001 --date
 Проверить workflow:
 - `.github/workflows/v4-daily-0600-msk.yml`
 - cron: `"0 3 * * *"` (UTC) = 06:00 Europe/Moscow
+- OUTPUT_DIR: `./.tmp/v4_outputs/scheduled_daily` (inside allowed output root)
 - есть `workflow_dispatch`
 - есть preflight step перед run step.
 
@@ -92,4 +93,3 @@ python v4/scripts/smoke_email_payload.py --mode daily --seller seller_001 --date
 python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --production-mode legacy
 python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --production-mode v4 --allow-fallback-to-legacy
 ```
-

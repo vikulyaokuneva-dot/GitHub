@@ -73,7 +73,15 @@ def _resolve_output_dir(
     if explicit_output_dir is not None and str(explicit_output_dir).strip():
         output_dir = Path(str(explicit_output_dir)).resolve()
         allowed_root = Path(settings.output_root).resolve()
-        ensure_within_root(allowed_root, output_dir)
+        try:
+            ensure_within_root(allowed_root, output_dir)
+        except ValueError as exc:
+            raise ValueError(
+                "output_dir is outside the allowed root. "
+                f"allowed_root={allowed_root}; "
+                "use a path inside ./.tmp/v4_outputs, for example "
+                "'./.tmp/v4_outputs/scheduled_daily'"
+            ) from exc
         return output_dir
 
     if mode == "audit":
@@ -173,12 +181,34 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
         if not token_present:
             warnings.append(f"{token_env_name} не задан; в dry-run это допустимо.")
 
-    output_dir = _resolve_output_dir(
-        mode=mode,
-        seller_id=seller_id,
-        run_date=run_date,
-        explicit_output_dir=data.get("output_dir"),
-    )
+    output_dir: Path | None = None
+    try:
+        output_dir = _resolve_output_dir(
+            mode=mode,
+            seller_id=seller_id,
+            run_date=run_date,
+            explicit_output_dir=data.get("output_dir"),
+        )
+    except Exception as exc:
+        errors.append(f"Output path validation failed: {exc}")
+        checks.append({"name": "output_dir_access", "status": "failed", "detail": str(exc)})
+
+    if output_dir is None:
+        ok = not errors
+        return {
+            "ok": ok,
+            "status": "SUCCESS" if ok else "FAILED",
+            "mode": mode,
+            "seller_id": seller_id,
+            "run_date": run_date,
+            "dry_run": dry_run,
+            "resolved_output_dir": None,
+            "checks": checks,
+            "warnings": warnings,
+            "errors": errors,
+            "feature_flags": feature_flags,
+            "production_preview": production_preview,
+        }
     try:
         _check_write_access(output_dir)
         checks.append(
@@ -244,4 +274,3 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
 
 
 __all__ = ["run"]
-
