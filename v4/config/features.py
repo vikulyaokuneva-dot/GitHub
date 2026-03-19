@@ -17,6 +17,9 @@ FEATURE_DEFAULTS: dict[str, bool] = {
     "enable_health_section": True,
     "enable_audit_mode": True,
     "enable_multi_cabinet_runs": True,
+    "enable_shadow_mode": False,
+    "enable_comparison": True,
+    "enable_shadow_persistence": True,
 }
 
 
@@ -82,4 +85,3 @@ def is_feature_enabled(
 
 
 __all__ = ["FEATURE_DEFAULTS", "resolve_feature_flags", "is_feature_enabled"]
-
