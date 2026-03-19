@@ -18,9 +18,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_daily = sub.add_parser("daily", help="Run daily_api_mode pipeline")
-    p_daily.add_argument("--seller", required=True)
+    p_daily.add_argument("--seller", required=False)
+    p_daily.add_argument("--sellers", required=False, help="Comma-separated seller ids for batch mode")
     p_daily.add_argument("--date", dest="run_date", required=False)
     p_daily.add_argument("--cabinet", dest="cabinet_name", required=False)
+    p_daily.add_argument("--cabinet-id", dest="cabinet_id", required=False)
     p_daily.add_argument("--timezone", default="Europe/Moscow")
     p_daily.add_argument("--dry-run", action="store_true")
     p_daily.add_argument("--output-dir", dest="output_dir", required=False)
@@ -28,10 +30,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_daily.add_argument("--email-preview", action="store_true")
 
     p_audit = sub.add_parser("audit", help="Run audit_file_mode pipeline")
-    p_audit.add_argument("--input-path", dest="input_path", required=True)
+    p_audit.add_argument("--input-path", dest="input_path", required=False)
+    p_audit.add_argument("--input-map", dest="input_map", required=False, help="seller_id=path pairs, comma-separated")
     p_audit.add_argument("--seller", default="seller_001")
+    p_audit.add_argument("--sellers", required=False, help="Comma-separated seller ids for batch mode")
     p_audit.add_argument("--date", dest="run_date", required=False)
     p_audit.add_argument("--cabinet", dest="cabinet_name", required=False)
+    p_audit.add_argument("--cabinet-id", dest="cabinet_id", required=False)
     p_audit.add_argument("--timezone", default="Europe/Moscow")
     p_audit.add_argument("--dry-run", action="store_true")
     p_audit.add_argument("--output-dir", dest="output_dir", required=False)
@@ -46,9 +51,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.cmd == "daily":
+        if not str(args.seller or "").strip() and not str(args.sellers or "").strip():
+            parser.error("daily requires --seller or --sellers")
         payload = {
             "seller_id": args.seller,
+            "seller_ids": args.sellers,
             "cabinet_name": args.cabinet_name,
+            "cabinet_id": args.cabinet_id,
             "run_date": args.run_date,
             "timezone": args.timezone,
             "dry_run": bool(args.dry_run),
@@ -60,10 +69,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "audit":
+        if not str(args.input_path or "").strip() and not str(args.input_map or "").strip():
+            parser.error("audit requires --input-path or --input-map")
         payload = {
             "input_path": args.input_path,
+            "input_map": args.input_map,
             "seller_id": args.seller,
+            "seller_ids": args.sellers,
             "cabinet_name": args.cabinet_name,
+            "cabinet_id": args.cabinet_id,
             "run_date": args.run_date,
             "timezone": args.timezone,
             "dry_run": bool(args.dry_run),

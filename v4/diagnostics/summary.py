@@ -32,6 +32,10 @@ def build_job_summary(job_diagnostics: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "mode": diagnostics.get("mode"),
+        "seller_id": diagnostics.get("seller_id"),
+        "cabinet_id": diagnostics.get("cabinet_id"),
+        "cabinet_name": diagnostics.get("cabinet_name"),
+        "output_dir_label": diagnostics.get("output_dir_label"),
         "partial_flag": bool(diagnostics.get("partial_flag", False)),
         "warnings_count": int(diagnostics.get("warnings_count", 0)),
         "sources_total": len(source_availability) if isinstance(source_availability, dict) else 0,
@@ -44,4 +48,7 @@ def build_job_summary(job_diagnostics: dict[str, Any]) -> dict[str, Any]:
         ],
         "decision_counts_by_priority": _priority_counts(diagnostics.get("decision_counts_by_priority")),
         "artifacts_written": bool(diagnostics.get("output_artifact_paths")),
+        "feature_flags": dict(diagnostics.get("feature_flags", {}))
+        if isinstance(diagnostics.get("feature_flags"), dict)
+        else {},
     }

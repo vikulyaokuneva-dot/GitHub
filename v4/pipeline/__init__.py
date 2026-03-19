@@ -1,5 +1,5 @@
 """Pipeline package exports."""
 
-from .contracts import PipelineRunResult
+from .contracts import MultiCabinetRunResult, PipelineRunResult
 
-__all__ = ["PipelineRunResult"]
+__all__ = ["PipelineRunResult", "MultiCabinetRunResult"]

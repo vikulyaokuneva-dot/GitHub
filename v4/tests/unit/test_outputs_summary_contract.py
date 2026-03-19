@@ -80,6 +80,13 @@ class TestOutputsSummaryContract(unittest.TestCase):
                 "build_timestamp",
                 "build_timestamp_note",
                 "mode",
+                "seller_id",
+                "cabinet_id",
+                "cabinet_name",
+                "output_dir_label",
+                "input_path_label",
+                "feature_flags",
+                "path_labels",
                 "sections_present",
                 "decision_counts_by_priority",
                 "warnings_count",
@@ -89,6 +96,7 @@ class TestOutputsSummaryContract(unittest.TestCase):
         )
         self.assertIsNone(summary["build_timestamp"])
         self.assertEqual(summary["mode"], "audit")
+        self.assertEqual(summary["seller_id"], "seller_001")
         self.assertEqual(summary["sections_present"], ["financial", "stock"])
         self.assertEqual(summary["decision_counts_by_priority"], {"P1": 0, "P2": 1, "P3": 0})
         self.assertEqual(summary["warnings_count"], 2)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..cabinets.paths import path_label
 from ..core.contracts import DecisionsBundle, FactsBundle, IngestionResult, MetricsBundle, RunContext
 from ..pipeline.modes.daily_api_mode import MODE_DESCRIPTOR as DAILY_MODE_DESCRIPTOR
 
@@ -80,6 +81,10 @@ def build_job_diagnostics(
     all_warnings.extend(decisions_bundle.warnings)
     artifacts = outputs_result.get("artifacts", {}) if isinstance(outputs_result, dict) else {}
     artifact_paths = artifacts.get("saved_files", {}) if isinstance(artifacts, dict) else {}
+    artifact_labels = {
+        str(name): str(path_label(path) or "")
+        for name, path in (artifact_paths.items() if isinstance(artifact_paths, dict) else [])
+    }
     all_warnings = _dedupe_keep_order([str(w) for w in all_warnings])
 
     partial_flag = bool(
@@ -101,6 +106,12 @@ def build_job_diagnostics(
 
     return {
         "mode": run_context.mode.value,
+        "seller_id": run_context.seller_id,
+        "cabinet_id": run_context.cabinet_id,
+        "cabinet_name": run_context.cabinet_name,
+        "feature_flags": dict(run_context.feature_flags),
+        "path_labels": dict(run_context.path_labels),
+        "output_dir_label": run_context.output_dir,
         "build_timestamp": None,
         "build_timestamp_note": "deterministic stage: timestamp omitted by design",
         "source_availability": source_availability,
@@ -111,6 +122,6 @@ def build_job_diagnostics(
         "warnings_count": len(all_warnings),
         "partial_flag": partial_flag,
         "decision_counts_by_priority": _decision_counts_by_priority(decisions_bundle),
-        "output_artifact_paths": dict(artifact_paths),
+        "output_artifact_paths": artifact_labels,
         "notes": notes,
     }

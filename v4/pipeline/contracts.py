@@ -38,3 +38,28 @@ class PipelineRunResult:
             "warnings": list(self.warnings),
         }
 
+
+@dataclass
+class MultiCabinetRunResult:
+    """Batch orchestration result for multi-cabinet runs."""
+
+    mode: str
+    requested_seller_ids: list[str] = field(default_factory=list)
+    succeeded_sellers: list[str] = field(default_factory=list)
+    partial_sellers: list[str] = field(default_factory=list)
+    failed_sellers: list[str] = field(default_factory=list)
+    output_dirs: dict[str, str] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    results: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "requested_seller_ids": list(self.requested_seller_ids),
+            "succeeded_sellers": list(self.succeeded_sellers),
+            "partial_sellers": list(self.partial_sellers),
+            "failed_sellers": list(self.failed_sellers),
+            "output_dirs": dict(self.output_dirs),
+            "warnings": list(self.warnings),
+            "results": dict(self.results),
+        }

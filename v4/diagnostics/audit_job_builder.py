@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..cabinets.paths import path_label
 from ..core.contracts import DecisionsBundle, FactsBundle, IngestionResult, MetricsBundle, RunContext
 from ..pipeline.modes.audit_file_mode import get_audit_mode_flags
 
@@ -73,6 +74,10 @@ def build_audit_job_diagnostics(
 
     artifacts = outputs_result.get("artifacts", {}) if isinstance(outputs_result, dict) else {}
     artifact_paths = artifacts.get("saved_files", {}) if isinstance(artifacts, dict) else {}
+    artifact_labels = {
+        str(name): str(path_label(path) or "")
+        for name, path in (artifact_paths.items() if isinstance(artifact_paths, dict) else [])
+    }
 
     ingestion_diag = ingestion_result.raw_bundle.diagnostics
     detected_files = ingestion_diag.get("detected_files", {})
@@ -94,9 +99,18 @@ def build_audit_job_diagnostics(
     if missing_expected_files:
         notes.append(f"Missing expected files: {list(missing_expected_files)}")
 
+    input_label = run_context.input_path_label or path_label(input_path)
+
     return {
         "mode": run_context.mode.value,
-        "input_path": str(input_path),
+        "seller_id": run_context.seller_id,
+        "cabinet_id": run_context.cabinet_id,
+        "cabinet_name": run_context.cabinet_name,
+        "feature_flags": dict(run_context.feature_flags),
+        "path_labels": dict(run_context.path_labels),
+        "output_dir_label": run_context.output_dir,
+        "input_path": str(input_label or ""),
+        "input_path_label": input_label,
         "build_timestamp": None,
         "build_timestamp_note": "deterministic stage: timestamp omitted by design",
         "detected_files": dict(detected_files) if isinstance(detected_files, dict) else {},
@@ -108,7 +122,7 @@ def build_audit_job_diagnostics(
         "warnings_count": len(all_warnings),
         "partial_flag": partial_flag,
         "decision_counts_by_priority": _decision_counts_by_priority(decisions_bundle),
-        "output_artifact_paths": dict(artifact_paths),
+        "output_artifact_paths": artifact_labels,
         "notes": notes,
         "audit_disclaimer": get_audit_mode_flags()["disclaimer"],
     }

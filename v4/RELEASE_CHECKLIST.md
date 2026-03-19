@@ -64,3 +64,14 @@ python v4/scripts/smoke_email_payload.py --mode daily --seller seller_001 --date
 ## 10. KPI Discipline
 Подтвердить, что KPI не пересчитываются вне стадии `metrics`
 (`source -> normalize -> metrics -> facts -> decisions -> outputs`).
+
+## 11. Multi-Cabinet Sanity (Optional Gate)
+For batch orchestration checks:
+```bash
+python -m v4.entry.cli daily --sellers seller_001,seller_002 --date 2026-03-15 --output-dir ./.tmp/v4_daily_multi
+python -m v4.entry.cli audit --input-map seller_001=./input/a,seller_002=./input/b --sellers seller_001,seller_002 --date 2026-03-15 --output-dir ./.tmp/v4_audit_multi
+```
+Критерий:
+- output dirs изолированы per seller/cabinet;
+- batch summary содержит succeeded/partial/failed sellers;
+- один failing seller не ломает остальных.

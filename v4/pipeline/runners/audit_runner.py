@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from ...cabinets.paths import path_label
+from ...cabinets.registry import get_cabinet_by_seller
+from ...config.features import resolve_feature_flags
 from ...core.contracts import RunContext, RunMode
 from ...diagnostics.audit_job_builder import build_audit_job_diagnostics
 from ...diagnostics.audit_summary import build_audit_summary
@@ -23,19 +26,49 @@ from ..stages.outputs_stage import run as run_outputs_stage
 from .seller_orchestrator import build_run_context
 
 
-def _coerce_run_context(run_context: dict[str, Any] | None) -> RunContext:
+def _coerce_run_context(
+    run_context: dict[str, Any] | None,
+    *,
+    output_dir: str | None = None,
+    input_path: str | None = None,
+) -> RunContext:
     data = dict(run_context or {})
     seller_id = str(data.get("seller_id") or "seller_001").strip()
     if not seller_id:
         seller_id = "seller_001"
 
+    seller_config = get_cabinet_by_seller(seller_id)
+    cabinet_name = data.get("cabinet_name")
+    if not cabinet_name and seller_config is not None:
+        cabinet_name = seller_config.cabinet_name
+    cabinet_id = data.get("cabinet_id")
+    if not cabinet_id and seller_config is not None:
+        cabinet_id = seller_config.cabinet_id
+
+    run_feature_overrides = data.get("feature_flags")
+    if not isinstance(run_feature_overrides, dict):
+        run_feature_overrides = {}
+    feature_flags = resolve_feature_flags(
+        run_context={"mode": RunMode.AUDIT_FILE.value},
+        seller_config=seller_config,
+        run_overrides=run_feature_overrides,
+    )
+
+    if not feature_flags.get("enable_audit_mode", True):
+        raise ValueError("audit mode is disabled by feature policy")
+
     return build_run_context(
         seller_id=seller_id,
         mode=RunMode.AUDIT_FILE,
         run_date=data.get("run_date") or data.get("date"),
-        cabinet_name=data.get("cabinet_name"),
+        cabinet_name=cabinet_name,
+        cabinet_id=cabinet_id,
         timezone=str(data.get("timezone") or "Europe/Moscow"),
         dry_run=bool(data.get("dry_run", False)),
+        output_dir=output_dir or data.get("output_dir"),
+        feature_flags=feature_flags,
+        path_labels=data.get("path_labels") if isinstance(data.get("path_labels"), dict) else None,
+        input_path_label=str(data.get("input_path_label") or path_label(input_path) or ""),
     )
 
 
@@ -78,7 +111,7 @@ def run_audit_pipeline(
     if not str(input_path).strip():
         raise ValueError("input_path is required for audit pipeline")
 
-    context = _coerce_run_context(run_context)
+    context = _coerce_run_context(run_context, output_dir=output_dir, input_path=input_path)
     ingestion_result = build_file_raw_bundle(input_path=input_path, run_context=context)
     normalized_bundle = run_normalize_stage(ingestion_result)
     metrics_bundle = run_metrics_stage(normalized_bundle)
@@ -132,4 +165,3 @@ def run_audit_pipeline(
         warnings=warnings,
     )
     return result.to_dict()
-

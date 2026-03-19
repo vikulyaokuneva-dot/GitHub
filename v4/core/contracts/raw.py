@@ -69,7 +69,12 @@ class RunContext:
     resolved_date: date | str | None
     timezone: str
     wb_api_token_present: bool
+    cabinet_id: str | None = None
     dry_run: bool = False
+    output_dir: str | None = None
+    feature_flags: dict[str, bool] = field(default_factory=dict)
+    path_labels: dict[str, str] = field(default_factory=dict)
+    input_path_label: str | None = None
 
     @property
     def requested_date_iso(self) -> str | None:

@@ -166,3 +166,21 @@ Artifacts diagnostics:
 
 ## Release Gate
 Проверочный список перед controlled adoption: [v4/RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
+
+## Multi-Cabinet Notes
+Single-seller mode remains default and backward-compatible.
+
+Daily multi-cabinet example:
+```bash
+python -m v4.entry.cli daily --sellers seller_001,seller_002 --date 2026-03-15 --output-dir ./.tmp/v4_daily_multi
+```
+
+Audit multi-cabinet example (explicit input map):
+```bash
+python -m v4.entry.cli audit --input-map seller_001=./input/a,seller_002=./input/b --sellers seller_001,seller_002 --date 2026-03-15 --output-dir ./.tmp/v4_audit_multi
+```
+
+Batch behavior:
+- each seller/cabinet gets isolated output dir;
+- one seller failure does not stop the whole batch;
+- diagnostics summary keeps seller/cabinet labels and avoids absolute-path leaks.

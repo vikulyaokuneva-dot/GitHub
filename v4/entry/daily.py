@@ -10,12 +10,47 @@ from __future__ import annotations
 from typing import Any
 
 from ..pipeline.stages.delivery_stage import run_delivery_stage
+from ..pipeline.runners.multi_cabinet_runner import run_daily_for_sellers
 from ..pipeline.runners.daily_runner import run_daily_pipeline
+
+
+def _parse_seller_ids(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        result: list[str] = []
+        for item in value:
+            text = str(item or "").strip()
+            if text:
+                result.append(text)
+        return result
+    text = str(value).strip()
+    if not text:
+        return []
+    parts = [part.strip() for part in text.split(",")]
+    return [part for part in parts if part]
 
 
 def run(payload: dict[str, Any] | None = None) -> dict:
     data = dict(payload or {})
+    seller_ids = _parse_seller_ids(data.get("seller_ids") or data.get("sellers"))
     seller_id = str(data.get("seller_id") or "").strip()
+    if seller_id:
+        seller_ids = [seller_id]
+    elif seller_ids:
+        seller_id = seller_ids[0]
+    is_multi = len(seller_ids) > 1
+
+    if is_multi:
+        return run_daily_for_sellers(
+            seller_ids=seller_ids,
+            run_date=data.get("run_date") or data.get("date"),
+            output_root=data.get("output_dir"),
+            timezone=str(data.get("timezone") or "Europe/Moscow"),
+            dry_run=bool(data.get("dry_run", False)),
+            feature_overrides=data.get("feature_flags") if isinstance(data.get("feature_flags"), dict) else None,
+        )
+
     if not seller_id:
         raise ValueError("seller_id is required")
 
@@ -23,8 +58,10 @@ def run(payload: dict[str, Any] | None = None) -> dict:
         "seller_id": seller_id,
         "run_date": data.get("run_date") or data.get("date"),
         "cabinet_name": data.get("cabinet_name"),
+        "cabinet_id": data.get("cabinet_id"),
         "timezone": str(data.get("timezone") or "Europe/Moscow"),
         "dry_run": bool(data.get("dry_run", False)),
+        "feature_flags": data.get("feature_flags") if isinstance(data.get("feature_flags"), dict) else {},
     }
     result = run_daily_pipeline(
         run_context=run_context,
