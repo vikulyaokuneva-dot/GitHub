@@ -75,3 +75,15 @@ python -m v4.entry.cli audit --input-map seller_001=./input/a,seller_002=./input
 - output dirs изолированы per seller/cabinet;
 - batch summary содержит succeeded/partial/failed sellers;
 - один failing seller не ломает остальных.
+
+## 12. Production Switch & Rollback Safety
+Проверить controlled switch path:
+```bash
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode legacy
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode v4
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode v4 --allow-fallback-to-legacy
+```
+Критерий:
+- default production mode остаётся `legacy`;
+- V4 активируется только явно/feature-gated;
+- rollback/fallback никогда не silent и отражён в diagnostics.

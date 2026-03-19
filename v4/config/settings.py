@@ -26,6 +26,7 @@ class AppSettings:
     wb_api_token_env: str
     default_daily_mode: str
     default_audit_mode: str
+    production_default_mode: str
 
 
 @lru_cache(maxsize=1)
@@ -34,6 +35,7 @@ def get_settings() -> AppSettings:
     temp_root = _env_text("V4_TEMP_ROOT", str(Path(".tmp") / "v4_tmp"))
     default_timezone = _env_text("V4_DEFAULT_TIMEZONE", "Europe/Moscow")
     wb_api_token_env = _env_text("V4_WB_TOKEN_ENV", "WB_API_TOKEN")
+    production_default_mode = _env_text("V4_PRODUCTION_DEFAULT_MODE", "legacy").lower()
     return AppSettings(
         output_root=output_root,
         temp_root=temp_root,
@@ -41,6 +43,7 @@ def get_settings() -> AppSettings:
         wb_api_token_env=wb_api_token_env,
         default_daily_mode="daily",
         default_audit_mode="audit",
+        production_default_mode=production_default_mode,
     )
 
 
@@ -53,4 +56,3 @@ def get_temp_root() -> str:
 
 
 __all__ = ["AppSettings", "get_settings", "get_default_output_root", "get_temp_root"]
-

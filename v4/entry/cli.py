@@ -28,6 +28,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_daily.add_argument("--output-dir", dest="output_dir", required=False)
     p_daily.add_argument("--render-pdf", action="store_true")
     p_daily.add_argument("--email-preview", action="store_true")
+    p_daily.add_argument(
+        "--production-mode",
+        dest="production_mode",
+        choices=["legacy", "v4", "shadow"],
+        required=False,
+        help="Controlled production runner mode",
+    )
+    p_daily.add_argument("--allow-fallback-to-legacy", action="store_true")
+    p_daily.add_argument("--shadow-mode", action="store_true")
 
     p_audit = sub.add_parser("audit", help="Run audit_file_mode pipeline")
     p_audit.add_argument("--input-path", dest="input_path", required=False)
@@ -64,6 +73,9 @@ def main(argv: list[str] | None = None) -> int:
             "output_dir": args.output_dir,
             "render_pdf": bool(args.render_pdf),
             "email_preview": bool(args.email_preview),
+            "production_mode": args.production_mode,
+            "allow_fallback_to_legacy": bool(args.allow_fallback_to_legacy),
+            "shadow_mode": bool(args.shadow_mode),
         }
         run_daily(payload)
         return 0

@@ -184,3 +184,17 @@ Batch behavior:
 - each seller/cabinet gets isolated output dir;
 - one seller failure does not stop the whole batch;
 - diagnostics summary keeps seller/cabinet labels and avoids absolute-path leaks.
+
+## Controlled Production Switch (Stage 19)
+Safe production orchestration is available via daily CLI flags:
+```bash
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode legacy
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode v4
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode v4 --allow-fallback-to-legacy
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --shadow-mode
+```
+
+Policy:
+- default production mode is safe (`legacy`);
+- no hard switch and no deletion of legacy runtime;
+- no silent fallback: any rollback/fallback is explicitly reflected in production diagnostics.

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..production.switch import run_production_daily
 from ..pipeline.stages.delivery_stage import run_delivery_stage
 from ..pipeline.runners.multi_cabinet_runner import run_daily_for_sellers
 from ..pipeline.runners.daily_runner import run_daily_pipeline
@@ -40,8 +41,15 @@ def run(payload: dict[str, Any] | None = None) -> dict:
     elif seller_ids:
         seller_id = seller_ids[0]
     is_multi = len(seller_ids) > 1
+    production_mode = data.get("production_mode")
+    if bool(data.get("shadow_mode")) and not production_mode:
+        production_mode = "shadow"
+    allow_fallback_to_legacy = bool(data.get("allow_fallback_to_legacy", False))
+    use_production_switch = bool(production_mode is not None or allow_fallback_to_legacy)
 
     if is_multi:
+        if use_production_switch:
+            raise ValueError("production_mode is supported only for single-seller daily runs")
         return run_daily_for_sellers(
             seller_ids=seller_ids,
             run_date=data.get("run_date") or data.get("date"),
@@ -53,6 +61,17 @@ def run(payload: dict[str, Any] | None = None) -> dict:
 
     if not seller_id:
         raise ValueError("seller_id is required")
+
+    if use_production_switch:
+        result = run_production_daily(
+            seller_id=seller_id,
+            run_date=data.get("run_date") or data.get("date"),
+            output_dir=data.get("output_dir"),
+            cli_mode=str(production_mode) if production_mode is not None else None,
+            allow_fallback_to_legacy=allow_fallback_to_legacy,
+            run_overrides=data.get("feature_flags") if isinstance(data.get("feature_flags"), dict) else None,
+        )
+        return result
 
     run_context = {
         "seller_id": seller_id,
