@@ -8,7 +8,10 @@ Does not send SMTP by default.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+
+from src.mailer_yandex import send_email_with_pdf
 
 from ...outputs.email.contracts import EmailPayload
 from .formatter import format_email_body
@@ -28,6 +31,22 @@ def _dedupe_attachments(attachments: list[str] | None) -> list[str]:
         seen.add(text)
         out.append(text)
     return out
+
+
+def _mask_email_targets(raw_value: str) -> str:
+    parts = [item.strip() for item in str(raw_value or "").replace(";", ",").split(",") if item.strip()]
+    masked: list[str] = []
+    for part in parts:
+        local, sep, domain = part.partition("@")
+        if sep != "@":
+            masked.append(part)
+            continue
+        if len(local) <= 2:
+            masked_local = (local[:1] + "***") if local else "***"
+        else:
+            masked_local = local[:2] + "***"
+        masked.append(f"{masked_local}@{domain}")
+    return ", ".join(masked)
 
 
 def build_email_message(email_payload: EmailPayload, attachments: list[str] | None = None) -> dict:
@@ -53,6 +72,39 @@ def build_email_message(email_payload: EmailPayload, attachments: list[str] | No
     }
 
 
+def send_email_via_smtp(
+    email_payload: EmailPayload,
+    *,
+    pdf_path: str,
+) -> dict:
+    if not isinstance(email_payload, EmailPayload):
+        raise TypeError("send_email_via_smtp expects EmailPayload")
+
+    attachment = Path(str(pdf_path)).resolve()
+    if not attachment.exists():
+        raise FileNotFoundError(f"Attachment not found: {attachment}")
+
+    required_env = ("YANDEX_SMTP_USER", "YANDEX_SMTP_APP_PASS", "EMAIL_TO")
+    missing_env = [name for name in required_env if not str(os.getenv(name, "")).strip()]
+    if missing_env:
+        raise RuntimeError(f"Missing required env vars: {', '.join(missing_env)}")
+
+    body = format_email_body(email_payload)
+    transport = send_email_with_pdf(
+        subject=email_payload.subject,
+        body=body,
+        pdf_path=str(attachment),
+    )
+    email_to_masked = _mask_email_targets(str(os.getenv("EMAIL_TO", "")).strip())
+    return {
+        "email_to_masked": email_to_masked,
+        "subject": email_payload.subject,
+        "email_stage": str(transport.get("email_stage") or "send"),
+        "email_transport_status": str(transport.get("email_transport_status") or "success"),
+        "email_failure_reason_normalized": str(transport.get("email_failure_reason_normalized") or ""),
+    }
+
+
 def save_email_preview(
     email_payload: EmailPayload,
     output_dir: str | Path,
@@ -73,4 +125,4 @@ def save_email_preview(
     return str(preview_path.resolve())
 
 
-__all__ = ["build_email_message", "save_email_preview"]
+__all__ = ["build_email_message", "save_email_preview", "send_email_via_smtp"]

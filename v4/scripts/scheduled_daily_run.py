@@ -27,6 +27,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow-fallback-to-legacy", action="store_true")
     parser.add_argument("--shadow", dest="shadow_mode", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--full-email-debug", action="store_true")
     args = parser.parse_args(argv)
 
     preflight = run_preflight(
@@ -37,6 +38,7 @@ def main(argv: list[str] | None = None) -> int:
             "output_dir": args.output_dir,
             "production_mode": args.production_mode,
             "dry_run": bool(args.dry_run),
+            "full_email_debug": bool(args.full_email_debug),
         }
     )
     if not preflight.get("ok", False):
@@ -52,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
         "production_mode": args.production_mode,
         "allow_fallback_to_legacy": bool(args.allow_fallback_to_legacy),
         "shadow_mode": bool(args.shadow_mode),
+        "full_email_debug": bool(args.full_email_debug),
     }
     result = run_daily(payload)
 
@@ -78,4 +81,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -21,6 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", dest="output_dir", required=False)
     parser.add_argument("--production-mode", choices=["legacy", "v4", "shadow"], required=False)
     parser.add_argument("--shadow", dest="shadow_mode", action="store_true")
+    parser.add_argument("--full-email-debug", action="store_true")
     args = parser.parse_args(argv)
 
     result = run_smoke(
@@ -31,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
             "output_dir": args.output_dir,
             "production_mode": args.production_mode,
             "shadow_mode": bool(args.shadow_mode),
+            "full_email_debug": bool(args.full_email_debug),
         }
     )
     print(f"SMOKE {result.get('status')}")
@@ -39,4 +41,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

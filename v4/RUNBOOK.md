@@ -25,6 +25,11 @@ python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --output-dir 
 - при одном enabled seller он выбирается автоматически;
 - при нескольких seller CLI просит указать seller явно.
 
+Acceptance full-debug email (полная видимость V4):
+```bash
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs/acceptance --production-mode v4 --full-email-debug
+```
+
 ## Operator flow (рекомендуемый путь)
 1. Проверка готовности (preflight):
 ```bash

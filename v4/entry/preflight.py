@@ -112,6 +112,7 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     data = dict(payload or {})
     mode = _normalize_mode(data.get("mode"))
     dry_run = bool(data.get("dry_run", False))
+    full_email_debug = bool(data.get("full_email_debug", False))
     run_date = str(data.get("run_date") or data.get("date") or "").strip() or None
 
     checks: list[dict[str, str]] = []
@@ -180,6 +181,30 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
         checks.append({"name": "env_required", "status": "ok", "detail": detail})
         if not token_present:
             warnings.append(f"{token_env_name} не задан; в dry-run это допустимо.")
+
+    if full_email_debug:
+        checks.append({"name": "full_email_debug", "status": "ok", "detail": "enabled"})
+        required_email_env = ("YANDEX_SMTP_USER", "YANDEX_SMTP_APP_PASS", "EMAIL_TO")
+        missing_email_env = [name for name in required_email_env if not str(os.getenv(name, "")).strip()]
+        if not dry_run and missing_email_env:
+            errors.append(f"Для full-email-debug отсутствуют env vars: {', '.join(missing_email_env)}")
+            checks.append(
+                {
+                    "name": "email_env_required",
+                    "status": "failed",
+                    "detail": f"missing={missing_email_env}",
+                }
+            )
+        else:
+            checks.append(
+                {
+                    "name": "email_env_required",
+                    "status": "ok",
+                    "detail": f"missing={missing_email_env}",
+                }
+            )
+            if missing_email_env:
+                warnings.append("full-email-debug в dry-run: SMTP env vars не обязательны.")
 
     output_dir: Path | None = None
     try:

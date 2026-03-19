@@ -1,0 +1,1739 @@
+{
+  "run_context": {
+    "seller_id": "seller_001",
+    "cabinet_name": "Main Cabinet",
+    "mode": "daily_api_mode",
+    "requested_date": "2026-03-19",
+    "resolved_date": "2026-03-19",
+    "timezone": "Europe/Moscow",
+    "wb_api_token_present": false,
+    "cabinet_id": "cabinet_001",
+    "dry_run": false,
+    "output_dir": "acceptance",
+    "feature_flags": {
+      "enable_delivery": false,
+      "enable_pdf_render": false,
+      "enable_email_preview": false,
+      "enable_health_section": true,
+      "enable_audit_mode": true,
+      "enable_multi_cabinet_runs": true,
+      "enable_v4_production": true,
+      "enable_legacy_production": true,
+      "enable_production_fallback_to_legacy": false,
+      "enable_cli_production_override": true,
+      "enable_shadow_mode": false,
+      "enable_comparison": true,
+      "enable_shadow_persistence": true,
+      "enable_full_email_debug": false
+    },
+    "path_labels": {
+      "output_dir_label": "acceptance"
+    },
+    "input_path_label": null
+  },
+  "sections": {
+    "financial": {
+      "section_name": "financial",
+      "title": "Financial",
+      "items": [
+        {
+          "key": "orders_count",
+          "title": "Orders count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "orders",
+            "note": null
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "sales_count",
+          "title": "Sales count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization",
+            "note": "derived from realization components"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "derived from realization components",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "returns_count",
+          "title": "Returns count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization",
+            "note": "returns count unavailable without sales source"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "returns count unavailable without sales source",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "orders_amount",
+          "title": "Orders amount",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "orders",
+            "note": "orders amount is partially unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "orders amount is partially unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "sales_amount",
+          "title": "Sales amount",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "sales amount derived from realization is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "sales amount derived from realization is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "seller_payout",
+          "title": "Seller payout",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "seller payout is unavailable in realization components"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "seller payout is unavailable in realization components",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "logistics_cost",
+          "title": "Logistics cost",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "logistics cost is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "logistics cost is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "storage_cost",
+          "title": "Storage cost",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "storage cost is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "storage cost is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "deductions_amount",
+          "title": "Deductions amount",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "deductions amount is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "deductions amount is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "revenue_gross",
+          "title": "Revenue gross",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "revenue gross is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "revenue gross is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "commission_amount",
+          "title": "Commission amount",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "commission amount is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "commission amount is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "acquiring_amount",
+          "title": "Acquiring amount",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "acquiring amount is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "acquiring amount is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "pvz_amount",
+          "title": "PVZ amount",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "PVZ amount is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "PVZ amount is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "penalties_amount",
+          "title": "Penalties amount",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "penalties amount is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "penalties amount is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "other_costs_amount",
+          "title": "Other costs amount",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "other costs amount is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "other costs amount is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            }
+          }
+        },
+        {
+          "key": "gross_profit_like",
+          "title": "Gross profit-like",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "financial_formula_v2",
+            "note": "insufficient reliable components"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "insufficient reliable components",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            },
+            "profit_formula_note": "gross_profit_like is unavailable: insufficient reliable components"
+          }
+        },
+        {
+          "key": "net_profit_like",
+          "title": "Net profit-like",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "financial_formula_net_v2",
+            "note": "net_profit_like unavailable because gross_profit_like is unavailable"
+          },
+          "category": "financial",
+          "tags": [
+            "financial",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "net_profit_like unavailable because gross_profit_like is unavailable",
+            "source_quality": {
+              "orders": "missing",
+              "sales": "missing",
+              "realization": "missing"
+            },
+            "profit_formula_note": "gross_profit_like is unavailable: insufficient reliable components"
+          }
+        }
+      ],
+      "status": "unavailable",
+      "warnings": [
+        "realization records are unavailable for lag resolution",
+        "sales source unavailable: using realization components",
+        "orders: source skipped: WB API token not present",
+        "sales: source skipped: WB API token not present",
+        "realization: source skipped: WB API token not present",
+        "stocks: source skipped: WB API token not present",
+        "ads: source skipped: WB API token not present",
+        "funnel: source skipped: WB API token not present",
+        "financial_status=unavailable"
+      ],
+      "diagnostics": {
+        "source_quality": {
+          "orders": "missing",
+          "sales": "missing",
+          "realization": "missing"
+        },
+        "component_quality": {
+          "revenue": "unavailable",
+          "payout": "unavailable",
+          "commission": "unavailable",
+          "acquiring": "unavailable",
+          "logistics": "unavailable",
+          "storage": "unavailable",
+          "deductions": "unavailable",
+          "pvz": "unavailable",
+          "penalties": "unavailable",
+          "other_costs": "unavailable"
+        },
+        "profit_formula_note": "gross_profit_like is unavailable: insufficient reliable components",
+        "realization_target_date": "2026-03-19",
+        "realization_actual_date": null,
+        "fallback_used": false,
+        "lag_days": null
+      }
+    },
+    "daily": {
+      "section_name": "daily",
+      "title": "Daily",
+      "items": [
+        {
+          "key": "orders_count",
+          "title": "Orders count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "orders",
+            "note": null
+          },
+          "category": "daily",
+          "tags": [
+            "daily",
+            "metric"
+          ],
+          "diagnostics": {}
+        },
+        {
+          "key": "sales_count",
+          "title": "Sales count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization",
+            "note": "derived from realization components"
+          },
+          "category": "daily",
+          "tags": [
+            "daily",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "derived from realization components"
+          }
+        },
+        {
+          "key": "returns_count",
+          "title": "Returns count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization",
+            "note": "returns count unavailable without sales source"
+          },
+          "category": "daily",
+          "tags": [
+            "daily",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "returns count unavailable without sales source"
+          }
+        },
+        {
+          "key": "orders_amount",
+          "title": "Orders amount",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "orders",
+            "note": "orders amount is partially unavailable"
+          },
+          "category": "daily",
+          "tags": [
+            "daily",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "orders amount is partially unavailable"
+          }
+        },
+        {
+          "key": "sales_amount",
+          "title": "Sales amount",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "realization_components",
+            "note": "sales amount derived from realization is unavailable"
+          },
+          "category": "daily",
+          "tags": [
+            "daily",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "sales amount derived from realization is unavailable"
+          }
+        }
+      ],
+      "status": "unavailable",
+      "warnings": [],
+      "diagnostics": {}
+    },
+    "funnel": {
+      "section_name": "funnel",
+      "title": "Funnel",
+      "items": [
+        {
+          "key": "impressions",
+          "title": "Impressions",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel source is unavailable"
+          },
+          "category": "funnel",
+          "tags": [
+            "funnel",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel source is unavailable",
+            "source_quality": {
+              "funnel": "missing"
+            }
+          }
+        },
+        {
+          "key": "opens",
+          "title": "Opens",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel source is unavailable"
+          },
+          "category": "funnel",
+          "tags": [
+            "funnel",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel source is unavailable",
+            "source_quality": {
+              "funnel": "missing"
+            }
+          }
+        },
+        {
+          "key": "cart_adds",
+          "title": "Cart adds",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel source is unavailable"
+          },
+          "category": "funnel",
+          "tags": [
+            "funnel",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel source is unavailable",
+            "source_quality": {
+              "funnel": "missing"
+            }
+          }
+        },
+        {
+          "key": "orders",
+          "title": "Orders",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel source is unavailable"
+          },
+          "category": "funnel",
+          "tags": [
+            "funnel",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel source is unavailable",
+            "source_quality": {
+              "funnel": "missing"
+            }
+          }
+        },
+        {
+          "key": "buys",
+          "title": "Buys",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel source is unavailable"
+          },
+          "category": "funnel",
+          "tags": [
+            "funnel",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel source is unavailable",
+            "source_quality": {
+              "funnel": "missing"
+            }
+          }
+        },
+        {
+          "key": "ctr_open_from_impressions",
+          "title": "CTR open from impressions",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel source is unavailable"
+          },
+          "category": "funnel",
+          "tags": [
+            "funnel",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel source is unavailable",
+            "source_quality": {
+              "funnel": "missing"
+            }
+          }
+        },
+        {
+          "key": "cr_cart_from_opens",
+          "title": "CR cart from opens",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel source is unavailable"
+          },
+          "category": "funnel",
+          "tags": [
+            "funnel",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel source is unavailable",
+            "source_quality": {
+              "funnel": "missing"
+            }
+          }
+        },
+        {
+          "key": "cr_orders_from_cart",
+          "title": "CR orders from cart",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel source is unavailable"
+          },
+          "category": "funnel",
+          "tags": [
+            "funnel",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel source is unavailable",
+            "source_quality": {
+              "funnel": "missing"
+            }
+          }
+        },
+        {
+          "key": "cr_buys_from_orders",
+          "title": "CR buys from orders",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel source is unavailable"
+          },
+          "category": "funnel",
+          "tags": [
+            "funnel",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel source is unavailable",
+            "source_quality": {
+              "funnel": "missing"
+            }
+          }
+        },
+        {
+          "key": "cr_buys_from_impressions",
+          "title": "CR buys from impressions",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel source is unavailable"
+          },
+          "category": "funnel",
+          "tags": [
+            "funnel",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel source is unavailable",
+            "source_quality": {
+              "funnel": "missing"
+            }
+          }
+        }
+      ],
+      "status": "unavailable",
+      "warnings": [
+        "funnel: source skipped: WB API token not present",
+        "funnel: source skipped: WB API token not present"
+      ],
+      "diagnostics": {
+        "source_quality": {
+          "funnel": "missing"
+        },
+        "note": "funnel source unavailable; metrics are not computed"
+      }
+    },
+    "ads": {
+      "section_name": "ads",
+      "title": "Ads",
+      "items": [
+        {
+          "key": "campaigns_count",
+          "title": "Campaigns count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads_campaigns",
+            "note": "campaigns source is unavailable"
+          },
+          "category": "ads",
+          "tags": [
+            "ads",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "campaigns source is unavailable",
+            "source_quality": {
+              "campaigns": "missing",
+              "stats": "missing"
+            }
+          }
+        },
+        {
+          "key": "active_campaigns_count",
+          "title": "Active campaigns count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads_campaigns",
+            "note": "campaigns source is unavailable"
+          },
+          "category": "ads",
+          "tags": [
+            "ads",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "campaigns source is unavailable",
+            "source_quality": {
+              "campaigns": "missing",
+              "stats": "missing"
+            }
+          }
+        },
+        {
+          "key": "impressions",
+          "title": "Impressions",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads_stats",
+            "note": "stats source is unavailable"
+          },
+          "category": "ads",
+          "tags": [
+            "ads",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stats source is unavailable",
+            "source_quality": {
+              "campaigns": "missing",
+              "stats": "missing"
+            }
+          }
+        },
+        {
+          "key": "clicks",
+          "title": "Clicks",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads_stats",
+            "note": "stats source is unavailable"
+          },
+          "category": "ads",
+          "tags": [
+            "ads",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stats source is unavailable",
+            "source_quality": {
+              "campaigns": "missing",
+              "stats": "missing"
+            }
+          }
+        },
+        {
+          "key": "spend",
+          "title": "Spend",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads_stats",
+            "note": "stats source is unavailable"
+          },
+          "category": "ads",
+          "tags": [
+            "ads",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stats source is unavailable",
+            "source_quality": {
+              "campaigns": "missing",
+              "stats": "missing"
+            }
+          }
+        },
+        {
+          "key": "ctr",
+          "title": "CTR",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads_stats",
+            "note": "stats source is unavailable"
+          },
+          "category": "ads",
+          "tags": [
+            "ads",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stats source is unavailable",
+            "source_quality": {
+              "campaigns": "missing",
+              "stats": "missing"
+            }
+          }
+        },
+        {
+          "key": "cpc",
+          "title": "CPC",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads_stats",
+            "note": "stats source is unavailable"
+          },
+          "category": "ads",
+          "tags": [
+            "ads",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stats source is unavailable",
+            "source_quality": {
+              "campaigns": "missing",
+              "stats": "missing"
+            }
+          }
+        },
+        {
+          "key": "orders",
+          "title": "Orders",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads_stats",
+            "note": "stats source is unavailable"
+          },
+          "category": "ads",
+          "tags": [
+            "ads",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stats source is unavailable",
+            "source_quality": {
+              "campaigns": "missing",
+              "stats": "missing"
+            }
+          }
+        },
+        {
+          "key": "revenue",
+          "title": "Revenue",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads_stats",
+            "note": "stats source is unavailable"
+          },
+          "category": "ads",
+          "tags": [
+            "ads",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stats source is unavailable",
+            "source_quality": {
+              "campaigns": "missing",
+              "stats": "missing"
+            }
+          }
+        },
+        {
+          "key": "conversion_click_to_order",
+          "title": "Conversion click to order",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads_stats",
+            "note": "stats source is unavailable"
+          },
+          "category": "ads",
+          "tags": [
+            "ads",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stats source is unavailable",
+            "source_quality": {
+              "campaigns": "missing",
+              "stats": "missing"
+            }
+          }
+        }
+      ],
+      "status": "unavailable",
+      "warnings": [
+        "ads: source skipped: WB API token not present",
+        "ads: source skipped: WB API token not present"
+      ],
+      "diagnostics": {
+        "source_quality": {
+          "campaigns": "missing",
+          "stats": "missing"
+        },
+        "note": "ads campaigns and stats sources are unavailable"
+      }
+    },
+    "stock": {
+      "section_name": "stock",
+      "title": "Stock",
+      "items": [
+        {
+          "key": "total_stock_units",
+          "title": "Stock units",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "stocks",
+            "note": "stocks source is unavailable"
+          },
+          "category": "stock",
+          "tags": [
+            "stock",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stocks source is unavailable",
+            "source_quality": {
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "in_stock_items_count",
+          "title": "In-stock items count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "stocks",
+            "note": "stocks source is unavailable"
+          },
+          "category": "stock",
+          "tags": [
+            "stock",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stocks source is unavailable",
+            "source_quality": {
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "out_of_stock_items_count",
+          "title": "Out-of-stock items count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "stocks",
+            "note": "stocks source is unavailable"
+          },
+          "category": "stock",
+          "tags": [
+            "stock",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stocks source is unavailable",
+            "source_quality": {
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "distinct_nm_ids_count",
+          "title": "Distinct nm_id count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "stocks",
+            "note": "stocks source is unavailable"
+          },
+          "category": "stock",
+          "tags": [
+            "stock",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stocks source is unavailable",
+            "source_quality": {
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "distinct_warehouses_count",
+          "title": "Distinct warehouses count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "stocks",
+            "note": "stocks source is unavailable"
+          },
+          "category": "stock",
+          "tags": [
+            "stock",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stocks source is unavailable",
+            "source_quality": {
+              "stocks": "missing"
+            }
+          }
+        }
+      ],
+      "status": "unavailable",
+      "warnings": [
+        "stocks: source skipped: WB API token not present",
+        "stocks: source skipped: WB API token not present"
+      ],
+      "diagnostics": {
+        "source_quality": {
+          "stocks": "missing"
+        },
+        "stock_coverage_note": "stock source unavailable",
+        "note": "stock source unavailable; stock metrics are not computed"
+      }
+    },
+    "health": {
+      "section_name": "health",
+      "title": "Health",
+      "items": [
+        {
+          "key": "business_health_score",
+          "title": "Business health score",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "health_policy_v1",
+            "note": "all health components are unavailable"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "all health components are unavailable",
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "sku_health_signals_count",
+          "title": "SKU health signals count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "health_policy_v1",
+            "note": "SKU health signals are unavailable"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "SKU health signals are unavailable",
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "problematic_sku_count",
+          "title": "Problematic SKU count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "health_policy_v1",
+            "note": "problematic SKU evidence is insufficient"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "problematic SKU evidence is insufficient",
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "dead_stock_risk_count",
+          "title": "Dead stock risk count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "stocks",
+            "note": "stocks source unavailable for dead stock"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stocks source unavailable for dead stock",
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "overstock_risk_count",
+          "title": "Overstock risk count",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "stocks",
+            "note": "stocks source unavailable for overstock"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stocks source unavailable for overstock",
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "score_status",
+          "title": "Score status",
+          "value": {
+            "value": "unavailable",
+            "status": "unavailable",
+            "source": "health_policy_v1",
+            "note": "all health components are unavailable"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "status"
+          ],
+          "diagnostics": {
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "business_health_status_note",
+          "title": "Business health status note",
+          "value": {
+            "value": "business health score unavailable: all components are unavailable",
+            "status": "unavailable",
+            "source": "health_policy_v1",
+            "note": null
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "note"
+          ],
+          "diagnostics": {
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "component_ads_score",
+          "title": "Component ads score",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "ads",
+            "note": "ads evidence is insufficient"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "ads evidence is insufficient",
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "component_data_quality_score",
+          "title": "Component data_quality score",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "health_policy_v1",
+            "note": "all components unavailable"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "all components unavailable",
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "component_funnel_score",
+          "title": "Component funnel score",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "funnel",
+            "note": "funnel conversion evidence is insufficient"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "funnel conversion evidence is insufficient",
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "component_profitability_score",
+          "title": "Component profitability score",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "financial_formula_v2",
+            "note": "gross_profit_like is unavailable for profitability component"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "gross_profit_like is unavailable for profitability component",
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        },
+        {
+          "key": "component_stock_score",
+          "title": "Component stock score",
+          "value": {
+            "value": null,
+            "status": "unavailable",
+            "source": "stock",
+            "note": "stock availability evidence is insufficient"
+          },
+          "category": "health",
+          "tags": [
+            "health",
+            "metric"
+          ],
+          "diagnostics": {
+            "metric_note": "stock availability evidence is insufficient",
+            "source_quality": {
+              "sales": "missing",
+              "realization": "missing",
+              "funnel": "missing",
+              "ads_campaigns": "missing",
+              "ads_stats": "missing",
+              "stocks": "missing"
+            }
+          }
+        }
+      ],
+      "status": "unavailable",
+      "warnings": [
+        "health:profitability: gross_profit_like is unavailable for profitability component",
+        "health:ads: ads evidence is insufficient",
+        "health:funnel: funnel conversion evidence is insufficient",
+        "health:stock: stock availability evidence is insufficient",
+        "health:data_quality: all components unavailable",
+        "health:dead_stock_risk_count: stocks source unavailable for dead stock",
+        "health:overstock_risk_count: stocks source unavailable for overstock",
+        "health:problematic_sku_count: problematic SKU evidence is insufficient",
+        "health:sku_health_signals_count: SKU health signals are unavailable"
+      ],
+      "diagnostics": {
+        "source_quality": {
+          "sales": "missing",
+          "realization": "missing",
+          "funnel": "missing",
+          "ads_campaigns": "missing",
+          "ads_stats": "missing",
+          "stocks": "missing"
+        },
+        "component_statuses": {
+          "profitability": "unavailable",
+          "ads": "unavailable",
+          "funnel": "unavailable",
+          "stock": "unavailable",
+          "data_quality": "unavailable"
+        },
+        "policy_version": "health_policy_v1",
+        "note": "health metrics are partial due to incomplete component evidence",
+        "diagnostics": {
+          "policy": {
+            "version": "health_policy_v1",
+            "component_max_scores": {
+              "profitability": 30.0,
+              "ads": 20.0,
+              "funnel": 20.0,
+              "stock": 20.0,
+              "data_quality": 10.0
+            },
+            "profitability_thresholds": {
+              "negative": 0.0,
+              "low": 50.0,
+              "medium": 200.0
+            },
+            "ads_thresholds": {
+              "roas_bad": 1.0,
+              "roas_mid": 2.0,
+              "conversion_bad": 0.01,
+              "conversion_low": 0.02,
+              "conversion_good": 0.03
+            },
+            "funnel_thresholds": {
+              "buy_rate_bad": 0.15,
+              "buy_rate_mid": 0.3,
+              "buy_rate_good": 0.5,
+              "buy_from_impressions_good": 0.03
+            },
+            "stock_thresholds": {
+              "out_of_stock_ratio_bad": 0.5,
+              "out_of_stock_ratio_mid": 0.2,
+              "overstock_days_cover": 45.0
+            },
+            "score_missing_component_penalty": 0.08
+          },
+          "components_status": {
+            "profitability": "unavailable",
+            "ads": "unavailable",
+            "funnel": "unavailable",
+            "stock": "unavailable",
+            "data_quality": "unavailable"
+          },
+          "components_values": {
+            "profitability": null,
+            "ads": null,
+            "funnel": null,
+            "stock": null,
+            "data_quality": null
+          },
+          "business_health_score_status": "unavailable",
+          "business_health_score_value": null,
+          "dead_stock_eval": {
+            "stock_entities_with_positive_units": 0,
+            "stock_rows_with_quantity": 0,
+            "stock_entities_without_id": 0,
+            "resolved_entities": 0,
+            "unresolved_entities": 0
+          },
+          "overstock_eval": {
+            "stock_entities_with_positive_units": 0,
+            "stock_entities_without_id": 0,
+            "resolved_entities": 0,
+            "unresolved_entities": 0
+          }
+        }
+      }
+    }
+  },
+  "data_quality": {
+    "available_sections": [],
+    "partial_sections": [],
+    "unavailable_sections": [
+      "financial",
+      "daily",
+      "funnel",
+      "ads",
+      "stock",
+      "health"
+    ],
+    "source_quality_summary": {
+      "financial": {
+        "orders": "missing",
+        "sales": "missing",
+        "realization": "missing"
+      },
+      "funnel": {
+        "funnel": "missing"
+      },
+      "ads": {
+        "campaigns": "missing",
+        "stats": "missing"
+      },
+      "stock": {
+        "stocks": "missing"
+      },
+      "health": {
+        "sales": "missing",
+        "realization": "missing",
+        "funnel": "missing",
+        "ads_campaigns": "missing",
+        "ads_stats": "missing",
+        "stocks": "missing"
+      }
+    },
+    "warnings_count": 39,
+    "source_flags": {
+      "orders": "missing",
+      "sales": "missing",
+      "realization": "missing",
+      "stocks": "missing",
+      "ads": "missing",
+      "funnel": "missing"
+    }
+  },
+  "warnings": [
+    "orders: source skipped: WB API token not present",
+    "sales: source skipped: WB API token not present",
+    "realization: source skipped: WB API token not present",
+    "stocks: source skipped: WB API token not present",
+    "ads: source skipped: WB API token not present",
+    "funnel: source skipped: WB API token not present",
+    "realization records are unavailable for lag resolution",
+    "sales source unavailable: using realization components",
+    "financial_status=unavailable",
+    "health:profitability: gross_profit_like is unavailable for profitability component",
+    "health:ads: ads evidence is insufficient",
+    "health:funnel: funnel conversion evidence is insufficient",
+    "health:stock: stock availability evidence is insufficient",
+    "health:data_quality: all components unavailable",
+    "health:dead_stock_risk_count: stocks source unavailable for dead stock",
+    "health:overstock_risk_count: stocks source unavailable for overstock",
+    "health:problematic_sku_count: problematic SKU evidence is insufficient",
+    "health:sku_health_signals_count: SKU health signals are unavailable",
+    "financial: realization records are unavailable for lag resolution",
+    "financial: sales source unavailable: using realization components",
+    "financial: orders: source skipped: WB API token not present",
+    "financial: sales: source skipped: WB API token not present",
+    "financial: realization: source skipped: WB API token not present",
+    "financial: stocks: source skipped: WB API token not present",
+    "financial: ads: source skipped: WB API token not present",
+    "financial: funnel: source skipped: WB API token not present",
+    "financial: financial_status=unavailable",
+    "funnel: funnel: source skipped: WB API token not present",
+    "ads: ads: source skipped: WB API token not present",
+    "stock: stocks: source skipped: WB API token not present",
+    "health: health:profitability: gross_profit_like is unavailable for profitability component",
+    "health: health:ads: ads evidence is insufficient",
+    "health: health:funnel: funnel conversion evidence is insufficient",
+    "health: health:stock: stock availability evidence is insufficient",
+    "health: health:data_quality: all components unavailable",
+    "health: health:dead_stock_risk_count: stocks source unavailable for dead stock",
+    "health: health:overstock_risk_count: stocks source unavailable for overstock",
+    "health: health:problematic_sku_count: problematic SKU evidence is insufficient",
+    "health: health:sku_health_signals_count: SKU health signals are unavailable"
+  ],
+  "diagnostics": {
+    "mode": "daily_api_mode",
+    "seller_id": "seller_001",
+    "requested_date": "2026-03-19",
+    "resolved_date": "2026-03-19",
+    "required_sources": [
+      "orders",
+      "sales",
+      "realization"
+    ],
+    "optional_sources": [
+      "stocks",
+      "ads",
+      "funnel"
+    ],
+    "required_sources_ok": false,
+    "optional_sources_available": [],
+    "warnings_count": 10,
+    "sources_loaded_count": 0,
+    "sources_error_count": 0,
+    "normalized_orders_count": 0,
+    "normalized_sales_count": 0,
+    "normalized_realization_count": 0,
+    "normalized_stocks_count": 0,
+    "normalized_ads_campaigns_count": 0,
+    "normalized_ads_stats_count": 0,
+    "normalized_funnel_count": 0,
+    "normalized_sources_count": 6,
+    "financial_status": "unavailable",
+    "realization_fallback_used": false,
+    "realization_target_date": "2026-03-19",
+    "realization_actual_date": null,
+    "financial_component_quality": {
+      "revenue": "unavailable",
+      "payout": "unavailable",
+      "commission": "unavailable",
+      "acquiring": "unavailable",
+      "logistics": "unavailable",
+      "storage": "unavailable",
+      "deductions": "unavailable",
+      "pvz": "unavailable",
+      "penalties": "unavailable",
+      "other_costs": "unavailable"
+    },
+    "financial_profit_formula_used": "gross_profit_like is unavailable: insufficient reliable components",
+    "realization_warnings_count": 3,
+    "fallback_used": false,
+    "funnel_status": "unavailable",
+    "funnel_records_count": 0,
+    "funnel_warnings_count": 2,
+    "ads_status": "unavailable",
+    "ads_campaigns_status": "missing",
+    "ads_stats_status": "missing",
+    "ads_warnings_count": 2,
+    "stock_status": "unavailable",
+    "stock_records_count": 0,
+    "stock_warnings_count": 2,
+    "health_status": "unavailable",
+    "health_business_score": null,
+    "health_problematic_sku_count": null,
+    "health_warnings_count": 9,
+    "metrics_sections_built": [
+      "financial",
+      "daily",
+      "funnel",
+      "ads",
+      "stock",
+      "health"
+    ],
+    "facts_sections_built": [
+      "financial",
+      "daily",
+      "funnel",
+      "ads",
+      "stock",
+      "health"
+    ],
+    "build_timestamp": null,
+    "build_timestamp_note": "deterministic stage: timestamp omitted by design",
+    "propagated_diagnostics_summary": {
+      "metrics_warnings_count": 30,
+      "metrics_source_flags_count": 6,
+      "facts_warnings_count": 39
+    }
+  }
+}

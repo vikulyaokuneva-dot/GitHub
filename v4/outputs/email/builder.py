@@ -1,17 +1,32 @@
-﻿"""Email payload builder over facts + decisions.
+"""Email payload builder over facts + decisions (+ optional diagnostics).
 
-Input: FactsBundle and DecisionsBundle.
+Input: FactsBundle + DecisionsBundle + optional diagnostics.
 Output: EmailPayload (plain text friendly).
 Does not send email and does not recalculate KPI.
 """
 
 from __future__ import annotations
 
+from typing import Any
+
 from ...core.contracts import DecisionItem, DecisionsBundle, FactItem, FactsBundle
 from .contracts import EmailPayload, EmailSection
 
 
 AUDIT_DISCLAIMER = "Отчет построен в audit_file_mode; выводы ограничены доступными файлами."
+WB_API_LIMITED_MODE_NOTE = "Данные WB API отсутствуют -> отчет сформирован в ограниченном режиме."
+
+_DECISION_CATALOG: list[tuple[str, str, str]] = [
+    ("negative_profit", "Negative profit", "P1"),
+    ("low_margin", "Low margin risk", "P2"),
+    ("ad_inefficiency", "Ad inefficiency", "P2"),
+    ("out_of_stock_risk", "Out-of-stock risk", "P1"),
+    ("weak_conversion", "Weak conversion", "P2"),
+    ("overstock", "Overstock risk", "P2"),
+    ("dead_sku", "Dead SKU risk", "P2"),
+    ("low_business_health", "Low business health", "P2"),
+    ("partial_data_warning", "Partial data warning", "P3"),
+]
 
 
 def _priority_value(item: DecisionItem) -> int:
@@ -55,6 +70,34 @@ def _display_fact_value(fact_item: FactItem | None) -> str:
 
 def _has_partial_data(facts_bundle: FactsBundle) -> bool:
     return bool(facts_bundle.data_quality.get("partial_sections") or facts_bundle.data_quality.get("unavailable_sections"))
+
+
+def _normalize_mode(mode: object) -> str:
+    return "audit" if str(mode).strip().lower() == "audit" else "daily"
+
+
+def _section_status(facts_bundle: FactsBundle, section_name: str) -> str:
+    section = facts_bundle.sections.get(section_name)
+    if section is None:
+        return "unavailable"
+    return str(section.status)
+
+
+def _diagnostics_dict(value: object) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    return {}
+
+
+def _source_status_text(raw: object) -> str:
+    token = str(raw or "").strip().lower()
+    if token == "ok":
+        return "available"
+    if token == "partial":
+        return "partial"
+    if token in {"not_implemented", "skipped"}:
+        return "skipped"
+    return "missing"
 
 
 def _build_summary_lines(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle, mode: str) -> list[str]:
@@ -116,8 +159,7 @@ def _build_finance_section(facts_bundle: FactsBundle) -> EmailSection:
         f"Выплата продавцу: {_display_fact_value(_find_fact_item('financial', 'seller_payout', facts_bundle))}",
         f"Чистая прибыль-like: {_display_fact_value(_find_fact_item('financial', 'net_profit_like', facts_bundle))}",
     ]
-    status = facts_bundle.sections.get("financial").status if "financial" in facts_bundle.sections else "unavailable"
-    return EmailSection(title="Финансы", lines=lines, status=status)
+    return EmailSection(title="Финансы", lines=lines, status=_section_status(facts_bundle, "financial"))
 
 
 def _build_decisions_section(decisions_bundle: DecisionsBundle) -> EmailSection:
@@ -136,22 +178,19 @@ def _build_decisions_section(decisions_bundle: DecisionsBundle) -> EmailSection:
     return EmailSection(title="Ключевые решения", lines=lines, status=section_status)
 
 
-def _build_stock_section(facts_bundle: FactsBundle) -> EmailSection | None:
-    if "stock" not in facts_bundle.sections:
-        return None
+def _build_stock_section(facts_bundle: FactsBundle) -> EmailSection:
     lines = [
         f"Всего остатков, шт: {_display_fact_value(_find_fact_item('stock', 'total_stock_units', facts_bundle))}",
         f"In-stock SKU entities: {_display_fact_value(_find_fact_item('stock', 'in_stock_items_count', facts_bundle))}",
         f"Out-of-stock SKU entities: {_display_fact_value(_find_fact_item('stock', 'out_of_stock_items_count', facts_bundle))}",
     ]
-    status = facts_bundle.sections["stock"].status
-    return EmailSection(title="Остатки / stock", lines=lines, status=status)
+    return EmailSection(title="Остатки / stock", lines=lines, status=_section_status(facts_bundle, "stock"))
 
 
-def _build_health_section(facts_bundle: FactsBundle) -> EmailSection | None:
+def _build_health_section(facts_bundle: FactsBundle) -> EmailSection:
     health_section = facts_bundle.sections.get("health")
     if health_section is None:
-        return None
+        return EmailSection(title="Health", lines=["нет данных"], status="unavailable")
 
     lines = [
         f"Business health score: {_display_fact_value(_find_fact_item('health', 'business_health_score', facts_bundle))}",
@@ -167,11 +206,7 @@ def _build_health_section(facts_bundle: FactsBundle) -> EmailSection | None:
         lines.append(f"Health note: {_display_fact_value(status_note)}")
 
     component_items = sorted(
-        [
-            item
-            for item in health_section.items
-            if item.key.startswith("component_") and item.key.endswith("_score")
-        ],
+        [item for item in health_section.items if item.key.startswith("component_") and item.key.endswith("_score")],
         key=lambda item: item.key,
     )
     for item in component_items:
@@ -181,13 +216,10 @@ def _build_health_section(facts_bundle: FactsBundle) -> EmailSection | None:
     return EmailSection(title="Health", lines=lines, status=health_section.status)
 
 
-def _build_quality_section(facts_bundle: FactsBundle, mode: str) -> EmailSection | None:
+def _build_quality_section(facts_bundle: FactsBundle, mode: str) -> EmailSection:
     warnings = list(facts_bundle.warnings)
     partial_sections = list(facts_bundle.data_quality.get("partial_sections", []))
     unavailable_sections = list(facts_bundle.data_quality.get("unavailable_sections", []))
-    if not warnings and not partial_sections and not unavailable_sections and mode != "audit":
-        return None
-
     lines = [
         f"Partial sections: {partial_sections or []}",
         f"Unavailable sections: {unavailable_sections or []}",
@@ -210,33 +242,329 @@ def _build_subject(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle,
     return f"WB v4 {mode_prefix}: no critical decisions | {seller_id}"
 
 
+def _build_header_section(
+    facts_bundle: FactsBundle,
+    mode: str,
+    diagnostics: dict[str, Any],
+) -> EmailSection:
+    summary = _diagnostics_dict(diagnostics.get("summary"))
+    production = _diagnostics_dict(diagnostics.get("production"))
+    operator = _diagnostics_dict(diagnostics.get("operator"))
+    selected_mode = (
+        production.get("selected_mode")
+        or summary.get("selected_production_mode")
+        or operator.get("selected_production_mode")
+        or mode
+    )
+    run_date = (
+        summary.get("resolved_date")
+        or summary.get("requested_date")
+        or facts_bundle.run_context.resolved_date_iso
+        or facts_bundle.run_context.requested_date_iso
+        or "нет данных"
+    )
+    run_id = diagnostics.get("run_id")
+    job_id = diagnostics.get("job_id")
+    lines = [
+        f"seller: {facts_bundle.run_context.seller_id}",
+        f"date: {run_date}",
+        f"production_mode: {selected_mode}",
+        f"dry_run: {str(bool(facts_bundle.run_context.dry_run)).lower()}",
+        f"run_id: {run_id if run_id is not None else 'нет данных'}",
+        f"job_id: {job_id if job_id is not None else 'нет данных'}",
+    ]
+    return EmailSection(title="HEADER", lines=lines, status="confirmed")
+
+
+def _build_data_availability_section(facts_bundle: FactsBundle, diagnostics: dict[str, Any]) -> EmailSection:
+    job = _diagnostics_dict(diagnostics.get("job"))
+    source_availability = job.get("source_availability")
+    source_map = source_availability if isinstance(source_availability, dict) else {}
+    source_order = ["orders", "sales", "realization", "ads", "stocks", "funnel"]
+
+    lines = [f"wb_api_token_present: {str(bool(facts_bundle.run_context.wb_api_token_present)).lower()}"]
+    if not facts_bundle.run_context.wb_api_token_present:
+        lines.append(WB_API_LIMITED_MODE_NOTE)
+    for source_name in source_order:
+        raw = source_map.get(source_name, "missing")
+        lines.append(f"{source_name}: {_source_status_text(raw)} (raw={raw})")
+    return EmailSection(title="DATA AVAILABILITY", lines=lines, status="partial")
+
+
+def _build_full_financial_section(facts_bundle: FactsBundle) -> EmailSection:
+    lines = [
+        f"revenue: {_display_fact_value(_find_fact_item('financial', 'revenue_gross', facts_bundle))}",
+        f"seller_payout: {_display_fact_value(_find_fact_item('financial', 'seller_payout', facts_bundle))}",
+        f"commission: {_display_fact_value(_find_fact_item('financial', 'commission_amount', facts_bundle))}",
+        f"logistics: {_display_fact_value(_find_fact_item('financial', 'logistics_cost', facts_bundle))}",
+        f"storage: {_display_fact_value(_find_fact_item('financial', 'storage_cost', facts_bundle))}",
+        f"net_profit: {_display_fact_value(_find_fact_item('financial', 'net_profit_like', facts_bundle))}",
+        f"margin: {_display_fact_value(_find_fact_item('financial', 'margin', facts_bundle))}",
+    ]
+    return EmailSection(title="FINANCIAL SUMMARY", lines=lines, status=_section_status(facts_bundle, "financial"))
+
+
+def _build_daily_kpi_section(facts_bundle: FactsBundle) -> EmailSection:
+    lines = [
+        f"orders: {_display_fact_value(_find_fact_item('daily', 'orders_count', facts_bundle) or _find_fact_item('financial', 'orders_count', facts_bundle))}",
+        f"buyouts: {_display_fact_value(_find_fact_item('daily', 'sales_count', facts_bundle) or _find_fact_item('financial', 'sales_count', facts_bundle))}",
+        f"conversion: {_display_fact_value(_find_fact_item('funnel', 'cr_orders_from_cart', facts_bundle))}",
+        f"avg_check: {_display_fact_value(_find_fact_item('daily', 'avg_check', facts_bundle))}",
+    ]
+    status = _section_status(facts_bundle, "daily")
+    if status == "unavailable" and _section_status(facts_bundle, "financial") != "unavailable":
+        status = "partial"
+    return EmailSection(title="DAILY KPI", lines=lines, status=status)
+
+
+def _build_funnel_section(facts_bundle: FactsBundle) -> EmailSection:
+    lines = [
+        f"views: {_display_fact_value(_find_fact_item('funnel', 'impressions', facts_bundle))}",
+        f"add_to_cart: {_display_fact_value(_find_fact_item('funnel', 'cart_adds', facts_bundle))}",
+        f"order_rate: {_display_fact_value(_find_fact_item('funnel', 'cr_orders_from_cart', facts_bundle))}",
+        f"buyout_rate: {_display_fact_value(_find_fact_item('funnel', 'cr_buys_from_orders', facts_bundle))}",
+    ]
+    return EmailSection(title="FUNNEL", lines=lines, status=_section_status(facts_bundle, "funnel"))
+
+
+def _build_ads_section(facts_bundle: FactsBundle) -> EmailSection:
+    ads_section = facts_bundle.sections.get("ads")
+    warnings = list(ads_section.warnings) if ads_section is not None else []
+    warning_text = "; ".join(warnings) if warnings else "none"
+    lines = [
+        f"spend: {_display_fact_value(_find_fact_item('ads', 'spend', facts_bundle))}",
+        f"CPC: {_display_fact_value(_find_fact_item('ads', 'cpc', facts_bundle))}",
+        f"ROAS: {_display_fact_value(_find_fact_item('ads', 'roas', facts_bundle))}",
+        f"warnings: {warning_text}",
+    ]
+    return EmailSection(title="ADS", lines=lines, status=_section_status(facts_bundle, "ads"))
+
+
+def _build_stock_full_section(facts_bundle: FactsBundle) -> EmailSection:
+    lines = [
+        f"total_stock_units: {_display_fact_value(_find_fact_item('stock', 'total_stock_units', facts_bundle))}",
+        f"in_stock_items: {_display_fact_value(_find_fact_item('stock', 'in_stock_items_count', facts_bundle))}",
+        f"out_of_stock_items: {_display_fact_value(_find_fact_item('stock', 'out_of_stock_items_count', facts_bundle))}",
+    ]
+    return EmailSection(title="STOCK", lines=lines, status=_section_status(facts_bundle, "stock"))
+
+
+def _build_health_full_section(facts_bundle: FactsBundle) -> EmailSection:
+    health_section = _build_health_section(facts_bundle)
+    lines = list(health_section.lines)
+    raw_warnings = facts_bundle.sections.get("health").warnings if facts_bundle.sections.get("health") is not None else []
+    warning_text = "; ".join(raw_warnings) if raw_warnings else "none"
+    lines.append(f"warnings: {warning_text}")
+    return EmailSection(title="HEALTH", lines=lines, status=health_section.status)
+
+
+def _build_decisions_full_section(decisions_bundle: DecisionsBundle) -> EmailSection:
+    by_code = {item.code: item for item in decisions_bundle.items}
+    lines: list[str] = []
+    unavailable_count = 0
+
+    for code, title, priority in _DECISION_CATALOG:
+        item = by_code.get(code)
+        if item is None:
+            unavailable_count += 1
+            lines.append(
+                f"{priority} | {code} | status=unavailable | {title} | reason=rule not triggered on available facts"
+            )
+            continue
+
+        raw_status = _decision_status_text(item)
+        status = "unavailable" if raw_status == "unavailable" else "triggered"
+        if status == "unavailable":
+            unavailable_count += 1
+        lines.append(
+            f"{_priority_text(item)} | {item.code} | status={status} | {item.summary} | reason={item.reason}"
+        )
+
+    known_codes = {code for code, _, _ in _DECISION_CATALOG}
+    for item in sorted(decisions_bundle.items, key=_priority_value):
+        if item.code in known_codes:
+            continue
+        raw_status = _decision_status_text(item)
+        status = "unavailable" if raw_status == "unavailable" else "triggered"
+        if status == "unavailable":
+            unavailable_count += 1
+        lines.append(
+            f"{_priority_text(item)} | {item.code} | status={status} | {item.summary} | reason={item.reason}"
+        )
+
+    if not lines:
+        lines.append("нет данных")
+    section_status = "partial" if unavailable_count > 0 else "confirmed"
+    return EmailSection(title="DECISIONS", lines=lines, status=section_status)
+
+
+def _build_diagnostics_section(diagnostics: dict[str, Any]) -> EmailSection:
+    job = _diagnostics_dict(diagnostics.get("job"))
+    summary = _diagnostics_dict(diagnostics.get("summary"))
+    operator = _diagnostics_dict(diagnostics.get("operator"))
+    production = _diagnostics_dict(diagnostics.get("production"))
+    warnings_payload = job.get("warnings")
+    warnings_list = [str(item) for item in warnings_payload] if isinstance(warnings_payload, list) else []
+    if not warnings_list:
+        fallback_warnings = diagnostics.get("warnings")
+        if isinstance(fallback_warnings, list):
+            warnings_list = [str(item) for item in fallback_warnings]
+
+    source_availability = job.get("source_availability")
+    source_flags = source_availability if isinstance(source_availability, dict) else {}
+    available_count = sum(1 for value in source_flags.values() if _source_status_text(value) in {"available", "partial"})
+    total_count = len(source_flags)
+    data_coverage = f"{available_count}/{total_count}" if total_count > 0 else "0/0"
+
+    selected_mode = (
+        production.get("selected_mode")
+        or summary.get("selected_production_mode")
+        or operator.get("selected_production_mode")
+        or "нет данных"
+    )
+    reason = production.get("switch_reason") or operator.get("switch_reason") or "нет данных"
+    rollback_happened = bool(production.get("rollback_happened", False))
+    fallback_used = bool(production.get("fallback_used", False))
+    missing_sources = job.get("missing_sources")
+    missing_list = list(missing_sources) if isinstance(missing_sources, list) else []
+
+    lines = [
+        f"production_mode: {selected_mode}",
+        f"mode_resolution_reason: {reason}",
+        f"rollback_happened: {str(rollback_happened).lower()}",
+        f"fallback_used: {str(fallback_used).lower()}",
+        f"partial_flag: {str(bool(summary.get('partial_flag', False))).lower()}",
+        f"data_coverage: {data_coverage}",
+        f"missing_sources: {missing_list}",
+    ]
+
+    if source_flags:
+        lines.append("source_flags:")
+        for name in sorted(source_flags.keys()):
+            lines.append(f"- {name}: {_source_status_text(source_flags[name])} (raw={source_flags[name]})")
+    else:
+        lines.append("source_flags: нет данных")
+
+    lines.append("warnings:")
+    if warnings_list:
+        lines.extend(f"- {warning}" for warning in warnings_list)
+    else:
+        lines.append("- none")
+
+    return EmailSection(title="DIAGNOSTICS", lines=lines, status="partial")
+
+
+def _build_footer_section(facts_bundle: FactsBundle, diagnostics: dict[str, Any]) -> EmailSection:
+    summary = _diagnostics_dict(diagnostics.get("summary"))
+    job = _diagnostics_dict(diagnostics.get("job"))
+    artifacts = diagnostics.get("artifacts")
+    artifact_map = artifacts if isinstance(artifacts, dict) else {}
+    output_dir = diagnostics.get("output_dir") or summary.get("output_dir_label") or facts_bundle.run_context.output_dir or "нет данных"
+    timestamp = job.get("build_timestamp")
+    timestamp_value = timestamp if timestamp is not None else "нет данных"
+    lines = [f"output_dir: {output_dir}", f"timestamp: {timestamp_value}"]
+    if artifact_map:
+        lines.append("artifacts:")
+        for key in sorted(artifact_map.keys()):
+            lines.append(f"- {key}: {artifact_map[key]}")
+    else:
+        lines.append("artifacts: нет данных")
+    return EmailSection(title="FOOTER", lines=lines, status="info")
+
+
+def _build_full_debug_payload(
+    facts_bundle: FactsBundle,
+    decisions_bundle: DecisionsBundle,
+    mode: str,
+    diagnostics: dict[str, Any],
+) -> EmailPayload:
+    summary = _diagnostics_dict(diagnostics.get("summary"))
+    partial_flag = bool(summary.get("partial_flag", _has_partial_data(facts_bundle)))
+    summary_lines = [
+        "Acceptance / Full Debug Mode: все секции включены, включая unavailable.",
+        f"partial_flag={str(partial_flag).lower()}",
+    ]
+    if not facts_bundle.run_context.wb_api_token_present:
+        summary_lines.append(WB_API_LIMITED_MODE_NOTE)
+    if mode == "audit":
+        summary_lines.append(AUDIT_DISCLAIMER)
+
+    sections = [
+        _build_header_section(facts_bundle, mode, diagnostics),
+        _build_data_availability_section(facts_bundle, diagnostics),
+        _build_full_financial_section(facts_bundle),
+        _build_daily_kpi_section(facts_bundle),
+        _build_funnel_section(facts_bundle),
+        _build_ads_section(facts_bundle),
+        _build_stock_full_section(facts_bundle),
+        _build_health_full_section(facts_bundle),
+        _build_decisions_full_section(decisions_bundle),
+        _build_diagnostics_section(diagnostics),
+        _build_footer_section(facts_bundle, diagnostics),
+    ]
+
+    warnings = [str(item) for item in facts_bundle.warnings] + [str(item) for item in decisions_bundle.warnings]
+    diagnostics_warnings = diagnostics.get("warnings")
+    if isinstance(diagnostics_warnings, list):
+        warnings.extend([str(item) for item in diagnostics_warnings])
+    deduped_warnings: list[str] = []
+    seen: set[str] = set()
+    for warning in warnings:
+        if warning in seen:
+            continue
+        seen.add(warning)
+        deduped_warnings.append(warning)
+
+    subject = f"WB v4 {mode.upper()} FULL DEBUG | {facts_bundle.run_context.seller_id}"
+    preheader = (
+        f"mode={mode}; dry_run={str(bool(facts_bundle.run_context.dry_run)).lower()}; "
+        f"partial={str(partial_flag).lower()}; sections={len(sections)}"
+    )
+    return EmailPayload(
+        subject=subject,
+        preheader=preheader,
+        mode=mode,
+        summary_lines=summary_lines,
+        sections=sections,
+        warnings=deduped_warnings,
+        diagnostics={
+            "full_debug": True,
+            "sections_count": len(sections),
+            "decisions_count": len(decisions_bundle.items),
+            "facts_sections_available": list(facts_bundle.sections.keys()),
+            "mode": mode,
+            "audit_disclaimer_included": mode == "audit",
+        },
+    )
+
+
 def build_email_payload(
     facts_bundle: FactsBundle,
     decisions_bundle: DecisionsBundle,
     mode: str = "daily",
+    diagnostics: dict[str, Any] | None = None,
+    full_debug: bool = False,
 ) -> EmailPayload:
-    normalized_mode = "audit" if str(mode).strip().lower() == "audit" else "daily"
+    normalized_mode = _normalize_mode(mode)
+    if full_debug:
+        return _build_full_debug_payload(
+            facts_bundle=facts_bundle,
+            decisions_bundle=decisions_bundle,
+            mode=normalized_mode,
+            diagnostics=_diagnostics_dict(diagnostics),
+        )
 
     summary_lines = _build_summary_lines(facts_bundle, decisions_bundle, normalized_mode)
     sections: list[EmailSection] = [
         _build_finance_section(facts_bundle),
         _build_decisions_section(decisions_bundle),
+        _build_health_section(facts_bundle),
+        _build_stock_section(facts_bundle),
+        _build_quality_section(facts_bundle, normalized_mode),
     ]
 
-    health_section = _build_health_section(facts_bundle)
-    if health_section is not None:
-        sections.append(health_section)
-
-    stock_section = _build_stock_section(facts_bundle)
-    if stock_section is not None:
-        sections.append(stock_section)
-
-    quality_section = _build_quality_section(facts_bundle, normalized_mode)
-    if quality_section is not None:
-        sections.append(quality_section)
-
     warnings = list(facts_bundle.warnings) + list(decisions_bundle.warnings)
-    diagnostics = {
+    payload_diagnostics = {
         "sections_count": len(sections),
         "summary_lines_count": len(summary_lines),
         "decisions_count": len(decisions_bundle.items),
@@ -252,5 +580,6 @@ def build_email_payload(
         summary_lines=summary_lines,
         sections=sections,
         warnings=warnings,
-        diagnostics=diagnostics,
+        diagnostics=payload_diagnostics,
     )
+

@@ -38,6 +38,11 @@ def _configure_common_daily_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--allow-fallback-to-legacy", action="store_true")
     parser.add_argument("--shadow-mode", action="store_true")
+    parser.add_argument(
+        "--full-email-debug",
+        action="store_true",
+        help="Acceptance mode: force full debug email visibility + delivery (non-dry-run only for SMTP send).",
+    )
 
 
 def _configure_common_audit_args(parser: argparse.ArgumentParser) -> None:
@@ -87,6 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_preflight.add_argument("--output-dir", dest="output_dir", required=False)
     p_preflight.add_argument("--production-mode", choices=["legacy", "v4", "shadow"], required=False)
     p_preflight.add_argument("--dry-run", action="store_true")
+    p_preflight.add_argument("--full-email-debug", action="store_true")
 
     p_smoke = sub.add_parser(
         "smoke",
@@ -103,6 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_smoke.add_argument("--shadow", dest="shadow_mode", action="store_true")
     p_smoke.add_argument("--render-pdf", action="store_true")
     p_smoke.add_argument("--email-preview", action="store_true")
+    p_smoke.add_argument("--full-email-debug", action="store_true")
 
     return parser
 
@@ -156,6 +163,13 @@ def _print_result_summary(command: str, result: dict[str, Any]) -> None:
         )
         print(f"seller_id={prod_diag.get('seller_id')} run_date={prod_diag.get('run_date')}")
         print(f"output_dir_label={prod_diag.get('output_dir_label')}")
+        delivery = result.get("delivery", {}) if isinstance(result.get("delivery"), dict) else {}
+        delivery_diag = delivery.get("diagnostics", {}) if isinstance(delivery.get("diagnostics"), dict) else {}
+        if delivery_diag:
+            print(
+                f"delivery_email_sent={bool(delivery_diag.get('email_sent', False))} "
+                f"delivery_pdf={bool(delivery_diag.get('rendered_pdf', False))}"
+            )
         return
 
     print("RUN SUCCESS")
@@ -171,6 +185,13 @@ def _print_result_summary(command: str, result: dict[str, Any]) -> None:
         f"dry_run={bool(summary.get('dry_run', False))}"
     )
     print(f"output_dir_label={summary.get('output_dir_label')}")
+    delivery = result.get("delivery", {}) if isinstance(result.get("delivery"), dict) else {}
+    delivery_diag = delivery.get("diagnostics", {}) if isinstance(delivery.get("diagnostics"), dict) else {}
+    if delivery_diag:
+        print(
+            f"delivery_email_sent={bool(delivery_diag.get('email_sent', False))} "
+            f"delivery_pdf={bool(delivery_diag.get('rendered_pdf', False))}"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -194,6 +215,7 @@ def main(argv: list[str] | None = None) -> int:
                 "production_mode": args.production_mode,
                 "allow_fallback_to_legacy": bool(args.allow_fallback_to_legacy),
                 "shadow_mode": bool(args.shadow_mode),
+                "full_email_debug": bool(args.full_email_debug),
             }
             result = run_daily(payload)
             _print_result_summary("daily", result if isinstance(result, dict) else {})
@@ -229,6 +251,7 @@ def main(argv: list[str] | None = None) -> int:
                 "output_dir": args.output_dir,
                 "production_mode": args.production_mode,
                 "dry_run": bool(args.dry_run),
+                "full_email_debug": bool(args.full_email_debug),
             }
             result = run_preflight(payload)
             _print_result_summary("preflight", result)
@@ -248,6 +271,7 @@ def main(argv: list[str] | None = None) -> int:
                 "shadow_mode": bool(args.shadow_mode),
                 "render_pdf": bool(args.render_pdf),
                 "email_preview": bool(args.email_preview),
+                "full_email_debug": bool(args.full_email_debug),
             }
             result = run_smoke(payload)
             _print_result_summary("smoke", result)
@@ -262,4 +286,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

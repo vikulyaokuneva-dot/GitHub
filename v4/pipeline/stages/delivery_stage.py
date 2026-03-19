@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...delivery.email.sender import save_email_preview
+from ...delivery.email.sender import save_email_preview, send_email_via_smtp
 from ...delivery.pdf.renderer import render_pdf
 from ...outputs.email.contracts import EmailPayload
 from ...outputs.pdf.contracts import PdfPayload
@@ -39,12 +39,16 @@ def run_delivery_stage(
     output_dir: str | None = None,
     enable_pdf_render: bool = True,
     enable_email_preview: bool = True,
+    enable_email_send: bool = False,
 ) -> dict:
     if not isinstance(outputs, dict):
         raise TypeError("run_delivery_stage expects outputs dict")
 
     pdf_path: str | None = None
     email_preview_path: str | None = None
+    email_send: dict[str, Any] | None = None
+    email_sent = False
+    email_send_attempted = False
     warnings: list[str] = []
 
     artifacts = outputs.get("artifacts", {}) if isinstance(outputs.get("artifacts"), dict) else {}
@@ -89,11 +93,34 @@ def run_delivery_stage(
             else:
                 email_preview_path = str(preview)
 
+    if enable_email_send:
+        email_send_attempted = True
+        if not isinstance(email_payload, EmailPayload):
+            warnings.append("email payload is missing or invalid; SMTP send skipped")
+        elif pdf_path is None:
+            warnings.append("rendered PDF is missing; SMTP send skipped")
+        else:
+            try:
+                email_send = send_email_via_smtp(
+                    email_payload,
+                    pdf_path=pdf_path,
+                )
+                email_sent = True
+            except Exception as exc:
+                warnings.append(f"email send failed: {exc}")
+                email_send = {
+                    "email_transport_status": "failed",
+                    "email_failure_reason_normalized": str(exc),
+                }
+
     diagnostics = {
         "mode": _normalize_mode(outputs),
         "delivery_enabled": bool(enable_pdf_render or enable_email_preview),
         "rendered_pdf": bool(pdf_path),
         "email_preview_built": bool(email_preview_path),
+        "email_send_attempted": bool(email_send_attempted),
+        "email_sent": bool(email_sent),
+        "email_send": dict(email_send) if isinstance(email_send, dict) else None,
         "output_dir": str(root) if root is not None else None,
         "output_paths": {
             "pdf_path": pdf_path,
@@ -106,6 +133,7 @@ def run_delivery_stage(
     return {
         "pdf_path": pdf_path,
         "email_preview_path": email_preview_path,
+        "email_send": email_send,
         "diagnostics": diagnostics,
     }
 

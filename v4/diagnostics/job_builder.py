@@ -123,6 +123,7 @@ def build_job_diagnostics(
         "optional_missing_sources": optional_missing_sources,
         "section_statuses": section_statuses,
         "warnings_count": len(all_warnings),
+        "warnings": list(all_warnings),
         "partial_flag": partial_flag,
         "decision_counts_by_priority": _decision_counts_by_priority(decisions_bundle),
         "output_artifact_paths": artifact_labels,

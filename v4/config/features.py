@@ -24,6 +24,7 @@ FEATURE_DEFAULTS: dict[str, bool] = {
     "enable_shadow_mode": False,
     "enable_comparison": True,
     "enable_shadow_persistence": True,
+    "enable_full_email_debug": False,
 }
 
 

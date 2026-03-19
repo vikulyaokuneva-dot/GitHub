@@ -29,6 +29,11 @@ python -m v4.entry.cli smoke --mode daily --seller seller_001 --date 2026-03-19 
 python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
 ```
 
+## 5.1 Acceptance full-email-debug run
+```bash
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs/acceptance --production-mode v4 --full-email-debug
+```
+
 ## 6. Smoke Daily (legacy-compatible)
 ```bash
 python v4/scripts/smoke_run_daily.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_smoke_daily

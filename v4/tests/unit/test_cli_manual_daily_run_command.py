@@ -20,6 +20,7 @@ class TestCliManualDailyRunCommand(unittest.TestCase):
                     "--production-mode",
                     "v4",
                     "--dry-run",
+                    "--full-email-debug",
                 ]
             )
 
@@ -29,6 +30,7 @@ class TestCliManualDailyRunCommand(unittest.TestCase):
         self.assertEqual(payload["run_date"], "2026-03-19")
         self.assertEqual(payload["production_mode"], "v4")
         self.assertTrue(payload["dry_run"])
+        self.assertTrue(payload["full_email_debug"])
 
     def test_daily_uses_single_enabled_seller_when_not_provided(self) -> None:
         enabled = [SellerConfig(seller_id="seller_001", display_name="Seller 001", is_enabled=True)]
@@ -58,4 +60,3 @@ class TestCliManualDailyRunCommand(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
