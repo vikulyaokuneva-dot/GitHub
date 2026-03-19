@@ -5,7 +5,7 @@ Operational runbook для controlled adoption `v4` в `daily` и `audit` реж
 без production switch и без migration logic.
 
 Цепочка исполнения (фиксированный порядок):
-`source -> normalize -> metrics -> facts -> decisions -> outputs`
+`source -> normalize -> metrics -> facts -> decisions -> outputs -> delivery`
 
 ## Режимы
 - `daily_api_mode`: API-first daily pipeline.
@@ -27,6 +27,11 @@ python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15
 python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_daily_out
 ```
 
+Опциональный delivery (по умолчанию выключен):
+```bash
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_daily_out --render-pdf --email-preview
+```
+
 ## Local Run: Audit
 ```bash
 python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15
@@ -35,6 +40,11 @@ python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_
 С артефактами в каталог:
 ```bash
 python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_audit_out
+```
+
+Опциональный delivery (по умолчанию выключен):
+```bash
+python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_audit_out --render-pdf --email-preview
 ```
 
 Поддерживаемые audit input варианты:
@@ -57,6 +67,16 @@ python v4/scripts/smoke_run_daily.py --seller seller_001 --date 2026-03-15 --out
 Audit smoke:
 ```bash
 python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_audit
+```
+
+Delivery PDF smoke:
+```bash
+python v4/scripts/smoke_render_pdf.py --mode daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_render_pdf
+```
+
+Delivery email-preview smoke:
+```bash
+python v4/scripts/smoke_email_payload.py --mode daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_email_preview
 ```
 
 Ожидаемый exit code:
@@ -94,10 +114,19 @@ python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller
 Где искать:
 - `result["outputs"]["artifacts"]["saved_files"]`
 
+Delivery artifacts (если включен delivery и передан `output_dir`):
+- `report.pdf`
+- `email_preview.json`
+
 ## Diagnostics Interpretation
 Runtime diagnostics:
 - `result["diagnostics"]["job"]`: полный job-level diagnostics.
 - `result["diagnostics"]["summary"]`: компактный summary для мониторинга.
+
+Delivery diagnostics (если включен delivery):
+- `result["delivery"]["diagnostics"]["rendered_pdf"]`
+- `result["delivery"]["diagnostics"]["email_preview_built"]`
+- `result["delivery"]["diagnostics"]["output_paths"]`
 
 Ключевые поля summary:
 - `mode`
@@ -127,6 +156,8 @@ Artifacts diagnostics:
 - Нет production PDF renderer.
 - Нет LLM narrative summaries.
 - Нет новых KPI в `outputs`; KPI собираются только на стадии `metrics`.
+- Delivery слой использует только `PdfPayload` / `EmailPayload` / artifact paths.
+- Delivery слой не обращается к `metrics/facts/decisions` напрямую.
 
 ## Known Constraints
 - До передачи `output_dir` артефакты не пишутся на диск.

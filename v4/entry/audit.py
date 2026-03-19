@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..pipeline.stages.delivery_stage import run_delivery_stage
 from ..pipeline.runners.audit_runner import run_audit_pipeline
 
 
@@ -25,8 +26,23 @@ def run(payload: dict[str, Any] | None = None) -> dict:
         "timezone": str(data.get("timezone") or "Europe/Moscow"),
         "dry_run": bool(data.get("dry_run", False)),
     }
-    return run_audit_pipeline(
+    result = run_audit_pipeline(
         input_path=input_path,
         run_context=run_context,
         output_dir=data.get("output_dir"),
     )
+
+    enable_pdf_render = bool(data.get("render_pdf", False))
+    enable_email_preview = bool(data.get("email_preview", False))
+    if enable_pdf_render or enable_email_preview:
+        delivery = run_delivery_stage(
+            outputs=result.get("outputs", {}),
+            output_dir=data.get("output_dir"),
+            enable_pdf_render=enable_pdf_render,
+            enable_email_preview=enable_email_preview,
+        )
+        enriched = dict(result)
+        enriched["delivery"] = delivery
+        return enriched
+
+    return result

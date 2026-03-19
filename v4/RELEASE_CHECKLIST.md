@@ -26,16 +26,31 @@ python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller
 ```
 Критерий: `exit code 0`.
 
-## 5. Artifact Verification
+## 5. Smoke Delivery PDF
+```bash
+python v4/scripts/smoke_render_pdf.py --mode daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_render_pdf
+```
+Критерий: `exit code 0`.
+
+## 6. Smoke Delivery Email Preview
+```bash
+python v4/scripts/smoke_email_payload.py --mode daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_email_preview
+```
+Критерий: `exit code 0`.
+
+## 7. Artifact Verification
 Проверить наличие и корректный JSON-формат:
 - `facts.json`
 - `decisions.json`
 - `outputs_summary.json`
+- `email_preview.json` (если delivery preview включен)
+- `report.pdf` (если delivery PDF включен)
 
-## 6. Diagnostics Verification
+## 8. Diagnostics Verification
 Проверить в runtime result:
 - `diagnostics.job`
 - `diagnostics.summary`
+- `delivery.diagnostics` (если delivery включен)
 
 Проверить в summary:
 - `mode`
@@ -43,9 +58,9 @@ python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller
 - `warnings_count`
 - `decision_counts_by_priority`
 
-## 7. Output Dir Safety
+## 9. Output Dir Safety
 Подтвердить, что pipeline не пишет файлы вне `output_dir`.
 
-## 8. KPI Discipline
+## 10. KPI Discipline
 Подтвердить, что KPI не пересчитываются вне стадии `metrics`
 (`source -> normalize -> metrics -> facts -> decisions -> outputs`).

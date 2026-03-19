@@ -12,6 +12,8 @@ class TestRunbookReferences(unittest.TestCase):
         self.assertIn("python -m compileall v4", content)
         self.assertIn("python v4/scripts/smoke_run_daily.py", content)
         self.assertIn("python v4/scripts/smoke_run_audit.py", content)
+        self.assertIn("python v4/scripts/smoke_render_pdf.py", content)
+        self.assertIn("python v4/scripts/smoke_email_payload.py", content)
         self.assertIn("python v4/scripts/ci_smoke_audit.py", content)
         self.assertIn("audit_file_mode", content)
         self.assertIn("--output-dir", content)
