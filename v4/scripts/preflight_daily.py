@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--production-mode", choices=["legacy", "v4", "shadow"], required=False)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--full-email-debug", action="store_true")
+    parser.add_argument("--force-email", action="store_true")
     args = parser.parse_args(argv)
 
     result = run_preflight(
@@ -33,6 +34,7 @@ def main(argv: list[str] | None = None) -> int:
             "production_mode": args.production_mode,
             "dry_run": bool(args.dry_run),
             "full_email_debug": bool(args.full_email_debug),
+            "force_email": bool(args.force_email),
         }
     )
 
@@ -40,6 +42,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"seller_id={result.get('seller_id')}")
     print(f"output_dir={result.get('resolved_output_dir')}")
     print(f"errors={len(result.get('errors', []))} warnings={len(result.get('warnings', []))}")
+    for item in result.get("errors", []):
+        print(f"ERROR: {item}")
+    for item in result.get("warnings", []):
+        print(f"WARNING: {item}")
     return 0 if bool(result.get("ok", False)) else 2
 
 

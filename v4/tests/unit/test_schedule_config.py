@@ -11,8 +11,12 @@ class TestScheduleConfig(unittest.TestCase):
         self.assertIn("06:00 Europe/Moscow", workflow)
         self.assertIn("workflow_dispatch", workflow)
         self.assertIn("V4_SCHEDULE_ENABLED", workflow)
+        self.assertIn("EMAIL_USERNAME", workflow)
+        self.assertIn("EMAIL_PASSWORD", workflow)
+        self.assertIn("EMAIL_TO", workflow)
+        self.assertIn("WB_API_TOKEN", workflow)
+        self.assertIn("--force-email", workflow)
 
 
 if __name__ == "__main__":
     unittest.main()
-

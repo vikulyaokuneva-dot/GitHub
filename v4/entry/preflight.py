@@ -54,8 +54,8 @@ def _resolve_single_seller_id(payload: dict[str, Any]) -> str:
     if len(enabled) == 1:
         return enabled[0].seller_id
     if len(enabled) == 0:
-        raise ValueError("Нет включенных seller в registry; укажите --seller явно.")
-    raise ValueError("Найдено несколько seller; укажите --seller явно для детерминированного запуска.")
+        raise ValueError("No enabled sellers in registry; pass --seller explicitly.")
+    raise ValueError("Multiple sellers are enabled; pass --seller explicitly for deterministic run.")
 
 
 def _resolve_output_dir(
@@ -112,7 +112,8 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     data = dict(payload or {})
     mode = _normalize_mode(data.get("mode"))
     dry_run = bool(data.get("dry_run", False))
-    full_email_debug = bool(data.get("full_email_debug", False))
+    force_email = bool(data.get("force_email", False))
+    full_email_debug = bool(data.get("full_email_debug", False) or force_email)
     run_date = str(data.get("run_date") or data.get("date") or "").strip() or None
 
     checks: list[dict[str, str]] = []
@@ -142,14 +143,16 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     token_present = bool(str(os.getenv(token_env_name, "")).strip())
     requested_mode = str(data.get("production_mode") or "").strip() or None
     production_preview: dict[str, Any] | None = None
+    selected_mode = "n/a"
     if mode == "daily":
         decision = resolve_production_mode(
             seller_id=seller_id,
             cli_mode=requested_mode,
             run_overrides=data.get("feature_flags") if isinstance(data.get("feature_flags"), dict) else None,
         )
+        selected_mode = decision.selected_mode.value
         production_preview = {
-            "selected_mode": decision.selected_mode.value,
+            "selected_mode": selected_mode,
             "reason": decision.reason,
             "source_of_decision": decision.source_of_decision,
             "rollback_allowed": bool(decision.rollback_allowed),
@@ -159,16 +162,50 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
             {
                 "name": "production_mode_resolution",
                 "status": "ok",
-                "detail": f"selected={decision.selected_mode.value}; source={decision.source_of_decision}",
+                "detail": f"selected={selected_mode}; source={decision.source_of_decision}",
             }
         )
-        if requested_mode and decision.selected_mode.value != requested_mode:
-            warnings.append(
-                "Запрошенный production-mode отличается от effective mode; проверьте feature flags и overrides."
-            )
+        if requested_mode and selected_mode != requested_mode:
+            warnings.append("Requested production mode differs from effective mode; check feature flags and overrides.")
 
-    if mode == "daily" and not token_present and not dry_run:
-        errors.append(f"Отсутствует обязательный env var: {token_env_name}")
+    if force_email and selected_mode != "v4":
+        errors.append("force-email requires production mode v4")
+        checks.append(
+            {
+                "name": "force_email_mode_guard",
+                "status": "failed",
+                "detail": f"selected_mode={selected_mode}",
+            }
+        )
+    else:
+        checks.append(
+            {
+                "name": "force_email_mode_guard",
+                "status": "ok",
+                "detail": f"selected_mode={selected_mode}",
+            }
+        )
+
+    if force_email and dry_run:
+        errors.append("force-email requires dry_run=false")
+        checks.append(
+            {
+                "name": "force_email_dry_run_guard",
+                "status": "failed",
+                "detail": "dry-run is not allowed with force-email",
+            }
+        )
+    else:
+        checks.append(
+            {
+                "name": "force_email_dry_run_guard",
+                "status": "ok",
+                "detail": f"dry_run={dry_run}",
+            }
+        )
+
+    if mode == "daily" and not token_present and (not dry_run or force_email):
+        errors.append(f"Missing required env var: {token_env_name}")
         checks.append(
             {
                 "name": "env_required",
@@ -180,14 +217,14 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
         detail = f"{token_env_name}={'present' if token_present else 'missing'}"
         checks.append({"name": "env_required", "status": "ok", "detail": detail})
         if not token_present:
-            warnings.append(f"{token_env_name} не задан; в dry-run это допустимо.")
+            warnings.append(f"{token_env_name} is missing; this is allowed for dry-run only.")
 
     if full_email_debug:
         checks.append({"name": "full_email_debug", "status": "ok", "detail": "enabled"})
-        required_email_env = ("YANDEX_SMTP_USER", "YANDEX_SMTP_APP_PASS", "EMAIL_TO")
+        required_email_env = ("EMAIL_USERNAME", "EMAIL_PASSWORD", "EMAIL_TO")
         missing_email_env = [name for name in required_email_env if not str(os.getenv(name, "")).strip()]
-        if not dry_run and missing_email_env:
-            errors.append(f"Для full-email-debug отсутствуют env vars: {', '.join(missing_email_env)}")
+        if (not dry_run or force_email) and missing_email_env:
+            errors.append(f"Missing email env vars: {', '.join(missing_email_env)}")
             checks.append(
                 {
                     "name": "email_env_required",
@@ -204,7 +241,7 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
                 }
             )
             if missing_email_env:
-                warnings.append("full-email-debug в dry-run: SMTP env vars не обязательны.")
+                warnings.append("full-email-debug in dry-run: SMTP env vars are optional.")
 
     output_dir: Path | None = None
     try:
@@ -227,6 +264,7 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
             "seller_id": seller_id,
             "run_date": run_date,
             "dry_run": dry_run,
+            "force_email": force_email,
             "resolved_output_dir": None,
             "checks": checks,
             "warnings": warnings,
@@ -244,7 +282,7 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
             }
         )
     except Exception as exc:
-        errors.append(f"Не удалось подготовить output_dir: {exc}")
+        errors.append(f"Failed to prepare output_dir: {exc}")
         checks.append({"name": "output_dir_access", "status": "failed", "detail": str(exc)})
 
     try:
@@ -259,7 +297,7 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
             raise ValueError(f"artifact paths escape output_dir: {outside}")
         checks.append({"name": "artifact_path_safety", "status": "ok", "detail": "all inside output_dir"})
     except Exception as exc:
-        errors.append(f"Небезопасные artifact paths: {exc}")
+        errors.append(f"Unsafe artifact paths: {exc}")
         checks.append({"name": "artifact_path_safety", "status": "failed", "detail": str(exc)})
 
     try:
@@ -278,7 +316,7 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
             }
         )
     except Exception as exc:
-        errors.append(f"Не удалось подготовить temp_dir: {exc}")
+        errors.append(f"Failed to prepare temp_dir: {exc}")
         checks.append({"name": "temp_dir_access", "status": "failed", "detail": str(exc)})
 
     ok = not errors
@@ -289,6 +327,7 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
         "seller_id": seller_id,
         "run_date": run_date,
         "dry_run": dry_run,
+        "force_email": force_email,
         "resolved_output_dir": str(output_dir),
         "checks": checks,
         "warnings": warnings,
@@ -299,3 +338,4 @@ def run(payload: dict[str, Any] | None = None) -> dict[str, Any]:
 
 
 __all__ = ["run"]
+

@@ -98,3 +98,16 @@ python v4/scripts/smoke_email_payload.py --mode daily --seller seller_001 --date
 python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --production-mode legacy
 python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --production-mode v4 --allow-fallback-to-legacy
 ```
+
+## 16. Stage 20.2 forced acceptance email
+```bash
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs/acceptance --production-mode v4 --full-email-debug --force-email
+```
+Required env vars for real send:
+- `WB_API_TOKEN`
+- `EMAIL_USERNAME`
+- `EMAIL_PASSWORD`
+- `EMAIL_TO`
+Expected behavior:
+- if SMTP send fails -> process exits with non-zero code
+- no silent fallback to preview-only send

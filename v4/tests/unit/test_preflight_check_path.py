@@ -72,7 +72,40 @@ class TestPreflightCheckPath(unittest.TestCase):
         self.assertEqual(result["status"], "FAILED")
         self.assertTrue(any("WB_API_TOKEN" in error for error in result["errors"]))
 
+    def test_preflight_force_email_requires_email_env_and_v4_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.dict(
+                os.environ,
+                {
+                    "V4_OUTPUT_ROOT": tmpdir,
+                    "V4_TEMP_ROOT": str(Path(tmpdir) / "tmp"),
+                    "WB_API_TOKEN": "token",
+                    "EMAIL_USERNAME": "",
+                    "EMAIL_PASSWORD": "",
+                    "EMAIL_TO": "",
+                },
+                clear=False,
+            ):
+                get_settings.cache_clear()
+                result = run_preflight(
+                    {
+                        "mode": "daily",
+                        "seller_id": "seller_001",
+                        "run_date": "2026-03-19",
+                        "output_dir": str(Path(tmpdir) / "out"),
+                        "production_mode": "v4",
+                        "dry_run": False,
+                        "force_email": True,
+                    }
+                )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["status"], "FAILED")
+        joined = " | ".join(result["errors"])
+        self.assertIn("EMAIL_USERNAME", joined)
+        self.assertIn("EMAIL_PASSWORD", joined)
+        self.assertIn("EMAIL_TO", joined)
+
 
 if __name__ == "__main__":
     unittest.main()
-

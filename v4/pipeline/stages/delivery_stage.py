@@ -40,6 +40,7 @@ def run_delivery_stage(
     enable_pdf_render: bool = True,
     enable_email_preview: bool = True,
     enable_email_send: bool = False,
+    extra_attachments: list[str] | None = None,
 ) -> dict:
     if not isinstance(outputs, dict):
         raise TypeError("run_delivery_stage expects outputs dict")
@@ -53,6 +54,9 @@ def run_delivery_stage(
 
     artifacts = outputs.get("artifacts", {}) if isinstance(outputs.get("artifacts"), dict) else {}
     artifact_saved_files = artifacts.get("saved_files", {}) if isinstance(artifacts, dict) else {}
+    attachment_candidates = [str(path) for path in (artifact_saved_files.values() if isinstance(artifact_saved_files, dict) else [])]
+    if isinstance(extra_attachments, list):
+        attachment_candidates.extend([str(path) for path in extra_attachments])
 
     root: Path | None = None
     if output_dir is not None:
@@ -76,16 +80,39 @@ def run_delivery_stage(
                 pdf_path = str(rendered)
 
     email_payload = outputs.get("email")
+    attachment_paths: list[str] = []
+    for value in attachment_candidates:
+        text = str(value).strip()
+        if not text:
+            continue
+        candidate = Path(text)
+        if root is not None:
+            try:
+                resolved = candidate.resolve()
+                if not _is_within(root, resolved):
+                    warnings.append(f"attachment path is outside output_dir and skipped: {resolved}")
+                    continue
+            except Exception:
+                pass
+        if not candidate.exists():
+            warnings.append(f"attachment file does not exist and skipped: {candidate}")
+            continue
+        normalized = str(candidate.resolve())
+        if normalized not in attachment_paths:
+            attachment_paths.append(normalized)
+
+    if pdf_path:
+        normalized_pdf = str(Path(pdf_path).resolve())
+        if normalized_pdf not in attachment_paths:
+            attachment_paths.append(normalized_pdf)
+
     if enable_email_preview:
         if not isinstance(email_payload, EmailPayload):
             warnings.append("email payload is missing or invalid; email preview skipped")
         elif root is None:
             warnings.append("output_dir is not set; email preview skipped")
         else:
-            attachments: list[str] = []
-            if pdf_path:
-                attachments.append(pdf_path)
-            preview = Path(save_email_preview(email_payload, root, attachments=attachments))
+            preview = Path(save_email_preview(email_payload, root, attachments=attachment_paths))
             if not _is_within(root, preview):
                 warnings.append(f"email preview path is outside output_dir: {preview}")
             elif not preview.exists():
@@ -97,13 +124,13 @@ def run_delivery_stage(
         email_send_attempted = True
         if not isinstance(email_payload, EmailPayload):
             warnings.append("email payload is missing or invalid; SMTP send skipped")
-        elif pdf_path is None:
-            warnings.append("rendered PDF is missing; SMTP send skipped")
+        elif not attachment_paths:
+            warnings.append("email attachments are missing; SMTP send skipped")
         else:
             try:
                 email_send = send_email_via_smtp(
                     email_payload,
-                    pdf_path=pdf_path,
+                    attachments=attachment_paths,
                 )
                 email_sent = True
             except Exception as exc:
@@ -126,6 +153,7 @@ def run_delivery_stage(
             "pdf_path": pdf_path,
             "email_preview_path": email_preview_path,
         },
+        "attachments": list(attachment_paths),
         "artifacts_available": sorted(str(key) for key in artifact_saved_files.keys()),
         "warnings": warnings,
     }

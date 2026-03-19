@@ -1,0 +1,26 @@
+{
+  "diagnostics": {
+    "summary": {
+      "mode": "daily_api_mode",
+      "partial_flag": false,
+      "dry_run": true,
+      "requested_run_date": "2026-03-19",
+      "selected_production_mode": "v4_direct",
+      "seller_id": "seller_001",
+      "output_dir_label": "v4_test_dry_run"
+    },
+    "operator": {
+      "selected_production_mode": "v4_direct",
+      "switch_reason": "direct v4 daily path (without production switch)",
+      "source_of_decision": "entry_default",
+      "rollback_happened": false,
+      "fallback_used": false,
+      "dry_run": true,
+      "seller_id": "seller_001",
+      "run_date": "2026-03-19",
+      "output_dir_label": "v4_test_dry_run"
+    }
+  },
+  "warnings": [],
+  "production": {}
+}

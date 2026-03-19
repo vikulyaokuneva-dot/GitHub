@@ -1,22 +1,25 @@
-﻿"""Daily entry wrapper.
+"""Daily entry wrapper.
 
 Input: run payload from CLI/invoker.
 Output: end-to-end daily pipeline result.
-Does not implement business logic.
+Does not implement KPI business logic.
 """
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from typing import Any
 
 from ..cabinets.paths import path_label
+from ..config.settings import get_settings
 from ..core.contracts import DecisionsBundle, FactsBundle
 from ..outputs.email.builder import build_email_payload
-from ..production.switch import run_production_daily
-from ..pipeline.stages.delivery_stage import run_delivery_stage
-from ..pipeline.runners.multi_cabinet_runner import run_daily_for_sellers
 from ..pipeline.runners.daily_runner import run_daily_pipeline
+from ..pipeline.runners.multi_cabinet_runner import run_daily_for_sellers
+from ..pipeline.stages.delivery_stage import run_delivery_stage
+from ..production.switch import run_production_daily
 
 
 def _parse_seller_ids(value: object) -> list[str]:
@@ -145,6 +148,56 @@ def _inject_full_email_debug_payload(
     return True
 
 
+def _persist_diagnostics_artifact(
+    *,
+    result: dict[str, Any],
+    output_dir: str | None,
+    production_diagnostics: dict[str, Any] | None = None,
+) -> str | None:
+    if not output_dir:
+        return None
+    root = Path(output_dir).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "diagnostics": result.get("diagnostics", {}),
+        "warnings": result.get("warnings", []),
+        "production": dict(production_diagnostics or {}),
+    }
+    path = root / "diagnostics.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return str(path)
+
+
+def _require_real_run_prerequisites(*, force_email: bool, dry_run: bool, output_dir: str | None) -> None:
+    if not force_email:
+        return
+    if dry_run:
+        raise ValueError("--force-email requires dry_run=false")
+    if not str(output_dir or "").strip():
+        raise ValueError("output_dir is required for --force-email")
+    token_env = get_settings().wb_api_token_env
+    if not str(os.getenv(token_env, "")).strip():
+        raise RuntimeError("WB API token is required for real run")
+
+
+def _enrich_feature_flags(base: dict[str, Any] | None, *, force_email: bool, full_email_debug: bool) -> dict[str, Any]:
+    merged = dict(base or {})
+    merged["enable_full_email_debug"] = bool(full_email_debug)
+    if force_email:
+        merged["enable_delivery"] = True
+        merged["enable_pdf_render"] = True
+        merged["enable_email_preview"] = True
+    return merged
+
+
+def _ensure_force_email_sent(delivery: dict[str, Any]) -> None:
+    diagnostics = delivery.get("diagnostics", {}) if isinstance(delivery.get("diagnostics"), dict) else {}
+    if not bool(diagnostics.get("email_send_attempted", False)):
+        raise RuntimeError("Email send failed")
+    if not bool(diagnostics.get("email_sent", False)):
+        raise RuntimeError("Email send failed")
+
+
 def run(payload: dict[str, Any] | None = None) -> dict:
     data = dict(payload or {})
     seller_ids = _parse_seller_ids(data.get("seller_ids") or data.get("sellers"))
@@ -153,10 +206,15 @@ def run(payload: dict[str, Any] | None = None) -> dict:
         seller_ids = [seller_id]
     elif seller_ids:
         seller_id = seller_ids[0]
+
     is_multi = len(seller_ids) > 1
     dry_run = bool(data.get("dry_run", False))
-    output_dir = data.get("output_dir")
+    output_dir = str(data.get("output_dir") or "").strip() or None
     full_email_debug = bool(data.get("full_email_debug", False))
+    force_email = bool(data.get("force_email", False))
+    if force_email:
+        full_email_debug = True
+
     production_mode = data.get("production_mode")
     if bool(data.get("shadow_mode")) and not production_mode:
         production_mode = "shadow"
@@ -164,23 +222,30 @@ def run(payload: dict[str, Any] | None = None) -> dict:
     use_production_switch = bool(production_mode is not None or allow_fallback_to_legacy)
 
     if is_multi:
-        if full_email_debug:
-            raise ValueError("full_email_debug is supported only for single-seller daily runs")
+        if full_email_debug or force_email:
+            raise ValueError("full_email_debug/force_email are supported only for single-seller daily runs")
         if use_production_switch:
             raise ValueError("production_mode is supported only for single-seller daily runs")
         return run_daily_for_sellers(
             seller_ids=seller_ids,
             run_date=data.get("run_date") or data.get("date"),
-            output_root=data.get("output_dir"),
+            output_root=output_dir,
             timezone=str(data.get("timezone") or "Europe/Moscow"),
-            dry_run=bool(data.get("dry_run", False)),
+            dry_run=dry_run,
             feature_overrides=data.get("feature_flags") if isinstance(data.get("feature_flags"), dict) else None,
         )
 
     if not seller_id:
         raise ValueError("seller_id is required")
 
+    _require_real_run_prerequisites(force_email=force_email, dry_run=dry_run, output_dir=output_dir)
+
     if use_production_switch:
+        overrides = _enrich_feature_flags(
+            data.get("feature_flags") if isinstance(data.get("feature_flags"), dict) else {},
+            force_email=force_email,
+            full_email_debug=full_email_debug,
+        )
         result = run_production_daily(
             seller_id=seller_id,
             run_date=data.get("run_date") or data.get("date"),
@@ -188,21 +253,19 @@ def run(payload: dict[str, Any] | None = None) -> dict:
             cli_mode=str(production_mode) if production_mode is not None else None,
             allow_fallback_to_legacy=allow_fallback_to_legacy,
             dry_run=dry_run,
-            run_overrides=(
-                {
-                    **(data.get("feature_flags") if isinstance(data.get("feature_flags"), dict) else {}),
-                    "enable_full_email_debug": full_email_debug,
-                }
-            ),
+            run_overrides=overrides,
         )
         production = result.get("production", {}) if isinstance(result, dict) else {}
-        diagnostics = production.get("diagnostics", {}) if isinstance(production, dict) else {}
-        if isinstance(diagnostics, dict):
-            diagnostics["dry_run"] = bool(dry_run)
+        production_diag = production.get("diagnostics", {}) if isinstance(production.get("diagnostics"), dict) else {}
+        if isinstance(production_diag, dict):
+            production_diag["dry_run"] = bool(dry_run)
+
         if full_email_debug:
-            selected_mode = str(diagnostics.get("selected_mode") or "").strip().lower()
+            selected_mode = str(production_diag.get("selected_mode") or "").strip().lower()
             run_result = result.get("run_result")
             if selected_mode != "v4" or not isinstance(run_result, dict):
+                if force_email:
+                    raise RuntimeError("force-email requires selected production mode v4")
                 result["delivery"] = {
                     "pdf_path": None,
                     "email_preview_path": None,
@@ -220,21 +283,17 @@ def run(payload: dict[str, Any] | None = None) -> dict:
                 result=run_result,
                 mode="daily",
                 output_dir=output_dir,
-                production_diagnostics=diagnostics if isinstance(diagnostics, dict) else None,
+                production_diagnostics=production_diag if isinstance(production_diag, dict) else None,
             )
             if not injected:
-                result["delivery"] = {
-                    "pdf_path": None,
-                    "email_preview_path": None,
-                    "email_send": None,
-                    "diagnostics": {
-                        "delivery_enabled": False,
-                        "email_send_attempted": False,
-                        "email_sent": False,
-                        "warnings": ["failed to build full-email-debug payload from v4 run_result"],
-                    },
-                }
-                return result
+                raise RuntimeError("failed to build full-email-debug payload from v4 run_result")
+
+            diagnostics_path = _persist_diagnostics_artifact(
+                result=run_result,
+                output_dir=output_dir,
+                production_diagnostics=production_diag if isinstance(production_diag, dict) else None,
+            )
+            extra_attachments = [diagnostics_path] if diagnostics_path else []
 
             if dry_run:
                 result["delivery"] = {
@@ -259,8 +318,11 @@ def run(payload: dict[str, Any] | None = None) -> dict:
                 output_dir=output_dir,
                 enable_pdf_render=True,
                 enable_email_preview=True,
-                enable_email_send=True,
+                enable_email_send=bool(force_email),
+                extra_attachments=extra_attachments,
             )
+            if force_email:
+                _ensure_force_email_sent(delivery)
             result["delivery"] = delivery
         return result
 
@@ -271,10 +333,11 @@ def run(payload: dict[str, Any] | None = None) -> dict:
         "cabinet_id": data.get("cabinet_id"),
         "timezone": str(data.get("timezone") or "Europe/Moscow"),
         "dry_run": dry_run,
-        "feature_flags": {
-            **(data.get("feature_flags") if isinstance(data.get("feature_flags"), dict) else {}),
-            "enable_full_email_debug": full_email_debug,
-        },
+        "feature_flags": _enrich_feature_flags(
+            data.get("feature_flags") if isinstance(data.get("feature_flags"), dict) else {},
+            force_email=force_email,
+            full_email_debug=full_email_debug,
+        ),
     }
     result = run_daily_pipeline(
         run_context=run_context,
@@ -290,16 +353,25 @@ def run(payload: dict[str, Any] | None = None) -> dict:
     )
 
     if full_email_debug:
-        _inject_full_email_debug_payload(
+        injected = _inject_full_email_debug_payload(
             result=result,
             mode="daily",
             output_dir=output_dir,
         )
+        if not injected:
+            raise RuntimeError("failed to build full-email-debug payload")
 
-    enable_pdf_render = bool(data.get("render_pdf", False) or full_email_debug)
-    enable_email_preview = bool(data.get("email_preview", False) or full_email_debug)
-    enable_email_send = bool(full_email_debug and not dry_run)
-    if enable_pdf_render or enable_email_preview:
+    diagnostics_path = _persist_diagnostics_artifact(result=result, output_dir=output_dir)
+    extra_attachments = [diagnostics_path] if diagnostics_path else []
+
+    enable_pdf_render = bool(data.get("render_pdf", False) or full_email_debug or force_email)
+    enable_email_preview = bool(data.get("email_preview", False) or full_email_debug or force_email)
+    enable_email_send = bool(force_email and not dry_run)
+
+    if force_email and not (enable_pdf_render and enable_email_preview):
+        raise RuntimeError("Delivery is required in force-email mode")
+
+    if enable_pdf_render or enable_email_preview or enable_email_send:
         if dry_run:
             enriched = dict(result)
             enriched["delivery"] = {
@@ -314,32 +386,26 @@ def run(payload: dict[str, Any] | None = None) -> dict:
                     "email_send_attempted": False,
                     "email_sent": False,
                     "dry_run": True,
-                    "output_dir": str(Path(str(output_dir)).resolve()) if output_dir else None,
-                    "output_paths": {
-                        "pdf_path": None,
-                        "email_preview_path": None,
-                    },
-                    "warnings": [
-                        "dry-run: delivery side effects skipped",
-                        "dry-run: SMTP send skipped" if full_email_debug else "",
-                    ],
+                    "output_dir": str(Path(output_dir).resolve()) if output_dir else None,
+                    "output_paths": {"pdf_path": None, "email_preview_path": None},
+                    "warnings": ["dry-run: delivery side effects skipped"],
                 },
             }
-            enriched["delivery"]["diagnostics"]["warnings"] = [
-                warning
-                for warning in enriched["delivery"]["diagnostics"]["warnings"]
-                if str(warning).strip()
-            ]
             return enriched
+
         delivery = run_delivery_stage(
             outputs=result.get("outputs", {}),
             output_dir=output_dir,
             enable_pdf_render=enable_pdf_render,
             enable_email_preview=enable_email_preview,
             enable_email_send=enable_email_send,
+            extra_attachments=extra_attachments,
         )
+        if force_email:
+            _ensure_force_email_sent(delivery)
         enriched = dict(result)
         enriched["delivery"] = delivery
         return enriched
 
     return result
+

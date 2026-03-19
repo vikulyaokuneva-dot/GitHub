@@ -28,6 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--shadow", dest="shadow_mode", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--full-email-debug", action="store_true")
+    parser.add_argument("--force-email", action="store_true")
     args = parser.parse_args(argv)
 
     preflight = run_preflight(
@@ -39,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
             "production_mode": args.production_mode,
             "dry_run": bool(args.dry_run),
             "full_email_debug": bool(args.full_email_debug),
+            "force_email": bool(args.force_email),
         }
     )
     if not preflight.get("ok", False):
@@ -55,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
         "allow_fallback_to_legacy": bool(args.allow_fallback_to_legacy),
         "shadow_mode": bool(args.shadow_mode),
         "full_email_debug": bool(args.full_email_debug),
+        "force_email": bool(args.force_email),
     }
     result = run_daily(payload)
 

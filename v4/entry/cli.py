@@ -43,6 +43,14 @@ def _configure_common_daily_args(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Acceptance mode: force full debug email visibility + delivery (non-dry-run only for SMTP send).",
     )
+    parser.add_argument(
+        "--force-email",
+        action="store_true",
+        help=(
+            "Force real SMTP delivery for acceptance run. "
+            "Requires WB API token + EMAIL_USERNAME/EMAIL_PASSWORD/EMAIL_TO and disables dry-run."
+        ),
+    )
 
 
 def _configure_common_audit_args(parser: argparse.ArgumentParser) -> None:
@@ -93,6 +101,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_preflight.add_argument("--production-mode", choices=["legacy", "v4", "shadow"], required=False)
     p_preflight.add_argument("--dry-run", action="store_true")
     p_preflight.add_argument("--full-email-debug", action="store_true")
+    p_preflight.add_argument("--force-email", action="store_true")
 
     p_smoke = sub.add_parser(
         "smoke",
@@ -133,6 +142,10 @@ def _print_result_summary(command: str, result: dict[str, Any]) -> None:
         print(f"mode={result.get('mode')} seller_id={result.get('seller_id')} dry_run={bool(result.get('dry_run', False))}")
         print(f"output_dir={result.get('resolved_output_dir')}")
         print(f"errors={len(result.get('errors', []))} warnings={len(result.get('warnings', []))}")
+        for item in result.get("errors", []):
+            print(f"ERROR: {item}")
+        for item in result.get("warnings", []):
+            print(f"WARNING: {item}")
         return
 
     if command == "smoke":
@@ -216,6 +229,7 @@ def main(argv: list[str] | None = None) -> int:
                 "allow_fallback_to_legacy": bool(args.allow_fallback_to_legacy),
                 "shadow_mode": bool(args.shadow_mode),
                 "full_email_debug": bool(args.full_email_debug),
+                "force_email": bool(args.force_email),
             }
             result = run_daily(payload)
             _print_result_summary("daily", result if isinstance(result, dict) else {})
@@ -252,6 +266,7 @@ def main(argv: list[str] | None = None) -> int:
                 "production_mode": args.production_mode,
                 "dry_run": bool(args.dry_run),
                 "full_email_debug": bool(args.full_email_debug),
+                "force_email": bool(args.force_email),
             }
             result = run_preflight(payload)
             _print_result_summary("preflight", result)

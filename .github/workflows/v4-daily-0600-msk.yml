@@ -19,10 +19,6 @@ on:
         description: "legacy | v4 | shadow"
         required: false
         default: "v4"
-      dry_run:
-        description: "Run in dry-run mode"
-        required: false
-        default: "true"
 
 jobs:
   v4_daily:
@@ -33,9 +29,12 @@ jobs:
       SELLER_ID: ${{ github.event.inputs.seller_id || vars.V4_SCHEDULE_SELLER || 'seller_001' }}
       RUN_DATE: ${{ github.event.inputs.run_date || vars.V4_SCHEDULE_RUN_DATE || '' }}
       PRODUCTION_MODE: ${{ github.event.inputs.production_mode || vars.V4_SCHEDULE_PRODUCTION_MODE || 'v4' }}
-      DRY_RUN: ${{ github.event.inputs.dry_run || vars.V4_SCHEDULE_DRY_RUN || 'true' }}
       OUTPUT_DIR: ./.tmp/v4_outputs/scheduled_daily
       TZ: Europe/Moscow
+      WB_API_TOKEN: ${{ secrets.WB_API_TOKEN }}
+      EMAIL_USERNAME: ${{ secrets.EMAIL_USERNAME }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
     steps:
       - uses: actions/checkout@v4
 
@@ -51,24 +50,18 @@ jobs:
       - name: Preflight
         run: |
           set -euo pipefail
-          ARGS=(--seller "${SELLER_ID}" --output-dir "${OUTPUT_DIR}" --production-mode "${PRODUCTION_MODE}")
+          ARGS=(--seller "${SELLER_ID}" --output-dir "${OUTPUT_DIR}" --production-mode "${PRODUCTION_MODE}" --force-email)
           if [ -n "${RUN_DATE}" ]; then
             ARGS+=(--date "${RUN_DATE}")
-          fi
-          if [ "${DRY_RUN}" = "true" ]; then
-            ARGS+=(--dry-run)
           fi
           python v4/scripts/preflight_daily.py "${ARGS[@]}"
 
       - name: Run scheduled daily
         run: |
           set -euo pipefail
-          ARGS=(--seller "${SELLER_ID}" --output-dir "${OUTPUT_DIR}" --production-mode "${PRODUCTION_MODE}")
+          ARGS=(--seller "${SELLER_ID}" --output-dir "${OUTPUT_DIR}" --production-mode "${PRODUCTION_MODE}" --full-email-debug --force-email)
           if [ -n "${RUN_DATE}" ]; then
             ARGS+=(--date "${RUN_DATE}")
-          fi
-          if [ "${DRY_RUN}" = "true" ]; then
-            ARGS+=(--dry-run)
           fi
           python v4/scripts/scheduled_daily_run.py "${ARGS[@]}"
 

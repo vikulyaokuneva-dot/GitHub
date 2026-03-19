@@ -148,3 +148,20 @@ python -m compileall v4
 
 ## Release Gate
 Чеклист релиза: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
+
+## Stage 20.2 Acceptance Email (Real Send)
+Manual forced real-email run:
+```bash
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs/acceptance --production-mode v4 --full-email-debug --force-email
+```
+
+Requirements for `--force-email`:
+- `dry_run` must be false
+- `WB_API_TOKEN` must be present
+- `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_TO` must be present
+- SMTP send failure stops the run with non-zero exit code
+
+Scheduler workflow `.github/workflows/v4-daily-0600-msk.yml` now runs real acceptance delivery with:
+- `--force-email --full-email-debug`
+- `OUTPUT_DIR=./.tmp/v4_outputs/scheduled_daily`
+- GitHub secrets: `WB_API_TOKEN`, `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_TO`

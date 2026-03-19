@@ -21,6 +21,7 @@ class TestCliManualDailyRunCommand(unittest.TestCase):
                     "v4",
                     "--dry-run",
                     "--full-email-debug",
+                    "--force-email",
                 ]
             )
 
@@ -31,6 +32,7 @@ class TestCliManualDailyRunCommand(unittest.TestCase):
         self.assertEqual(payload["production_mode"], "v4")
         self.assertTrue(payload["dry_run"])
         self.assertTrue(payload["full_email_debug"])
+        self.assertTrue(payload["force_email"])
 
     def test_daily_uses_single_enabled_seller_when_not_provided(self) -> None:
         enabled = [SellerConfig(seller_id="seller_001", display_name="Seller 001", is_enabled=True)]
