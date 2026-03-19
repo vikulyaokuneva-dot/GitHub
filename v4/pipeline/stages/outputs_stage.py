@@ -15,13 +15,18 @@ from ...outputs.pdf.builder import build_pdf_payload
 from ...outputs.pdf.contracts import PdfPayload
 
 
+def _normalize_mode(mode: object) -> str:
+    return "audit" if str(mode).strip().lower() == "audit" else "daily"
+
+
 def run(
     facts_bundle: FactsBundle,
     decisions_bundle: DecisionsBundle,
     mode: str = "daily",
     output_dir: str | None = None,
 ) -> dict:
-    artifacts_payloads = build_artifact_payloads(facts_bundle, decisions_bundle, mode=mode)
+    normalized_mode = _normalize_mode(mode)
+    artifacts_payloads = build_artifact_payloads(facts_bundle, decisions_bundle, mode=normalized_mode)
     saved_files: dict[str, str] = {}
     if output_dir:
         saved_files = save_artifact_payloads(artifacts_payloads, output_dir)
@@ -29,16 +34,16 @@ def run(
     email_payload: EmailPayload = build_email_payload(
         facts_bundle=facts_bundle,
         decisions_bundle=decisions_bundle,
-        mode=mode,
+        mode=normalized_mode,
     )
     pdf_payload: PdfPayload = build_pdf_payload(
         facts_bundle=facts_bundle,
         decisions_bundle=decisions_bundle,
-        mode=mode,
+        mode=normalized_mode,
     )
 
     diagnostics = {
-        "mode": mode,
+        "mode": normalized_mode,
         "artifact_keys": list(artifacts_payloads.keys()),
         "artifacts_saved": bool(saved_files),
         "saved_files_count": len(saved_files),

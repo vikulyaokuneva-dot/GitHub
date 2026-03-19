@@ -1,37 +1,38 @@
-﻿# V4 Daily + Audit Runbook
+# V4 Daily + Audit Runbook
 
 ## Назначение
-Краткий operational runbook для controlled use `v4` без production switch и без migration logic.
+Operational runbook для controlled adoption `v4` в `daily` и `audit` режимах,
+без production switch и без migration logic.
 
-Цепочка исполнения:
+Цепочка исполнения (фиксированный порядок):
 `source -> normalize -> metrics -> facts -> decisions -> outputs`
 
 ## Режимы
 - `daily_api_mode`: API-first daily pipeline.
 - `audit_file_mode`: file-only offline pipeline.
 
-Важно:
+Ограничения режима:
 - daily и audit запускаются отдельно;
 - audit не использует API ingestion;
-- partial/unavailable данные отображаются честно;
+- partial/unavailable данные отображаются явно (без «подмены»);
 - `None` не превращается в `0`.
 
-## Локальный запуск daily
+## Local Run: Daily
 ```bash
 python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15
 ```
 
-С указанием каталога для output artifacts:
+С артефактами в каталог:
 ```bash
 python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_daily_out
 ```
 
-## Локальный запуск audit
+## Local Run: Audit
 ```bash
 python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15
 ```
 
-С указанием каталога для output artifacts:
+С артефактами в каталог:
 ```bash
 python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_audit_out
 ```
@@ -47,13 +48,13 @@ python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_
 - `funnel_report.*`
 - `ads_report.*`
 
-## Smoke-run (рекомендовано перед controlled use)
-Daily:
+## Smoke Commands
+Daily smoke:
 ```bash
 python v4/scripts/smoke_run_daily.py --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_daily
 ```
 
-Audit:
+Audit smoke:
 ```bash
 python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_audit
 ```
@@ -63,20 +64,20 @@ python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller
 - `1` = pipeline execution error
 - `2` = output/diagnostics sanity violation
 
-## CI smoke helpers
-Daily:
+## CI Smoke Commands
+Daily CI helper:
 ```bash
 python v4/scripts/ci_smoke_daily.py --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_ci_smoke_daily
 ```
 
-Audit:
+Audit CI helper:
 ```bash
 python v4/scripts/ci_smoke_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_ci_smoke_audit
 ```
 
 Если `--input-path` не передан в `ci_smoke_audit.py`, создается минимальный временный audit input.
 
-Минимальный CI-ready sanity sequence:
+Минимальная CI sanity последовательность:
 ```bash
 python -m unittest discover v4/tests
 python -m compileall v4
@@ -84,36 +85,53 @@ python v4/scripts/smoke_run_daily.py --seller seller_001 --date 2026-03-15 --out
 python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_audit
 ```
 
-## Ожидаемые артефакты (если передан output_dir)
-В каталоге `output_dir`:
+## Expected Artifacts
+Если передан `output_dir`, должны быть созданы:
 - `facts.json`
 - `decisions.json`
 - `outputs_summary.json`
 
-## Где смотреть diagnostics
-В runtime result:
-- `result["diagnostics"]["job"]`
-- `result["diagnostics"]["summary"]`
+Где искать:
+- `result["outputs"]["artifacts"]["saved_files"]`
 
-В artifacts:
-- `outputs_summary.json`
+## Diagnostics Interpretation
+Runtime diagnostics:
+- `result["diagnostics"]["job"]`: полный job-level diagnostics.
+- `result["diagnostics"]["summary"]`: компактный summary для мониторинга.
 
-## Audit mode disclaimer
-В `audit_file_mode` обязательно добавляется пометка:
+Ключевые поля summary:
+- `mode`
+- `partial_flag`
+- `warnings_count`
+- `decision_counts_by_priority`
+- `artifacts_written`
+
+Audit summary дополнительно:
+- `files_detected_count`
+- `files_missing_expected`
+- `input_path_label`
+- `audit_disclaimer`
+
+Artifacts diagnostics:
+- `outputs_summary.json` содержит deterministic summary (`build_timestamp=None` по design).
+
+## Audit Disclaimer
+В `audit_file_mode` обязательно присутствует пометка:
 
 `Отчет построен в audit_file_mode; выводы ограничены доступными файлами.`
 
-## Обязательные pre-release проверки
-1. `python -m unittest discover v4/tests` проходит без ошибок.
-2. `python -m compileall v4` проходит без ошибок.
-3. smoke-run для daily возвращает `exit code 0`.
-4. smoke-run для audit возвращает `exit code 0`.
-5. artifacts пишутся только в переданный `output_dir`.
-6. diagnostics в финальном результате содержат `job` и `summary`.
-
-## Ограничения текущего этапа
+## Mode Limitations
 - Нет production switch.
-- Нет migration logic v3 -> v4.
+- Нет migration logic `v3 -> v4`.
 - Нет SMTP sending.
 - Нет production PDF renderer.
-- Нет LLM narrative synthesis.
+- Нет LLM narrative summaries.
+- Нет новых KPI в `outputs`; KPI собираются только на стадии `metrics`.
+
+## Known Constraints
+- До передачи `output_dir` артефакты не пишутся на диск.
+- При `output_dir` запись разрешена только внутри указанного каталога.
+- В partial/unavailable сценариях decisions и summaries остаются прозрачными и консервативными.
+
+## Release Gate
+Проверочный список перед controlled adoption: [v4/RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)

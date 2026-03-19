@@ -69,7 +69,7 @@ def build_job_diagnostics(
     ]
 
     section_statuses = {
-        section_name: section.status
+        section_name: _status_to_text(section.status)
         for section_name, section in facts_bundle.sections.items()
     }
 
@@ -114,4 +114,3 @@ def build_job_diagnostics(
         "output_artifact_paths": dict(artifact_paths),
         "notes": notes,
     }
-

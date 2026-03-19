@@ -10,6 +10,21 @@ from __future__ import annotations
 from typing import Any
 
 
+def _status_to_text(value: object) -> str:
+    if hasattr(value, "value"):
+        return str(getattr(value, "value"))
+    return str(value)
+
+
+def _priority_counts(raw: object) -> dict[str, int]:
+    payload = raw if isinstance(raw, dict) else {}
+    return {
+        "P1": int(payload.get("P1", 0) or 0),
+        "P2": int(payload.get("P2", 0) or 0),
+        "P3": int(payload.get("P3", 0) or 0),
+    }
+
+
 def build_job_summary(job_diagnostics: dict[str, Any]) -> dict[str, Any]:
     diagnostics = dict(job_diagnostics or {})
     source_availability = diagnostics.get("source_availability", {})
@@ -25,9 +40,8 @@ def build_job_summary(job_diagnostics: dict[str, Any]) -> dict[str, Any]:
         "sections_partial": [
             name
             for name, status in (section_statuses.items() if isinstance(section_statuses, dict) else [])
-            if str(status) == "partial"
+            if _status_to_text(status) == "partial"
         ],
-        "decision_counts_by_priority": dict(diagnostics.get("decision_counts_by_priority", {})),
+        "decision_counts_by_priority": _priority_counts(diagnostics.get("decision_counts_by_priority")),
         "artifacts_written": bool(diagnostics.get("output_artifact_paths")),
     }
-

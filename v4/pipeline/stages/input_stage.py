@@ -40,8 +40,10 @@ def _audit_not_implemented(run_context: RunContext) -> IngestionResult:
         sources={"audit_files": payload},
         diagnostics={
             "mode": run_context.mode.value,
-            "required_sources": list(AUDIT_MODE.required_sources),
-            "optional_sources": list(AUDIT_MODE.optional_sources),
+            "required_file_inputs": list(AUDIT_MODE.required_file_inputs),
+            "optional_file_inputs": list(AUDIT_MODE.optional_file_inputs),
+            "required_raw_sources": list(AUDIT_MODE.required_raw_sources),
+            "optional_raw_sources": list(AUDIT_MODE.optional_raw_sources),
             "status": SourceStatusCode.NOT_IMPLEMENTED.value,
         },
     )

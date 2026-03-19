@@ -60,7 +60,7 @@ def build_audit_job_diagnostics(
     ]
 
     section_statuses = {
-        section_name: section.status
+        section_name: _status_to_text(section.status)
         for section_name, section in facts_bundle.sections.items()
     }
 
@@ -96,7 +96,7 @@ def build_audit_job_diagnostics(
 
     return {
         "mode": run_context.mode.value,
-        "input_path": input_path,
+        "input_path": str(input_path),
         "build_timestamp": None,
         "build_timestamp_note": "deterministic stage: timestamp omitted by design",
         "detected_files": dict(detected_files) if isinstance(detected_files, dict) else {},
@@ -112,4 +112,3 @@ def build_audit_job_diagnostics(
         "notes": notes,
         "audit_disclaimer": get_audit_mode_flags()["disclaimer"],
     }
-

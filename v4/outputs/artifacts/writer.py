@@ -20,6 +20,10 @@ from ...core.contracts import DecisionsBundle, FactsBundle
 AUDIT_DISCLAIMER = "Отчет построен в audit_file_mode; выводы ограничены доступными файлами."
 
 
+def _normalize_mode(mode: object) -> str:
+    return "audit" if str(mode).strip().lower() == "audit" else "daily"
+
+
 def _to_serializable(value: Any) -> Any:
     if is_dataclass(value):
         return _to_serializable(asdict(value))
@@ -52,10 +56,10 @@ def build_artifact_payloads(
     facts_payload = _to_serializable(facts_bundle)
     decisions_payload = _to_serializable(decisions_bundle)
 
-    sections_present = list(facts_bundle.sections.keys())
+    sections_present = sorted(str(name) for name in facts_bundle.sections.keys())
     warnings_count = len(facts_bundle.warnings) + len(decisions_bundle.warnings)
     partial_flag = bool(facts_bundle.data_quality.get("partial_sections") or facts_bundle.data_quality.get("unavailable_sections"))
-    normalized_mode = "audit" if str(mode).strip().lower() == "audit" else "daily"
+    normalized_mode = _normalize_mode(mode)
 
     outputs_summary = {
         "build_timestamp": None,
