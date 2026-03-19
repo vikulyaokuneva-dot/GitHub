@@ -31,6 +31,9 @@ class DecisionStatus(str, Enum):
     INFO = "info"
 
 
+DecisionEvidence = dict[str, Any]
+
+
 @dataclass(frozen=True)
 class DecisionItem:
     """One rule-based decision item with transparent evidence trail."""
@@ -42,7 +45,7 @@ class DecisionItem:
     status: DecisionStatus
     section: str
     reason: str
-    evidence: list[dict[str, Any]] = field(default_factory=list)
+    evidence: list[DecisionEvidence] = field(default_factory=list)
     recommended_actions: list[str] = field(default_factory=list)
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
@@ -62,4 +65,3 @@ class DecisionsBundle:
         """Back-compat alias for stage-1 skeleton code."""
 
         return self.run_context
-

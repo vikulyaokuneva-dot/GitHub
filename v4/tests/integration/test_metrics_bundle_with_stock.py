@@ -54,7 +54,7 @@ class TestMetricsBundleWithStock(unittest.TestCase):
         self.assertIn("stock_status", metrics.diagnostics)
         self.assertIn("stock_records_count", metrics.diagnostics)
         self.assertIn("stock_warnings_count", metrics.diagnostics)
-        self.assertEqual(metrics.diagnostics["metrics_sections_built"], ["financial", "daily", "funnel", "ads", "stock"])
+        self.assertEqual(metrics.diagnostics["metrics_sections_built"], ["financial", "daily", "funnel", "ads", "stock", "health"])
 
 
 if __name__ == "__main__":

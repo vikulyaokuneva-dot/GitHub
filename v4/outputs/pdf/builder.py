@@ -150,6 +150,64 @@ def _stock_page(facts_bundle: FactsBundle) -> PdfPage | None:
     return PdfPage(title="Stock", blocks=[block])
 
 
+def _health_page(facts_bundle: FactsBundle) -> PdfPage | None:
+    health_section = facts_bundle.sections.get("health")
+    if health_section is None:
+        return None
+
+    keys = [
+        ("business_health_score", "Business health score"),
+        ("score_status", "Score status"),
+        ("sku_health_signals_count", "SKU health signals"),
+        ("problematic_sku_count", "Problematic SKU count"),
+        ("dead_stock_risk_count", "Dead stock risk count"),
+        ("overstock_risk_count", "Overstock risk count"),
+        ("business_health_status_note", "Health note"),
+    ]
+    rows: list[dict[str, str]] = []
+    for key, title in keys:
+        fact_item = _find_fact_item(facts_bundle, "health", key)
+        if fact_item is None and key == "business_health_status_note":
+            continue
+        rows.append(
+            {
+                "label": title,
+                "value": _render_fact_value(fact_item),
+                "status": fact_item.value.status if fact_item is not None else "unavailable",
+            }
+        )
+
+    component_items = sorted(
+        [
+            item
+            for item in health_section.items
+            if item.key.startswith("component_") and item.key.endswith("_score")
+        ],
+        key=lambda item: item.key,
+    )
+    for item in component_items:
+        component_name = item.key[len("component_") : -len("_score")]
+        rows.append(
+            {
+                "label": f"Component {component_name}",
+                "value": _render_fact_value(item),
+                "status": item.value.status,
+            }
+        )
+
+    block = PdfBlock(
+        title="Health Metrics",
+        rows=rows,
+        status=health_section.status,
+        diagnostics={
+            "source_quality": health_section.diagnostics.get("source_quality"),
+            "policy_version": health_section.diagnostics.get("policy_version"),
+            "component_statuses": health_section.diagnostics.get("component_statuses"),
+        },
+    )
+    return PdfPage(title="Health", blocks=[block])
+
+
 def _data_quality_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle, mode: str) -> PdfPage | None:
     warnings_count = len(facts_bundle.warnings) + len(decisions_bundle.warnings)
     partial_sections = list(facts_bundle.data_quality.get("partial_sections", []))
@@ -197,6 +255,10 @@ def build_pdf_payload(
     stock_page = _stock_page(facts_bundle)
     if stock_page is not None:
         pages.append(stock_page)
+
+    health_page = _health_page(facts_bundle)
+    if health_page is not None:
+        pages.append(health_page)
 
     quality_page = _data_quality_page(facts_bundle, decisions_bundle, normalized_mode)
     if quality_page is not None:

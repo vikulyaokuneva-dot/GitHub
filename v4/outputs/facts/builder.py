@@ -305,6 +305,99 @@ def _build_stock_section(metrics_bundle: MetricsBundle) -> FactSection | None:
     )
 
 
+def _build_health_section(metrics_bundle: MetricsBundle) -> FactSection | None:
+    section = metrics_bundle.health
+    if section is None:
+        return None
+
+    metric_map = [
+        ("business_health_score", "Business health score"),
+        ("sku_health_signals_count", "SKU health signals count"),
+        ("problematic_sku_count", "Problematic SKU count"),
+        ("dead_stock_risk_count", "Dead stock risk count"),
+        ("overstock_risk_count", "Overstock risk count"),
+    ]
+
+    items = [
+        _metric_to_fact_item(
+            key=key,
+            title=title,
+            metric=getattr(section, key, None),
+            section_name="health",
+            source_quality=section.source_quality,
+        )
+        for key, title in metric_map
+    ]
+
+    score_status = str(section.business_health_score.status)
+    items.append(
+        FactItem(
+            key="score_status",
+            title="Score status",
+            value=FactValue(
+                value=score_status,
+                status=score_status,
+                source=section.business_health_score.source,
+                note=section.business_health_score.note,
+            ),
+            category="health",
+            tags=["health", "status"],
+            diagnostics={"source_quality": dict(section.source_quality)},
+        )
+    )
+
+    status_note = str(section.business_health_status_note or "").strip()
+    if status_note:
+        items.append(
+            FactItem(
+                key="business_health_status_note",
+                title="Business health status note",
+                value=FactValue(
+                    value=status_note,
+                    status=score_status if score_status in {"confirmed", "partial", "unavailable"} else "partial",
+                    source="health_policy_v1",
+                    note=None,
+                ),
+                category="health",
+                tags=["health", "note"],
+                diagnostics={"source_quality": dict(section.source_quality)},
+            )
+        )
+
+    for component_name in sorted(section.component_scores.keys()):
+        component_metric = section.component_scores[component_name]
+        items.append(
+            _metric_to_fact_item(
+                key=f"component_{component_name}_score",
+                title=f"Component {component_name} score",
+                metric=component_metric,
+                section_name="health",
+                source_quality=section.source_quality,
+            )
+        )
+
+    warnings = list(section.warnings)
+    diagnostics = {
+        "source_quality": dict(section.source_quality),
+        "component_statuses": {name: metric.status for name, metric in section.component_scores.items()},
+        "policy_version": (
+            section.diagnostics.get("policy", {}).get("version")
+            if isinstance(section.diagnostics.get("policy"), dict)
+            else None
+        ),
+        "note": section.note,
+        "diagnostics": dict(section.diagnostics),
+    }
+    return FactSection(
+        section_name="health",
+        title="Health",
+        items=items,
+        status=_compute_section_status(items, warnings),
+        warnings=warnings,
+        diagnostics=diagnostics,
+    )
+
+
 def build_facts_bundle(metrics_bundle: MetricsBundle) -> FactsBundle:
     sections: dict[str, FactSection] = {}
 
@@ -327,6 +420,10 @@ def build_facts_bundle(metrics_bundle: MetricsBundle) -> FactsBundle:
     stock = _build_stock_section(metrics_bundle)
     if stock is not None:
         sections["stock"] = stock
+
+    health = _build_health_section(metrics_bundle)
+    if health is not None:
+        sections["health"] = health
 
     section_names = list(sections.keys())
     partial_sections = [name for name, section in sections.items() if section.status == "partial"]
@@ -381,4 +478,3 @@ def build(metrics: MetricsBundle) -> FactsBundle:
     """Back-compat alias for stage-1 naming."""
 
     return build_facts_bundle(metrics)
-

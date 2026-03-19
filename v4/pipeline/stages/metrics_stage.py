@@ -8,7 +8,7 @@ Does not execute facts/decisions/output stages.
 from __future__ import annotations
 
 from ...core.contracts import MetricsBundle, NormalizedBundle
-from ...metrics.core.engine import build_metrics_bundle
+from ...metrics.assembler import build_metrics_bundle
 
 
 def run(normalized_bundle: NormalizedBundle) -> MetricsBundle:

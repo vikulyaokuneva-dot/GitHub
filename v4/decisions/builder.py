@@ -16,6 +16,19 @@ from ..core.contracts import (
     FactsBundle,
 )
 
+WEAK_CONVERSION_THRESHOLD = 0.20
+WEAK_CONVERSION_SEVERE_THRESHOLD = 0.10
+LOW_BUSINESS_HEALTH_THRESHOLD = 50.0
+LOW_BUSINESS_HEALTH_SEVERE_THRESHOLD = 35.0
+
+LOW_COMPONENT_THRESHOLDS: dict[str, float] = {
+    "component_profitability_score": 15.0,
+    "component_ads_score": 10.0,
+    "component_funnel_score": 10.0,
+    "component_stock_score": 10.0,
+    "component_data_quality_score": 6.0,
+}
+
 
 def _to_float(value: object) -> float | None:
     if value is None:
@@ -341,6 +354,275 @@ def _build_out_of_stock_risk_decision(facts_bundle: FactsBundle) -> DecisionItem
     )
 
 
+def _build_weak_conversion_decision(facts_bundle: FactsBundle) -> DecisionItem | None:
+    primary = _get_fact_item(facts_bundle, "funnel", "cr_buys_from_orders")
+    fallback = _get_fact_item(facts_bundle, "funnel", "cr_orders_from_cart")
+    fact = primary if primary is not None else fallback
+    fact_key = "cr_buys_from_orders" if primary is not None else "cr_orders_from_cart"
+    evidence = [_fact_evidence("funnel", fact_key, fact)]
+
+    if fact is None:
+        return DecisionItem(
+            code="weak_conversion",
+            title="Weak conversion",
+            summary="Cannot evaluate conversion quality: required funnel conversion fact is missing.",
+            priority=DecisionPriority.P2,
+            status=DecisionStatus.UNAVAILABLE,
+            section="funnel",
+            reason="required funnel conversion fact is unavailable",
+            evidence=evidence,
+            recommended_actions=["Verify funnel source and conversion mapping before optimization actions."],
+            diagnostics={"rule": "weak_conversion", "threshold": WEAK_CONVERSION_THRESHOLD},
+        )
+
+    conversion = _to_float(fact.value.value)
+    if conversion is None:
+        status = DecisionStatus.PARTIAL if fact.value.status == DecisionStatus.PARTIAL.value else DecisionStatus.UNAVAILABLE
+        return DecisionItem(
+            code="weak_conversion",
+            title="Weak conversion",
+            summary="Cannot confirm conversion weakness due to incomplete funnel evidence.",
+            priority=DecisionPriority.P2,
+            status=status,
+            section="funnel",
+            reason="conversion value is unavailable",
+            evidence=evidence,
+            recommended_actions=["Collect complete funnel conversion evidence and re-run the cycle."],
+            diagnostics={"rule": "weak_conversion", "threshold": WEAK_CONVERSION_THRESHOLD},
+        )
+
+    if conversion >= WEAK_CONVERSION_THRESHOLD:
+        return None
+
+    priority = DecisionPriority.P1 if conversion < WEAK_CONVERSION_SEVERE_THRESHOLD else DecisionPriority.P2
+    status = DecisionStatus.CONFIRMED if fact.value.status == DecisionStatus.CONFIRMED.value else DecisionStatus.PARTIAL
+    return DecisionItem(
+        code="weak_conversion",
+        title="Weak conversion",
+        summary="Funnel conversion is below the policy threshold.",
+        priority=priority,
+        status=status,
+        section="funnel",
+        reason=f"{fact_key}={conversion:.4f} is below threshold {WEAK_CONVERSION_THRESHOLD:.2f}",
+        evidence=evidence,
+        recommended_actions=[
+            "Review low-performing funnel stages and remove high-friction steps.",
+            "Validate traffic quality before scaling acquisition.",
+        ],
+        diagnostics={
+            "rule": "weak_conversion",
+            "threshold": WEAK_CONVERSION_THRESHOLD,
+            "severe_threshold": WEAK_CONVERSION_SEVERE_THRESHOLD,
+        },
+    )
+
+
+def _build_overstock_decision(facts_bundle: FactsBundle) -> DecisionItem | None:
+    overstock = _get_fact_item(facts_bundle, "health", "overstock_risk_count")
+    problematic = _get_fact_item(facts_bundle, "health", "problematic_sku_count")
+    evidence = [
+        _fact_evidence("health", "overstock_risk_count", overstock),
+        _fact_evidence("health", "problematic_sku_count", problematic),
+    ]
+
+    if overstock is None:
+        return DecisionItem(
+            code="overstock",
+            title="Overstock risk",
+            summary="Cannot evaluate overstock risk: health overstock fact is missing.",
+            priority=DecisionPriority.P2,
+            status=DecisionStatus.UNAVAILABLE,
+            section="health",
+            reason="required overstock fact is unavailable",
+            evidence=evidence,
+            recommended_actions=["Verify health/stock evidence completeness before inventory actions."],
+            diagnostics={"rule": "overstock"},
+        )
+
+    overstock_count = _to_float(overstock.value.value)
+    if overstock_count is None:
+        status = DecisionStatus.PARTIAL if overstock.value.status == DecisionStatus.PARTIAL.value else DecisionStatus.UNAVAILABLE
+        return DecisionItem(
+            code="overstock",
+            title="Overstock risk",
+            summary="Cannot confirm overstock risk due to incomplete stock movement evidence.",
+            priority=DecisionPriority.P2,
+            status=status,
+            section="health",
+            reason="overstock_risk_count value is unavailable",
+            evidence=evidence,
+            recommended_actions=["Collect complete stock movement evidence and re-run."],
+            diagnostics={"rule": "overstock"},
+        )
+
+    if overstock_count <= 0:
+        return None
+
+    priority = DecisionPriority.P1 if overstock_count >= 5 else DecisionPriority.P2
+    status = DecisionStatus.CONFIRMED if overstock.value.status == DecisionStatus.CONFIRMED.value else DecisionStatus.PARTIAL
+    return DecisionItem(
+        code="overstock",
+        title="Overstock risk",
+        summary="Stock turnover indicates overstock risk.",
+        priority=priority,
+        status=status,
+        section="health",
+        reason=f"overstock_risk_count={int(round(overstock_count))} is above zero",
+        evidence=evidence,
+        recommended_actions=[
+            "Reduce replenishment pace for slow-moving stock entities.",
+            "Prioritize sell-through actions for high-cover inventory.",
+        ],
+        diagnostics={"rule": "overstock"},
+    )
+
+
+def _build_dead_sku_decision(facts_bundle: FactsBundle) -> DecisionItem | None:
+    dead = _get_fact_item(facts_bundle, "health", "dead_stock_risk_count")
+    problematic = _get_fact_item(facts_bundle, "health", "problematic_sku_count")
+    evidence = [
+        _fact_evidence("health", "dead_stock_risk_count", dead),
+        _fact_evidence("health", "problematic_sku_count", problematic),
+    ]
+
+    if dead is None:
+        return DecisionItem(
+            code="dead_sku",
+            title="Dead SKU risk",
+            summary="Cannot evaluate dead SKU risk: dead stock fact is missing.",
+            priority=DecisionPriority.P2,
+            status=DecisionStatus.UNAVAILABLE,
+            section="health",
+            reason="required dead stock fact is unavailable",
+            evidence=evidence,
+            recommended_actions=["Verify stock/funnel entity mapping before SKU-level actions."],
+            diagnostics={"rule": "dead_sku"},
+        )
+
+    dead_count = _to_float(dead.value.value)
+    if dead_count is None:
+        status = DecisionStatus.PARTIAL if dead.value.status == DecisionStatus.PARTIAL.value else DecisionStatus.UNAVAILABLE
+        return DecisionItem(
+            code="dead_sku",
+            title="Dead SKU risk",
+            summary="Cannot confirm dead SKU risk due to incomplete movement evidence.",
+            priority=DecisionPriority.P2,
+            status=status,
+            section="health",
+            reason="dead_stock_risk_count value is unavailable",
+            evidence=evidence,
+            recommended_actions=["Collect complete movement evidence and re-run the health stage."],
+            diagnostics={"rule": "dead_sku"},
+        )
+
+    if dead_count <= 0:
+        return None
+
+    priority = DecisionPriority.P1 if dead_count >= 5 else DecisionPriority.P2
+    status = DecisionStatus.CONFIRMED if dead.value.status == DecisionStatus.CONFIRMED.value else DecisionStatus.PARTIAL
+    return DecisionItem(
+        code="dead_sku",
+        title="Dead SKU risk",
+        summary="Health signals indicate dead stock / zero movement risk.",
+        priority=priority,
+        status=status,
+        section="health",
+        reason=f"dead_stock_risk_count={int(round(dead_count))} is above zero",
+        evidence=evidence,
+        recommended_actions=[
+            "Trigger markdown/promo scenarios for dead stock entities.",
+            "Review assortment and disable replenishment for persistently dead SKU.",
+        ],
+        diagnostics={"rule": "dead_sku"},
+    )
+
+
+def _build_low_business_health_decision(facts_bundle: FactsBundle) -> DecisionItem | None:
+    score = _get_fact_item(facts_bundle, "health", "business_health_score")
+    component_items: list[FactItem] = []
+    section = facts_bundle.sections.get("health")
+    if section is not None:
+        component_items = [
+            item
+            for item in section.items
+            if item.key.startswith("component_") and item.key.endswith("_score")
+        ]
+
+    evidence: list[dict[str, object]] = [_fact_evidence("health", "business_health_score", score)]
+    for component in component_items:
+        evidence.append(_fact_evidence("health", component.key, component))
+
+    if score is None:
+        return DecisionItem(
+            code="low_business_health",
+            title="Low business health",
+            summary="Cannot evaluate business health score: health score fact is missing.",
+            priority=DecisionPriority.P2,
+            status=DecisionStatus.UNAVAILABLE,
+            section="health",
+            reason="business_health_score fact is unavailable",
+            evidence=evidence,
+            recommended_actions=["Verify health section mapping before score-based actions."],
+            diagnostics={"rule": "low_business_health", "threshold": LOW_BUSINESS_HEALTH_THRESHOLD},
+        )
+
+    score_value = _to_float(score.value.value)
+    if score_value is None:
+        status = DecisionStatus.PARTIAL if score.value.status == DecisionStatus.PARTIAL.value else DecisionStatus.UNAVAILABLE
+        return DecisionItem(
+            code="low_business_health",
+            title="Low business health",
+            summary="Cannot confirm low health due to incomplete score evidence.",
+            priority=DecisionPriority.P2,
+            status=status,
+            section="health",
+            reason="business_health_score value is unavailable",
+            evidence=evidence,
+            recommended_actions=["Collect complete health components and re-run."],
+            diagnostics={"rule": "low_business_health", "threshold": LOW_BUSINESS_HEALTH_THRESHOLD},
+        )
+
+    if score_value >= LOW_BUSINESS_HEALTH_THRESHOLD:
+        return None
+
+    weak_components: list[str] = []
+    for component in component_items:
+        threshold = LOW_COMPONENT_THRESHOLDS.get(component.key)
+        if threshold is None:
+            continue
+        component_value = _to_float(component.value.value)
+        if component_value is None:
+            continue
+        if component_value < threshold:
+            weak_components.append(component.key)
+
+    priority = DecisionPriority.P1 if score_value < LOW_BUSINESS_HEALTH_SEVERE_THRESHOLD else DecisionPriority.P2
+    status = DecisionStatus.CONFIRMED if score.value.status == DecisionStatus.CONFIRMED.value else DecisionStatus.PARTIAL
+    return DecisionItem(
+        code="low_business_health",
+        title="Low business health",
+        summary="Business health score is below policy threshold.",
+        priority=priority,
+        status=status,
+        section="health",
+        reason=(
+            f"business_health_score={score_value:.2f} < {LOW_BUSINESS_HEALTH_THRESHOLD:.0f}; "
+            f"weak_components={weak_components or ['none_detected']}"
+        ),
+        evidence=evidence,
+        recommended_actions=[
+            "Prioritize actions that improve weakest health components first.",
+            "Treat high-impact decisions conservatively while health score is low/partial.",
+        ],
+        diagnostics={
+            "rule": "low_business_health",
+            "threshold": LOW_BUSINESS_HEALTH_THRESHOLD,
+            "severe_threshold": LOW_BUSINESS_HEALTH_SEVERE_THRESHOLD,
+            "weak_components": weak_components,
+        },
+    )
+
+
 def _build_partial_data_warning_decision(facts_bundle: FactsBundle) -> DecisionItem | None:
     partial_sections = list(facts_bundle.data_quality.get("partial_sections", []))
     unavailable_sections = list(facts_bundle.data_quality.get("unavailable_sections", []))
@@ -401,6 +683,10 @@ def build_decisions_bundle(facts_bundle: FactsBundle) -> DecisionsBundle:
         _build_low_margin_decision,
         _build_ad_inefficiency_decision,
         _build_out_of_stock_risk_decision,
+        _build_weak_conversion_decision,
+        _build_overstock_decision,
+        _build_dead_sku_decision,
+        _build_low_business_health_decision,
         _build_partial_data_warning_decision,
     ]
 

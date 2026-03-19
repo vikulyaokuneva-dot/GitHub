@@ -151,10 +151,28 @@ class StockMetricsSection:
 
 
 @dataclass
+class HealthMetricsSection:
+    """Explainable health contour metrics based on existing normalized/metrics data."""
+
+    business_health_score: MetricValue = field(default_factory=_default_unavailable_metric)
+    sku_health_signals_count: MetricValue = field(default_factory=_default_unavailable_metric)
+    problematic_sku_count: MetricValue = field(default_factory=_default_unavailable_metric)
+    dead_stock_risk_count: MetricValue = field(default_factory=_default_unavailable_metric)
+    overstock_risk_count: MetricValue = field(default_factory=_default_unavailable_metric)
+
+    business_health_status_note: str | None = None
+    component_scores: dict[str, MetricValue] = field(default_factory=dict)
+    source_quality: dict[str, str] = field(default_factory=dict)
+    diagnostics: dict[str, Any] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    note: str | None = None
+
+
+@dataclass
 class MetricsBundle:
     """Top-level metrics payload for downstream layers.
 
-    On this stage, financial, daily, funnel, ads, and stock sections are assembled.
+    On this stage, financial, daily, funnel, ads, stock, and health sections are assembled.
     """
 
     run_context: RunContext
@@ -163,6 +181,7 @@ class MetricsBundle:
     funnel: FunnelMetricsSection | None = None
     ads: AdsMetricsSection | None = None
     stock: StockMetricsSection | None = None
+    health: HealthMetricsSection | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
     source_flags: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
@@ -190,4 +209,5 @@ class MetricsBundle:
             "funnel": self.funnel,
             "ads": self.ads,
             "stock": self.stock,
+            "health": self.health,
         }

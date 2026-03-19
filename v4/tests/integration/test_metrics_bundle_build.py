@@ -58,7 +58,7 @@ class TestMetricsBundleBuild(unittest.TestCase):
         self.assertIn("normalized warning", metrics.warnings)
         self.assertEqual(
             metrics.diagnostics["metrics_sections_built"],
-            ["financial", "daily", "funnel", "ads", "stock"],
+            ["financial", "daily", "funnel", "ads", "stock", "health"],
         )
 
 

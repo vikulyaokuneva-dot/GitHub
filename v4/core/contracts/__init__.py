@@ -27,13 +27,14 @@ from .metrics import (
     DailyMetricsSection,
     FinancialMetricsSection,
     FunnelMetricsSection,
+    HealthMetricsSection,
     MetricStatus,
     MetricValue,
     MetricsBundle,
     StockMetricsSection,
 )
 from .facts import FactItem, FactSection, FactsBundle, FactValue
-from .decisions import DecisionItem, DecisionPriority, DecisionStatus, DecisionsBundle
+from .decisions import DecisionEvidence, DecisionItem, DecisionPriority, DecisionStatus, DecisionsBundle
 from .report import ReportPayload
 
 __all__ = [
@@ -62,6 +63,7 @@ __all__ = [
     "FunnelMetricsSection",
     "AdsMetricsSection",
     "StockMetricsSection",
+    "HealthMetricsSection",
     "MetricsBundle",
     "FactValue",
     "FactItem",
@@ -69,6 +71,7 @@ __all__ = [
     "FactsBundle",
     "DecisionPriority",
     "DecisionStatus",
+    "DecisionEvidence",
     "DecisionItem",
     "DecisionsBundle",
     "ReportPayload",

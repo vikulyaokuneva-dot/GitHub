@@ -70,6 +70,10 @@ def _build_summary_lines(facts_bundle: FactsBundle, decisions_bundle: DecisionsB
     if not lines:
         lines.append("Критичные сигналы по доступным фактам не выявлены.")
 
+    health_line = _build_health_summary_line(facts_bundle)
+    if health_line is not None:
+        lines.append(health_line)
+
     if _has_partial_data(facts_bundle):
         partial_sections = list(facts_bundle.data_quality.get("partial_sections", []))
         unavailable_sections = list(facts_bundle.data_quality.get("unavailable_sections", []))
@@ -82,6 +86,28 @@ def _build_summary_lines(facts_bundle: FactsBundle, decisions_bundle: DecisionsB
         lines.append(AUDIT_DISCLAIMER)
 
     return lines
+
+
+def _build_health_summary_line(facts_bundle: FactsBundle) -> str | None:
+    if "health" not in facts_bundle.sections:
+        return None
+
+    score_item = _find_fact_item("health", "business_health_score", facts_bundle)
+    status_item = _find_fact_item("health", "score_status", facts_bundle)
+    score_text = _display_fact_value(score_item)
+
+    raw_status = None
+    if status_item is not None:
+        raw_status = status_item.value.value
+    elif score_item is not None:
+        raw_status = score_item.value.status
+    status = str(raw_status or "unavailable").strip().lower()
+
+    if status == "partial":
+        return f"Health score: {score_text} (частично)"
+    if status == "unavailable":
+        return "Health score: нет данных"
+    return f"Health score: {score_text}"
 
 
 def _build_finance_section(facts_bundle: FactsBundle) -> EmailSection:
@@ -120,6 +146,39 @@ def _build_stock_section(facts_bundle: FactsBundle) -> EmailSection | None:
     ]
     status = facts_bundle.sections["stock"].status
     return EmailSection(title="Остатки / stock", lines=lines, status=status)
+
+
+def _build_health_section(facts_bundle: FactsBundle) -> EmailSection | None:
+    health_section = facts_bundle.sections.get("health")
+    if health_section is None:
+        return None
+
+    lines = [
+        f"Business health score: {_display_fact_value(_find_fact_item('health', 'business_health_score', facts_bundle))}",
+        f"Score status: {_display_fact_value(_find_fact_item('health', 'score_status', facts_bundle))}",
+        f"SKU health signals: {_display_fact_value(_find_fact_item('health', 'sku_health_signals_count', facts_bundle))}",
+        f"Problematic SKU count: {_display_fact_value(_find_fact_item('health', 'problematic_sku_count', facts_bundle))}",
+        f"Dead stock risk count: {_display_fact_value(_find_fact_item('health', 'dead_stock_risk_count', facts_bundle))}",
+        f"Overstock risk count: {_display_fact_value(_find_fact_item('health', 'overstock_risk_count', facts_bundle))}",
+    ]
+
+    status_note = _find_fact_item("health", "business_health_status_note", facts_bundle)
+    if status_note is not None:
+        lines.append(f"Health note: {_display_fact_value(status_note)}")
+
+    component_items = sorted(
+        [
+            item
+            for item in health_section.items
+            if item.key.startswith("component_") and item.key.endswith("_score")
+        ],
+        key=lambda item: item.key,
+    )
+    for item in component_items:
+        component_name = item.key[len("component_") : -len("_score")]
+        lines.append(f"Component {component_name}: {_display_fact_value(item)}")
+
+    return EmailSection(title="Health", lines=lines, status=health_section.status)
 
 
 def _build_quality_section(facts_bundle: FactsBundle, mode: str) -> EmailSection | None:
@@ -163,6 +222,10 @@ def build_email_payload(
         _build_finance_section(facts_bundle),
         _build_decisions_section(decisions_bundle),
     ]
+
+    health_section = _build_health_section(facts_bundle)
+    if health_section is not None:
+        sections.append(health_section)
 
     stock_section = _build_stock_section(facts_bundle)
     if stock_section is not None:

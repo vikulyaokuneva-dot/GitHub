@@ -1,6 +1,6 @@
 ﻿"""Metrics layer exports."""
 
-from .core import build_metrics, build_metrics_bundle
+from .assembler import build_metrics, build_metrics_bundle
 from .daily import build_daily_metrics_from_financial
 from .financial import (
     assemble_financial_metrics,
@@ -8,6 +8,7 @@ from .financial import (
     resolve_realization_window,
 )
 from .funnel import assemble_funnel_metrics
+from .health import HEALTH_POLICY_V1, assemble_health_metrics
 
 __all__ = [
     "build_metrics",
@@ -17,4 +18,6 @@ __all__ = [
     "classify_realization_components",
     "resolve_realization_window",
     "assemble_funnel_metrics",
+    "assemble_health_metrics",
+    "HEALTH_POLICY_V1",
 ]

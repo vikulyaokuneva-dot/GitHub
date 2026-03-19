@@ -12,6 +12,7 @@ from ..ads.summary_assembler import assemble_ads_metrics
 from ..daily.resolver import build_daily_metrics_from_financial
 from ..financial.assembler import assemble_financial_metrics
 from ..funnel.assembler import assemble_funnel_metrics
+from ..health import assemble_health_metrics
 from ..stock.assembler import assemble_stock_metrics
 
 
@@ -98,12 +99,23 @@ def _stock_status(stock) -> str:
     return MetricStatus.UNAVAILABLE.value
 
 
+def _health_status(health) -> str:
+    return str(health.business_health_score.status)
+
+
 def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
     financial = assemble_financial_metrics(normalized_bundle)
     daily = build_daily_metrics_from_financial(financial)
     funnel = assemble_funnel_metrics(normalized_bundle)
     ads = assemble_ads_metrics(normalized_bundle)
     stock = assemble_stock_metrics(normalized_bundle)
+    health = assemble_health_metrics(
+        normalized_bundle=normalized_bundle,
+        financial=financial,
+        funnel=funnel,
+        ads=ads,
+        stock=stock,
+    )
 
     source_flags = {
         source_name: (
@@ -119,6 +131,7 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
     warnings.extend(funnel.warnings)
     warnings.extend(ads.warnings)
     warnings.extend(stock.warnings)
+    warnings.extend(health.warnings)
 
     diagnostics = dict(normalized_bundle.diagnostics)
     diagnostics.update(
@@ -143,7 +156,11 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
             "stock_status": _stock_status(stock),
             "stock_records_count": len(normalized_bundle.stocks),
             "stock_warnings_count": len(stock.warnings),
-            "metrics_sections_built": ["financial", "daily", "funnel", "ads", "stock"],
+            "health_status": _health_status(health),
+            "health_business_score": health.business_health_score.value,
+            "health_problematic_sku_count": health.problematic_sku_count.value,
+            "health_warnings_count": len(health.warnings),
+            "metrics_sections_built": ["financial", "daily", "funnel", "ads", "stock", "health"],
         }
     )
 
@@ -154,6 +171,7 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
         funnel=funnel,
         ads=ads,
         stock=stock,
+        health=health,
         diagnostics=diagnostics,
         source_flags=source_flags,
         warnings=warnings,

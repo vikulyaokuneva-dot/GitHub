@@ -59,7 +59,7 @@ class TestMetricsBundleAds(unittest.TestCase):
         self.assertIn("ads_warnings_count", metrics.diagnostics)
         self.assertEqual(
             metrics.diagnostics["metrics_sections_built"],
-            ["financial", "daily", "funnel", "ads", "stock"],
+            ["financial", "daily", "funnel", "ads", "stock", "health"],
         )
 
 
