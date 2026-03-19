@@ -1,200 +1,146 @@
-# V4 Daily + Audit Runbook
+# V4 Operator Runbook
 
 ## Назначение
-Operational runbook для controlled adoption `v4` в `daily` и `audit` режимах,
-без production switch и без migration logic.
+Runbook для безопасной эксплуатации V4 без hard switch.
 
-Цепочка исполнения (фиксированный порядок):
+Базовая цепочка не меняется:
 `source -> normalize -> metrics -> facts -> decisions -> outputs -> delivery`
 
 ## Режимы
-- `daily_api_mode`: API-first daily pipeline.
-- `audit_file_mode`: file-only offline pipeline.
+- `daily_api_mode`: daily pipeline.
+- `audit_file_mode`: offline file-only pipeline.
 
-Ограничения режима:
-- daily и audit запускаются отдельно;
-- audit не использует API ingestion;
-- partial/unavailable данные отображаются явно (без «подмены»);
+Ограничения:
+- без пересчета KPI вне `metrics`;
+- без silent fallback;
+- partial/unavailable отображаются явно;
 - `None` не превращается в `0`.
 
-## Local Run: Daily
+## Одна основная команда ручного daily запуска
 ```bash
-python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
 ```
 
-С артефактами в каталог:
+Если `--seller` не указан:
+- при одном enabled seller он выбирается автоматически;
+- при нескольких seller CLI просит указать seller явно.
+
+## Operator flow (рекомендуемый путь)
+1. Проверка готовности (preflight):
 ```bash
-python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_daily_out
+python -m v4.entry.cli preflight --mode daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
 ```
 
-Опциональный delivery (по умолчанию выключен):
+2. Безопасный smoke dry-run:
 ```bash
-python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_daily_out --render-pdf --email-preview
+python -m v4.entry.cli smoke --mode daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
 ```
+
+3. Реальный manual run:
+```bash
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
+```
+
+Дополнительные helper scripts:
+```bash
+python v4/scripts/preflight_daily.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
+python v4/scripts/smoke_daily_operator.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
+python v4/scripts/scheduled_daily_run.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4 --dry-run
+```
+
+## Dry-run semantics
+`--dry-run`:
+- pipeline проходит все стадии;
+- diagnostics и artifacts сохраняются;
+- delivery side effects помечаются как skipped;
+- production mode и rollback diagnostics сохраняются.
 
 ## Local Run: Audit
 ```bash
-python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15
+python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_audit_out
 ```
 
-С артефактами в каталог:
+## Smoke команды (legacy-compatible)
 ```bash
-python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_audit_out
+python v4/scripts/smoke_run_daily.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_smoke_daily
+python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_smoke_audit
+python v4/scripts/smoke_render_pdf.py --mode daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_smoke_render_pdf
+python v4/scripts/smoke_email_payload.py --mode daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_smoke_email_preview
 ```
 
-Опциональный delivery (по умолчанию выключен):
+CI smoke helpers:
 ```bash
-python -m v4.entry.cli audit --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_audit_out --render-pdf --email-preview
+python v4/scripts/ci_smoke_daily.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_ci_smoke_daily
+python v4/scripts/ci_smoke_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_ci_smoke_audit
 ```
 
-Поддерживаемые audit input варианты:
-- директория с файлами (`csv/tsv/json/xlsx/xlsm`),
-- zip-архив (распаковывается во временную контролируемую директорию).
-
-Минимально ожидаемый файл для audit:
-- `daily_report.*`
-
-Опциональные файлы:
-- `funnel_report.*`
-- `ads_report.*`
-
-## Smoke Commands
-Daily smoke:
-```bash
-python v4/scripts/smoke_run_daily.py --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_daily
-```
-
-Audit smoke:
-```bash
-python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_audit
-```
-
-Delivery PDF smoke:
-```bash
-python v4/scripts/smoke_render_pdf.py --mode daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_render_pdf
-```
-
-Delivery email-preview smoke:
-```bash
-python v4/scripts/smoke_email_payload.py --mode daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_email_preview
-```
-
-Ожидаемый exit code:
-- `0` = smoke OK
-- `1` = pipeline execution error
-- `2` = output/diagnostics sanity violation
-
-## CI Smoke Commands
-Daily CI helper:
-```bash
-python v4/scripts/ci_smoke_daily.py --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_ci_smoke_daily
-```
-
-Audit CI helper:
-```bash
-python v4/scripts/ci_smoke_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_ci_smoke_audit
-```
-
-Если `--input-path` не передан в `ci_smoke_audit.py`, создается минимальный временный audit input.
-
-Минимальная CI sanity последовательность:
-```bash
-python -m unittest discover v4/tests
-python -m compileall v4
-python v4/scripts/smoke_run_daily.py --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_daily
-python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_audit
-```
-
-## Expected Artifacts
-Если передан `output_dir`, должны быть созданы:
+## Артефакты и где смотреть
+При `--output-dir` ожидаются:
 - `facts.json`
 - `decisions.json`
 - `outputs_summary.json`
 
-Где искать:
-- `result["outputs"]["artifacts"]["saved_files"]`
-
-Delivery artifacts (если включен delivery и передан `output_dir`):
+Если включен delivery:
 - `report.pdf`
 - `email_preview.json`
 
-## Diagnostics Interpretation
-Runtime diagnostics:
-- `result["diagnostics"]["job"]`: полный job-level diagnostics.
-- `result["diagnostics"]["summary"]`: компактный summary для мониторинга.
+Сводка артефактов:
+- `result["outputs"]["artifacts"]["saved_files"]`
 
-Delivery diagnostics (если включен delivery):
-- `result["delivery"]["diagnostics"]["rendered_pdf"]`
-- `result["delivery"]["diagnostics"]["email_preview_built"]`
-- `result["delivery"]["diagnostics"]["output_paths"]`
+## Diagnostics interpretation
+Ключевые места:
+- `result["diagnostics"]["job"]`
+- `result["diagnostics"]["summary"]`
+- `result["diagnostics"]["operator"]` (для direct v4 path)
+- `result["production"]["diagnostics"]` (для production switch path)
+- `result["delivery"]["diagnostics"]` (если delivery включен)
 
-Ключевые поля summary:
-- `mode`
-- `partial_flag`
-- `warnings_count`
-- `decision_counts_by_priority`
-- `artifacts_written`
+Ключевые поля наблюдаемости:
+- selected production mode;
+- reason/source of decision;
+- rollback happened / not happened;
+- dry_run true/false;
+- seller/cabinet context;
+- run_date (requested/resolved);
+- artifact/output labels.
 
-Audit summary дополнительно:
-- `files_detected_count`
-- `files_missing_expected`
-- `input_path_label`
-- `audit_disclaimer`
+## Controlled production switch + rollback
+Примеры:
+```bash
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --production-mode legacy
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --production-mode v4
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --production-mode v4 --allow-fallback-to-legacy
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --shadow-mode
+```
 
-Artifacts diagnostics:
-- `outputs_summary.json` содержит deterministic summary (`build_timestamp=None` по design).
+Rollback на legacy:
+- явный запуск с `--production-mode legacy`;
+- fallback никогда не silent и отражается в diagnostics.
 
-## Audit Disclaimer
-В `audit_file_mode` обязательно присутствует пометка:
+## Scheduled run 06:00 MSK
+Основной path: GitHub Actions workflow
+`/.github/workflows/v4-daily-0600-msk.yml`
 
-`Отчет построен в audit_file_mode; выводы ограничены доступными файлами.`
+Настройка времени:
+- cron в GitHub Actions идет в UTC;
+- `06:00 Europe/Moscow = 03:00 UTC`;
+- в workflow используется `cron: "0 3 * * *"`.
 
-## Mode Limitations
-- Нет production switch.
-- Нет migration logic `v3 -> v4`.
-- Нет SMTP sending.
-- Нет production PDF renderer.
-- Нет LLM narrative summaries.
-- Нет новых KPI в `outputs`; KPI собираются только на стадии `metrics`.
-- Delivery слой использует только `PdfPayload` / `EmailPayload` / artifact paths.
-- Delivery слой не обращается к `metrics/facts/decisions` напрямую.
+Workflow содержит:
+- `workflow_dispatch` для ручного запуска из UI;
+- preflight step;
+- scheduled daily step;
+- upload artifacts.
 
-## Known Constraints
-- До передачи `output_dir` артефакты не пишутся на диск.
-- При `output_dir` запись разрешена только внутри указанного каталога.
-- В partial/unavailable сценариях decisions и summaries остаются прозрачными и консервативными.
+Временное отключение schedule:
+- установить repository variable `V4_SCHEDULE_ENABLED=false`.
+
+## Validation gate перед запуском
+```bash
+python -m unittest discover v4/tests
+python -m compileall v4
+```
 
 ## Release Gate
-Проверочный список перед controlled adoption: [v4/RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
+Чеклист релиза: [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
 
-## Multi-Cabinet Notes
-Single-seller mode remains default and backward-compatible.
-
-Daily multi-cabinet example:
-```bash
-python -m v4.entry.cli daily --sellers seller_001,seller_002 --date 2026-03-15 --output-dir ./.tmp/v4_daily_multi
-```
-
-Audit multi-cabinet example (explicit input map):
-```bash
-python -m v4.entry.cli audit --input-map seller_001=./input/a,seller_002=./input/b --sellers seller_001,seller_002 --date 2026-03-15 --output-dir ./.tmp/v4_audit_multi
-```
-
-Batch behavior:
-- each seller/cabinet gets isolated output dir;
-- one seller failure does not stop the whole batch;
-- diagnostics summary keeps seller/cabinet labels and avoids absolute-path leaks.
-
-## Controlled Production Switch (Stage 19)
-Safe production orchestration is available via daily CLI flags:
-```bash
-python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode legacy
-python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode v4
-python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode v4 --allow-fallback-to-legacy
-python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --shadow-mode
-```
-
-Policy:
-- default production mode is safe (`legacy`);
-- no hard switch and no deletion of legacy runtime;
-- no silent fallback: any rollback/fallback is explicitly reflected in production diagnostics.

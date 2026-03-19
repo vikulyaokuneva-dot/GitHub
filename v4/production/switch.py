@@ -140,6 +140,7 @@ def run_production_daily(
     output_dir: str | None,
     cli_mode: str | None = None,
     allow_fallback_to_legacy: bool = False,
+    dry_run: bool = False,
     run_overrides: dict[str, object] | None = None,
 ) -> dict[str, Any]:
     seller_text = str(seller_id).strip()
@@ -170,6 +171,11 @@ def run_production_daily(
 
     mode = decision.selected_mode
     if mode == ProductionMode.LEGACY:
+        if dry_run:
+            raise ValueError(
+                "dry-run in legacy production mode is unsafe: use --production-mode v4 "
+                "or run without production switch."
+            )
         result = _run_legacy_daily(
             seller_id=seller_text,
             run_date=run_date,
@@ -179,6 +185,7 @@ def run_production_daily(
             switch_decision=decision,
             seller_id=seller_text,
             run_date=run_date,
+            dry_run=dry_run,
             output_dir=output_dir,
             effective_runner="legacy_daily_batch",
             warnings=warnings,
@@ -210,12 +217,13 @@ def run_production_daily(
             run_date=str(run_date or "").strip(),
             output_root=shadow_output_root,
             run_v4=True,
-            run_legacy=True,
+            run_legacy=not dry_run,
         )
         diagnostics = build_production_diagnostics(
             switch_decision=decision,
             seller_id=seller_text,
             run_date=run_date,
+            dry_run=dry_run,
             output_dir=shadow_output_root,
             effective_runner="shadow_daily_runner",
             warnings=warnings,
@@ -245,6 +253,7 @@ def run_production_daily(
             run_context={
                 "seller_id": seller_text,
                 "run_date": run_date,
+                "dry_run": bool(dry_run),
             },
             output_dir=output_dir,
         )
@@ -252,6 +261,7 @@ def run_production_daily(
             switch_decision=decision,
             seller_id=seller_text,
             run_date=run_date,
+            dry_run=dry_run,
             output_dir=output_dir,
             effective_runner="v4_daily_pipeline",
             warnings=warnings,
@@ -296,6 +306,7 @@ def run_production_daily(
                 switch_decision=decision,
                 seller_id=seller_text,
                 run_date=run_date,
+                dry_run=dry_run,
                 output_dir=output_dir,
                 effective_runner="v4_daily_pipeline",
                 warnings=[str(exc)],
@@ -334,6 +345,7 @@ def run_production_daily(
             ),
             seller_id=seller_text,
             run_date=run_date,
+            dry_run=dry_run,
             output_dir=output_dir,
             effective_runner="legacy_daily_batch",
             warnings=warnings,

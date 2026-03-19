@@ -1,0 +1,44 @@
+{
+  "build_timestamp": null,
+  "build_timestamp_note": "deterministic stage: timestamp omitted by design",
+  "mode": "daily",
+  "seller_id": "seller_001",
+  "cabinet_id": "cabinet_001",
+  "cabinet_name": "Main Cabinet",
+  "output_dir_label": "smoke_daily_stage20",
+  "input_path_label": null,
+  "feature_flags": {
+    "enable_delivery": false,
+    "enable_pdf_render": false,
+    "enable_email_preview": false,
+    "enable_health_section": true,
+    "enable_audit_mode": true,
+    "enable_multi_cabinet_runs": true,
+    "enable_v4_production": true,
+    "enable_legacy_production": true,
+    "enable_production_fallback_to_legacy": false,
+    "enable_cli_production_override": true,
+    "enable_shadow_mode": false,
+    "enable_comparison": true,
+    "enable_shadow_persistence": true
+  },
+  "path_labels": {
+    "output_dir_label": "smoke_daily_stage20"
+  },
+  "sections_present": [
+    "ads",
+    "daily",
+    "financial",
+    "funnel",
+    "health",
+    "stock"
+  ],
+  "decision_counts_by_priority": {
+    "P1": 2,
+    "P2": 6,
+    "P3": 1
+  },
+  "warnings_count": 78,
+  "partial_flag": true,
+  "audit_note": null
+}

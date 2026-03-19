@@ -17,7 +17,9 @@ class TestCliEntrypoints(unittest.TestCase):
                 }
             )
 
-        self.assertEqual(result, {"ok": True})
+        self.assertTrue(result.get("ok"))
+        self.assertIn("diagnostics", result)
+        self.assertIn("summary", result["diagnostics"])
         runner.assert_called_once()
         self.assertEqual(runner.call_args.kwargs["run_context"]["seller_id"], "seller_001")
         self.assertEqual(runner.call_args.kwargs["output_dir"], "tmp_out")

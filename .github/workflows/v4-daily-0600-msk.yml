@@ -1,0 +1,81 @@
+name: V4 Daily (06:00 MSK)
+
+on:
+  schedule:
+    # GitHub Actions cron is UTC. Moscow is UTC+3 year-round.
+    # 06:00 Europe/Moscow == 03:00 UTC.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      seller_id:
+        description: "Seller ID"
+        required: false
+        default: "seller_001"
+      run_date:
+        description: "Optional run date YYYY-MM-DD (empty = auto)"
+        required: false
+        default: ""
+      production_mode:
+        description: "legacy | v4 | shadow"
+        required: false
+        default: "v4"
+      dry_run:
+        description: "Run in dry-run mode"
+        required: false
+        default: "true"
+
+jobs:
+  v4_daily:
+    if: ${{ vars.V4_SCHEDULE_ENABLED != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SELLER_ID: ${{ github.event.inputs.seller_id || vars.V4_SCHEDULE_SELLER || 'seller_001' }}
+      RUN_DATE: ${{ github.event.inputs.run_date || vars.V4_SCHEDULE_RUN_DATE || '' }}
+      PRODUCTION_MODE: ${{ github.event.inputs.production_mode || vars.V4_SCHEDULE_PRODUCTION_MODE || 'v4' }}
+      DRY_RUN: ${{ github.event.inputs.dry_run || vars.V4_SCHEDULE_DRY_RUN || 'true' }}
+      OUTPUT_DIR: ./.tmp/v4_scheduled_daily
+      TZ: Europe/Moscow
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Preflight
+        run: |
+          set -euo pipefail
+          ARGS=(--seller "${SELLER_ID}" --output-dir "${OUTPUT_DIR}" --production-mode "${PRODUCTION_MODE}")
+          if [ -n "${RUN_DATE}" ]; then
+            ARGS+=(--date "${RUN_DATE}")
+          fi
+          if [ "${DRY_RUN}" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          python v4/scripts/preflight_daily.py "${ARGS[@]}"
+
+      - name: Run scheduled daily
+        run: |
+          set -euo pipefail
+          ARGS=(--seller "${SELLER_ID}" --output-dir "${OUTPUT_DIR}" --production-mode "${PRODUCTION_MODE}")
+          if [ -n "${RUN_DATE}" ]; then
+            ARGS+=(--date "${RUN_DATE}")
+          fi
+          if [ "${DRY_RUN}" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          python v4/scripts/scheduled_daily_run.py "${ARGS[@]}"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v4-daily-${{ env.SELLER_ID }}
+          path: .tmp/v4_scheduled_daily/**
+

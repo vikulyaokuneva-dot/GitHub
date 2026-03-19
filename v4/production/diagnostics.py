@@ -13,6 +13,7 @@ def build_production_diagnostics(
     switch_decision: ProductionSwitchDecision,
     seller_id: str,
     run_date: str | None,
+    dry_run: bool,
     output_dir: str | None,
     effective_runner: str,
     warnings: list[str] | None = None,
@@ -28,6 +29,7 @@ def build_production_diagnostics(
         effective_runner=effective_runner,
         seller_id=str(seller_id),
         run_date=str(run_date) if run_date is not None else None,
+        dry_run=bool(dry_run),
         output_dir_label=path_label(output_dir),
         warnings=list(warnings or []),
         rollback_hint=rollback_hint,
@@ -49,6 +51,7 @@ def build_switch_summary(production_diagnostics: dict[str, Any]) -> dict[str, An
         "effective_runner": payload.get("effective_runner"),
         "seller_id": payload.get("seller_id"),
         "run_date": payload.get("run_date"),
+        "dry_run": bool(payload.get("dry_run", False)),
         "output_dir_label": payload.get("output_dir_label"),
         "rollback_happened": bool(payload.get("rollback_happened", False)),
         "fallback_used": bool(payload.get("fallback_used", False)),
@@ -57,4 +60,3 @@ def build_switch_summary(production_diagnostics: dict[str, Any]) -> dict[str, An
 
 
 __all__ = ["build_production_diagnostics", "build_switch_summary"]
-

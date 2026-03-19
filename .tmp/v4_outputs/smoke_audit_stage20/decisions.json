@@ -1,0 +1,488 @@
+{
+  "run_context": {
+    "seller_id": "seller_001",
+    "cabinet_name": "Main Cabinet",
+    "mode": "audit_file_mode",
+    "requested_date": "2026-03-19",
+    "resolved_date": "2026-03-19",
+    "timezone": "Europe/Moscow",
+    "wb_api_token_present": false,
+    "cabinet_id": "cabinet_001",
+    "dry_run": true,
+    "output_dir": "smoke_audit_stage20",
+    "feature_flags": {
+      "enable_delivery": false,
+      "enable_pdf_render": false,
+      "enable_email_preview": false,
+      "enable_health_section": true,
+      "enable_audit_mode": true,
+      "enable_multi_cabinet_runs": true,
+      "enable_v4_production": true,
+      "enable_legacy_production": true,
+      "enable_production_fallback_to_legacy": false,
+      "enable_cli_production_override": true,
+      "enable_shadow_mode": false,
+      "enable_comparison": true,
+      "enable_shadow_persistence": true
+    },
+    "path_labels": {
+      "output_dir_label": "smoke_audit_stage20",
+      "input_path_label": "v4_audit_input_stage20"
+    },
+    "input_path_label": "v4_audit_input_stage20"
+  },
+  "items": [
+    {
+      "code": "negative_profit",
+      "title": "Negative profit",
+      "summary": "Cannot confirm negative profit due to incomplete financial evidence.",
+      "priority": "P1",
+      "status": "unavailable",
+      "section": "financial",
+      "reason": "profit-like value is unavailable",
+      "evidence": [
+        {
+          "fact_section": "financial",
+          "fact_key": "net_profit_like",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "financial_formula_net_v2",
+          "note": "net_profit_like unavailable because gross_profit_like is unavailable"
+        }
+      ],
+      "recommended_actions": [
+        "Collect complete financial inputs and re-run the cycle."
+      ],
+      "diagnostics": {
+        "rule": "negative_profit",
+        "chosen_fact_key": "net_profit_like"
+      }
+    },
+    {
+      "code": "low_margin",
+      "title": "Low margin risk",
+      "summary": "Cannot confirm margin level due to incomplete net profit-like evidence.",
+      "priority": "P2",
+      "status": "unavailable",
+      "section": "financial",
+      "reason": "net profit-like value is unavailable",
+      "evidence": [
+        {
+          "fact_section": "financial",
+          "fact_key": "net_profit_like",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "financial_formula_net_v2",
+          "note": "net_profit_like unavailable because gross_profit_like is unavailable"
+        }
+      ],
+      "recommended_actions": [
+        "Verify profit-like components and re-run the report cycle."
+      ],
+      "diagnostics": {
+        "rule": "low_margin",
+        "threshold_value": 50.0
+      }
+    },
+    {
+      "code": "ad_inefficiency",
+      "title": "Ad inefficiency",
+      "summary": "Cannot confirm ad efficiency due to unavailable spend value.",
+      "priority": "P2",
+      "status": "unavailable",
+      "section": "ads",
+      "reason": "ads spend value is unavailable",
+      "evidence": [
+        {
+          "fact_section": "ads",
+          "fact_key": "spend",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "ads_stats",
+          "note": "stats source is unavailable"
+        },
+        {
+          "fact_section": "ads",
+          "fact_key": "revenue",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "ads_stats",
+          "note": "stats source is unavailable"
+        },
+        {
+          "fact_section": "ads",
+          "fact_key": "conversion_click_to_order",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "ads_stats",
+          "note": "stats source is unavailable"
+        }
+      ],
+      "recommended_actions": [
+        "Ensure ads stats contain reliable spend values."
+      ],
+      "diagnostics": {
+        "rule": "ad_inefficiency",
+        "conversion_threshold": 0.02
+      }
+    },
+    {
+      "code": "out_of_stock_risk",
+      "title": "Out-of-stock risk",
+      "summary": "Cannot confirm stock risk due to unavailable out-of-stock value.",
+      "priority": "P1",
+      "status": "unavailable",
+      "section": "stock",
+      "reason": "out_of_stock_items_count value is unavailable",
+      "evidence": [
+        {
+          "fact_section": "stock",
+          "fact_key": "out_of_stock_items_count",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "stocks",
+          "note": "stocks source is unavailable"
+        },
+        {
+          "fact_section": "stock",
+          "fact_key": "in_stock_items_count",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "stocks",
+          "note": "stocks source is unavailable"
+        }
+      ],
+      "recommended_actions": [
+        "Improve stock quantity completeness and re-run."
+      ],
+      "diagnostics": {
+        "rule": "out_of_stock_risk"
+      }
+    },
+    {
+      "code": "weak_conversion",
+      "title": "Weak conversion",
+      "summary": "Cannot confirm conversion weakness due to incomplete funnel evidence.",
+      "priority": "P2",
+      "status": "unavailable",
+      "section": "funnel",
+      "reason": "conversion value is unavailable",
+      "evidence": [
+        {
+          "fact_section": "funnel",
+          "fact_key": "cr_buys_from_orders",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "funnel",
+          "note": "funnel source is unavailable"
+        }
+      ],
+      "recommended_actions": [
+        "Collect complete funnel conversion evidence and re-run the cycle."
+      ],
+      "diagnostics": {
+        "rule": "weak_conversion",
+        "threshold": 0.2
+      }
+    },
+    {
+      "code": "overstock",
+      "title": "Overstock risk",
+      "summary": "Cannot confirm overstock risk due to incomplete stock movement evidence.",
+      "priority": "P2",
+      "status": "unavailable",
+      "section": "health",
+      "reason": "overstock_risk_count value is unavailable",
+      "evidence": [
+        {
+          "fact_section": "health",
+          "fact_key": "overstock_risk_count",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "stocks",
+          "note": "stocks source unavailable for overstock"
+        },
+        {
+          "fact_section": "health",
+          "fact_key": "problematic_sku_count",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "health_policy_v1",
+          "note": "problematic SKU evidence is insufficient"
+        }
+      ],
+      "recommended_actions": [
+        "Collect complete stock movement evidence and re-run."
+      ],
+      "diagnostics": {
+        "rule": "overstock"
+      }
+    },
+    {
+      "code": "dead_sku",
+      "title": "Dead SKU risk",
+      "summary": "Cannot confirm dead SKU risk due to incomplete movement evidence.",
+      "priority": "P2",
+      "status": "unavailable",
+      "section": "health",
+      "reason": "dead_stock_risk_count value is unavailable",
+      "evidence": [
+        {
+          "fact_section": "health",
+          "fact_key": "dead_stock_risk_count",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "stocks",
+          "note": "stocks source unavailable for dead stock"
+        },
+        {
+          "fact_section": "health",
+          "fact_key": "problematic_sku_count",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "health_policy_v1",
+          "note": "problematic SKU evidence is insufficient"
+        }
+      ],
+      "recommended_actions": [
+        "Collect complete movement evidence and re-run the health stage."
+      ],
+      "diagnostics": {
+        "rule": "dead_sku"
+      }
+    },
+    {
+      "code": "low_business_health",
+      "title": "Low business health",
+      "summary": "Cannot confirm low health due to incomplete score evidence.",
+      "priority": "P2",
+      "status": "unavailable",
+      "section": "health",
+      "reason": "business_health_score value is unavailable",
+      "evidence": [
+        {
+          "fact_section": "health",
+          "fact_key": "business_health_score",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "health_policy_v1",
+          "note": "all health components are unavailable"
+        },
+        {
+          "fact_section": "health",
+          "fact_key": "component_ads_score",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "ads",
+          "note": "ads evidence is insufficient"
+        },
+        {
+          "fact_section": "health",
+          "fact_key": "component_data_quality_score",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "health_policy_v1",
+          "note": "all components unavailable"
+        },
+        {
+          "fact_section": "health",
+          "fact_key": "component_funnel_score",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "funnel",
+          "note": "funnel conversion evidence is insufficient"
+        },
+        {
+          "fact_section": "health",
+          "fact_key": "component_profitability_score",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "financial_formula_v2",
+          "note": "gross_profit_like is unavailable for profitability component"
+        },
+        {
+          "fact_section": "health",
+          "fact_key": "component_stock_score",
+          "fact_value": null,
+          "fact_status": "unavailable",
+          "fact_source": "stock",
+          "note": "stock availability evidence is insufficient"
+        }
+      ],
+      "recommended_actions": [
+        "Collect complete health components and re-run."
+      ],
+      "diagnostics": {
+        "rule": "low_business_health",
+        "threshold": 50.0
+      }
+    },
+    {
+      "code": "partial_data_warning",
+      "title": "Partial data warning",
+      "summary": "Report contains partial or unavailable sections; high-impact actions should be conservative.",
+      "priority": "P3",
+      "status": "info",
+      "section": "data_quality",
+      "reason": "facts data quality indicates incomplete evidence",
+      "evidence": [
+        {
+          "fact_section": "financial",
+          "fact_key": "section_status",
+          "fact_value": "partial",
+          "fact_status": "partial",
+          "fact_source": null,
+          "note": "section has partial data"
+        },
+        {
+          "fact_section": "daily",
+          "fact_key": "section_status",
+          "fact_value": "partial",
+          "fact_status": "partial",
+          "fact_source": null,
+          "note": "section has partial data"
+        },
+        {
+          "fact_section": "funnel",
+          "fact_key": "section_status",
+          "fact_value": "unavailable",
+          "fact_status": "unavailable",
+          "fact_source": null,
+          "note": "section is unavailable"
+        },
+        {
+          "fact_section": "ads",
+          "fact_key": "section_status",
+          "fact_value": "unavailable",
+          "fact_status": "unavailable",
+          "fact_source": null,
+          "note": "section is unavailable"
+        },
+        {
+          "fact_section": "stock",
+          "fact_key": "section_status",
+          "fact_value": "unavailable",
+          "fact_status": "unavailable",
+          "fact_source": null,
+          "note": "section is unavailable"
+        },
+        {
+          "fact_section": "health",
+          "fact_key": "section_status",
+          "fact_value": "unavailable",
+          "fact_status": "unavailable",
+          "fact_source": null,
+          "note": "section is unavailable"
+        }
+      ],
+      "recommended_actions": [
+        "Re-check missing sections on the next cycle before irreversible decisions.",
+        "Treat current recommendations as hypotheses where data is partial."
+      ],
+      "diagnostics": {
+        "rule": "partial_data_warning",
+        "partial_sections": [
+          "financial",
+          "daily"
+        ],
+        "unavailable_sections": [
+          "funnel",
+          "ads",
+          "stock",
+          "health"
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "total_decisions": 9,
+    "by_priority": {
+      "P1": 2,
+      "P2": 6,
+      "P3": 1
+    },
+    "by_status": {
+      "confirmed": 0,
+      "partial": 0,
+      "unavailable": 8,
+      "info": 1
+    },
+    "decision_codes": [
+      "negative_profit",
+      "low_margin",
+      "ad_inefficiency",
+      "out_of_stock_risk",
+      "weak_conversion",
+      "overstock",
+      "dead_sku",
+      "low_business_health",
+      "partial_data_warning"
+    ]
+  },
+  "warnings": [
+    "stocks: source missing in audit file inputs",
+    "funnel: source missing in audit file inputs",
+    "ads: source missing in audit file inputs",
+    "realization records are unavailable for lag resolution",
+    "no realization records for selected actual date",
+    "financial_status=partial",
+    "health:profitability: gross_profit_like is unavailable for profitability component",
+    "health:ads: ads evidence is insufficient",
+    "health:funnel: funnel conversion evidence is insufficient",
+    "health:stock: stock availability evidence is insufficient",
+    "health:data_quality: all components unavailable",
+    "health:dead_stock_risk_count: stocks source unavailable for dead stock",
+    "health:overstock_risk_count: stocks source unavailable for overstock",
+    "health:problematic_sku_count: problematic SKU evidence is insufficient",
+    "health:sku_health_signals_count: SKU health signals are unavailable",
+    "financial: realization records are unavailable for lag resolution",
+    "financial: no realization records for selected actual date",
+    "financial: stocks: source missing in audit file inputs",
+    "financial: funnel: source missing in audit file inputs",
+    "financial: ads: source missing in audit file inputs",
+    "financial: financial_status=partial",
+    "funnel: funnel: source missing in audit file inputs",
+    "ads: ads: source missing in audit file inputs",
+    "stock: stocks: source missing in audit file inputs",
+    "health: health:profitability: gross_profit_like is unavailable for profitability component",
+    "health: health:ads: ads evidence is insufficient",
+    "health: health:funnel: funnel conversion evidence is insufficient",
+    "health: health:stock: stock availability evidence is insufficient",
+    "health: health:data_quality: all components unavailable",
+    "health: health:dead_stock_risk_count: stocks source unavailable for dead stock",
+    "health: health:overstock_risk_count: stocks source unavailable for overstock",
+    "health: health:problematic_sku_count: problematic SKU evidence is insufficient",
+    "health: health:sku_health_signals_count: SKU health signals are unavailable"
+  ],
+  "diagnostics": {
+    "rules_evaluated": [
+      "_build_negative_profit_decision",
+      "_build_low_margin_decision",
+      "_build_ad_inefficiency_decision",
+      "_build_out_of_stock_risk_decision",
+      "_build_weak_conversion_decision",
+      "_build_overstock_decision",
+      "_build_dead_sku_decision",
+      "_build_low_business_health_decision",
+      "_build_partial_data_warning_decision"
+    ],
+    "facts_sections_available": [
+      "financial",
+      "daily",
+      "funnel",
+      "ads",
+      "stock",
+      "health"
+    ],
+    "facts_partial_sections": [
+      "financial",
+      "daily"
+    ],
+    "facts_unavailable_sections": [
+      "funnel",
+      "ads",
+      "stock",
+      "health"
+    ]
+  }
+}

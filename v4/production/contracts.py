@@ -29,6 +29,7 @@ class ProductionRunDiagnostics:
     seller_id: str
     run_date: str | None
     output_dir_label: str | None
+    dry_run: bool = False
     warnings: list[str] = field(default_factory=list)
     rollback_hint: str | None = None
     shadow_reference: str | None = None
@@ -45,6 +46,7 @@ class ProductionRunDiagnostics:
             "effective_runner": self.effective_runner,
             "seller_id": self.seller_id,
             "run_date": self.run_date,
+            "dry_run": bool(self.dry_run),
             "output_dir_label": self.output_dir_label,
             "warnings": list(self.warnings),
             "rollback_hint": self.rollback_hint,
@@ -59,4 +61,3 @@ class ProductionRunDiagnostics:
 
 
 __all__ = ["ProductionMode", "ProductionSwitchDecision", "ProductionRunDiagnostics"]
-

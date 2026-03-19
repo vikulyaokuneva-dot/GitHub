@@ -1,89 +1,95 @@
-﻿# V4 Release Checklist
+# V4 Release Checklist
 
-Минимальный checklist для release readiness `v4` в controlled adoption (`daily` / `audit`).
+Минимальный checklist для controlled adoption V4.
 
 ## 1. Tests
 ```bash
 python -m unittest discover v4/tests
 ```
-Критерий: все тесты проходят.
 
 ## 2. Compile
 ```bash
 python -m compileall v4
 ```
-Критерий: нет compile errors.
 
-## 3. Smoke Daily
+## 3. Operator preflight
 ```bash
-python v4/scripts/smoke_run_daily.py --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_daily
+python -m v4.entry.cli preflight --mode daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
 ```
-Критерий: `exit code 0`.
+Критерий: `PREFLIGHT SUCCESS`.
 
-## 4. Smoke Audit
+## 4. Operator smoke (dry-run)
 ```bash
-python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_audit
+python -m v4.entry.cli smoke --mode daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
 ```
-Критерий: `exit code 0`.
+Критерий: `SMOKE SUCCESS`.
 
-## 5. Smoke Delivery PDF
+## 5. Manual daily run
 ```bash
-python v4/scripts/smoke_render_pdf.py --mode daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_render_pdf
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_outputs --production-mode v4
 ```
-Критерий: `exit code 0`.
 
-## 6. Smoke Delivery Email Preview
+## 6. Smoke Daily (legacy-compatible)
 ```bash
-python v4/scripts/smoke_email_payload.py --mode daily --seller seller_001 --date 2026-03-15 --output-dir ./.tmp/v4_smoke_email_preview
+python v4/scripts/smoke_run_daily.py --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_smoke_daily
 ```
-Критерий: `exit code 0`.
 
-## 7. Artifact Verification
-Проверить наличие и корректный JSON-формат:
+## 7. Smoke Audit (legacy-compatible)
+```bash
+python v4/scripts/smoke_run_audit.py --input-path ./path/to/audit_input --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_smoke_audit
+```
+
+## 8. Smoke Delivery PDF
+```bash
+python v4/scripts/smoke_render_pdf.py --mode daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_smoke_render_pdf
+```
+
+## 9. Smoke Delivery Email Preview
+```bash
+python v4/scripts/smoke_email_payload.py --mode daily --seller seller_001 --date 2026-03-19 --output-dir ./.tmp/v4_smoke_email_preview
+```
+
+## 10. Artifact verification
+Проверить:
 - `facts.json`
 - `decisions.json`
 - `outputs_summary.json`
 - `email_preview.json` (если delivery preview включен)
 - `report.pdf` (если delivery PDF включен)
 
-## 8. Diagnostics Verification
-Проверить в runtime result:
+## 11. Diagnostics verification
+Проверить:
 - `diagnostics.job`
 - `diagnostics.summary`
+- `production.diagnostics` (если production switch path)
 - `delivery.diagnostics` (если delivery включен)
 
-Проверить в summary:
-- `mode`
-- `partial_flag`
-- `warnings_count`
-- `decision_counts_by_priority`
+Должны быть видимы:
+- selected mode;
+- reason/source;
+- rollback_happened/fallback_used;
+- dry_run;
+- seller/cabinet labels;
+- output_dir label.
 
-## 9. Output Dir Safety
-Подтвердить, что pipeline не пишет файлы вне `output_dir`.
+## 12. Output path safety
+Подтвердить, что runtime-artifacts не пишутся вне `output_dir`.
 
-## 10. KPI Discipline
-Подтвердить, что KPI не пересчитываются вне стадии `metrics`
+## 13. KPI discipline
+Подтвердить, что KPI не пересчитываются вне `metrics`
 (`source -> normalize -> metrics -> facts -> decisions -> outputs`).
 
-## 11. Multi-Cabinet Sanity (Optional Gate)
-For batch orchestration checks:
-```bash
-python -m v4.entry.cli daily --sellers seller_001,seller_002 --date 2026-03-15 --output-dir ./.tmp/v4_daily_multi
-python -m v4.entry.cli audit --input-map seller_001=./input/a,seller_002=./input/b --sellers seller_001,seller_002 --date 2026-03-15 --output-dir ./.tmp/v4_audit_multi
-```
-Критерий:
-- output dirs изолированы per seller/cabinet;
-- batch summary содержит succeeded/partial/failed sellers;
-- один failing seller не ломает остальных.
+## 14. Scheduler sanity (06:00 MSK)
+Проверить workflow:
+- `.github/workflows/v4-daily-0600-msk.yml`
+- cron: `"0 3 * * *"` (UTC) = 06:00 Europe/Moscow
+- есть `workflow_dispatch`
+- есть preflight step перед run step.
 
-## 12. Production Switch & Rollback Safety
-Проверить controlled switch path:
+## 15. Controlled rollback safety
+Проверить, что rollback на legacy возможен и не silent:
 ```bash
-python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode legacy
-python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode v4
-python -m v4.entry.cli daily --seller seller_001 --date 2026-03-15 --production-mode v4 --allow-fallback-to-legacy
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --production-mode legacy
+python -m v4.entry.cli daily --seller seller_001 --date 2026-03-19 --production-mode v4 --allow-fallback-to-legacy
 ```
-Критерий:
-- default production mode остаётся `legacy`;
-- V4 активируется только явно/feature-gated;
-- rollback/fallback никогда не silent и отражён в diagnostics.
+
