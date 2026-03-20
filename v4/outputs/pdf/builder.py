@@ -70,6 +70,7 @@ def _finance_page(facts_bundle: FactsBundle) -> PdfPage:
         ("seller_payout", "Seller payout"),
         ("revenue_gross", "Revenue gross"),
         ("net_profit_like", "Net profit-like"),
+        ("margin", "Margin-like"),
     ]
     rows: list[dict[str, str]] = []
     for key, title in keys:
@@ -82,6 +83,13 @@ def _finance_page(facts_bundle: FactsBundle) -> PdfPage:
             }
         )
     section = facts_bundle.sections.get("financial")
+    section_diag = section.diagnostics if isinstance(getattr(section, "diagnostics", None), dict) else {}
+    model_mode = section_diag.get("financial_model_mode") or section_diag.get("financial_mode")
+    confidence = section_diag.get("financial_confidence")
+    if model_mode is not None:
+        rows.append({"label": "Financial model mode", "value": str(model_mode), "status": "info"})
+    if confidence is not None:
+        rows.append({"label": "Financial confidence", "value": str(confidence), "status": "info"})
     status = section.status if section is not None else "unavailable"
     block = PdfBlock(
         title="Finance Metrics",

@@ -40,6 +40,8 @@ class TestFinancialFactsMapping(unittest.TestCase):
             net_profit_like=_metric(None, status="unavailable", note="insufficient components"),
             margin=_metric(None, status="unavailable", note="margin unavailable"),
             profit_formula_note="gross_profit_like = revenue_gross - identifiable_costs",
+            financial_model_mode="estimated",
+            financial_confidence="low",
             financial_mode="partial",
             financial_missing_components=["margin"],
             financial_available_components=["sales_amount", "seller_payout"],
@@ -84,6 +86,8 @@ class TestFinancialFactsMapping(unittest.TestCase):
             "gross_profit_like = revenue_gross - identifiable_costs",
         )
         self.assertEqual(section.diagnostics.get("financial_mode"), "partial")
+        self.assertEqual(section.diagnostics.get("financial_model_mode"), "estimated")
+        self.assertEqual(section.diagnostics.get("financial_confidence"), "low")
         self.assertIn("margin", section.diagnostics.get("financial_missing_components", []))
 
 

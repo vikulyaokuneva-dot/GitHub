@@ -18,6 +18,9 @@ from ..core.contracts import (
 
 WEAK_CONVERSION_THRESHOLD = 0.20
 WEAK_CONVERSION_SEVERE_THRESHOLD = 0.10
+LOW_MARGIN_THRESHOLD = 0.15
+LOW_MARGIN_SEVERE_THRESHOLD = 0.05
+LOW_MARGIN_NET_PROFIT_FALLBACK_THRESHOLD = 50.0
 LOW_BUSINESS_HEALTH_THRESHOLD = 50.0
 LOW_BUSINESS_HEALTH_SEVERE_THRESHOLD = 35.0
 
@@ -73,6 +76,57 @@ def _fact_evidence(section: str, key: str, fact_item: FactItem | None) -> dict[s
     }
 
 
+def _fact_diag(fact_item: FactItem | None) -> dict[str, object]:
+    if fact_item is None or not isinstance(getattr(fact_item, "diagnostics", None), dict):
+        return {}
+    return dict(fact_item.diagnostics)
+
+
+def _fact_provenance(fact_item: FactItem | None) -> dict[str, object]:
+    diagnostics = _fact_diag(fact_item)
+    payload = diagnostics.get("provenance")
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _evidence_quality(fact_item: FactItem | None) -> str:
+    provenance = _fact_provenance(fact_item)
+    confidence = str(provenance.get("confidence") or "").strip().lower()
+    if confidence in {"high", "medium", "low"}:
+        return confidence
+    if fact_item is None:
+        return "none"
+    status = str(fact_item.value.status)
+    if status == DecisionStatus.CONFIRMED.value:
+        return "high"
+    if status == DecisionStatus.PARTIAL.value:
+        return "medium"
+    return "none"
+
+
+def _evidence_method(fact_item: FactItem | None, default_method: str) -> str:
+    provenance = _fact_provenance(fact_item)
+    method = str(provenance.get("derivation_method") or "").strip()
+    if method:
+        return method
+    diagnostics = _fact_diag(fact_item)
+    fallback = str(diagnostics.get("profitability_method") or "").strip()
+    if fallback:
+        return fallback
+    return default_method
+
+
+def _decision_status_for_fact(fact_item: FactItem | None) -> DecisionStatus:
+    if fact_item is None:
+        return DecisionStatus.UNAVAILABLE
+    status = str(fact_item.value.status)
+    quality = _evidence_quality(fact_item)
+    if status == DecisionStatus.CONFIRMED.value and quality == "high":
+        return DecisionStatus.CONFIRMED
+    if status in {DecisionStatus.CONFIRMED.value, DecisionStatus.PARTIAL.value} and quality in {"high", "medium", "low"}:
+        return DecisionStatus.PARTIAL
+    return DecisionStatus.UNAVAILABLE
+
+
 def _status_from_fact_statuses(fact_statuses: list[str]) -> DecisionStatus:
     if not fact_statuses:
         return DecisionStatus.UNAVAILABLE
@@ -90,6 +144,8 @@ def _build_negative_profit_decision(facts_bundle: FactsBundle) -> DecisionItem |
     fact_key = "net_profit_like" if primary is not None else "gross_profit_like"
     evidence = [_fact_evidence("financial", fact_key, fact)]
 
+    evidence_quality = _evidence_quality(fact)
+    evidence_method = _evidence_method(fact, "financial_profit_like")
     if fact is None:
         return DecisionItem(
             code="negative_profit",
@@ -101,33 +157,48 @@ def _build_negative_profit_decision(facts_bundle: FactsBundle) -> DecisionItem |
             reason="required fact is unavailable",
             evidence=evidence,
             recommended_actions=["Verify financial contour availability before taking high-impact actions."],
-            diagnostics={"rule": "negative_profit", "chosen_fact_key": fact_key},
+            diagnostics={
+                "rule": "negative_profit",
+                "chosen_fact_key": fact_key,
+                "evidence_quality": "none",
+                "evidence_method": evidence_method,
+            },
         )
 
     profit_value = _to_float(fact.value.value)
-    if profit_value is None or str(fact.value.status) != DecisionStatus.CONFIRMED.value:
+    decision_status = _decision_status_for_fact(fact)
+    if profit_value is None or decision_status == DecisionStatus.UNAVAILABLE:
         return DecisionItem(
             code="negative_profit",
             title="Negative profit",
-            summary="Cannot confirm negative profit due to incomplete financial evidence.",
+            summary="Cannot evaluate negative profit: profitability evidence is unavailable.",
             priority=DecisionPriority.P1,
             status=DecisionStatus.UNAVAILABLE,
             section="financial",
             reason="profit-like evidence is incomplete",
             evidence=evidence,
             recommended_actions=["Collect complete financial inputs and re-run the cycle."],
-            diagnostics={"rule": "negative_profit", "chosen_fact_key": fact_key},
+            diagnostics={
+                "rule": "negative_profit",
+                "chosen_fact_key": fact_key,
+                "evidence_quality": evidence_quality,
+                "evidence_method": evidence_method,
+            },
         )
 
     if profit_value >= 0:
         return None
 
+    summary = "Profit-like indicator is below zero."
+    if decision_status == DecisionStatus.PARTIAL:
+        summary = "Negative profit risk detected on estimated/incomplete profitability evidence."
+
     return DecisionItem(
         code="negative_profit",
         title="Negative profit",
-        summary="Profit-like indicator is below zero.",
+        summary=summary,
         priority=DecisionPriority.P1,
-        status=DecisionStatus.CONFIRMED,
+        status=decision_status,
         section="financial",
         reason=f"{fact_key} is negative",
         evidence=evidence,
@@ -135,59 +206,111 @@ def _build_negative_profit_decision(facts_bundle: FactsBundle) -> DecisionItem |
             "Review largest expense components and pause non-critical spend until profitability recovers.",
             "Validate realization completeness before irreversible decisions.",
         ],
-        diagnostics={"rule": "negative_profit", "chosen_fact_key": fact_key},
+        diagnostics={
+            "rule": "negative_profit",
+            "chosen_fact_key": fact_key,
+            "evidence_quality": evidence_quality,
+            "evidence_method": evidence_method,
+        },
     )
 
 
 def _build_low_margin_decision(facts_bundle: FactsBundle) -> DecisionItem | None:
+    margin_fact = _get_fact_item(facts_bundle, "financial", "margin")
     net_profit = _get_fact_item(facts_bundle, "financial", "net_profit_like")
-    if net_profit is None:
+    fact = margin_fact if margin_fact is not None else net_profit
+    fact_key = "margin" if margin_fact is not None else "net_profit_like"
+    evidence = [_fact_evidence("financial", fact_key, fact)]
+    evidence_quality = _evidence_quality(fact)
+    evidence_method = _evidence_method(fact, "financial_margin_like" if fact_key == "margin" else "financial_profit_like")
+
+    if fact is None:
         return DecisionItem(
             code="low_margin",
             title="Low margin risk",
-            summary="Cannot evaluate low margin: net profit-like fact is missing.",
+            summary="Cannot evaluate low margin: required financial fact is missing.",
             priority=DecisionPriority.P2,
             status=DecisionStatus.UNAVAILABLE,
             section="financial",
             reason="required fact is unavailable",
-            evidence=[_fact_evidence("financial", "net_profit_like", None)],
+            evidence=evidence,
             recommended_actions=["Ensure financial fact mapping is complete."],
-            diagnostics={"rule": "low_margin", "threshold_value": 50.0},
+            diagnostics={
+                "rule": "low_margin",
+                "fact_key": fact_key,
+                "threshold_margin": LOW_MARGIN_THRESHOLD,
+                "threshold_net_profit_fallback": LOW_MARGIN_NET_PROFIT_FALLBACK_THRESHOLD,
+                "evidence_quality": "none",
+                "evidence_method": evidence_method,
+            },
         )
 
-    net_profit_value = _to_float(net_profit.value.value)
-    evidence = [_fact_evidence("financial", "net_profit_like", net_profit)]
-    if net_profit_value is None or str(net_profit.value.status) != DecisionStatus.CONFIRMED.value:
+    metric_value = _to_float(fact.value.value)
+    decision_status = _decision_status_for_fact(fact)
+    if metric_value is None or decision_status == DecisionStatus.UNAVAILABLE:
         return DecisionItem(
             code="low_margin",
             title="Low margin risk",
-            summary="Cannot confirm margin level due to incomplete net profit-like evidence.",
+            summary="Cannot evaluate low margin: profitability evidence is unavailable.",
             priority=DecisionPriority.P2,
             status=DecisionStatus.UNAVAILABLE,
             section="financial",
-            reason="net profit-like evidence is incomplete",
+            reason="margin evidence is incomplete",
             evidence=evidence,
             recommended_actions=["Verify profit-like components and re-run the report cycle."],
-            diagnostics={"rule": "low_margin", "threshold_value": 50.0},
+            diagnostics={
+                "rule": "low_margin",
+                "fact_key": fact_key,
+                "threshold_margin": LOW_MARGIN_THRESHOLD,
+                "threshold_net_profit_fallback": LOW_MARGIN_NET_PROFIT_FALLBACK_THRESHOLD,
+                "evidence_quality": evidence_quality,
+                "evidence_method": evidence_method,
+            },
         )
 
-    if net_profit_value < 0 or net_profit_value > 50.0:
+    triggered = False
+    severe = False
+    reason = ""
+    if fact_key == "margin":
+        triggered = metric_value < LOW_MARGIN_THRESHOLD
+        severe = metric_value < LOW_MARGIN_SEVERE_THRESHOLD
+        reason = f"margin={metric_value:.4f} below threshold {LOW_MARGIN_THRESHOLD:.2f}"
+    else:
+        triggered = 0 <= metric_value <= LOW_MARGIN_NET_PROFIT_FALLBACK_THRESHOLD
+        severe = metric_value <= 0
+        reason = "net_profit_like is within low-margin fallback threshold"
+
+    if not triggered:
         return None
+
+    priority = DecisionPriority.P1 if severe else DecisionPriority.P2
+    summary = "Margin-like value is below threshold."
+    if fact_key != "margin":
+        summary = "Net profit-like value is near zero and indicates low margin risk."
+    if decision_status == DecisionStatus.PARTIAL:
+        summary = "Low margin risk detected on estimated/incomplete profitability evidence."
 
     return DecisionItem(
         code="low_margin",
         title="Low margin risk",
-        summary="Net profit-like value is positive but near zero.",
-        priority=DecisionPriority.P2,
-        status=DecisionStatus.CONFIRMED,
+        summary=summary,
+        priority=priority,
+        status=decision_status,
         section="financial",
-        reason="net_profit_like is within low-margin threshold",
+        reason=reason,
         evidence=evidence,
         recommended_actions=[
             "Prioritize actions that improve unit economics before scaling spend.",
             "Monitor margin-sensitive cost components in the next cycle.",
         ],
-        diagnostics={"rule": "low_margin", "threshold_value": 50.0},
+        diagnostics={
+            "rule": "low_margin",
+            "fact_key": fact_key,
+            "threshold_margin": LOW_MARGIN_THRESHOLD,
+            "threshold_net_profit_fallback": LOW_MARGIN_NET_PROFIT_FALLBACK_THRESHOLD,
+            "evidence_quality": evidence_quality,
+            "evidence_method": evidence_method,
+        },
     )
 
 

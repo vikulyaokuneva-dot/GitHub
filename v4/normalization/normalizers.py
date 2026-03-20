@@ -318,6 +318,139 @@ def _map_realization_event_type(raw_label: str | None) -> str:
     return "other"
 
 
+_REALIZATION_REVENUE_KEYS = (
+    "retail_amount",
+    "retailAmount",
+    "sale_amount",
+    "saleAmount",
+    "finishedPrice",
+    "priceWithDisc",
+)
+_REALIZATION_PAYOUT_KEYS = (
+    "ppvz_for_pay",
+    "ppvzForPay",
+    "forPay",
+    "to_pay",
+    "toPay",
+    "payout",
+)
+_REALIZATION_COMMISSION_KEYS = (
+    "ppvz_sales_commission",
+    "ppvzSalesCommission",
+    "commission_amount",
+    "commissionAmount",
+    "commission",
+)
+_REALIZATION_LOGISTICS_KEYS = (
+    "delivery_rub",
+    "deliveryRub",
+    "logistics",
+    "logistics_cost",
+    "rebill_logistic_cost",
+    "rebillLogisticCost",
+)
+_REALIZATION_STORAGE_KEYS = (
+    "storage_fee",
+    "storageFee",
+    "storage",
+    "storage_cost",
+)
+_REALIZATION_DEDUCTIONS_KEYS = (
+    "deduction",
+    "deductions",
+    "deduction_amount",
+    "deductionAmount",
+    "bonusPay",
+)
+_REALIZATION_ACQUIRING_KEYS = (
+    "acquiringFee",
+    "acquiring_fee",
+    "acquiring",
+    "paymentProcessingFee",
+    "payment_processing_fee",
+)
+_REALIZATION_PENALTIES_KEYS = (
+    "penalty",
+    "penaltyAmount",
+    "fine",
+    "penalties",
+)
+_REALIZATION_ACCEPTANCE_KEYS = (
+    "acceptance",
+    "acceptance_amount",
+    "acceptanceAmount",
+)
+_REALIZATION_PAID_ACCEPTANCE_KEYS = (
+    "paid_acceptance",
+    "paidAcceptance",
+    "paid_acceptance_amount",
+    "paidAcceptanceAmount",
+)
+_REALIZATION_OTHER_KEYS = (
+    "additional_payment",
+    "service_fee",
+    "other_costs",
+    "otherCosts",
+    "adjustment",
+    "correction_amount",
+    "correctionAmount",
+)
+
+
+def _resolve_realization_amount(
+    *,
+    event_type: str,
+    revenue_amount: float | None,
+    payout_amount: float | None,
+    commission_amount: float | None,
+    logistics_amount: float | None,
+    storage_amount: float | None,
+    deductions_component_amount: float | None,
+    acquiring_amount: float | None,
+    penalties_amount: float | None,
+    acceptance_amount: float | None,
+    paid_acceptance_amount: float | None,
+    other_costs_amount: float | None,
+) -> float | None:
+    if event_type == "sale":
+        return revenue_amount if revenue_amount is not None else payout_amount
+    if event_type == "return":
+        return payout_amount if payout_amount is not None else revenue_amount
+    if event_type == "logistics":
+        return logistics_amount
+    if event_type == "storage":
+        return storage_amount
+    if event_type == "deduction":
+        for value in (
+            commission_amount,
+            acquiring_amount,
+            penalties_amount,
+            acceptance_amount,
+            paid_acceptance_amount,
+            deductions_component_amount,
+            other_costs_amount,
+        ):
+            if value is not None:
+                return value
+        return payout_amount
+    for value in (
+        other_costs_amount,
+        deductions_component_amount,
+        commission_amount,
+        acquiring_amount,
+        penalties_amount,
+        acceptance_amount,
+        paid_acceptance_amount,
+        payout_amount,
+        revenue_amount,
+        logistics_amount,
+        storage_amount,
+    ):
+        if value is not None:
+            return value
+    return None
+
+
 def normalize_realization_source(raw_source_payload: RawSourcePayload | None) -> list[NormalizedRealizationRecord]:
     if not _is_source_usable(raw_source_payload):
         return []
@@ -339,31 +472,55 @@ def normalize_realization_source(raw_source_payload: RawSourcePayload | None) ->
                 "reason",
             ),
         )
+        event_type = _map_realization_event_type(event_type_raw)
+        revenue_amount = _pick_float(row, _REALIZATION_REVENUE_KEYS)
+        payout_amount = _pick_float(row, _REALIZATION_PAYOUT_KEYS)
+        commission_amount = _pick_float(row, _REALIZATION_COMMISSION_KEYS)
+        logistics_amount = _pick_float(row, _REALIZATION_LOGISTICS_KEYS)
+        storage_amount = _pick_float(row, _REALIZATION_STORAGE_KEYS)
+        deductions_component_amount = _pick_float(row, _REALIZATION_DEDUCTIONS_KEYS)
+        acquiring_amount = _pick_float(row, _REALIZATION_ACQUIRING_KEYS)
+        penalties_amount = _pick_float(row, _REALIZATION_PENALTIES_KEYS)
+        acceptance_amount = _pick_float(row, _REALIZATION_ACCEPTANCE_KEYS)
+        paid_acceptance_amount = _pick_float(row, _REALIZATION_PAID_ACCEPTANCE_KEYS)
+        other_costs_amount = _pick_float(row, _REALIZATION_OTHER_KEYS)
+
         records.append(
             NormalizedRealizationRecord(
                 record_id=record_id,
                 seller_id=_pick_text(row, ("sellerId", "supplierId", "supplierID", "supplierContractCode")),
                 nm_id=_pick_value(row, ("nm_id", "nmId", "nmID", "nmid")),
                 event_date=_pick_date(row, ("rr_dt", "sale_dt", "date", "order_dt", "lastChangeDate", "create_dt")),
-                event_type=_map_realization_event_type(event_type_raw),
-                amount=_pick_float(
-                    row,
-                    (
-                        "ppvz_for_pay",
-                        "forPay",
-                        "retail_amount",
-                        "sale_amount",
-                        "delivery_rub",
-                        "storage_fee",
-                        "penalty",
-                        "acquiringFee",
-                        "bonusPay",
-                    ),
+                event_type=event_type,
+                amount=_resolve_realization_amount(
+                    event_type=event_type,
+                    revenue_amount=revenue_amount,
+                    payout_amount=payout_amount,
+                    commission_amount=commission_amount,
+                    logistics_amount=logistics_amount,
+                    storage_amount=storage_amount,
+                    deductions_component_amount=deductions_component_amount,
+                    acquiring_amount=acquiring_amount,
+                    penalties_amount=penalties_amount,
+                    acceptance_amount=acceptance_amount,
+                    paid_acceptance_amount=paid_acceptance_amount,
+                    other_costs_amount=other_costs_amount,
                 ),
                 quantity=_pick_float(row, ("quantity", "sa_quantity", "saleQty", "sales_qty", "qty")),
                 source_tag=source_tag,
                 raw_ref=_make_raw_ref("realization", index, record_id),
                 operation_label=event_type_raw,
+                revenue_amount=revenue_amount,
+                payout_amount=payout_amount,
+                commission_amount=commission_amount,
+                logistics_amount=logistics_amount,
+                storage_amount=storage_amount,
+                deductions_component_amount=deductions_component_amount,
+                acquiring_amount=acquiring_amount,
+                penalties_amount=penalties_amount,
+                acceptance_amount=acceptance_amount,
+                paid_acceptance_amount=paid_acceptance_amount,
+                other_costs_amount=other_costs_amount,
             )
         )
 

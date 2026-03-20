@@ -101,6 +101,8 @@ def _build_financial_section(metrics_bundle: MetricsBundle) -> FactSection | Non
         ("acquiring_amount", "Acquiring amount"),
         ("pvz_amount", "PVZ amount"),
         ("penalties_amount", "Penalties amount"),
+        ("acceptance_amount", "Acceptance amount"),
+        ("paid_acceptance_amount", "Paid acceptance amount"),
         ("other_costs_amount", "Other costs amount"),
         ("gross_profit_like", "Gross profit-like"),
         ("net_profit_like", "Net profit-like"),
@@ -108,11 +110,19 @@ def _build_financial_section(metrics_bundle: MetricsBundle) -> FactSection | Non
     ]
 
     items: list[FactItem] = []
+    metric_provenance = (
+        dict(section.metric_provenance)
+        if isinstance(getattr(section, "metric_provenance", None), dict)
+        else {}
+    )
     for key, title in metric_map:
         metric = getattr(section, key, None)
         extra: dict[str, object] = {}
         if key in {"gross_profit_like", "net_profit_like"} and section.profit_formula_note:
             extra["profit_formula_note"] = section.profit_formula_note
+        provenance = metric_provenance.get(key)
+        if isinstance(provenance, dict):
+            extra["provenance"] = dict(provenance)
         items.append(
             _metric_to_fact_item(
                 key=key,
@@ -133,9 +143,21 @@ def _build_financial_section(metrics_bundle: MetricsBundle) -> FactSection | Non
         "realization_actual_date": section.realization_actual_date,
         "fallback_used": section.fallback_used,
         "lag_days": section.lag_days,
+        "financial_model_mode": section.financial_model_mode,
+        "financial_confidence": section.financial_confidence,
+        "financial_source_date": section.financial_source_date,
         "financial_mode": section.financial_mode,
         "financial_missing_components": list(section.financial_missing_components),
         "financial_available_components": list(section.financial_available_components),
+        "profitability_estimate_used": section.profitability_estimate_used,
+        "profitability_estimate_method": section.profitability_estimate_method,
+        "profitability_estimate_formula": section.profitability_estimate_formula,
+        "profitability_estimate_dependencies": list(section.profitability_estimate_dependencies),
+        "profitability_estimate_warning": section.profitability_estimate_warning,
+        "profitability_method": section.profitability_method,
+        "profitability_dependencies": list(section.profitability_dependencies),
+        "profitability_blockers": list(section.profitability_blockers),
+        "metric_provenance": metric_provenance,
     }
 
     return FactSection(

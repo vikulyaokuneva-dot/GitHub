@@ -30,7 +30,7 @@ class TestEmailContainsDecisionsEvenIfUnavailable(unittest.TestCase):
         self.assertIn("status=not_triggered", body)
         self.assertIn("rule not triggered", body)
 
-    def test_partial_decision_is_rendered_as_unavailable_not_triggered(self) -> None:
+    def test_partial_decision_is_rendered_as_triggered_partial(self) -> None:
         context = RunContext(
             seller_id="seller_001",
             cabinet_name=None,
@@ -61,7 +61,7 @@ class TestEmailContainsDecisionsEvenIfUnavailable(unittest.TestCase):
         body = format_email_body(payload)
 
         self.assertIn("negative_profit", body)
-        self.assertIn("status=unavailable", body)
+        self.assertIn("status=triggered_partial", body)
         self.assertNotIn("status=triggered | Cannot confirm", body)
 
 

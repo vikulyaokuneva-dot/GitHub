@@ -75,6 +75,8 @@ class TestFinancialAssemblerBasic(unittest.TestCase):
         self.assertEqual(financial.sales_amount.value, 300.0)
         self.assertEqual(financial.seller_payout.value, 200.0)
         self.assertEqual(financial.net_realization_amount.value, 170.0)
+        self.assertEqual(financial.financial_model_mode, "exact")
+        self.assertEqual(financial.financial_confidence, "high")
         self.assertEqual(financial.financial_mode, "full")
         self.assertIsNotNone(financial.margin.value)
 
@@ -97,6 +99,7 @@ class TestFinancialAssemblerBasic(unittest.TestCase):
         self.assertIsNone(financial.sales_amount.value)
         self.assertEqual(financial.sales_amount.status, "partial")
         self.assertIsNone(financial.net_realization_amount.value)
+        self.assertEqual(financial.financial_model_mode, "unavailable")
         self.assertEqual(financial.financial_mode, "unavailable")
 
     def test_partial_model_without_realization_uses_sales_and_payout(self) -> None:
@@ -114,6 +117,8 @@ class TestFinancialAssemblerBasic(unittest.TestCase):
 
         financial = assemble_financial_metrics(bundle)
 
+        self.assertEqual(financial.financial_model_mode, "estimated")
+        self.assertIn(financial.financial_confidence, {"medium", "low"})
         self.assertEqual(financial.financial_mode, "partial")
         self.assertEqual(financial.net_profit_like.status, "partial")
         self.assertEqual(financial.net_profit_like.value, 700.0)

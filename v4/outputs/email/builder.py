@@ -46,7 +46,9 @@ def _decision_status_text(item: DecisionItem) -> str:
 def _decision_full_debug_status(raw_status: str) -> str:
     if raw_status == "confirmed":
         return "triggered"
-    if raw_status in {"partial", "unavailable"}:
+    if raw_status == "partial":
+        return "triggered_partial"
+    if raw_status == "unavailable":
         return "unavailable"
     return "unavailable"
 
@@ -163,11 +165,40 @@ def _build_health_summary_line(facts_bundle: FactsBundle) -> str | None:
 
 
 def _build_finance_section(facts_bundle: FactsBundle) -> EmailSection:
+    section = facts_bundle.sections.get("financial")
+    diagnostics = section.diagnostics if isinstance(getattr(section, "diagnostics", None), dict) else {}
+    model_mode = str(
+        diagnostics.get("financial_model_mode")
+        or diagnostics.get("financial_mode")
+        or "unavailable"
+    )
+    confidence = str(diagnostics.get("financial_confidence") or "none")
+    profitability_method = str(diagnostics.get("profitability_method") or "unavailable")
+    estimate_used = bool(diagnostics.get("profitability_estimate_used", False))
+    estimate_warning = str(diagnostics.get("profitability_estimate_warning") or "").strip()
+    blockers = diagnostics.get("profitability_blockers")
+    blocker_list = list(blockers) if isinstance(blockers, list) else []
+
+    net_label = "Чистая прибыль-like"
+    margin_label = "Margin-like"
+    if estimate_used:
+        net_label = "Чистая прибыль-like (оценка)"
+        margin_label = "Margin-like (оценка)"
+
     lines = [
         f"Выручка (gross): {_display_fact_value(_find_fact_item('financial', 'revenue_gross', facts_bundle))}",
         f"Выплата продавцу: {_display_fact_value(_find_fact_item('financial', 'seller_payout', facts_bundle))}",
-        f"Чистая прибыль-like: {_display_fact_value(_find_fact_item('financial', 'net_profit_like', facts_bundle))}",
+        f"{net_label}: {_display_fact_value(_find_fact_item('financial', 'net_profit_like', facts_bundle))}",
+        f"{margin_label}: {_display_fact_value(_find_fact_item('financial', 'margin', facts_bundle))}",
+        f"Модель: {model_mode}; confidence={confidence}",
+        f"Метод profitability: {profitability_method}",
     ]
+    if estimate_warning:
+        lines.append(f"Note: {estimate_warning}")
+    elif estimate_used:
+        lines.append("Note: рассчитано без realization components, на основе seller_payout.")
+    if blocker_list:
+        lines.append(f"Blockers: {blocker_list}")
     return EmailSection(title="Финансы", lines=lines, status=_section_status(facts_bundle, "financial"))
 
 
@@ -323,15 +354,46 @@ def _build_data_availability_section(facts_bundle: FactsBundle, diagnostics: dic
 
 
 def _build_full_financial_section(facts_bundle: FactsBundle) -> EmailSection:
+    section = facts_bundle.sections.get("financial")
+    diagnostics = section.diagnostics if isinstance(getattr(section, "diagnostics", None), dict) else {}
+    model_mode = str(
+        diagnostics.get("financial_model_mode")
+        or diagnostics.get("financial_mode")
+        or "unavailable"
+    )
+    confidence = str(diagnostics.get("financial_confidence") or "none")
+    profitability_method = str(diagnostics.get("profitability_method") or "unavailable")
+    estimate_used = bool(diagnostics.get("profitability_estimate_used", False))
+    estimate_formula = str(diagnostics.get("profitability_estimate_formula") or "").strip()
+    estimate_warning = str(diagnostics.get("profitability_estimate_warning") or "").strip()
+    dependencies = diagnostics.get("profitability_dependencies")
+    dependencies_list = list(dependencies) if isinstance(dependencies, list) else []
+    blockers = diagnostics.get("profitability_blockers")
+    blockers_list = list(blockers) if isinstance(blockers, list) else []
+
     lines = [
         f"revenue: {_display_fact_value(_find_fact_item('financial', 'revenue_gross', facts_bundle))}",
         f"seller_payout: {_display_fact_value(_find_fact_item('financial', 'seller_payout', facts_bundle))}",
         f"commission: {_display_fact_value(_find_fact_item('financial', 'commission_amount', facts_bundle))}",
         f"logistics: {_display_fact_value(_find_fact_item('financial', 'logistics_cost', facts_bundle))}",
         f"storage: {_display_fact_value(_find_fact_item('financial', 'storage_cost', facts_bundle))}",
+        f"acceptance: {_display_fact_value(_find_fact_item('financial', 'acceptance_amount', facts_bundle))}",
+        f"paid_acceptance: {_display_fact_value(_find_fact_item('financial', 'paid_acceptance_amount', facts_bundle))}",
         f"net_profit: {_display_fact_value(_find_fact_item('financial', 'net_profit_like', facts_bundle))}",
         f"margin: {_display_fact_value(_find_fact_item('financial', 'margin', facts_bundle))}",
+        f"financial_model_mode: {model_mode}",
+        f"financial_confidence: {confidence}",
+        f"profitability_method: {profitability_method}",
+        f"profitability_estimate_used: {str(estimate_used).lower()}",
     ]
+    if estimate_formula:
+        lines.append(f"profitability_estimate_formula: {estimate_formula}")
+    if dependencies_list:
+        lines.append(f"profitability_dependencies: {dependencies_list}")
+    if blockers_list:
+        lines.append(f"profitability_blockers: {blockers_list}")
+    if estimate_warning:
+        lines.append(f"profitability_estimate_warning: {estimate_warning}")
     return EmailSection(title="FINANCIAL SUMMARY", lines=lines, status=_section_status(facts_bundle, "financial"))
 
 

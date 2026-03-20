@@ -1,37 +1,25 @@
-﻿"""Financial metrics assembler (expanded contour).
-
-Input: NormalizedBundle.
-Output: FinancialMetricsSection.
-Does not compute facts/decisions and does not render outputs.
-"""
+"""Financial metrics assembler (expanded contour)."""
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Any, Iterable
 
-from ...core.contracts import (
-    FinancialMetricsSection,
-    MetricStatus,
-    MetricValue,
-    NormalizedBundle,
-    NormalizedSaleRecord,
-)
+from ...core.contracts import FinancialMetricsSection, MetricStatus, MetricValue, NormalizedBundle, NormalizedSaleRecord
 from ...warnings_utils import append_warning, dedupe_warnings, extend_warnings
 from .components import classify_realization_components
 from .lag_fallback import resolve_realization_window
 
 
 USABLE_SOURCE_STATES = {"ok", "partial"}
+CORE_EXACT_COST_KEYS = ("logistics_cost", "storage_cost", "deductions_amount")
 
 
-def _metric(
-    value: float | int | None,
-    *,
-    status: MetricStatus,
-    source: str | None,
-    note: str | None = None,
-) -> MetricValue:
+def _metric(value: float | int | None, *, status: MetricStatus, source: str | None, note: str | None = None) -> MetricValue:
     return MetricValue(value=value, status=status.value, source=source, note=note)
+
+
+def _unavailable_metric(*, source: str, note: str) -> MetricValue:
+    return _metric(None, status=MetricStatus.UNAVAILABLE, source=source, note=note)
 
 
 def _source_state(bundle: NormalizedBundle, source_name: str) -> str:
@@ -58,11 +46,7 @@ def _target_date(bundle: NormalizedBundle) -> str | None:
 def _filter_by_date(records: Iterable, getter, target_date: str | None) -> list:
     if not target_date:
         return list(records)
-    out = []
-    for record in records:
-        if getter(record) == target_date:
-            out.append(record)
-    return out
+    return [record for record in records if getter(record) == target_date]
 
 
 def _base_status(source_state: str, *, forced_partial: bool = False) -> MetricStatus:
@@ -86,26 +70,11 @@ def _is_return_sale(record: NormalizedSaleRecord) -> bool | None:
     return None
 
 
-def _metric_from_count(
-    *,
-    count: int | None,
-    source_state: str,
-    source: str,
-    forced_partial: bool = False,
-    note: str | None = None,
-) -> MetricValue:
+def _metric_from_count(*, count: int | None, source_state: str, source: str, forced_partial: bool = False, note: str | None = None) -> MetricValue:
     status = _base_status(source_state, forced_partial=forced_partial)
     if status == MetricStatus.UNAVAILABLE:
         return _metric(None, status=status, source=source, note=note)
     return _metric(int(count or 0), status=status, source=source, note=note)
-
-
-def _sum_amounts(values: list[float | None]) -> tuple[float | None, bool]:
-    numeric = [float(value) for value in values if value is not None]
-    has_missing = any(value is None for value in values)
-    if not numeric:
-        return None, has_missing
-    return round(sum(numeric), 2), has_missing
 
 
 def _metric_from_amount_values(
@@ -120,18 +89,17 @@ def _metric_from_amount_values(
     status = _base_status(source_state, forced_partial=forced_partial)
     if status == MetricStatus.UNAVAILABLE:
         return _metric(None, status=status, source=source, note=note_if_missing)
-
     if not values:
         if allow_zero_if_no_rows:
             return _metric(0.0, status=status, source=source, note=None)
         return _metric(None, status=MetricStatus.PARTIAL, source=source, note=note_if_missing)
-
-    total, has_missing = _sum_amounts(values)
-    if total is None:
+    numeric = [float(value) for value in values if value is not None]
+    has_missing = any(value is None for value in values)
+    if not numeric:
         if allow_zero_if_no_rows and not has_missing:
             return _metric(0.0, status=status, source=source, note=None)
         return _metric(None, status=MetricStatus.PARTIAL, source=source, note=note_if_missing)
-
+    total = sum(numeric)
     if has_missing or status == MetricStatus.PARTIAL:
         return _metric(total, status=MetricStatus.PARTIAL, source=source, note=note_if_missing)
     return _metric(total, status=MetricStatus.CONFIRMED, source=source, note=None)
@@ -145,21 +113,12 @@ def _quality_to_status(value: str | None) -> MetricStatus:
     return MetricStatus.UNAVAILABLE
 
 
-def _component_metric(
-    *,
-    value: float | None,
-    quality: str | None,
-    source: str,
-    fallback_used: bool,
-    note_if_unavailable: str,
-) -> MetricValue:
+def _component_metric(*, value: float | None, quality: str | None, source: str, fallback_used: bool, note_if_unavailable: str) -> MetricValue:
     status = _quality_to_status(quality)
     if fallback_used and status == MetricStatus.CONFIRMED:
         status = MetricStatus.PARTIAL
-
     if status == MetricStatus.UNAVAILABLE:
         return _metric(None, status=status, source=source, note=note_if_unavailable)
-
     return _metric(value, status=status, source=source, note=(note_if_unavailable if value is None else None))
 
 
@@ -174,544 +133,255 @@ def _overall_financial_status(metrics: list[MetricValue]) -> str:
     return MetricStatus.UNAVAILABLE.value
 
 
-def _build_profit_like(
-    *,
-    sales_amount: MetricValue,
-    revenue_gross: MetricValue,
-    seller_payout: MetricValue,
-    commission_amount: MetricValue,
-    acquiring_amount: MetricValue,
-    logistics_cost: MetricValue,
-    storage_cost: MetricValue,
-    pvz_amount: MetricValue,
-    penalties_amount: MetricValue,
-    other_costs_amount: MetricValue,
-    deductions_amount: MetricValue,
-    fallback_used: bool,
-) -> tuple[MetricValue, MetricValue, str | None]:
-    cost_components_full = [
-        commission_amount,
-        acquiring_amount,
-        logistics_cost,
-        storage_cost,
-        pvz_amount,
-        penalties_amount,
-        other_costs_amount,
-        deductions_amount,
-    ]
-
-    formula_note: str | None = None
-    gross_profit_like: MetricValue
-
-    if (
-        revenue_gross.value is not None
-        and all(component.value is not None for component in cost_components_full)
-        and all(component.status != MetricStatus.UNAVAILABLE.value for component in cost_components_full)
-        and revenue_gross.status != MetricStatus.UNAVAILABLE.value
-    ):
-        gross_value = float(revenue_gross.value) - sum(float(component.value) for component in cost_components_full)
-        gross_status = MetricStatus.CONFIRMED
-        if fallback_used or revenue_gross.status != MetricStatus.CONFIRMED.value or any(
-            component.status != MetricStatus.CONFIRMED.value for component in cost_components_full
-        ):
-            gross_status = MetricStatus.PARTIAL
-        formula_note = (
-            "gross_profit_like = revenue_gross - commission - acquiring - logistics - storage "
-            "- pvz - penalties - other_costs - deductions"
-        )
-        gross_profit_like = _metric(
-            round(gross_value, 2),
-            status=gross_status,
-            source="financial_formula_gross_v2",
-            note="profit-like metric without COGS/taxes",
-        )
-    else:
-        payout_cost_components = [
-            logistics_cost,
-            storage_cost,
-            pvz_amount,
-            penalties_amount,
-            other_costs_amount,
-            deductions_amount,
-        ]
-        if (
-            seller_payout.value is not None
-            and all(component.value is not None for component in payout_cost_components)
-            and all(component.status != MetricStatus.UNAVAILABLE.value for component in payout_cost_components)
-            and seller_payout.status != MetricStatus.UNAVAILABLE.value
-        ):
-            gross_value = float(seller_payout.value) - sum(float(component.value) for component in payout_cost_components)
-            formula_note = (
-                "gross_profit_like = seller_payout - logistics - storage - pvz - penalties "
-                "- other_costs - deductions"
-            )
-            gross_profit_like = _metric(
-                round(gross_value, 2),
-                status=MetricStatus.PARTIAL,
-                source="financial_formula_payout_v2",
-                note="fallback profit-like metric derived from payout basis",
-            )
-        else:
-            formula_note = "gross_profit_like is unavailable: insufficient reliable components"
-            gross_profit_like = _metric(
-                None,
-                status=MetricStatus.UNAVAILABLE,
-                source="financial_formula_v2",
-                note="insufficient reliable components",
-            )
-
-    if (
-        gross_profit_like.value is None
-        and sales_amount.value is not None
-        and seller_payout.value is not None
-        and sales_amount.status != MetricStatus.UNAVAILABLE.value
-        and seller_payout.status != MetricStatus.UNAVAILABLE.value
-    ):
-        formula_note = "approx_profit_like = seller_payout (calculated without realization components)"
-        gross_profit_like = _metric(
-            round(float(seller_payout.value), 2),
-            status=MetricStatus.PARTIAL,
-            source="financial_formula_approx_v1",
-            note="calculated without realization components",
-        )
-
-    if gross_profit_like.value is None:
-        net_profit_like = _metric(
-            None,
-            status=_quality_to_status(gross_profit_like.status),
-            source="financial_formula_net_v2",
-            note="net_profit_like unavailable because gross_profit_like is unavailable",
-        )
-    else:
-        net_note = "profit-like metric; COGS/taxes/ads are not included"
-        if str(gross_profit_like.source or "") == "financial_formula_approx_v1":
-            net_note = "calculated without realization components"
-        net_profit_like = _metric(
-            gross_profit_like.value,
-            status=MetricStatus.PARTIAL,
-            source="financial_formula_net_v2",
-            note=net_note,
-        )
-
-    return gross_profit_like, net_profit_like, formula_note
-
-
-def _build_margin_like(
-    *,
-    sales_amount: MetricValue,
-    net_profit_like: MetricValue,
-) -> MetricValue:
-    if (
-        sales_amount.value is None
-        or net_profit_like.value is None
-        or sales_amount.status == MetricStatus.UNAVAILABLE.value
-        or net_profit_like.status == MetricStatus.UNAVAILABLE.value
-    ):
-        return _metric(
-            None,
-            status=MetricStatus.UNAVAILABLE,
-            source="financial_formula_margin_v1",
-            note="margin is unavailable: missing sales_amount or net_profit_like",
-        )
-
-    denominator = float(sales_amount.value)
-    if abs(denominator) < 1e-9:
-        return _metric(
-            None,
-            status=MetricStatus.UNAVAILABLE,
-            source="financial_formula_margin_v1",
-            note="margin is unavailable: sales_amount is zero",
-        )
-
-    margin_value = float(net_profit_like.value) / denominator
-    status = MetricStatus.PARTIAL
-    if (
-        net_profit_like.status == MetricStatus.CONFIRMED.value
-        and sales_amount.status == MetricStatus.CONFIRMED.value
-    ):
-        status = MetricStatus.CONFIRMED
-
-    note = None
-    if (
-        str(net_profit_like.note or "").strip()
-        and "without realization components" in str(net_profit_like.note or "").lower()
-    ):
-        note = "calculated without realization components"
-
-    return _metric(
-        round(margin_value, 4),
-        status=status,
-        source="financial_formula_margin_v1",
-        note=note,
-    )
-
-
-def _component_presence(metric: MetricValue | None) -> bool:
+def _metric_available(metric: MetricValue | None) -> bool:
     return bool(metric is not None and metric.value is not None and metric.status != MetricStatus.UNAVAILABLE.value)
 
 
-def _resolve_financial_mode(
-    *,
-    source_realization: str,
-    realization_actual_date: str | None,
-    sales_amount: MetricValue,
-    seller_payout: MetricValue,
-) -> str:
-    if _source_usable(source_realization) and realization_actual_date:
-        return "full"
-    if _component_presence(sales_amount) or _component_presence(seller_payout):
-        return "partial"
-    return "unavailable"
+def _collect_missing_dependencies(metrics: dict[str, MetricValue], required_keys: tuple[str, ...]) -> list[str]:
+    return sorted([key for key in required_keys if not _metric_available(metrics.get(key))])
+
+
+def calculate_exact_profitability(*, revenue_gross: MetricValue, cost_map: dict[str, MetricValue], fallback_used: bool) -> tuple[MetricValue, MetricValue, dict[str, Any]]:
+    component_map = {"revenue_gross": revenue_gross, **cost_map}
+    missing_required = _collect_missing_dependencies(component_map, ("revenue_gross", *CORE_EXACT_COST_KEYS))
+    missing_optional = _collect_missing_dependencies(component_map, tuple(k for k in component_map if k not in {"revenue_gross", *CORE_EXACT_COST_KEYS}))
+    if not _metric_available(revenue_gross):
+        note = "exact profitability unavailable: missing dependencies ['revenue_gross']"
+        metric = _unavailable_metric(source="financial_formula_exact_v1", note=note)
+        return metric, metric, {
+            "method": "realization_exact",
+            "formula": "net_profit_like = revenue_gross - identifiable_costs",
+            "dependencies": sorted(component_map.keys()),
+            "missing_dependencies": sorted(set(missing_required + missing_optional + ["revenue_gross"])),
+            "blockers": ["revenue_gross"],
+            "confidence": "none",
+        }
+
+    # Exact model keeps maximum usable signal: if revenue is known, we subtract all
+    # available realization cost components and mark the result as partial when
+    # dependencies are incomplete.
+    total_cost = sum(float(metric.value) for metric in cost_map.values() if metric.value is not None)
+    gross_value = float(revenue_gross.value) - total_cost
+
+    required_confirmed = all(
+        _metric_available(component_map.get(key)) and component_map[key].status == MetricStatus.CONFIRMED.value
+        for key in ("revenue_gross", *CORE_EXACT_COST_KEYS)
+    )
+    has_partial_inputs = any(
+        metric.status != MetricStatus.CONFIRMED.value for metric in component_map.values() if metric.value is not None
+    )
+
+    status = MetricStatus.CONFIRMED
+    if fallback_used or has_partial_inputs or missing_required:
+        status = MetricStatus.PARTIAL
+    if status == MetricStatus.CONFIRMED and not required_confirmed:
+        status = MetricStatus.PARTIAL
+
+    note_parts = ["profit-like metric without COGS/taxes/ads"]
+    if missing_required:
+        note_parts.append(f"incomplete exact dependencies: {missing_required}")
+    elif missing_optional:
+        note_parts.append(f"optional components unavailable: {missing_optional}")
+    note = "; ".join(note_parts)
+    metric = _metric(gross_value, status=status, source="financial_formula_exact_v1", note=note)
+    return metric, metric, {
+        "method": "realization_exact",
+        "formula": "net_profit_like = revenue_gross - identifiable_costs",
+        "dependencies": sorted(component_map.keys()),
+        "missing_dependencies": sorted(set(missing_required + missing_optional)),
+        "blockers": list(missing_required),
+        "confidence": ("high" if status == MetricStatus.CONFIRMED else "medium"),
+    }
+
+
+def calculate_estimated_profitability(*, sales_amount: MetricValue, seller_payout: MetricValue) -> tuple[MetricValue, MetricValue, dict[str, Any]]:
+    dependency_map = {"sales_amount": sales_amount, "seller_payout": seller_payout}
+    missing = _collect_missing_dependencies(dependency_map, ("sales_amount", "seller_payout"))
+    if missing:
+        note = f"estimated profitability unavailable: missing dependencies {missing}"
+        metric = _unavailable_metric(source="financial_formula_estimated_v1", note=note)
+        return metric, metric, {
+            "method": "seller_payout_proxy",
+            "formula": "approx_net_profit_like = seller_payout; approx_margin_like = seller_payout / sales_amount",
+            "dependencies": sorted(dependency_map.keys()),
+            "missing_dependencies": missing,
+            "blockers": missing,
+            "confidence": "none",
+            "warning": "insufficient data for estimated profitability",
+        }
+    confidence = "medium"
+    if sales_amount.status != MetricStatus.CONFIRMED.value or seller_payout.status != MetricStatus.CONFIRMED.value:
+        confidence = "low"
+    metric = _metric(
+        float(seller_payout.value),
+        status=MetricStatus.PARTIAL,
+        source="financial_formula_estimated_v1",
+        note="calculated without realization components",
+    )
+    return metric, metric, {
+        "method": "seller_payout_proxy",
+        "formula": "approx_net_profit_like = seller_payout; approx_margin_like = seller_payout / sales_amount",
+        "dependencies": sorted(dependency_map.keys()),
+        "missing_dependencies": [],
+        "blockers": [],
+        "confidence": confidence,
+        "warning": "calculated without realization components",
+    }
+
+
+def calculate_margin(*, profit_metric: MetricValue, revenue_metric: MetricValue, method: str) -> MetricValue:
+    if not _metric_available(profit_metric) or not _metric_available(revenue_metric):
+        return _unavailable_metric(source="financial_formula_margin_v1", note="margin_like unavailable: missing profit or revenue")
+    denominator = float(revenue_metric.value)
+    if denominator <= 0:
+        return _unavailable_metric(source="financial_formula_margin_v1", note="margin_like unavailable: revenue must be positive")
+    status = MetricStatus.PARTIAL
+    if profit_metric.status == MetricStatus.CONFIRMED.value and revenue_metric.status == MetricStatus.CONFIRMED.value:
+        status = MetricStatus.CONFIRMED
+    note = "calculated without realization components" if ("estimated" in method or "proxy" in method) else (profit_metric.note or None)
+    return _metric(float(profit_metric.value) / denominator, status=status, source="financial_formula_margin_v1", note=note)
+
+
+def resolve_financial_confidence(*, financial_model_mode: str, fallback_used: bool, selected_profit_metric: MetricValue, selected_margin_metric: MetricValue, estimate_confidence: str | None) -> str:
+    if financial_model_mode == "unavailable":
+        return "none"
+    if financial_model_mode == "estimated":
+        return str(estimate_confidence or "low")
+    if selected_profit_metric.status == MetricStatus.CONFIRMED.value and selected_margin_metric.status == MetricStatus.CONFIRMED.value and not fallback_used:
+        return "high"
+    return "medium"
 
 
 def _financial_component_lists(component_metrics: dict[str, MetricValue]) -> tuple[list[str], list[str]]:
-    available: list[str] = []
-    missing: list[str] = []
-    for name, metric in component_metrics.items():
-        if _component_presence(metric):
-            available.append(name)
-        else:
-            missing.append(name)
-    return sorted(available), sorted(missing)
+    available = sorted([name for name, metric in component_metrics.items() if _metric_available(metric)])
+    missing = sorted([name for name, metric in component_metrics.items() if not _metric_available(metric)])
+    return available, missing
+
+
+def _build_metric_provenance(*, metric: MetricValue, source_date: str | None, derivation_method: str, confidence: str, dependencies: list[str], missing_dependencies: list[str]) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "source_name": metric.source,
+        "source_date": source_date,
+        "derivation_method": derivation_method,
+        "confidence": confidence,
+        "missing_dependencies": list(missing_dependencies),
+    }
+    if dependencies:
+        payload["dependencies"] = list(dependencies)
+    if metric.status == MetricStatus.PARTIAL.value:
+        payload["partial_reason"] = metric.note or "partial evidence"
+    return payload
 
 
 def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> FinancialMetricsSection:
-    """Assemble expanded and explainable financial contour.
-
-    Counting rule on this stage:
-    - orders_count, sales_count, returns_count are record-based counts,
-      not quantity sums.
-    """
-
     target_date = _target_date(normalized_bundle)
     source_orders = _source_state(normalized_bundle, "orders")
     source_sales = _source_state(normalized_bundle, "sales")
     source_realization = _source_state(normalized_bundle, "realization")
-
     orders_for_day = _filter_by_date(normalized_bundle.orders, lambda row: row.order_date, target_date)
     sales_for_day = _filter_by_date(normalized_bundle.sales, lambda row: row.sale_date, target_date)
-
     return_rows = [row for row in sales_for_day if _is_return_sale(row) is True]
     sale_rows = [row for row in sales_for_day if _is_return_sale(row) is False]
-
     resolution = resolve_realization_window(normalized_bundle, normalized_bundle.run_context)
     components = classify_realization_components(normalized_bundle, actual_date=resolution.actual_date)
-
-    warnings = list(resolution.warnings)
-    warnings.extend(components.warnings)
-
-    orders_count = _metric_from_count(
-        count=len(orders_for_day),
-        source_state=source_orders,
-        source="orders",
-    )
-
-    orders_amount_values: list[float | None] = []
-    for row in orders_for_day:
-        if row.price is None:
-            orders_amount_values.append(None)
-            continue
-        qty = float(row.quantity) if row.quantity is not None else 1.0
-        orders_amount_values.append(float(row.price) * qty)
-
-    orders_amount = _metric_from_amount_values(
-        values=orders_amount_values,
-        source_state=source_orders,
-        source="orders",
-        allow_zero_if_no_rows=True,
-        note_if_missing="orders amount is partially unavailable",
-    )
-
+    warnings = list(resolution.warnings) + list(components.warnings)
+    orders_count = _metric_from_count(count=len(orders_for_day), source_state=source_orders, source="orders")
+    orders_amount = _metric_from_amount_values(values=[(float(row.price) * float(row.quantity or 1.0)) if row.price is not None else None for row in orders_for_day], source_state=source_orders, source="orders", allow_zero_if_no_rows=True, note_if_missing="orders amount is partially unavailable")
     if _source_usable(source_sales):
-        sales_count = _metric_from_count(
-            count=len(sale_rows),
-            source_state=source_sales,
-            source="sales",
-        )
-        returns_count = _metric_from_count(
-            count=len(return_rows),
-            source_state=source_sales,
-            source="sales",
-        )
-        sales_amount = _metric_from_amount_values(
-            values=[row.sale_amount for row in sale_rows],
-            source_state=source_sales,
-            source="sales",
-            allow_zero_if_no_rows=True,
-            note_if_missing="sales amount is partially unavailable",
-        )
+        sales_count = _metric_from_count(count=len(sale_rows), source_state=source_sales, source="sales")
+        returns_count = _metric_from_count(count=len(return_rows), source_state=source_sales, source="sales")
+        sales_amount = _metric_from_amount_values(values=[row.sale_amount for row in sale_rows], source_state=source_sales, source="sales", allow_zero_if_no_rows=True, note_if_missing="sales amount is partially unavailable")
     else:
-        sales_count = _metric_from_count(
-            count=(0 if components.sales_amount is not None else None),
-            source_state=source_realization,
-            source="realization",
-            forced_partial=True,
-            note="derived from realization components",
-        )
-        returns_count = _metric_from_count(
-            count=None,
-            source_state=source_realization,
-            source="realization",
-            forced_partial=True,
-            note="returns count unavailable without sales source",
-        )
-        sales_amount = _component_metric(
-            value=components.sales_amount,
-            quality=components.component_quality.get("revenue"),
-            source="realization_components",
-            fallback_used=bool(resolution.fallback_used),
-            note_if_unavailable="sales amount derived from realization is unavailable",
-        )
-        warnings.append("sales source unavailable: using realization components")
-
-    seller_payout = _component_metric(
-        value=components.seller_payout,
-        quality=components.component_quality.get("payout"),
-        source="realization_components",
-        fallback_used=bool(resolution.fallback_used),
-        note_if_unavailable="seller payout is unavailable in realization components",
-    )
-
+        sales_count = _metric_from_count(count=(0 if components.sales_amount is not None else None), source_state=source_realization, source="realization", forced_partial=True, note="derived from realization components")
+        returns_count = _metric_from_count(count=None, source_state=source_realization, source="realization", forced_partial=True, note="returns count unavailable without sales source")
+        sales_amount = _component_metric(value=components.sales_amount, quality=components.component_quality.get("revenue"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="sales amount derived from realization is unavailable")
+        append_warning(warnings, "sales source unavailable: using realization components")
+    seller_payout = _component_metric(value=components.seller_payout, quality=components.component_quality.get("payout"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="seller payout is unavailable in realization components")
     if seller_payout.value is None and _source_usable(source_sales):
-        seller_payout = _metric_from_amount_values(
-            values=[row.payout_amount for row in sale_rows],
-            source_state=source_sales,
-            source="sales",
-            forced_partial=True,
-            allow_zero_if_no_rows=False,
-            note_if_missing="seller payout is unavailable",
-        )
-
-    if sales_amount.value is not None and _source_usable(source_sales):
-        revenue_gross = _metric(
-            float(sales_amount.value),
-            status=MetricStatus.PARTIAL if sales_amount.status == MetricStatus.PARTIAL.value else MetricStatus.CONFIRMED,
-            source="sales",
-            note="revenue_gross derived from sales amount",
-        )
+        seller_payout = _metric_from_amount_values(values=[row.payout_amount for row in sale_rows], source_state=source_sales, source="sales", forced_partial=True, note_if_missing="seller payout is unavailable")
+    revenue_gross = _metric(float(sales_amount.value), status=MetricStatus.PARTIAL if sales_amount.status == MetricStatus.PARTIAL.value else MetricStatus.CONFIRMED, source="sales", note="revenue_gross derived from sales amount") if (sales_amount.value is not None and _source_usable(source_sales)) else _component_metric(value=components.revenue_gross, quality=components.component_quality.get("revenue"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="revenue gross is unavailable")
+    logistics_cost = _component_metric(value=components.logistics_cost, quality=components.component_quality.get("logistics"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="logistics cost is unavailable")
+    storage_cost = _component_metric(value=components.storage_cost, quality=components.component_quality.get("storage"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="storage cost is unavailable")
+    deductions_amount = _component_metric(value=components.deductions_amount, quality=components.component_quality.get("deductions"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="deductions amount is unavailable")
+    commission_amount = _component_metric(value=components.commission_amount, quality=components.component_quality.get("commission"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="commission amount is unavailable")
+    acquiring_amount = _component_metric(value=components.acquiring_amount, quality=components.component_quality.get("acquiring"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="acquiring amount is unavailable")
+    pvz_amount = _component_metric(value=components.pvz_amount, quality=components.component_quality.get("pvz"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="PVZ amount is unavailable")
+    penalties_amount = _component_metric(value=components.penalties_amount, quality=components.component_quality.get("penalties"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="penalties amount is unavailable")
+    acceptance_amount = _component_metric(value=components.acceptance_amount, quality=components.component_quality.get("acceptance"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="acceptance amount is unavailable")
+    paid_acceptance_amount = _component_metric(value=components.paid_acceptance_amount, quality=components.component_quality.get("paid_acceptance"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="paid acceptance amount is unavailable")
+    other_costs_amount = _component_metric(value=components.other_costs_amount, quality=components.component_quality.get("other_costs"), source="realization_components", fallback_used=bool(resolution.fallback_used), note_if_unavailable="other costs amount is unavailable")
+    if any(component.status == MetricStatus.UNAVAILABLE.value for component in [sales_amount, logistics_cost, storage_cost, deductions_amount]):
+        net_realization_amount = _unavailable_metric(source="financial_formula_net_realization_v2", note="insufficient required components for net realization")
     else:
-        revenue_gross = _component_metric(
-            value=components.revenue_gross,
-            quality=components.component_quality.get("revenue"),
-            source="realization_components",
-            fallback_used=bool(resolution.fallback_used),
-            note_if_unavailable="revenue gross is unavailable",
-        )
-
-    logistics_cost = _component_metric(
-        value=components.logistics_cost,
-        quality=components.component_quality.get("logistics"),
-        source="realization_components",
-        fallback_used=bool(resolution.fallback_used),
-        note_if_unavailable="logistics cost is unavailable",
-    )
-    storage_cost = _component_metric(
-        value=components.storage_cost,
-        quality=components.component_quality.get("storage"),
-        source="realization_components",
-        fallback_used=bool(resolution.fallback_used),
-        note_if_unavailable="storage cost is unavailable",
-    )
-    deductions_amount = _component_metric(
-        value=components.deductions_amount,
-        quality=components.component_quality.get("deductions"),
-        source="realization_components",
-        fallback_used=bool(resolution.fallback_used),
-        note_if_unavailable="deductions amount is unavailable",
-    )
-    commission_amount = _component_metric(
-        value=components.commission_amount,
-        quality=components.component_quality.get("commission"),
-        source="realization_components",
-        fallback_used=bool(resolution.fallback_used),
-        note_if_unavailable="commission amount is unavailable",
-    )
-    acquiring_amount = _component_metric(
-        value=components.acquiring_amount,
-        quality=components.component_quality.get("acquiring"),
-        source="realization_components",
-        fallback_used=bool(resolution.fallback_used),
-        note_if_unavailable="acquiring amount is unavailable",
-    )
-    pvz_amount = _component_metric(
-        value=components.pvz_amount,
-        quality=components.component_quality.get("pvz"),
-        source="realization_components",
-        fallback_used=bool(resolution.fallback_used),
-        note_if_unavailable="PVZ amount is unavailable",
-    )
-    penalties_amount = _component_metric(
-        value=components.penalties_amount,
-        quality=components.component_quality.get("penalties"),
-        source="realization_components",
-        fallback_used=bool(resolution.fallback_used),
-        note_if_unavailable="penalties amount is unavailable",
-    )
-    other_costs_amount = _component_metric(
-        value=components.other_costs_amount,
-        quality=components.component_quality.get("other_costs"),
-        source="realization_components",
-        fallback_used=bool(resolution.fallback_used),
-        note_if_unavailable="other costs amount is unavailable",
-    )
-
-    net_components = [sales_amount, logistics_cost, storage_cost, deductions_amount]
-    if any(component.status == MetricStatus.UNAVAILABLE.value for component in net_components):
-        net_realization_amount = _metric(
-            None,
-            status=MetricStatus.UNAVAILABLE,
-            source="financial_formula_net_realization_v1",
-            note="insufficient components for net realization",
-        )
-    elif any(component.value is None for component in net_components):
-        net_realization_amount = _metric(
-            None,
-            status=MetricStatus.PARTIAL,
-            source="financial_formula_net_realization_v1",
-            note="partial components for net realization",
-        )
+        net_value = float(sales_amount.value or 0.0) - sum(float(component.value or 0.0) for component in [logistics_cost, storage_cost, deductions_amount, acceptance_amount, paid_acceptance_amount])
+        net_status = MetricStatus.CONFIRMED if all(component.status == MetricStatus.CONFIRMED.value for component in [sales_amount, logistics_cost, storage_cost, deductions_amount, acceptance_amount, paid_acceptance_amount]) else MetricStatus.PARTIAL
+        net_realization_amount = _metric(net_value, status=net_status, source="financial_formula_net_realization_v2", note=("optional acceptance components are unavailable" if any(component.value is None for component in [acceptance_amount, paid_acceptance_amount]) else None))
+    cost_map = {"commission_amount": commission_amount, "acquiring_amount": acquiring_amount, "logistics_cost": logistics_cost, "storage_cost": storage_cost, "deductions_amount": deductions_amount, "pvz_amount": pvz_amount, "penalties_amount": penalties_amount, "acceptance_amount": acceptance_amount, "paid_acceptance_amount": paid_acceptance_amount, "other_costs_amount": other_costs_amount}
+    exact_gross, exact_net, exact_meta = calculate_exact_profitability(revenue_gross=revenue_gross, cost_map=cost_map, fallback_used=bool(resolution.fallback_used))
+    estimated_gross, estimated_net, estimate_meta = calculate_estimated_profitability(sales_amount=sales_amount, seller_payout=seller_payout)
+    realization_available = bool(_source_usable(source_realization) and resolution.actual_date)
+    financial_model_mode = "exact" if (realization_available and exact_net.status != MetricStatus.UNAVAILABLE.value) else ("estimated" if estimated_net.status != MetricStatus.UNAVAILABLE.value else "unavailable")
+    if financial_model_mode == "exact":
+        gross_profit_like, net_profit_like, profile = exact_gross, exact_net, exact_meta
+        estimate_used, estimate_method, estimate_formula, estimate_dependencies, estimate_warning = False, None, None, [], None
+    elif financial_model_mode == "estimated":
+        gross_profit_like, net_profit_like, profile = estimated_gross, estimated_net, estimate_meta
+        estimate_used = True
+        estimate_method = str(estimate_meta.get("method", "")) or None
+        estimate_formula = str(estimate_meta.get("formula", "")) or None
+        estimate_dependencies = [str(v) for v in estimate_meta.get("dependencies", [])]
+        estimate_warning = str(estimate_meta.get("warning", "")) or None
+        append_warning(warnings, "financial estimated mode: calculated without realization components")
     else:
-        net_value = (
-            float(sales_amount.value)
-            - float(logistics_cost.value)
-            - float(storage_cost.value)
-            - float(deductions_amount.value)
-        )
-        net_status = MetricStatus.CONFIRMED
-        if any(component.status != MetricStatus.CONFIRMED.value for component in net_components):
-            net_status = MetricStatus.PARTIAL
-        net_realization_amount = _metric(
-            round(net_value, 2),
-            status=net_status,
-            source="financial_formula_net_realization_v1",
-            note=None,
-        )
-
-    gross_profit_like, net_profit_like, profit_formula_note = _build_profit_like(
-        sales_amount=sales_amount,
-        revenue_gross=revenue_gross,
-        seller_payout=seller_payout,
-        commission_amount=commission_amount,
-        acquiring_amount=acquiring_amount,
-        logistics_cost=logistics_cost,
-        storage_cost=storage_cost,
-        pvz_amount=pvz_amount,
-        penalties_amount=penalties_amount,
-        other_costs_amount=other_costs_amount,
-        deductions_amount=deductions_amount,
-        fallback_used=bool(resolution.fallback_used),
-    )
-    margin = _build_margin_like(
-        sales_amount=sales_amount,
-        net_profit_like=net_profit_like,
-    )
-
-    source_quality = {
-        "orders": source_orders,
-        "sales": source_sales,
-        "realization": source_realization,
-    }
-
-    component_quality = dict(components.component_quality)
-    component_quality.update(
-        {
-            "revenue": revenue_gross.status,
-            "payout": seller_payout.status,
-            "commission": commission_amount.status,
-            "acquiring": acquiring_amount.status,
-            "logistics": logistics_cost.status,
-            "storage": storage_cost.status,
-            "deductions": deductions_amount.status,
-            "pvz": pvz_amount.status,
-            "penalties": penalties_amount.status,
-            "other_costs": other_costs_amount.status,
-            "margin": margin.status,
+        gross_profit_like = _unavailable_metric(source="financial_formula_v3", note="insufficient evidence for profitability calculation")
+        net_profit_like = _unavailable_metric(source="financial_formula_v3", note="insufficient evidence for profitability calculation")
+        profile = {
+            "method": "unavailable",
+            "formula": "",
+            "dependencies": [],
+            "missing_dependencies": sorted(set([*exact_meta.get("missing_dependencies", []), *estimate_meta.get("missing_dependencies", [])])),
+            "blockers": sorted(set([*exact_meta.get("blockers", []), *estimate_meta.get("blockers", [])])),
+            "confidence": "none",
         }
-    )
-
-    tracked_components = {
-        "sales_amount": sales_amount,
-        "seller_payout": seller_payout,
-        "revenue_gross": revenue_gross,
-        "commission_amount": commission_amount,
-        "acquiring_amount": acquiring_amount,
-        "logistics_cost": logistics_cost,
-        "storage_cost": storage_cost,
-        "deductions_amount": deductions_amount,
-        "net_profit_like": net_profit_like,
-        "margin": margin,
+        estimate_used = False
+        estimate_method = str(estimate_meta.get("method", "")) or None
+        estimate_formula = str(estimate_meta.get("formula", "")) or None
+        estimate_dependencies = [str(v) for v in estimate_meta.get("dependencies", [])]
+        estimate_warning = str(estimate_meta.get("warning", "")) or None
+    margin = calculate_margin(profit_metric=net_profit_like, revenue_metric=(sales_amount if financial_model_mode == "estimated" else revenue_gross), method=("estimated_proxy" if financial_model_mode == "estimated" else "realization_exact"))
+    financial_confidence = resolve_financial_confidence(financial_model_mode=financial_model_mode, fallback_used=bool(resolution.fallback_used), selected_profit_metric=net_profit_like, selected_margin_metric=margin, estimate_confidence=str(estimate_meta.get("confidence", "none")))
+    component_quality = {
+        **dict(components.component_quality),
+        "revenue": revenue_gross.status, "payout": seller_payout.status, "commission": commission_amount.status, "acquiring": acquiring_amount.status,
+        "logistics": logistics_cost.status, "storage": storage_cost.status, "deductions": deductions_amount.status, "pvz": pvz_amount.status,
+        "penalties": penalties_amount.status, "acceptance": acceptance_amount.status, "paid_acceptance": paid_acceptance_amount.status,
+        "other_costs": other_costs_amount.status, "gross_profit_like": gross_profit_like.status, "net_profit_like": net_profit_like.status, "margin": margin.status,
     }
+    tracked_components = {"sales_amount": sales_amount, "seller_payout": seller_payout, "revenue_gross": revenue_gross, "commission_amount": commission_amount, "acquiring_amount": acquiring_amount, "logistics_cost": logistics_cost, "storage_cost": storage_cost, "deductions_amount": deductions_amount, "pvz_amount": pvz_amount, "penalties_amount": penalties_amount, "acceptance_amount": acceptance_amount, "paid_acceptance_amount": paid_acceptance_amount, "other_costs_amount": other_costs_amount, "net_profit_like": net_profit_like, "margin": margin}
     financial_available_components, financial_missing_components = _financial_component_lists(tracked_components)
-    financial_mode = _resolve_financial_mode(
-        source_realization=source_realization,
-        realization_actual_date=resolution.actual_date,
-        sales_amount=sales_amount,
-        seller_payout=seller_payout,
-    )
-    if financial_mode == "partial" and not (_source_usable(source_realization) and resolution.actual_date):
-        append_warning(
-            warnings,
-            "financial partial mode: calculated without realization components",
-        )
-
+    metric_provenance = {
+        "gross_profit_like": _build_metric_provenance(metric=gross_profit_like, source_date=resolution.actual_date, derivation_method=str(profile.get("method", "unknown")), confidence=financial_confidence, dependencies=[str(v) for v in profile.get("dependencies", [])], missing_dependencies=[str(v) for v in profile.get("missing_dependencies", [])]),
+        "net_profit_like": _build_metric_provenance(metric=net_profit_like, source_date=resolution.actual_date, derivation_method=str(profile.get("method", "unknown")), confidence=financial_confidence, dependencies=[str(v) for v in profile.get("dependencies", [])], missing_dependencies=[str(v) for v in profile.get("missing_dependencies", [])]),
+        "margin": _build_metric_provenance(metric=margin, source_date=resolution.actual_date, derivation_method=("estimated_proxy" if financial_model_mode == "estimated" else "realization_exact"), confidence=financial_confidence, dependencies=(["net_profit_like", "sales_amount"] if financial_model_mode == "estimated" else ["net_profit_like", "revenue_gross"]), missing_dependencies=([] if margin.status != MetricStatus.UNAVAILABLE.value else ["net_profit_like", "revenue_base"])),
+    }
+    financial_mode_compat = "full" if financial_model_mode == "exact" else "partial" if financial_model_mode == "estimated" else "unavailable"
     extend_warnings(warnings, normalized_bundle.warnings)
-
-    key_metrics = [
-        orders_count,
-        sales_count,
-        returns_count,
-        orders_amount,
-        sales_amount,
-        seller_payout,
-        revenue_gross,
-        commission_amount,
-        acquiring_amount,
-        logistics_cost,
-        storage_cost,
-        deductions_amount,
-        pvz_amount,
-        penalties_amount,
-        other_costs_amount,
-        net_realization_amount,
-        gross_profit_like,
-        net_profit_like,
-        margin,
-    ]
-
-    financial_status = _overall_financial_status(key_metrics)
-    append_warning(warnings, f"financial_mode={financial_mode}")
+    financial_status = _overall_financial_status([orders_count, sales_count, returns_count, orders_amount, sales_amount, seller_payout, revenue_gross, net_realization_amount, gross_profit_like, net_profit_like, margin])
+    append_warning(warnings, f"financial_model_mode={financial_model_mode}")
+    append_warning(warnings, f"financial_confidence={financial_confidence}")
     append_warning(warnings, f"financial_status={financial_status}")
     warnings = dedupe_warnings(warnings)
-
     return FinancialMetricsSection(
-        orders_count=orders_count,
-        sales_count=sales_count,
-        returns_count=returns_count,
-        orders_amount=orders_amount,
-        sales_amount=sales_amount,
-        seller_payout=seller_payout,
-        logistics_cost=logistics_cost,
-        storage_cost=storage_cost,
-        deductions_amount=deductions_amount,
-        net_realization_amount=net_realization_amount,
-        revenue_gross=revenue_gross,
-        commission_amount=commission_amount,
-        acquiring_amount=acquiring_amount,
-        pvz_amount=pvz_amount,
-        penalties_amount=penalties_amount,
-        other_costs_amount=other_costs_amount,
-        gross_profit_like=gross_profit_like,
-        net_profit_like=net_profit_like,
-        margin=margin,
-        profit_formula_note=profit_formula_note,
-        realization_target_date=resolution.target_date,
-        realization_actual_date=resolution.actual_date,
-        fallback_used=resolution.fallback_used,
-        lag_days=resolution.lag_days,
-        financial_mode=financial_mode,
-        financial_missing_components=financial_missing_components,
-        financial_available_components=financial_available_components,
-        source_quality=source_quality,
-        component_quality=component_quality,
-        warnings=warnings,
+        orders_count=orders_count, sales_count=sales_count, returns_count=returns_count, orders_amount=orders_amount, sales_amount=sales_amount, seller_payout=seller_payout,
+        logistics_cost=logistics_cost, storage_cost=storage_cost, deductions_amount=deductions_amount, net_realization_amount=net_realization_amount,
+        revenue_gross=revenue_gross, commission_amount=commission_amount, acquiring_amount=acquiring_amount, pvz_amount=pvz_amount, penalties_amount=penalties_amount,
+        acceptance_amount=acceptance_amount, paid_acceptance_amount=paid_acceptance_amount, other_costs_amount=other_costs_amount, gross_profit_like=gross_profit_like,
+        net_profit_like=net_profit_like, margin=margin, profit_formula_note=(str(profile.get("formula", "")) or None), realization_target_date=resolution.target_date,
+        realization_actual_date=resolution.actual_date, fallback_used=resolution.fallback_used, lag_days=resolution.lag_days, financial_model_mode=financial_model_mode,
+        financial_confidence=financial_confidence, financial_source_date=resolution.actual_date, financial_mode=financial_mode_compat,
+        financial_missing_components=financial_missing_components, financial_available_components=financial_available_components, profitability_estimate_used=estimate_used,
+        profitability_estimate_method=estimate_method, profitability_estimate_formula=estimate_formula, profitability_estimate_dependencies=estimate_dependencies,
+        profitability_estimate_warning=estimate_warning, profitability_method=str(profile.get("method", "unavailable")),
+        profitability_dependencies=[str(v) for v in profile.get("dependencies", [])], profitability_blockers=[str(v) for v in profile.get("blockers", [])], metric_provenance=metric_provenance,
+        source_quality={"orders": source_orders, "sales": source_sales, "realization": source_realization}, component_quality=component_quality, warnings=warnings,
     )

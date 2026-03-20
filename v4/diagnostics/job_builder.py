@@ -119,6 +119,20 @@ def build_job_diagnostics(
         section_name: _status_to_text(section.status)
         for section_name, section in facts_bundle.sections.items()
     }
+    financial_model_mode = metrics_diag.get("financial_model_mode")
+    financial_confidence = metrics_diag.get("financial_confidence")
+    financial_source_date = metrics_diag.get("financial_source_date")
+    profitability_method = metrics_diag.get("profitability_method")
+    profitability_dependencies = (
+        list(metrics_diag.get("profitability_dependencies"))
+        if isinstance(metrics_diag.get("profitability_dependencies"), list)
+        else []
+    )
+    profitability_blockers = (
+        list(metrics_diag.get("profitability_blockers"))
+        if isinstance(metrics_diag.get("profitability_blockers"), list)
+        else []
+    )
 
     all_warnings = []
     all_warnings.extend(ingestion_result.warnings)
@@ -174,6 +188,12 @@ def build_job_diagnostics(
         "required_missing_sources": required_missing_sources,
         "optional_missing_sources": optional_missing_sources,
         "section_statuses": section_statuses,
+        "financial_model_mode": financial_model_mode,
+        "financial_confidence": financial_confidence,
+        "financial_source_date": financial_source_date,
+        "profitability_method": profitability_method,
+        "profitability_dependencies": profitability_dependencies,
+        "profitability_blockers": profitability_blockers,
         "warnings_count": len(all_warnings),
         "warnings": list(all_warnings),
         "partial_flag": partial_flag,

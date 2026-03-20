@@ -67,6 +67,17 @@ class NormalizedRealizationRecord:
     source_tag: str
     raw_ref: str | None
     operation_label: str | None = None
+    revenue_amount: float | None = None
+    payout_amount: float | None = None
+    commission_amount: float | None = None
+    logistics_amount: float | None = None
+    storage_amount: float | None = None
+    deductions_component_amount: float | None = None
+    acquiring_amount: float | None = None
+    penalties_amount: float | None = None
+    acceptance_amount: float | None = None
+    paid_acceptance_amount: float | None = None
+    other_costs_amount: float | None = None
 
 
 @dataclass(frozen=True)

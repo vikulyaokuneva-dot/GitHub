@@ -64,6 +64,8 @@ class FinancialMetricsSection:
     acquiring_amount: MetricValue = field(default_factory=_default_unavailable_metric)
     pvz_amount: MetricValue = field(default_factory=_default_unavailable_metric)
     penalties_amount: MetricValue = field(default_factory=_default_unavailable_metric)
+    acceptance_amount: MetricValue = field(default_factory=_default_unavailable_metric)
+    paid_acceptance_amount: MetricValue = field(default_factory=_default_unavailable_metric)
     other_costs_amount: MetricValue = field(default_factory=_default_unavailable_metric)
     gross_profit_like: MetricValue = field(default_factory=_default_unavailable_metric)
     net_profit_like: MetricValue = field(default_factory=_default_unavailable_metric)
@@ -74,9 +76,21 @@ class FinancialMetricsSection:
     realization_actual_date: str | None = None
     fallback_used: bool | None = None
     lag_days: int | None = None
+    financial_model_mode: str | None = None
+    financial_confidence: str | None = None
+    financial_source_date: str | None = None
     financial_mode: str | None = None
     financial_missing_components: list[str] = field(default_factory=list)
     financial_available_components: list[str] = field(default_factory=list)
+    profitability_estimate_used: bool | None = None
+    profitability_estimate_method: str | None = None
+    profitability_estimate_formula: str | None = None
+    profitability_estimate_dependencies: list[str] = field(default_factory=list)
+    profitability_estimate_warning: str | None = None
+    profitability_method: str | None = None
+    profitability_dependencies: list[str] = field(default_factory=list)
+    profitability_blockers: list[str] = field(default_factory=list)
+    metric_provenance: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     source_quality: dict[str, str] = field(default_factory=dict)
     component_quality: dict[str, str] = field(default_factory=dict)

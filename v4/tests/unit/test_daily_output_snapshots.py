@@ -72,6 +72,9 @@ class TestDailyOutputSnapshots(unittest.TestCase):
                     "partial_sources",
                     "source_reason_map",
                     "source_coverage_summary",
+                    "financial_model_mode",
+                    "financial_confidence",
+                    "profitability_method",
                     "audit_note",
                 },
             )

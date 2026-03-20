@@ -116,6 +116,9 @@ def build_artifact_payloads(
         "partial_sources": partial_sources,
         "source_reason_map": source_reason_map,
         "source_coverage_summary": source_coverage_summary,
+        "financial_model_mode": facts_bundle.diagnostics.get("financial_model_mode"),
+        "financial_confidence": facts_bundle.diagnostics.get("financial_confidence"),
+        "profitability_method": facts_bundle.diagnostics.get("profitability_method"),
         "audit_note": AUDIT_DISCLAIMER if normalized_mode == "audit" else None,
     }
 
