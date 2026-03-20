@@ -192,10 +192,18 @@ def _enrich_feature_flags(base: dict[str, Any] | None, *, force_email: bool, ful
 
 def _ensure_force_email_sent(delivery: dict[str, Any]) -> None:
     diagnostics = delivery.get("diagnostics", {}) if isinstance(delivery.get("diagnostics"), dict) else {}
+    email_send = diagnostics.get("email_send", {}) if isinstance(diagnostics.get("email_send"), dict) else {}
+
     if not bool(diagnostics.get("email_send_attempted", False)):
-        raise RuntimeError("Email send failed")
+        raise RuntimeError("Email send failed: send was not attempted")
+
     if not bool(diagnostics.get("email_sent", False)):
-        raise RuntimeError("Email send failed")
+        reason = str(
+            email_send.get("email_failure_reason_normalized")
+            or "; ".join(diagnostics.get("warnings", []) if isinstance(diagnostics.get("warnings"), list) else [])
+            or "unknown SMTP failure"
+        ).strip()
+        raise RuntimeError(f"Email send failed: {reason}")
 
 
 def run(payload: dict[str, Any] | None = None) -> dict:
@@ -408,4 +416,3 @@ def run(payload: dict[str, Any] | None = None) -> dict:
         return enriched
 
     return result
-

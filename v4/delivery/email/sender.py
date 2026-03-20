@@ -51,6 +51,51 @@ def _mask_email_targets(raw_value: str) -> str:
     return ", ".join(masked)
 
 
+def _email_domain(email: str) -> str:
+    _, sep, domain = str(email or "").strip().partition("@")
+    if sep != "@":
+        return ""
+    return domain.strip().lower()
+
+
+def _infer_smtp_defaults(username: str) -> tuple[str, int, bool, str]:
+    domain = _email_domain(username)
+    provider_defaults: dict[str, tuple[str, int, bool]] = {
+        "gmail.com": ("smtp.gmail.com", 465, True),
+        "googlemail.com": ("smtp.gmail.com", 465, True),
+        "yandex.ru": ("smtp.yandex.ru", 465, True),
+        "yandex.com": ("smtp.yandex.com", 465, True),
+        "ya.ru": ("smtp.yandex.ru", 465, True),
+        "mail.ru": ("smtp.mail.ru", 465, True),
+        "bk.ru": ("smtp.mail.ru", 465, True),
+        "inbox.ru": ("smtp.mail.ru", 465, True),
+        "list.ru": ("smtp.mail.ru", 465, True),
+        "outlook.com": ("smtp-mail.outlook.com", 587, False),
+        "hotmail.com": ("smtp-mail.outlook.com", 587, False),
+        "live.com": ("smtp-mail.outlook.com", 587, False),
+        "msn.com": ("smtp-mail.outlook.com", 587, False),
+        "office365.com": ("smtp.office365.com", 587, False),
+        "yahoo.com": ("smtp.mail.yahoo.com", 465, True),
+        "icloud.com": ("smtp.mail.me.com", 465, True),
+        "me.com": ("smtp.mail.me.com", 465, True),
+        "mac.com": ("smtp.mail.me.com", 465, True),
+        "rambler.ru": ("smtp.rambler.ru", 465, True),
+    }
+    if domain in provider_defaults:
+        host, port, use_ssl = provider_defaults[domain]
+        return host, port, use_ssl, f"inferred_from_email_domain:{domain}"
+    if domain:
+        return f"smtp.{domain}", 465, True, f"inferred_generic_from_email_domain:{domain}"
+    return "smtp.gmail.com", 465, True, "fallback_default"
+
+
+def _parse_bool(value: str, *, default: bool) -> bool:
+    text = str(value or "").strip().lower()
+    if not text:
+        return bool(default)
+    return text not in {"0", "false", "no", "off"}
+
+
 def _resolve_email_config() -> dict[str, Any]:
     username = str(os.getenv("EMAIL_USERNAME") or os.getenv("YANDEX_SMTP_USER") or "").strip()
     password = str(os.getenv("EMAIL_PASSWORD") or os.getenv("YANDEX_SMTP_APP_PASS") or "").strip()
@@ -66,15 +111,23 @@ def _resolve_email_config() -> dict[str, Any]:
     if missing:
         raise RuntimeError(f"Missing required env vars: {', '.join(missing)}")
 
-    smtp_host = str(os.getenv("SMTP_HOST") or os.getenv("YANDEX_SMTP_HOST") or "smtp.gmail.com").strip()
-    smtp_port_text = str(os.getenv("SMTP_PORT") or os.getenv("YANDEX_SMTP_PORT") or "465").strip()
+    inferred_host, inferred_port, inferred_ssl, inferred_source = _infer_smtp_defaults(username)
+
+    smtp_host_raw = str(os.getenv("SMTP_HOST") or os.getenv("YANDEX_SMTP_HOST") or "").strip()
+    smtp_host = smtp_host_raw or inferred_host
+    smtp_host_source = "env:SMTP_HOST" if smtp_host_raw else inferred_source
+
+    smtp_port_raw = str(os.getenv("SMTP_PORT") or os.getenv("YANDEX_SMTP_PORT") or "").strip()
+    smtp_port_text = smtp_port_raw or str(inferred_port)
     try:
         smtp_port = int(smtp_port_text)
     except ValueError as exc:
         raise RuntimeError(f"Invalid SMTP_PORT value: {smtp_port_text}") from exc
 
-    use_ssl_text = str(os.getenv("SMTP_SSL", "true")).strip().lower()
-    use_ssl = use_ssl_text not in {"0", "false", "no", "off"}
+    smtp_ssl_raw = str(os.getenv("SMTP_SSL") or "").strip()
+    use_ssl = _parse_bool(smtp_ssl_raw, default=inferred_ssl)
+    smtp_ssl_source = "env:SMTP_SSL" if smtp_ssl_raw else f"inferred:{inferred_source}"
+
     timeout_text = str(os.getenv("SMTP_TIMEOUT_SECONDS", "30")).strip()
     try:
         timeout_seconds = float(timeout_text)
@@ -88,6 +141,8 @@ def _resolve_email_config() -> dict[str, Any]:
         "smtp_host": smtp_host,
         "smtp_port": smtp_port,
         "use_ssl": use_ssl,
+        "smtp_host_source": smtp_host_source,
+        "smtp_ssl_source": smtp_ssl_source,
         "timeout_seconds": timeout_seconds,
     }
 
@@ -191,6 +246,12 @@ def send_email_via_smtp(
 
         client.login(str(cfg["username"]), str(cfg["password"]))
         client.send_message(message)
+    except Exception as exc:
+        raise RuntimeError(
+            "SMTP send failed "
+            f"(host={cfg['smtp_host']}, port={cfg['smtp_port']}, ssl={cfg['use_ssl']}, host_source={cfg.get('smtp_host_source')})"
+            f": {exc}"
+        ) from exc
     finally:
         if client is not None:
             try:
@@ -204,6 +265,10 @@ def send_email_via_smtp(
         "email_stage": "send",
         "email_transport_status": "success",
         "email_failure_reason_normalized": "",
+        "smtp_host": str(cfg["smtp_host"]),
+        "smtp_port": int(cfg["smtp_port"]),
+        "smtp_ssl": bool(cfg["use_ssl"]),
+        "smtp_host_source": str(cfg.get("smtp_host_source", "")),
         "attachments_count": len(attachment_paths),
     }
 
@@ -229,4 +294,3 @@ def save_email_preview(
 
 
 __all__ = ["build_email_message", "save_email_preview", "send_email_via_smtp"]
-

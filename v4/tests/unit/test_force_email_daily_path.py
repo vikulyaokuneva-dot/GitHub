@@ -43,15 +43,22 @@ class TestForceEmailDailyPath(unittest.TestCase):
                     return_value={
                         "pdf_path": None,
                         "email_preview_path": None,
-                        "email_send": {"email_transport_status": "failed"},
+                        "email_send": {
+                            "email_transport_status": "failed",
+                            "email_failure_reason_normalized": "smtp auth failed",
+                        },
                         "diagnostics": {
                             "email_send_attempted": True,
                             "email_sent": False,
+                            "email_send": {
+                                "email_transport_status": "failed",
+                                "email_failure_reason_normalized": "smtp auth failed",
+                            },
                         },
                     },
                 ),
             ):
-                with self.assertRaisesRegex(RuntimeError, "Email send failed"):
+                with self.assertRaisesRegex(RuntimeError, "Email send failed: smtp auth failed"):
                     run_daily(
                         {
                             "seller_id": "seller_001",
@@ -65,4 +72,3 @@ class TestForceEmailDailyPath(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
