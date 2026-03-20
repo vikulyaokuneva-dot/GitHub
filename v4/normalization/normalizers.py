@@ -168,8 +168,8 @@ def _status_reason(source_name: str, status: SourceStatus | None) -> str:
     error_code = str(status.error_code or "").strip().lower()
     status_text = str(status.status.value if hasattr(status.status, "value") else status.status).strip().lower()
 
-    if error_code in {"http_401", "http_403", "auth_error", "unauthorized", "forbidden"}:
-        return "auth_error"
+    if error_code in {"http_401", "http_403", "auth_error", "auth_failed", "unauthorized", "forbidden"}:
+        return "auth_failed"
     if status_text == "error":
         return "request_failed"
     if status_text == "missing":
@@ -182,11 +182,11 @@ def _status_reason(source_name: str, status: SourceStatus | None) -> str:
 
 
 def _coverage_kind(*, status_text: str, reason: str) -> str:
-    if reason in {"auth_error", "request_failed", "parse_failed", "normalized_empty"}:
+    if reason in {"auth_error", "auth_failed", "request_failed", "parse_failed", "normalized_empty"}:
         return "source_failed"
-    if reason == "no_data_for_date":
+    if reason in {"no_data_for_date", "no_realization_in_window"}:
         return "source_unavailable_for_selected_date"
-    if status_text == "missing" and reason == "empty_payload":
+    if status_text == "missing" and reason in {"empty_payload", "ok_empty_payload"}:
         return "source_empty_but_valid"
     if status_text in {"missing", "not_implemented"}:
         return "source_missing"

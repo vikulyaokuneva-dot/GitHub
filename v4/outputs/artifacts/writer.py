@@ -51,11 +51,11 @@ def _decision_counts_by_priority(decisions_bundle: DecisionsBundle) -> dict[str,
 def _coverage_kind(*, status_text: str, reason: str) -> str:
     token = str(status_text).strip().lower()
     why = str(reason).strip().lower()
-    if why in {"auth_error", "request_failed", "parse_failed", "normalized_empty"}:
+    if why in {"auth_error", "auth_failed", "request_failed", "parse_failed", "normalized_empty"}:
         return "source_failed"
-    if why == "no_data_for_date":
+    if why in {"no_data_for_date", "no_realization_in_window"}:
         return "source_unavailable_for_selected_date"
-    if token == "missing" and why == "empty_payload":
+    if token == "missing" and why in {"empty_payload", "ok_empty_payload"}:
         return "source_empty_but_valid"
     if token in {"missing", "not_implemented"}:
         return "source_missing"

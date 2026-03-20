@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import unittest
+from unittest.mock import patch
 
 from v4.core.contracts import RunContext, RunMode
 from v4.ingestion.api.client import ApiCallResult, WBApiClient
@@ -48,7 +50,8 @@ class TestSourceReasonClassification(unittest.TestCase):
             attempts=1,
             url="https://example/realization",
         )
-        payload = load_realization(_StubClient(response), _context())
+        with patch.dict(os.environ, {"WB_MAX_FINANCE_LAG_DAYS": "0"}, clear=False):
+            payload = load_realization(_StubClient(response), _context())
         self.assertEqual(payload.status.status.value, "missing")
         self.assertEqual(payload.status.debug.get("realization_reason"), "no_data_for_date")
 
@@ -64,7 +67,7 @@ class TestSourceReasonClassification(unittest.TestCase):
         )
         payload = load_realization(_StubClient(response), _context())
         self.assertEqual(payload.status.status.value, "error")
-        self.assertEqual(payload.status.debug.get("realization_reason"), "auth_error")
+        self.assertEqual(payload.status.debug.get("realization_reason"), "auth_failed")
 
     def test_funnel_request_failed_reason(self) -> None:
         response = ApiCallResult(

@@ -34,11 +34,11 @@ def _dedupe_keep_order(values: list[str]) -> list[str]:
 
 
 def _coverage_kind(*, status_text: str, reason: str) -> str:
-    if reason in {"auth_error", "request_failed", "parse_failed", "normalized_empty"}:
+    if reason in {"auth_error", "auth_failed", "request_failed", "parse_failed", "normalized_empty"}:
         return "source_failed"
-    if reason == "no_data_for_date":
+    if reason in {"no_data_for_date", "no_realization_in_window"}:
         return "source_unavailable_for_selected_date"
-    if status_text == "missing" and reason == "empty_payload":
+    if status_text == "missing" and reason in {"empty_payload", "ok_empty_payload"}:
         return "source_empty_but_valid"
     if status_text in {"missing", "not_implemented"}:
         return "source_missing"
