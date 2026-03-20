@@ -15,6 +15,7 @@ from ...core.contracts import (
     NormalizedAdsStatRecord,
     NormalizedBundle,
 )
+from ...warnings_utils import dedupe_warnings, extend_warnings
 
 
 def _metric(
@@ -52,14 +53,17 @@ def _source_warnings(normalized_bundle: NormalizedBundle) -> list[str]:
         source_status = normalized_bundle.source_statuses.get(key)
         if source_status is None:
             continue
-        warnings.extend([f"{key}: {message}" for message in source_status.warnings])
+        extend_warnings(warnings, source_status.warnings, namespace=key)
 
-    warnings.extend(
-        warning
-        for warning in normalized_bundle.warnings
-        if "ads" in str(warning).lower()
+    extend_warnings(
+        warnings,
+        (
+            warning
+            for warning in normalized_bundle.warnings
+            if "ads" in str(warning).lower()
+        ),
     )
-    return warnings
+    return dedupe_warnings(warnings)
 
 
 def _is_active_campaign(record: NormalizedAdsCampaignRecord) -> bool | None:
@@ -331,6 +335,7 @@ def assemble_ads_metrics(normalized_bundle: NormalizedBundle) -> AdsMetricsSecti
         note_denominator="click-to-order denominator (clicks) is unavailable or <= 0",
     )
     warnings.extend(warn)
+    warnings = dedupe_warnings(warnings)
 
     note = _section_note(campaigns_state=campaigns_state, stats_state=stats_state, warnings=warnings)
 

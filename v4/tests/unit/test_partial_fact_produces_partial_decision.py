@@ -15,7 +15,7 @@ from v4.decisions.builder import build_decisions_bundle
 
 
 class TestPartialFactProducesPartialDecision(unittest.TestCase):
-    def test_partial_fact_produces_partial_decision(self) -> None:
+    def test_partial_fact_produces_unavailable_decision(self) -> None:
         context = RunContext(
             seller_id="seller_001",
             cabinet_name=None,
@@ -50,7 +50,8 @@ class TestPartialFactProducesPartialDecision(unittest.TestCase):
         item = next((d for d in decisions.items if d.code == "negative_profit"), None)
         self.assertIsNotNone(item)
         assert item is not None
-        self.assertEqual(item.status, DecisionStatus.PARTIAL)
+        self.assertEqual(item.status, DecisionStatus.UNAVAILABLE)
+        self.assertIn("Cannot confirm", item.summary)
 
 
 if __name__ == "__main__":

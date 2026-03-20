@@ -48,6 +48,24 @@ def _decision_counts_by_priority(decisions_bundle: DecisionsBundle) -> dict[str,
     return counts
 
 
+def _coverage_kind(*, status_text: str, reason: str) -> str:
+    token = str(status_text).strip().lower()
+    why = str(reason).strip().lower()
+    if why in {"auth_error", "request_failed", "parse_failed", "normalized_empty"}:
+        return "source_failed"
+    if why == "no_data_for_date":
+        return "source_unavailable_for_selected_date"
+    if token == "missing" and why == "empty_payload":
+        return "source_empty_but_valid"
+    if token in {"missing", "not_implemented"}:
+        return "source_missing"
+    if token == "error":
+        return "source_failed"
+    if token == "partial":
+        return "source_partial"
+    return "source_available"
+
+
 def build_artifact_payloads(
     facts_bundle: FactsBundle,
     decisions_bundle: DecisionsBundle,
@@ -60,6 +78,24 @@ def build_artifact_payloads(
     warnings_count = len(facts_bundle.warnings) + len(decisions_bundle.warnings)
     partial_flag = bool(facts_bundle.data_quality.get("partial_sections") or facts_bundle.data_quality.get("unavailable_sections"))
     normalized_mode = _normalize_mode(mode)
+    source_flags_payload = facts_bundle.data_quality.get("source_flags")
+    source_flags = dict(source_flags_payload) if isinstance(source_flags_payload, dict) else {}
+    source_reason_payload = facts_bundle.diagnostics.get("source_reason_map")
+    source_reason_map = (
+        {str(k): str(v) for k, v in source_reason_payload.items()}
+        if isinstance(source_reason_payload, dict)
+        else {}
+    )
+    missing_sources = [name for name, status in source_flags.items() if str(status) not in {"ok", "partial"}]
+    partial_sources = [
+        name
+        for name, status in source_flags.items()
+        if str(status) == "partial" or str(source_reason_map.get(name, "")).strip().lower() in {"parse_failed", "normalized_empty"}
+    ]
+    source_coverage_summary = {
+        name: _coverage_kind(status_text=str(status), reason=str(source_reason_map.get(name, "")))
+        for name, status in source_flags.items()
+    }
 
     outputs_summary = {
         "build_timestamp": None,
@@ -76,6 +112,10 @@ def build_artifact_payloads(
         "decision_counts_by_priority": _decision_counts_by_priority(decisions_bundle),
         "warnings_count": warnings_count,
         "partial_flag": partial_flag,
+        "missing_sources": missing_sources,
+        "partial_sources": partial_sources,
+        "source_reason_map": source_reason_map,
+        "source_coverage_summary": source_coverage_summary,
         "audit_note": AUDIT_DISCLAIMER if normalized_mode == "audit" else None,
     }
 

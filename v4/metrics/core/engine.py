@@ -8,6 +8,7 @@ Does not build facts/decisions/outputs.
 from __future__ import annotations
 
 from ...core.contracts import MetricStatus, MetricsBundle, NormalizedBundle
+from ...warnings_utils import dedupe_warnings
 from ..ads.summary_assembler import assemble_ads_metrics
 from ..daily.resolver import build_daily_metrics_from_financial
 from ..financial.assembler import assemble_financial_metrics
@@ -132,8 +133,11 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
     warnings.extend(ads.warnings)
     warnings.extend(stock.warnings)
     warnings.extend(health.warnings)
+    warnings = dedupe_warnings(warnings)
 
     diagnostics = dict(normalized_bundle.diagnostics)
+    source_reason_map = diagnostics.get("source_reason_map", {})
+    source_reason_map = dict(source_reason_map) if isinstance(source_reason_map, dict) else {}
     diagnostics.update(
         {
             "financial_status": _financial_status(financial),
@@ -160,6 +164,9 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
             "health_business_score": health.business_health_score.value,
             "health_problematic_sku_count": health.problematic_sku_count.value,
             "health_warnings_count": len(health.warnings),
+            "realization_reason": source_reason_map.get("realization"),
+            "funnel_reason": source_reason_map.get("funnel"),
+            "source_reason_map": source_reason_map,
             "metrics_sections_built": ["financial", "daily", "funnel", "ads", "stock", "health"],
         }
     )

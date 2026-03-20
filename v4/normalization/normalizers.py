@@ -26,6 +26,7 @@ from ..core.contracts import (
     SourceStatus,
     SourceStatusCode,
 )
+from ..warnings_utils import append_warning, dedupe_warnings, extend_warnings
 
 
 def _coerce_float(value: Any) -> float | None:
@@ -139,6 +140,77 @@ def _make_raw_ref(prefix: str, index: int, primary_id: Any) -> str:
     if primary_id not in (None, ""):
         return f"{prefix}:{primary_id}"
     return f"{prefix}:{index}"
+
+
+def _raw_rows_stats(raw_source_payload: RawSourcePayload | None) -> tuple[int, int]:
+    if raw_source_payload is None:
+        return 0, 0
+    payload = raw_source_payload.payload
+    if not isinstance(payload, dict):
+        return 0, 0
+    rows = payload.get("rows")
+    if not isinstance(rows, list):
+        return 0, 0
+    raw_total = len(rows)
+    dict_total = sum(1 for row in rows if isinstance(row, dict))
+    return raw_total, dict_total
+
+
+def _status_reason(source_name: str, status: SourceStatus | None) -> str:
+    if status is None:
+        return "source_missing"
+    debug = status.debug if isinstance(status.debug, dict) else {}
+    for key in ("reason", f"{source_name}_reason"):
+        value = debug.get(key)
+        if str(value or "").strip():
+            return str(value).strip().lower()
+
+    error_code = str(status.error_code or "").strip().lower()
+    status_text = str(status.status.value if hasattr(status.status, "value") else status.status).strip().lower()
+
+    if error_code in {"http_401", "http_403", "auth_error", "unauthorized", "forbidden"}:
+        return "auth_error"
+    if status_text == "error":
+        return "request_failed"
+    if status_text == "missing":
+        return "empty_payload"
+    if status_text == "partial":
+        return "partial_source"
+    if status_text == "ok":
+        return "ok"
+    return "source_missing"
+
+
+def _coverage_kind(*, status_text: str, reason: str) -> str:
+    if reason in {"auth_error", "request_failed", "parse_failed", "normalized_empty"}:
+        return "source_failed"
+    if reason == "no_data_for_date":
+        return "source_unavailable_for_selected_date"
+    if status_text == "missing" and reason == "empty_payload":
+        return "source_empty_but_valid"
+    if status_text in {"missing", "not_implemented"}:
+        return "source_missing"
+    if status_text == "error":
+        return "source_failed"
+    if status_text == "partial":
+        return "source_partial"
+    return "source_available"
+
+
+def _normalized_reason(
+    *,
+    source_name: str,
+    status: SourceStatus | None,
+    raw_source_payload: RawSourcePayload | None,
+    normalized_count: int,
+) -> str:
+    reason = _status_reason(source_name, status)
+    raw_rows_total, raw_dict_rows_total = _raw_rows_stats(raw_source_payload)
+    if raw_rows_total > 0 and normalized_count == 0:
+        if raw_dict_rows_total > 0:
+            return "normalized_empty"
+        return "parse_failed"
+    return reason
 
 
 def normalize_orders_source(raw_source_payload: RawSourcePayload | None) -> list[NormalizedOrderRecord]:
@@ -535,10 +607,53 @@ def build_normalized_bundle(raw_bundle: RawBundle) -> NormalizedBundle:
 
     funnel = normalize_funnel_source(raw_bundle.sources.get("funnel"))
 
+    realization_reason = _normalized_reason(
+        source_name="realization",
+        status=source_statuses.get("realization"),
+        raw_source_payload=raw_bundle.sources.get("realization"),
+        normalized_count=len(realization),
+    )
+    funnel_reason = _normalized_reason(
+        source_name="funnel",
+        status=source_statuses.get("funnel"),
+        raw_source_payload=raw_bundle.sources.get("funnel"),
+        normalized_count=len(funnel),
+    )
+
     warnings: list[str] = []
     for source_name, status in source_statuses.items():
-        for warning in status.warnings:
-            warnings.append(f"{source_name}: {warning}")
+        extend_warnings(warnings, status.warnings, namespace=source_name)
+    if realization_reason in {"parse_failed", "normalized_empty"}:
+        append_warning(
+            warnings,
+            "normalization produced no realization records from non-empty raw payload",
+            namespace="realization",
+        )
+    if funnel_reason in {"parse_failed", "normalized_empty"}:
+        append_warning(
+            warnings,
+            "normalization produced no funnel records from non-empty raw payload",
+            namespace="funnel",
+        )
+    warnings = dedupe_warnings(warnings)
+
+    source_reason_map = raw_bundle.diagnostics.get("source_reason_map", {})
+    source_reason_map = (
+        {str(k): str(v) for k, v in source_reason_map.items()}
+        if isinstance(source_reason_map, dict)
+        else {}
+    )
+    source_reason_map["realization"] = realization_reason
+    source_reason_map["funnel"] = funnel_reason
+
+    source_coverage_summary = raw_bundle.diagnostics.get("source_coverage_summary", {})
+    source_coverage_summary = dict(source_coverage_summary) if isinstance(source_coverage_summary, dict) else {}
+    for source_name, status in source_statuses.items():
+        status_text = str(status.status.value if hasattr(status.status, "value") else status.status).strip().lower()
+        source_coverage_summary[source_name] = _coverage_kind(
+            status_text=status_text,
+            reason=str(source_reason_map.get(source_name, "")).strip().lower(),
+        )
 
     diagnostics = dict(raw_bundle.diagnostics)
     diagnostics.update(
@@ -551,6 +666,10 @@ def build_normalized_bundle(raw_bundle: RawBundle) -> NormalizedBundle:
             "normalized_ads_stats_count": len(ads_stats),
             "normalized_funnel_count": len(funnel),
             "normalized_sources_count": len(source_statuses),
+            "realization_reason": realization_reason,
+            "funnel_reason": funnel_reason,
+            "source_reason_map": source_reason_map,
+            "source_coverage_summary": source_coverage_summary,
         }
     )
 

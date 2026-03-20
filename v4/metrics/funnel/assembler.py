@@ -8,6 +8,7 @@ Does not depend on financial contour and does not render outputs.
 from __future__ import annotations
 
 from ...core.contracts import FunnelMetricsSection, MetricStatus, NormalizedBundle
+from ...warnings_utils import dedupe_warnings, extend_warnings
 from .cabinet_builder import build_run_funnel_records
 from .helpers import (
     aggregate_volume_metric,
@@ -23,14 +24,17 @@ def _source_warnings(normalized_bundle: NormalizedBundle) -> list[str]:
 
     source_status = normalized_bundle.source_statuses.get("funnel")
     if source_status is not None:
-        warnings.extend([f"funnel: {msg}" for msg in source_status.warnings])
+        extend_warnings(warnings, source_status.warnings, namespace="funnel")
 
-    warnings.extend(
-        warning
-        for warning in normalized_bundle.warnings
-        if "funnel" in str(warning).lower()
+    extend_warnings(
+        warnings,
+        (
+            warning
+            for warning in normalized_bundle.warnings
+            if "funnel" in str(warning).lower()
+        ),
     )
-    return warnings
+    return dedupe_warnings(warnings)
 
 
 def _section_note(source_state: str, warnings: list[str], statuses: list[str]) -> str | None:
@@ -133,6 +137,7 @@ def assemble_funnel_metrics(normalized_bundle: NormalizedBundle) -> FunnelMetric
         ratio_name="cr_buys_from_impressions",
     )
     warnings.extend(warn)
+    warnings = dedupe_warnings(warnings)
 
     statuses = [
         impressions.status,

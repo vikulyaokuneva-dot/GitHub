@@ -43,6 +43,13 @@ def build_job_summary(job_diagnostics: dict[str, Any]) -> dict[str, Any]:
         "warnings_count": int(diagnostics.get("warnings_count", 0)),
         "sources_total": len(source_availability) if isinstance(source_availability, dict) else 0,
         "sources_missing": list(diagnostics.get("missing_sources", [])),
+        "partial_sources": list(diagnostics.get("partial_sources", [])),
+        "source_reason_map": dict(diagnostics.get("source_reason_map", {}))
+        if isinstance(diagnostics.get("source_reason_map"), dict)
+        else {},
+        "source_coverage_summary": dict(diagnostics.get("source_coverage_summary", {}))
+        if isinstance(diagnostics.get("source_coverage_summary"), dict)
+        else {},
         "sections_total": len(section_statuses) if isinstance(section_statuses, dict) else 0,
         "sections_partial": [
             name

@@ -91,6 +91,10 @@ class TestOutputsSummaryContract(unittest.TestCase):
                 "decision_counts_by_priority",
                 "warnings_count",
                 "partial_flag",
+                "missing_sources",
+                "partial_sources",
+                "source_reason_map",
+                "source_coverage_summary",
                 "audit_note",
             },
         )
@@ -101,6 +105,7 @@ class TestOutputsSummaryContract(unittest.TestCase):
         self.assertEqual(summary["decision_counts_by_priority"], {"P1": 0, "P2": 1, "P3": 0})
         self.assertEqual(summary["warnings_count"], 2)
         self.assertTrue(summary["partial_flag"])
+        self.assertIn("source_reason_map", summary)
         self.assertEqual(summary["audit_note"], AUDIT_DISCLAIMER)
 
     def test_saved_outputs_summary_roundtrip(self) -> None:

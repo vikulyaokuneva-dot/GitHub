@@ -19,6 +19,7 @@ from ..core.contracts import (
     NormalizedBundle,
     StockMetricsSection,
 )
+from ..warnings_utils import append_warning, dedupe_warnings
 
 
 USABLE_SOURCE_STATES = {"ok", "partial"}
@@ -661,7 +662,7 @@ def assemble_health_metrics(
     warnings: list[str] = []
     for metric_name, metric in components.items():
         if metric.note:
-            warnings.append(f"health:{metric_name}: {metric.note}")
+            append_warning(warnings, f"{metric_name}: {metric.note}", namespace="health")
     for metric_name, metric in {
         "dead_stock_risk_count": dead_stock_metric,
         "overstock_risk_count": overstock_metric,
@@ -669,7 +670,8 @@ def assemble_health_metrics(
         "sku_health_signals_count": sku_health_signals_count,
     }.items():
         if metric.note:
-            warnings.append(f"health:{metric_name}: {metric.note}")
+            append_warning(warnings, f"{metric_name}: {metric.note}", namespace="health")
+    warnings = dedupe_warnings(warnings)
 
     source_quality = {
         "sales": _source_state(normalized_bundle, "sales"),

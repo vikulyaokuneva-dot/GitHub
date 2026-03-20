@@ -16,6 +16,7 @@ from ...core.contracts import (
     NormalizedBundle,
     NormalizedSaleRecord,
 )
+from ...warnings_utils import append_warning, dedupe_warnings, extend_warnings
 from .components import classify_realization_components
 from .lag_fallback import resolve_realization_window
 
@@ -524,7 +525,7 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
         }
     )
 
-    warnings.extend(normalized_bundle.warnings)
+    extend_warnings(warnings, normalized_bundle.warnings)
 
     key_metrics = [
         orders_count,
@@ -548,7 +549,8 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
     ]
 
     financial_status = _overall_financial_status(key_metrics)
-    warnings.append(f"financial_status={financial_status}")
+    append_warning(warnings, f"financial_status={financial_status}")
+    warnings = dedupe_warnings(warnings)
 
     return FinancialMetricsSection(
         orders_count=orders_count,

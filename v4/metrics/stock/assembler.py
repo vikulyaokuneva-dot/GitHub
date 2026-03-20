@@ -14,6 +14,7 @@ from ...core.contracts import (
     NormalizedStockRecord,
     StockMetricsSection,
 )
+from ...warnings_utils import dedupe_warnings, extend_warnings
 
 
 def _metric(
@@ -50,14 +51,17 @@ def _stock_source_warnings(normalized_bundle: NormalizedBundle) -> list[str]:
     warnings: list[str] = []
     source_status = normalized_bundle.source_statuses.get("stocks")
     if source_status is not None:
-        warnings.extend([f"stocks: {message}" for message in source_status.warnings])
+        extend_warnings(warnings, source_status.warnings, namespace="stocks")
 
-    warnings.extend(
-        warning
-        for warning in normalized_bundle.warnings
-        if "stock" in str(warning).lower()
+    extend_warnings(
+        warnings,
+        (
+            warning
+            for warning in normalized_bundle.warnings
+            if "stock" in str(warning).lower()
+        ),
     )
-    return warnings
+    return dedupe_warnings(warnings)
 
 
 def _stock_entity_key(record: NormalizedStockRecord, index: int) -> str:
@@ -260,6 +264,7 @@ def assemble_stock_metrics(normalized_bundle: NormalizedBundle) -> StockMetricsS
         missing_quantity_count=missing_quantity_count,
     )
     note = _section_note(source_state, warnings)
+    warnings = dedupe_warnings(warnings)
 
     return StockMetricsSection(
         total_stock_units=_metric(
@@ -305,4 +310,3 @@ def build(payload: NormalizedBundle | None = None) -> StockMetricsSection:
     if payload is None:
         return StockMetricsSection()
     return assemble_stock_metrics(payload)
-

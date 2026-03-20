@@ -68,6 +68,10 @@ class TestDailyOutputSnapshots(unittest.TestCase):
                     "decision_counts_by_priority",
                     "warnings_count",
                     "partial_flag",
+                    "missing_sources",
+                    "partial_sources",
+                    "source_reason_map",
+                    "source_coverage_summary",
                     "audit_note",
                 },
             )

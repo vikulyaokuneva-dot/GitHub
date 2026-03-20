@@ -99,6 +99,8 @@ class TestJobDiagnosticsBuilder(unittest.TestCase):
         self.assertEqual(diagnostics["decision_counts_by_priority"]["P1"], 1)
         self.assertEqual(diagnostics["decision_counts_by_priority"]["P2"], 1)
         self.assertIn("sales", diagnostics["missing_sources"])
+        self.assertIn("source_reason_map", diagnostics)
+        self.assertIn("partial_sources", diagnostics)
         self.assertIn("section_statuses", diagnostics)
         self.assertGreaterEqual(diagnostics["warnings_count"], 4)
         self.assertTrue(diagnostics["partial_flag"])

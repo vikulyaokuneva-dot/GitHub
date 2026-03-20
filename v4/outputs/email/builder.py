@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...core.contracts import DecisionItem, DecisionsBundle, FactItem, FactsBundle
+from ...warnings_utils import dedupe_warnings
 from .contracts import EmailPayload, EmailSection
 
 
@@ -40,6 +41,14 @@ def _priority_text(item: DecisionItem) -> str:
 
 def _decision_status_text(item: DecisionItem) -> str:
     return item.status.value if hasattr(item.status, "value") else str(item.status)
+
+
+def _decision_full_debug_status(raw_status: str) -> str:
+    if raw_status == "confirmed":
+        return "triggered"
+    if raw_status in {"partial", "unavailable"}:
+        return "unavailable"
+    return "unavailable"
 
 
 def _find_fact_item(section_name: str, key: str, facts_bundle: FactsBundle) -> FactItem | None:
@@ -217,14 +226,30 @@ def _build_health_section(facts_bundle: FactsBundle) -> EmailSection:
 
 
 def _build_quality_section(facts_bundle: FactsBundle, mode: str) -> EmailSection:
-    warnings = list(facts_bundle.warnings)
+    warnings = dedupe_warnings(facts_bundle.warnings)
     partial_sections = list(facts_bundle.data_quality.get("partial_sections", []))
     unavailable_sections = list(facts_bundle.data_quality.get("unavailable_sections", []))
+    source_flags = facts_bundle.data_quality.get("source_flags")
+    source_map = dict(source_flags) if isinstance(source_flags, dict) else {}
+    source_reason_map = facts_bundle.diagnostics.get("source_reason_map")
+    reason_map = dict(source_reason_map) if isinstance(source_reason_map, dict) else {}
+    missing_sources = [name for name, status in source_map.items() if str(status) not in {"ok", "partial"}]
+    partial_sources = [
+        name
+        for name, status in source_map.items()
+        if str(status) == "partial" or str(reason_map.get(name, "")).strip().lower() in {"parse_failed", "normalized_empty"}
+    ]
     lines = [
         f"Partial sections: {partial_sections or []}",
         f"Unavailable sections: {unavailable_sections or []}",
+        f"Missing sources: {missing_sources}",
+        f"Partial sources: {partial_sources}",
         f"Warnings count: {len(warnings)}",
     ]
+    if reason_map:
+        lines.append("Source reasons:")
+        for source_name in sorted(reason_map.keys()):
+            lines.append(f"- {source_name}: {reason_map[source_name]}")
     if mode == "audit":
         lines.append(AUDIT_DISCLAIMER)
     status = "partial" if partial_sections or unavailable_sections else "info"
@@ -280,6 +305,8 @@ def _build_data_availability_section(facts_bundle: FactsBundle, diagnostics: dic
     job = _diagnostics_dict(diagnostics.get("job"))
     source_availability = job.get("source_availability")
     source_map = source_availability if isinstance(source_availability, dict) else {}
+    reason_payload = job.get("source_reason_map")
+    reason_map = reason_payload if isinstance(reason_payload, dict) else {}
     source_order = ["orders", "sales", "realization", "ads", "stocks", "funnel"]
 
     lines = [f"wb_api_token_present: {str(bool(facts_bundle.run_context.wb_api_token_present)).lower()}"]
@@ -287,7 +314,11 @@ def _build_data_availability_section(facts_bundle: FactsBundle, diagnostics: dic
         lines.append(WB_API_LIMITED_MODE_NOTE)
     for source_name in source_order:
         raw = source_map.get(source_name, "missing")
-        lines.append(f"{source_name}: {_source_status_text(raw)} (raw={raw})")
+        reason = reason_map.get(source_name)
+        if str(reason or "").strip():
+            lines.append(f"{source_name}: {_source_status_text(raw)} (raw={raw}, reason={reason})")
+        else:
+            lines.append(f"{source_name}: {_source_status_text(raw)} (raw={raw})")
     return EmailSection(title="DATA AVAILABILITY", lines=lines, status="partial")
 
 
@@ -362,18 +393,19 @@ def _build_decisions_full_section(decisions_bundle: DecisionsBundle) -> EmailSec
     by_code = {item.code: item for item in decisions_bundle.items}
     lines: list[str] = []
     unavailable_count = 0
+    not_triggered_count = 0
 
     for code, title, priority in _DECISION_CATALOG:
         item = by_code.get(code)
         if item is None:
-            unavailable_count += 1
+            not_triggered_count += 1
             lines.append(
-                f"{priority} | {code} | status=unavailable | {title} | reason=rule not triggered on available facts"
+                f"{priority} | {code} | status=not_triggered | {title} | reason=rule not triggered on confirmed evidence"
             )
             continue
 
         raw_status = _decision_status_text(item)
-        status = "unavailable" if raw_status == "unavailable" else "triggered"
+        status = _decision_full_debug_status(raw_status)
         if status == "unavailable":
             unavailable_count += 1
         lines.append(
@@ -385,7 +417,7 @@ def _build_decisions_full_section(decisions_bundle: DecisionsBundle) -> EmailSec
         if item.code in known_codes:
             continue
         raw_status = _decision_status_text(item)
-        status = "unavailable" if raw_status == "unavailable" else "triggered"
+        status = _decision_full_debug_status(raw_status)
         if status == "unavailable":
             unavailable_count += 1
         lines.append(
@@ -394,7 +426,7 @@ def _build_decisions_full_section(decisions_bundle: DecisionsBundle) -> EmailSec
 
     if not lines:
         lines.append("нет данных")
-    section_status = "partial" if unavailable_count > 0 else "confirmed"
+    section_status = "partial" if unavailable_count > 0 or not_triggered_count > 0 else "confirmed"
     return EmailSection(title="DECISIONS", lines=lines, status=section_status)
 
 
@@ -409,9 +441,14 @@ def _build_diagnostics_section(diagnostics: dict[str, Any]) -> EmailSection:
         fallback_warnings = diagnostics.get("warnings")
         if isinstance(fallback_warnings, list):
             warnings_list = [str(item) for item in fallback_warnings]
+    warnings_list = dedupe_warnings(warnings_list)
 
     source_availability = job.get("source_availability")
     source_flags = source_availability if isinstance(source_availability, dict) else {}
+    source_reason_payload = job.get("source_reason_map")
+    source_reason_map = source_reason_payload if isinstance(source_reason_payload, dict) else {}
+    source_coverage_payload = job.get("source_coverage_summary")
+    source_coverage_summary = source_coverage_payload if isinstance(source_coverage_payload, dict) else {}
     available_count = sum(1 for value in source_flags.values() if _source_status_text(value) in {"available", "partial"})
     total_count = len(source_flags)
     data_coverage = f"{available_count}/{total_count}" if total_count > 0 else "0/0"
@@ -427,6 +464,8 @@ def _build_diagnostics_section(diagnostics: dict[str, Any]) -> EmailSection:
     fallback_used = bool(production.get("fallback_used", False))
     missing_sources = job.get("missing_sources")
     missing_list = list(missing_sources) if isinstance(missing_sources, list) else []
+    partial_sources = job.get("partial_sources")
+    partial_list = list(partial_sources) if isinstance(partial_sources, list) else []
 
     lines = [
         f"production_mode: {selected_mode}",
@@ -436,12 +475,20 @@ def _build_diagnostics_section(diagnostics: dict[str, Any]) -> EmailSection:
         f"partial_flag: {str(bool(summary.get('partial_flag', False))).lower()}",
         f"data_coverage: {data_coverage}",
         f"missing_sources: {missing_list}",
+        f"partial_sources: {partial_list}",
     ]
 
     if source_flags:
         lines.append("source_flags:")
         for name in sorted(source_flags.keys()):
-            lines.append(f"- {name}: {_source_status_text(source_flags[name])} (raw={source_flags[name]})")
+            reason_text = source_reason_map.get(name)
+            coverage_text = source_coverage_summary.get(name)
+            details: list[str] = [f"raw={source_flags[name]}"]
+            if str(reason_text or "").strip():
+                details.append(f"reason={reason_text}")
+            if str(coverage_text or "").strip():
+                details.append(f"coverage={coverage_text}")
+            lines.append(f"- {name}: {_source_status_text(source_flags[name])} ({', '.join(details)})")
     else:
         lines.append("source_flags: нет данных")
 
@@ -507,13 +554,7 @@ def _build_full_debug_payload(
     diagnostics_warnings = diagnostics.get("warnings")
     if isinstance(diagnostics_warnings, list):
         warnings.extend([str(item) for item in diagnostics_warnings])
-    deduped_warnings: list[str] = []
-    seen: set[str] = set()
-    for warning in warnings:
-        if warning in seen:
-            continue
-        seen.add(warning)
-        deduped_warnings.append(warning)
+    deduped_warnings = dedupe_warnings(warnings)
 
     subject = f"WB v4 {mode.upper()} FULL DEBUG | {facts_bundle.run_context.seller_id}"
     preheader = (
@@ -563,7 +604,7 @@ def build_email_payload(
         _build_quality_section(facts_bundle, normalized_mode),
     ]
 
-    warnings = list(facts_bundle.warnings) + list(decisions_bundle.warnings)
+    warnings = dedupe_warnings(list(facts_bundle.warnings) + list(decisions_bundle.warnings))
     payload_diagnostics = {
         "sections_count": len(sections),
         "summary_lines_count": len(summary_lines),
@@ -582,4 +623,3 @@ def build_email_payload(
         warnings=warnings,
         diagnostics=payload_diagnostics,
     )
-

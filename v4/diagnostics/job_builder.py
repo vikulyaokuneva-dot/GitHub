@@ -12,6 +12,7 @@ from typing import Any
 from ..cabinets.paths import path_label
 from ..core.contracts import DecisionsBundle, FactsBundle, IngestionResult, MetricsBundle, RunContext
 from ..pipeline.modes.daily_api_mode import MODE_DESCRIPTOR as DAILY_MODE_DESCRIPTOR
+from ..warnings_utils import dedupe_warnings
 
 
 def _status_to_text(value: object) -> str:
@@ -29,15 +30,23 @@ def _decision_counts_by_priority(decisions_bundle: DecisionsBundle) -> dict[str,
 
 
 def _dedupe_keep_order(values: list[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for value in values:
-        text = str(value)
-        if text in seen:
-            continue
-        seen.add(text)
-        result.append(text)
-    return result
+    return dedupe_warnings(values)
+
+
+def _coverage_kind(*, status_text: str, reason: str) -> str:
+    if reason in {"auth_error", "request_failed", "parse_failed", "normalized_empty"}:
+        return "source_failed"
+    if reason == "no_data_for_date":
+        return "source_unavailable_for_selected_date"
+    if status_text == "missing" and reason == "empty_payload":
+        return "source_empty_but_valid"
+    if status_text in {"missing", "not_implemented"}:
+        return "source_missing"
+    if status_text == "error":
+        return "source_failed"
+    if status_text == "partial":
+        return "source_partial"
+    return "source_available"
 
 
 def build_job_diagnostics(
@@ -53,11 +62,48 @@ def build_job_diagnostics(
         source_name: _status_to_text(status)
         for source_name, status in ingestion_result.source_flags.items()
     }
+    raw_reason_map = ingestion_result.raw_bundle.diagnostics.get("source_reason_map")
+    metrics_diag = metrics_bundle.diagnostics if isinstance(getattr(metrics_bundle, "diagnostics", None), dict) else {}
+    metric_reason_map = metrics_diag.get("source_reason_map") if isinstance(metrics_diag, dict) else None
+    source_reason_map = (
+        {str(k): str(v) for k, v in raw_reason_map.items()}
+        if isinstance(raw_reason_map, dict)
+        else {}
+    )
+    if isinstance(metric_reason_map, dict):
+        source_reason_map.update({str(k): str(v) for k, v in metric_reason_map.items()})
+    for source_name, status_text in source_availability.items():
+        if source_name in source_reason_map:
+            continue
+        status_token = str(status_text).strip().lower()
+        if status_token == "ok":
+            source_reason_map[source_name] = "ok"
+        elif status_token == "partial":
+            source_reason_map[source_name] = "partial_source"
+        elif status_token == "error":
+            source_reason_map[source_name] = "request_failed"
+        elif status_token == "missing":
+            source_reason_map[source_name] = "empty_payload"
+        else:
+            source_reason_map[source_name] = "source_missing"
+
     missing_sources = [
         source_name
         for source_name, status in source_availability.items()
         if status not in {"ok", "partial"}
     ]
+    partial_sources = [
+        source_name
+        for source_name, status in source_availability.items()
+        if status == "partial" or str(source_reason_map.get(source_name, "")).strip().lower() in {"parse_failed", "normalized_empty"}
+    ]
+    source_coverage_summary = {
+        source_name: _coverage_kind(
+            status_text=str(source_availability.get(source_name, "")).strip().lower(),
+            reason=str(source_reason_map.get(source_name, "")).strip().lower(),
+        )
+        for source_name in source_availability.keys()
+    }
     required_missing_sources = [
         source_name
         for source_name in DAILY_MODE_DESCRIPTOR.required_sources
@@ -89,6 +135,7 @@ def build_job_diagnostics(
 
     partial_flag = bool(
         required_missing_sources
+        or partial_sources
         or facts_bundle.data_quality.get("partial_sections")
         or facts_bundle.data_quality.get("unavailable_sections")
         or any(status == "partial" for status in section_statuses.values())
@@ -99,6 +146,8 @@ def build_job_diagnostics(
         notes.append(f"Required sources missing: {required_missing_sources}")
     if optional_missing_sources:
         notes.append(f"Optional sources missing: {optional_missing_sources}")
+    if partial_sources:
+        notes.append(f"Partial sources: {partial_sources}")
     if partial_flag:
         notes.append("Run completed with partial data; outputs are conservative.")
     if not notes:
@@ -118,7 +167,10 @@ def build_job_diagnostics(
         "build_timestamp": None,
         "build_timestamp_note": "deterministic stage: timestamp omitted by design",
         "source_availability": source_availability,
+        "source_reason_map": source_reason_map,
+        "source_coverage_summary": source_coverage_summary,
         "missing_sources": missing_sources,
+        "partial_sources": partial_sources,
         "required_missing_sources": required_missing_sources,
         "optional_missing_sources": optional_missing_sources,
         "section_statuses": section_statuses,

@@ -15,18 +15,11 @@ from ...core.contracts import (
     MetricValue,
     MetricsBundle,
 )
+from ...warnings_utils import dedupe_warnings, extend_warnings
 
 
 def _dedupe_keep_order(values: list[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for value in values:
-        text = str(value)
-        if text in seen:
-            continue
-        seen.add(text)
-        result.append(text)
-    return result
+    return dedupe_warnings(values)
 
 
 def _metric_to_fact_value(metric: MetricValue | None) -> FactValue:
@@ -438,8 +431,8 @@ def build_facts_bundle(metrics_bundle: MetricsBundle) -> FactsBundle:
 
     warnings: list[str] = list(metrics_bundle.warnings)
     for section_name, section in sections.items():
-        warnings.extend([f"{section_name}: {warning}" for warning in section.warnings])
-    warnings = _dedupe_keep_order(warnings)
+        extend_warnings(warnings, section.warnings, namespace=section_name)
+    warnings = dedupe_warnings(warnings)
 
     diagnostics = dict(metrics_bundle.diagnostics)
     diagnostics.update(

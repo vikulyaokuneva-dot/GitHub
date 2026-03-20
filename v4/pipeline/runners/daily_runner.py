@@ -14,6 +14,7 @@ from ...config.features import resolve_feature_flags
 from ...core.contracts import IngestionResult, RunContext, RunMode
 from ...diagnostics.job_builder import build_job_diagnostics
 from ...diagnostics.summary import build_job_summary
+from ...warnings_utils import dedupe_warnings
 from ..contracts import PipelineRunResult
 from ..modes.daily_api_mode import MODE_DESCRIPTOR as DAILY_MODE_DESCRIPTOR
 from ..stages.decisions_stage import run as run_decisions_stage
@@ -82,15 +83,7 @@ def _collect_warnings(
     if hasattr(pdf, "warnings"):
         warnings.extend(list(getattr(pdf, "warnings")))
 
-    seen: set[str] = set()
-    deduped: list[str] = []
-    for warning in warnings:
-        text = str(warning)
-        if text in seen:
-            continue
-        seen.add(text)
-        deduped.append(text)
-    return deduped
+    return dedupe_warnings(warnings)
 
 
 def run_daily_pipeline(run_context: dict | None = None, output_dir: str | None = None) -> dict:

@@ -21,6 +21,7 @@ from ..core.contracts import (
     SourceStatusCode,
 )
 from ..pipeline.modes.daily_api_mode import MODE_DESCRIPTOR as DAILY_MODE_DESCRIPTOR
+from ..warnings_utils import append_warning, dedupe_warnings, extend_warnings
 from .api import (
     WBApiClient,
     load_ads_bundle,
@@ -116,6 +117,52 @@ def _optional_sources_available(sources: dict[str, RawSourcePayload]) -> list[st
     return available
 
 
+def _status_code_text(value: object) -> str:
+    if hasattr(value, "value"):
+        return str(getattr(value, "value"))
+    return str(value)
+
+
+def _source_reason_from_payload(payload: RawSourcePayload) -> str:
+    status = payload.status
+    debug = status.debug if isinstance(status.debug, dict) else {}
+    for key in ("reason", f"{payload.source_name}_reason"):
+        value = debug.get(key)
+        if str(value or "").strip():
+            return str(value).strip().lower()
+
+    error_code = str(status.error_code or "").strip().lower()
+    status_text = _status_code_text(status.status).strip().lower()
+
+    if error_code in {"http_401", "http_403", "auth_error", "unauthorized", "forbidden"}:
+        return "auth_error"
+    if status_text == "error":
+        return "request_failed"
+    if status_text == "missing":
+        return "empty_payload"
+    if status_text == "partial":
+        return "partial_source"
+    if status_text == "ok":
+        return "ok"
+    return "source_missing"
+
+
+def _coverage_kind(*, status_text: str, reason: str) -> str:
+    if reason in {"auth_error", "request_failed", "parse_failed", "normalized_empty"}:
+        return "source_failed"
+    if reason == "no_data_for_date":
+        return "source_unavailable_for_selected_date"
+    if status_text == "missing" and reason == "empty_payload":
+        return "source_empty_but_valid"
+    if status_text in {"missing", "not_implemented"}:
+        return "source_missing"
+    if status_text == "error":
+        return "source_failed"
+    if status_text == "partial":
+        return "source_partial"
+    return "source_available"
+
+
 def build_api_raw_bundle(run_context: RunContext) -> IngestionResult:
     if run_context.mode != RunMode.DAILY_API:
         raise ValueError("build_api_raw_bundle supports only daily_api_mode")
@@ -139,7 +186,7 @@ def build_api_raw_bundle(run_context: RunContext) -> IngestionResult:
                 error_message="WB_API_TOKEN not configured",
                 warnings=["source skipped: WB API token not present"],
             )
-        warnings.append("WB API token is missing; API ingestion skipped")
+        append_warning(warnings, "WB API token is missing; API ingestion skipped")
     else:
         try:
             client = WBApiClient()
@@ -159,7 +206,7 @@ def build_api_raw_bundle(run_context: RunContext) -> IngestionResult:
                     error_message=str(exc),
                     warnings=["source skipped: failed to initialize WB API client"],
                 )
-            warnings.append(f"WB API client init failed: {exc}")
+            append_warning(warnings, f"WB API client init failed: {exc}")
             client = None
 
     if run_context.wb_api_token_present and sources and all(
@@ -242,16 +289,16 @@ def build_api_raw_bundle(run_context: RunContext) -> IngestionResult:
         )
 
     for payload in sources.values():
-        for warning in payload.status.warnings:
-            warnings.append(f"{payload.source_name}: {warning}")
+        extend_warnings(warnings, payload.status.warnings, namespace=payload.source_name)
 
     for required_source in DAILY_MODE_DESCRIPTOR.required_sources:
         status = sources.get(required_source)
         if status is None:
-            warnings.append(f"required source '{required_source}' is missing in bundle")
+            append_warning(warnings, f"required source '{required_source}' is missing in bundle")
             continue
         if status.status.status not in (SourceStatusCode.OK, SourceStatusCode.PARTIAL):
-            warnings.append(
+            append_warning(
+                warnings,
                 "required source failure: "
                 f"{required_source} status={status.status.status.value}"
             )
@@ -260,6 +307,29 @@ def build_api_raw_bundle(run_context: RunContext) -> IngestionResult:
         source_name: payload.status.status
         for source_name, payload in sources.items()
     }
+    source_reason_map = {
+        source_name: _source_reason_from_payload(payload)
+        for source_name, payload in sources.items()
+    }
+    source_status_map = {
+        source_name: _status_code_text(payload.status.status).strip().lower()
+        for source_name, payload in sources.items()
+    }
+    missing_sources = [
+        source_name
+        for source_name, status_text in source_status_map.items()
+        if status_text not in {"ok", "partial"}
+    ]
+    partial_sources = [
+        source_name
+        for source_name, status_text in source_status_map.items()
+        if status_text == "partial"
+    ]
+    source_coverage_summary = {
+        source_name: _coverage_kind(status_text=source_status_map[source_name], reason=source_reason_map.get(source_name, ""))
+        for source_name in sources.keys()
+    }
+    warnings = dedupe_warnings(warnings)
 
     required_ok = _required_sources_ok(sources)
     optional_available = _optional_sources_available(sources)
@@ -283,6 +353,10 @@ def build_api_raw_bundle(run_context: RunContext) -> IngestionResult:
         "optional_sources": list(DAILY_MODE_DESCRIPTOR.optional_sources),
         "required_sources_ok": required_ok,
         "optional_sources_available": optional_available,
+        "missing_sources": missing_sources,
+        "partial_sources": partial_sources,
+        "source_reason_map": source_reason_map,
+        "source_coverage_summary": source_coverage_summary,
         "warnings_count": len(warnings),
         "sources_loaded_count": loaded_count,
         "sources_error_count": error_count,

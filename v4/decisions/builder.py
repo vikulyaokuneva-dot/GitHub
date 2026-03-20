@@ -105,16 +105,15 @@ def _build_negative_profit_decision(facts_bundle: FactsBundle) -> DecisionItem |
         )
 
     profit_value = _to_float(fact.value.value)
-    if profit_value is None:
-        status = DecisionStatus.PARTIAL if fact.value.status == DecisionStatus.PARTIAL.value else DecisionStatus.UNAVAILABLE
+    if profit_value is None or str(fact.value.status) != DecisionStatus.CONFIRMED.value:
         return DecisionItem(
             code="negative_profit",
             title="Negative profit",
             summary="Cannot confirm negative profit due to incomplete financial evidence.",
             priority=DecisionPriority.P1,
-            status=status,
+            status=DecisionStatus.UNAVAILABLE,
             section="financial",
-            reason="profit-like value is unavailable",
+            reason="profit-like evidence is incomplete",
             evidence=evidence,
             recommended_actions=["Collect complete financial inputs and re-run the cycle."],
             diagnostics={"rule": "negative_profit", "chosen_fact_key": fact_key},
@@ -123,13 +122,12 @@ def _build_negative_profit_decision(facts_bundle: FactsBundle) -> DecisionItem |
     if profit_value >= 0:
         return None
 
-    status = DecisionStatus.CONFIRMED if fact.value.status == DecisionStatus.CONFIRMED.value else DecisionStatus.PARTIAL
     return DecisionItem(
         code="negative_profit",
         title="Negative profit",
         summary="Profit-like indicator is below zero.",
         priority=DecisionPriority.P1,
-        status=status,
+        status=DecisionStatus.CONFIRMED,
         section="financial",
         reason=f"{fact_key} is negative",
         evidence=evidence,
@@ -159,16 +157,15 @@ def _build_low_margin_decision(facts_bundle: FactsBundle) -> DecisionItem | None
 
     net_profit_value = _to_float(net_profit.value.value)
     evidence = [_fact_evidence("financial", "net_profit_like", net_profit)]
-    if net_profit_value is None:
-        status = DecisionStatus.PARTIAL if net_profit.value.status == DecisionStatus.PARTIAL.value else DecisionStatus.UNAVAILABLE
+    if net_profit_value is None or str(net_profit.value.status) != DecisionStatus.CONFIRMED.value:
         return DecisionItem(
             code="low_margin",
             title="Low margin risk",
             summary="Cannot confirm margin level due to incomplete net profit-like evidence.",
             priority=DecisionPriority.P2,
-            status=status,
+            status=DecisionStatus.UNAVAILABLE,
             section="financial",
-            reason="net profit-like value is unavailable",
+            reason="net profit-like evidence is incomplete",
             evidence=evidence,
             recommended_actions=["Verify profit-like components and re-run the report cycle."],
             diagnostics={"rule": "low_margin", "threshold_value": 50.0},
@@ -177,13 +174,12 @@ def _build_low_margin_decision(facts_bundle: FactsBundle) -> DecisionItem | None
     if net_profit_value < 0 or net_profit_value > 50.0:
         return None
 
-    status = DecisionStatus.CONFIRMED if net_profit.value.status == DecisionStatus.CONFIRMED.value else DecisionStatus.PARTIAL
     return DecisionItem(
         code="low_margin",
         title="Low margin risk",
         summary="Net profit-like value is positive but near zero.",
         priority=DecisionPriority.P2,
-        status=status,
+        status=DecisionStatus.CONFIRMED,
         section="financial",
         reason="net_profit_like is within low-margin threshold",
         evidence=evidence,
@@ -314,16 +310,16 @@ def _build_out_of_stock_risk_decision(facts_bundle: FactsBundle) -> DecisionItem
         )
 
     out_value = _to_float(out_of_stock.value.value)
-    if out_value is None:
-        status = DecisionStatus.PARTIAL if out_of_stock.value.status == DecisionStatus.PARTIAL.value else DecisionStatus.UNAVAILABLE
+    in_stock_status_incomplete = bool(in_stock is not None and str(in_stock.value.status) != DecisionStatus.CONFIRMED.value)
+    if out_value is None or str(out_of_stock.value.status) != DecisionStatus.CONFIRMED.value or in_stock_status_incomplete:
         return DecisionItem(
             code="out_of_stock_risk",
             title="Out-of-stock risk",
-            summary="Cannot confirm stock risk due to unavailable out-of-stock value.",
+            summary="Cannot confirm stock risk due to incomplete stock evidence.",
             priority=DecisionPriority.P1,
-            status=status,
+            status=DecisionStatus.UNAVAILABLE,
             section="stock",
-            reason="out_of_stock_items_count value is unavailable",
+            reason="stock evidence is incomplete",
             evidence=evidence,
             recommended_actions=["Improve stock quantity completeness and re-run."],
             diagnostics={"rule": "out_of_stock_risk"},
@@ -332,17 +328,12 @@ def _build_out_of_stock_risk_decision(facts_bundle: FactsBundle) -> DecisionItem
     if out_value <= 0:
         return None
 
-    statuses = [out_of_stock.value.status]
-    if in_stock is not None:
-        statuses.append(in_stock.value.status)
-    status = _status_from_fact_statuses(statuses)
-
     return DecisionItem(
         code="out_of_stock_risk",
         title="Out-of-stock risk",
         summary="Some stock entities are currently out of stock.",
         priority=DecisionPriority.P1,
-        status=status,
+        status=DecisionStatus.CONFIRMED,
         section="stock",
         reason="out_of_stock_items_count is above zero",
         evidence=evidence,
@@ -376,16 +367,15 @@ def _build_weak_conversion_decision(facts_bundle: FactsBundle) -> DecisionItem |
         )
 
     conversion = _to_float(fact.value.value)
-    if conversion is None:
-        status = DecisionStatus.PARTIAL if fact.value.status == DecisionStatus.PARTIAL.value else DecisionStatus.UNAVAILABLE
+    if conversion is None or str(fact.value.status) != DecisionStatus.CONFIRMED.value:
         return DecisionItem(
             code="weak_conversion",
             title="Weak conversion",
             summary="Cannot confirm conversion weakness due to incomplete funnel evidence.",
             priority=DecisionPriority.P2,
-            status=status,
+            status=DecisionStatus.UNAVAILABLE,
             section="funnel",
-            reason="conversion value is unavailable",
+            reason="conversion evidence is incomplete",
             evidence=evidence,
             recommended_actions=["Collect complete funnel conversion evidence and re-run the cycle."],
             diagnostics={"rule": "weak_conversion", "threshold": WEAK_CONVERSION_THRESHOLD},
@@ -395,13 +385,12 @@ def _build_weak_conversion_decision(facts_bundle: FactsBundle) -> DecisionItem |
         return None
 
     priority = DecisionPriority.P1 if conversion < WEAK_CONVERSION_SEVERE_THRESHOLD else DecisionPriority.P2
-    status = DecisionStatus.CONFIRMED if fact.value.status == DecisionStatus.CONFIRMED.value else DecisionStatus.PARTIAL
     return DecisionItem(
         code="weak_conversion",
         title="Weak conversion",
         summary="Funnel conversion is below the policy threshold.",
         priority=priority,
-        status=status,
+        status=DecisionStatus.CONFIRMED,
         section="funnel",
         reason=f"{fact_key}={conversion:.4f} is below threshold {WEAK_CONVERSION_THRESHOLD:.2f}",
         evidence=evidence,
@@ -440,16 +429,15 @@ def _build_overstock_decision(facts_bundle: FactsBundle) -> DecisionItem | None:
         )
 
     overstock_count = _to_float(overstock.value.value)
-    if overstock_count is None:
-        status = DecisionStatus.PARTIAL if overstock.value.status == DecisionStatus.PARTIAL.value else DecisionStatus.UNAVAILABLE
+    if overstock_count is None or str(overstock.value.status) != DecisionStatus.CONFIRMED.value:
         return DecisionItem(
             code="overstock",
             title="Overstock risk",
             summary="Cannot confirm overstock risk due to incomplete stock movement evidence.",
             priority=DecisionPriority.P2,
-            status=status,
+            status=DecisionStatus.UNAVAILABLE,
             section="health",
-            reason="overstock_risk_count value is unavailable",
+            reason="overstock evidence is incomplete",
             evidence=evidence,
             recommended_actions=["Collect complete stock movement evidence and re-run."],
             diagnostics={"rule": "overstock"},
@@ -459,13 +447,12 @@ def _build_overstock_decision(facts_bundle: FactsBundle) -> DecisionItem | None:
         return None
 
     priority = DecisionPriority.P1 if overstock_count >= 5 else DecisionPriority.P2
-    status = DecisionStatus.CONFIRMED if overstock.value.status == DecisionStatus.CONFIRMED.value else DecisionStatus.PARTIAL
     return DecisionItem(
         code="overstock",
         title="Overstock risk",
         summary="Stock turnover indicates overstock risk.",
         priority=priority,
-        status=status,
+        status=DecisionStatus.CONFIRMED,
         section="health",
         reason=f"overstock_risk_count={int(round(overstock_count))} is above zero",
         evidence=evidence,
@@ -500,16 +487,15 @@ def _build_dead_sku_decision(facts_bundle: FactsBundle) -> DecisionItem | None:
         )
 
     dead_count = _to_float(dead.value.value)
-    if dead_count is None:
-        status = DecisionStatus.PARTIAL if dead.value.status == DecisionStatus.PARTIAL.value else DecisionStatus.UNAVAILABLE
+    if dead_count is None or str(dead.value.status) != DecisionStatus.CONFIRMED.value:
         return DecisionItem(
             code="dead_sku",
             title="Dead SKU risk",
             summary="Cannot confirm dead SKU risk due to incomplete movement evidence.",
             priority=DecisionPriority.P2,
-            status=status,
+            status=DecisionStatus.UNAVAILABLE,
             section="health",
-            reason="dead_stock_risk_count value is unavailable",
+            reason="dead stock evidence is incomplete",
             evidence=evidence,
             recommended_actions=["Collect complete movement evidence and re-run the health stage."],
             diagnostics={"rule": "dead_sku"},
@@ -519,13 +505,12 @@ def _build_dead_sku_decision(facts_bundle: FactsBundle) -> DecisionItem | None:
         return None
 
     priority = DecisionPriority.P1 if dead_count >= 5 else DecisionPriority.P2
-    status = DecisionStatus.CONFIRMED if dead.value.status == DecisionStatus.CONFIRMED.value else DecisionStatus.PARTIAL
     return DecisionItem(
         code="dead_sku",
         title="Dead SKU risk",
         summary="Health signals indicate dead stock / zero movement risk.",
         priority=priority,
-        status=status,
+        status=DecisionStatus.CONFIRMED,
         section="health",
         reason=f"dead_stock_risk_count={int(round(dead_count))} is above zero",
         evidence=evidence,

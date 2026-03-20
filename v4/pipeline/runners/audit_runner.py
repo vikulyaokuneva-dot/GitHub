@@ -16,6 +16,7 @@ from ...core.contracts import RunContext, RunMode
 from ...diagnostics.audit_job_builder import build_audit_job_diagnostics
 from ...diagnostics.audit_summary import build_audit_summary
 from ...ingestion.files.bundle import build_file_raw_bundle
+from ...warnings_utils import dedupe_warnings
 from ..contracts import PipelineRunResult
 from ..modes.audit_file_mode import MODE_DESCRIPTOR as AUDIT_MODE_DESCRIPTOR, get_audit_mode_flags
 from ..stages.decisions_stage import run as run_decisions_stage
@@ -92,15 +93,7 @@ def _collect_warnings(
     if hasattr(pdf, "warnings"):
         warnings.extend(list(getattr(pdf, "warnings")))
 
-    seen: set[str] = set()
-    out: list[str] = []
-    for warning in warnings:
-        text = str(warning)
-        if text in seen:
-            continue
-        seen.add(text)
-        out.append(text)
-    return out
+    return dedupe_warnings(warnings)
 
 
 def run_audit_pipeline(

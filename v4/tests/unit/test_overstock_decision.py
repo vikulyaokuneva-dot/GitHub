@@ -95,10 +95,9 @@ class TestOverstockDecision(unittest.TestCase):
 
         self.assertIsNotNone(item)
         assert item is not None
-        self.assertEqual(item.status, DecisionStatus.PARTIAL)
+        self.assertEqual(item.status, DecisionStatus.UNAVAILABLE)
         self.assertNotEqual(item.status, DecisionStatus.CONFIRMED)
 
 
 if __name__ == "__main__":
     unittest.main()
-

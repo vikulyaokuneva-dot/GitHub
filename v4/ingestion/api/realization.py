@@ -12,6 +12,15 @@ from .client import WBApiClient
 from .endpoints import REALIZATION
 
 
+def _response_failure_reason(*, status_code: int | None, error_code: str | None) -> str:
+    if status_code in {401, 403}:
+        return "auth_error"
+    token = str(error_code or "").strip().lower()
+    if token in {"http_401", "http_403", "auth_error", "unauthorized", "forbidden"}:
+        return "auth_error"
+    return "request_failed"
+
+
 def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourcePayload:
     requested_date = run_context.requested_date_iso
     resolved_date = run_context.resolved_date_iso
@@ -30,13 +39,23 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
     rows = client.extract_rows(response.payload, ("data", "items", "rows")) if response.ok else []
 
     warnings: list[str] = []
+    reason = "ok"
     if response.ok and rows:
         status_code = SourceStatusCode.OK
     elif response.ok:
         status_code = SourceStatusCode.MISSING
-        warnings.append("realization source returned empty payload")
+        reason = "no_data_for_date" if resolved_date or requested_date else "empty_payload"
+        if reason == "no_data_for_date":
+            warnings.append("realization source has no data for selected date")
+        else:
+            warnings.append("realization source returned empty payload")
     else:
         status_code = SourceStatusCode.ERROR
+        reason = _response_failure_reason(status_code=response.status_code, error_code=response.error_code)
+        if reason == "auth_error":
+            warnings.append("realization source authentication failed")
+        else:
+            warnings.append("realization source request failed")
 
     status = SourceStatus(
         source_name="realization",
@@ -59,6 +78,8 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
             "resolved_date": resolved_date,
             "fallback_used": False,
             "source_date": None,
+            "reason": reason,
+            "realization_reason": reason,
         },
     )
 
@@ -72,5 +93,6 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
             "fallback_used": False,
             "source_date": None,
         },
+        "reason": reason,
     }
     return RawSourcePayload(source_name="realization", payload=payload, status=status)

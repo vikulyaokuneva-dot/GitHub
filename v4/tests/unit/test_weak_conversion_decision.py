@@ -58,7 +58,7 @@ class TestWeakConversionDecision(unittest.TestCase):
         self.assertEqual(item.status, DecisionStatus.CONFIRMED)
         self.assertEqual(item.priority, DecisionPriority.P1)
 
-    def test_partial_conversion_evidence_stays_partial(self) -> None:
+    def test_partial_conversion_evidence_is_unavailable(self) -> None:
         funnel = FactSection(
             section_name="funnel",
             title="Funnel",
@@ -83,9 +83,8 @@ class TestWeakConversionDecision(unittest.TestCase):
 
         self.assertIsNotNone(item)
         assert item is not None
-        self.assertEqual(item.status, DecisionStatus.PARTIAL)
+        self.assertEqual(item.status, DecisionStatus.UNAVAILABLE)
 
 
 if __name__ == "__main__":
     unittest.main()
-

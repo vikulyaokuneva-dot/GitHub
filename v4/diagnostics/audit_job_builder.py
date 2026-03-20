@@ -12,6 +12,7 @@ from typing import Any
 from ..cabinets.paths import path_label
 from ..core.contracts import DecisionsBundle, FactsBundle, IngestionResult, MetricsBundle, RunContext
 from ..pipeline.modes.audit_file_mode import get_audit_mode_flags
+from ..warnings_utils import dedupe_warnings
 
 
 def _status_to_text(value: object) -> str:
@@ -29,15 +30,23 @@ def _decision_counts_by_priority(decisions_bundle: DecisionsBundle) -> dict[str,
 
 
 def _dedupe(values: list[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for value in values:
-        text = str(value)
-        if text in seen:
-            continue
-        seen.add(text)
-        result.append(text)
-    return result
+    return dedupe_warnings(values)
+
+
+def _coverage_kind(*, status_text: str, reason: str) -> str:
+    if reason in {"auth_error", "request_failed", "parse_failed", "normalized_empty"}:
+        return "source_failed"
+    if reason == "no_data_for_date":
+        return "source_unavailable_for_selected_date"
+    if status_text == "missing" and reason == "empty_payload":
+        return "source_empty_but_valid"
+    if status_text in {"missing", "not_implemented"}:
+        return "source_missing"
+    if status_text == "error":
+        return "source_failed"
+    if status_text == "partial":
+        return "source_partial"
+    return "source_available"
 
 
 def build_audit_job_diagnostics(
@@ -59,6 +68,32 @@ def build_audit_job_diagnostics(
         for source_name, status in source_availability.items()
         if status not in {"ok", "partial"}
     ]
+    source_reason_map = {
+        source_name: (
+            "ok"
+            if status == "ok"
+            else "partial_source"
+            if status == "partial"
+            else "empty_payload"
+            if status == "missing"
+            else "request_failed"
+            if status == "error"
+            else "source_missing"
+        )
+        for source_name, status in source_availability.items()
+    }
+    partial_sources = [
+        source_name
+        for source_name, status in source_availability.items()
+        if status == "partial"
+    ]
+    source_coverage_summary = {
+        source_name: _coverage_kind(
+            status_text=str(status).strip().lower(),
+            reason=str(source_reason_map.get(source_name, "")).strip().lower(),
+        )
+        for source_name, status in source_availability.items()
+    }
 
     section_statuses = {
         section_name: _status_to_text(section.status)
@@ -120,7 +155,10 @@ def build_audit_job_diagnostics(
         "missing_expected_files": list(missing_expected_files) if isinstance(missing_expected_files, list) else [],
         "file_source_flags": dict(file_source_flags) if isinstance(file_source_flags, dict) else {},
         "source_availability": source_availability,
+        "source_reason_map": source_reason_map,
+        "source_coverage_summary": source_coverage_summary,
         "missing_sources": missing_sources,
+        "partial_sources": partial_sources,
         "section_statuses": section_statuses,
         "warnings_count": len(all_warnings),
         "warnings": list(all_warnings),
