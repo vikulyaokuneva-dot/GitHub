@@ -67,12 +67,16 @@ class FinancialMetricsSection:
     other_costs_amount: MetricValue = field(default_factory=_default_unavailable_metric)
     gross_profit_like: MetricValue = field(default_factory=_default_unavailable_metric)
     net_profit_like: MetricValue = field(default_factory=_default_unavailable_metric)
+    margin: MetricValue = field(default_factory=_default_unavailable_metric)
     profit_formula_note: str | None = None
 
     realization_target_date: str | None = None
     realization_actual_date: str | None = None
     fallback_used: bool | None = None
     lag_days: int | None = None
+    financial_mode: str | None = None
+    financial_missing_components: list[str] = field(default_factory=list)
+    financial_available_components: list[str] = field(default_factory=list)
 
     source_quality: dict[str, str] = field(default_factory=dict)
     component_quality: dict[str, str] = field(default_factory=dict)

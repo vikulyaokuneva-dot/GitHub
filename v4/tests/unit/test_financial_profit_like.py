@@ -54,6 +54,8 @@ class TestFinancialProfitLike(unittest.TestCase):
         self.assertIn("gross_profit_like", str(financial.profit_formula_note))
         self.assertEqual(financial.net_profit_like.value, 745.0)
         self.assertEqual(financial.net_profit_like.status, "partial")
+        self.assertEqual(financial.financial_mode, "full")
+        self.assertEqual(financial.margin.status, "partial")
 
 
 if __name__ == "__main__":

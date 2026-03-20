@@ -75,6 +75,8 @@ class TestFinancialAssemblerBasic(unittest.TestCase):
         self.assertEqual(financial.sales_amount.value, 300.0)
         self.assertEqual(financial.seller_payout.value, 200.0)
         self.assertEqual(financial.net_realization_amount.value, 170.0)
+        self.assertEqual(financial.financial_mode, "full")
+        self.assertIsNotNone(financial.margin.value)
 
     def test_missing_components_produce_partial_or_unavailable(self) -> None:
         bundle = NormalizedBundle(
@@ -95,6 +97,30 @@ class TestFinancialAssemblerBasic(unittest.TestCase):
         self.assertIsNone(financial.sales_amount.value)
         self.assertEqual(financial.sales_amount.status, "partial")
         self.assertIsNone(financial.net_realization_amount.value)
+        self.assertEqual(financial.financial_mode, "unavailable")
+
+    def test_partial_model_without_realization_uses_sales_and_payout(self) -> None:
+        bundle = NormalizedBundle(
+            run_context=_context(),
+            sales=[
+                NormalizedSaleRecord("s1", "seller_001", 1, 1, 1000.0, 700.0, "2026-03-15", "sale", False, "sales", None),
+            ],
+            source_statuses={
+                "orders": _status("orders", SourceStatusCode.MISSING, True),
+                "sales": _status("sales", SourceStatusCode.OK, True),
+                "realization": _status("realization", SourceStatusCode.MISSING, True),
+            },
+        )
+
+        financial = assemble_financial_metrics(bundle)
+
+        self.assertEqual(financial.financial_mode, "partial")
+        self.assertEqual(financial.net_profit_like.status, "partial")
+        self.assertEqual(financial.net_profit_like.value, 700.0)
+        self.assertEqual(financial.margin.status, "partial")
+        self.assertEqual(financial.margin.value, 0.7)
+        self.assertIn("calculated without realization components", str(financial.net_profit_like.note))
+        self.assertIn("margin", financial.financial_available_components)
 
 
 if __name__ == "__main__":

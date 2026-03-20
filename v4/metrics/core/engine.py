@@ -37,6 +37,7 @@ def _financial_status(financial) -> str:
         financial.net_realization_amount.status,
         financial.gross_profit_like.status,
         financial.net_profit_like.status,
+        financial.margin.status,
     }
     if statuses == {MetricStatus.CONFIRMED.value}:
         return MetricStatus.CONFIRMED.value
@@ -146,6 +147,9 @@ def build_metrics_bundle(normalized_bundle: NormalizedBundle) -> MetricsBundle:
             "realization_actual_date": financial.realization_actual_date,
             "financial_component_quality": dict(financial.component_quality),
             "financial_profit_formula_used": financial.profit_formula_note,
+            "financial_mode": financial.financial_mode,
+            "financial_missing_components": list(financial.financial_missing_components),
+            "financial_available_components": list(financial.financial_available_components),
             "realization_warnings_count": sum(
                 1 for warning in financial.warnings if "realization" in str(warning).lower()
             ),

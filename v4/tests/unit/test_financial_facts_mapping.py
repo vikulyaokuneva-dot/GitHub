@@ -38,7 +38,11 @@ class TestFinancialFactsMapping(unittest.TestCase):
             other_costs_amount=_metric(3.0),
             gross_profit_like=_metric(780.0, status="partial"),
             net_profit_like=_metric(None, status="unavailable", note="insufficient components"),
+            margin=_metric(None, status="unavailable", note="margin unavailable"),
             profit_formula_note="gross_profit_like = revenue_gross - identifiable_costs",
+            financial_mode="partial",
+            financial_missing_components=["margin"],
+            financial_available_components=["sales_amount", "seller_payout"],
             source_quality={"orders": "ok", "sales": "ok", "realization": "partial"},
             component_quality={"revenue": "ok", "commission": "ok", "penalties": "missing"},
             warnings=["realization lag fallback used"],
@@ -69,12 +73,18 @@ class TestFinancialFactsMapping(unittest.TestCase):
         self.assertIsNone(net_profit_item.value.value)
         self.assertEqual(net_profit_item.value.status, "unavailable")
 
+        margin_item = _find_item(section, "margin")
+        self.assertIsNone(margin_item.value.value)
+        self.assertEqual(margin_item.value.status, "unavailable")
+
         gross_profit_item = _find_item(section, "gross_profit_like")
         self.assertIn("profit_formula_note", gross_profit_item.diagnostics)
         self.assertEqual(
             section.diagnostics.get("profit_formula_note"),
             "gross_profit_like = revenue_gross - identifiable_costs",
         )
+        self.assertEqual(section.diagnostics.get("financial_mode"), "partial")
+        self.assertIn("margin", section.diagnostics.get("financial_missing_components", []))
 
 
 if __name__ == "__main__":

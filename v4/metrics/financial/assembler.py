@@ -176,6 +176,7 @@ def _overall_financial_status(metrics: list[MetricValue]) -> str:
 
 def _build_profit_like(
     *,
+    sales_amount: MetricValue,
     revenue_gross: MetricValue,
     seller_payout: MetricValue,
     commission_amount: MetricValue,
@@ -259,6 +260,21 @@ def _build_profit_like(
                 note="insufficient reliable components",
             )
 
+    if (
+        gross_profit_like.value is None
+        and sales_amount.value is not None
+        and seller_payout.value is not None
+        and sales_amount.status != MetricStatus.UNAVAILABLE.value
+        and seller_payout.status != MetricStatus.UNAVAILABLE.value
+    ):
+        formula_note = "approx_profit_like = seller_payout (calculated without realization components)"
+        gross_profit_like = _metric(
+            round(float(seller_payout.value), 2),
+            status=MetricStatus.PARTIAL,
+            source="financial_formula_approx_v1",
+            note="calculated without realization components",
+        )
+
     if gross_profit_like.value is None:
         net_profit_like = _metric(
             None,
@@ -267,14 +283,96 @@ def _build_profit_like(
             note="net_profit_like unavailable because gross_profit_like is unavailable",
         )
     else:
+        net_note = "profit-like metric; COGS/taxes/ads are not included"
+        if str(gross_profit_like.source or "") == "financial_formula_approx_v1":
+            net_note = "calculated without realization components"
         net_profit_like = _metric(
             gross_profit_like.value,
             status=MetricStatus.PARTIAL,
             source="financial_formula_net_v2",
-            note="profit-like metric; COGS/taxes/ads are not included",
+            note=net_note,
         )
 
     return gross_profit_like, net_profit_like, formula_note
+
+
+def _build_margin_like(
+    *,
+    sales_amount: MetricValue,
+    net_profit_like: MetricValue,
+) -> MetricValue:
+    if (
+        sales_amount.value is None
+        or net_profit_like.value is None
+        or sales_amount.status == MetricStatus.UNAVAILABLE.value
+        or net_profit_like.status == MetricStatus.UNAVAILABLE.value
+    ):
+        return _metric(
+            None,
+            status=MetricStatus.UNAVAILABLE,
+            source="financial_formula_margin_v1",
+            note="margin is unavailable: missing sales_amount or net_profit_like",
+        )
+
+    denominator = float(sales_amount.value)
+    if abs(denominator) < 1e-9:
+        return _metric(
+            None,
+            status=MetricStatus.UNAVAILABLE,
+            source="financial_formula_margin_v1",
+            note="margin is unavailable: sales_amount is zero",
+        )
+
+    margin_value = float(net_profit_like.value) / denominator
+    status = MetricStatus.PARTIAL
+    if (
+        net_profit_like.status == MetricStatus.CONFIRMED.value
+        and sales_amount.status == MetricStatus.CONFIRMED.value
+    ):
+        status = MetricStatus.CONFIRMED
+
+    note = None
+    if (
+        str(net_profit_like.note or "").strip()
+        and "without realization components" in str(net_profit_like.note or "").lower()
+    ):
+        note = "calculated without realization components"
+
+    return _metric(
+        round(margin_value, 4),
+        status=status,
+        source="financial_formula_margin_v1",
+        note=note,
+    )
+
+
+def _component_presence(metric: MetricValue | None) -> bool:
+    return bool(metric is not None and metric.value is not None and metric.status != MetricStatus.UNAVAILABLE.value)
+
+
+def _resolve_financial_mode(
+    *,
+    source_realization: str,
+    realization_actual_date: str | None,
+    sales_amount: MetricValue,
+    seller_payout: MetricValue,
+) -> str:
+    if _source_usable(source_realization) and realization_actual_date:
+        return "full"
+    if _component_presence(sales_amount) or _component_presence(seller_payout):
+        return "partial"
+    return "unavailable"
+
+
+def _financial_component_lists(component_metrics: dict[str, MetricValue]) -> tuple[list[str], list[str]]:
+    available: list[str] = []
+    missing: list[str] = []
+    for name, metric in component_metrics.items():
+        if _component_presence(metric):
+            available.append(name)
+        else:
+            missing.append(name)
+    return sorted(available), sorted(missing)
 
 
 def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> FinancialMetricsSection:
@@ -490,6 +588,7 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
         )
 
     gross_profit_like, net_profit_like, profit_formula_note = _build_profit_like(
+        sales_amount=sales_amount,
         revenue_gross=revenue_gross,
         seller_payout=seller_payout,
         commission_amount=commission_amount,
@@ -501,6 +600,10 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
         other_costs_amount=other_costs_amount,
         deductions_amount=deductions_amount,
         fallback_used=bool(resolution.fallback_used),
+    )
+    margin = _build_margin_like(
+        sales_amount=sales_amount,
+        net_profit_like=net_profit_like,
     )
 
     source_quality = {
@@ -522,8 +625,34 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
             "pvz": pvz_amount.status,
             "penalties": penalties_amount.status,
             "other_costs": other_costs_amount.status,
+            "margin": margin.status,
         }
     )
+
+    tracked_components = {
+        "sales_amount": sales_amount,
+        "seller_payout": seller_payout,
+        "revenue_gross": revenue_gross,
+        "commission_amount": commission_amount,
+        "acquiring_amount": acquiring_amount,
+        "logistics_cost": logistics_cost,
+        "storage_cost": storage_cost,
+        "deductions_amount": deductions_amount,
+        "net_profit_like": net_profit_like,
+        "margin": margin,
+    }
+    financial_available_components, financial_missing_components = _financial_component_lists(tracked_components)
+    financial_mode = _resolve_financial_mode(
+        source_realization=source_realization,
+        realization_actual_date=resolution.actual_date,
+        sales_amount=sales_amount,
+        seller_payout=seller_payout,
+    )
+    if financial_mode == "partial" and not (_source_usable(source_realization) and resolution.actual_date):
+        append_warning(
+            warnings,
+            "financial partial mode: calculated without realization components",
+        )
 
     extend_warnings(warnings, normalized_bundle.warnings)
 
@@ -546,9 +675,11 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
         net_realization_amount,
         gross_profit_like,
         net_profit_like,
+        margin,
     ]
 
     financial_status = _overall_financial_status(key_metrics)
+    append_warning(warnings, f"financial_mode={financial_mode}")
     append_warning(warnings, f"financial_status={financial_status}")
     warnings = dedupe_warnings(warnings)
 
@@ -571,11 +702,15 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
         other_costs_amount=other_costs_amount,
         gross_profit_like=gross_profit_like,
         net_profit_like=net_profit_like,
+        margin=margin,
         profit_formula_note=profit_formula_note,
         realization_target_date=resolution.target_date,
         realization_actual_date=resolution.actual_date,
         fallback_used=resolution.fallback_used,
         lag_days=resolution.lag_days,
+        financial_mode=financial_mode,
+        financial_missing_components=financial_missing_components,
+        financial_available_components=financial_available_components,
         source_quality=source_quality,
         component_quality=component_quality,
         warnings=warnings,

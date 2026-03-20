@@ -104,6 +104,7 @@ def _build_financial_section(metrics_bundle: MetricsBundle) -> FactSection | Non
         ("other_costs_amount", "Other costs amount"),
         ("gross_profit_like", "Gross profit-like"),
         ("net_profit_like", "Net profit-like"),
+        ("margin", "Margin-like"),
     ]
 
     items: list[FactItem] = []
@@ -132,6 +133,9 @@ def _build_financial_section(metrics_bundle: MetricsBundle) -> FactSection | Non
         "realization_actual_date": section.realization_actual_date,
         "fallback_used": section.fallback_used,
         "lag_days": section.lag_days,
+        "financial_mode": section.financial_mode,
+        "financial_missing_components": list(section.financial_missing_components),
+        "financial_available_components": list(section.financial_available_components),
     }
 
     return FactSection(
