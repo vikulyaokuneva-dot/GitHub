@@ -7,7 +7,10 @@ Does not normalize or compute KPI.
 
 from __future__ import annotations
 
+from typing import Any
+
 from ...core.contracts import RawSourcePayload, RunContext, SourceKind, SourceStatus, SourceStatusCode
+from ...extraction_compat import try_json_loads
 from .client import WBApiClient
 from .endpoints import FUNNEL
 
@@ -36,10 +39,95 @@ def _build_funnel_body(run_context: RunContext) -> dict[str, object]:
     }
 
 
+def _payload_is_empty(payload: Any) -> bool:
+    payload = try_json_loads(payload)
+    if payload is None:
+        return True
+    if isinstance(payload, (list, dict, str, bytes, tuple, set)):
+        return len(payload) == 0
+    return False
+
+
+def _explicit_empty_rows(payload: Any) -> bool:
+    payload = try_json_loads(payload)
+    if isinstance(payload, list):
+        return len(payload) == 0
+    if isinstance(payload, dict):
+        for key in ("data", "items", "products", "rows"):
+            if key in payload and isinstance(payload.get(key), list) and len(payload.get(key)) == 0:
+                return True
+    return False
+
+
+def _infer_funnel_payload_shape(payload: Any, origin: str | None) -> str:
+    payload = try_json_loads(payload)
+    origin_text = str(origin or "").strip().lower()
+    if "statistic" in origin_text and "selected" in origin_text:
+        return "statistic_selected"
+    if isinstance(payload, dict):
+        statistic = payload.get("statistic")
+        if isinstance(statistic, dict) and isinstance(
+            statistic.get("selected") or statistic.get("current") or statistic.get("now"),
+            dict,
+        ):
+            return "statistic_selected"
+    if isinstance(payload, list):
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            statistic = item.get("statistic")
+            if isinstance(statistic, dict) and isinstance(
+                statistic.get("selected") or statistic.get("current") or statistic.get("now"),
+                dict,
+            ):
+                return "statistic_selected"
+    if isinstance(payload, dict):
+        if any(key in payload for key in ("data", "items", "products", "result", "rows")):
+            return "structured"
+    return "flat"
+
+
+_FUNNEL_ROW_LIKE_KEYS: tuple[str, ...] = (
+    "nmId",
+    "nm_id",
+    "nmid",
+    "id",
+    "entity_id",
+    "views",
+    "openCount",
+    "openCardCount",
+    "add_to_cart",
+    "cartCount",
+    "addToCartCount",
+    "orders",
+    "orderCount",
+    "buys",
+    "buyoutCount",
+    "orderSum",
+    "buyoutSum",
+    "statistic",
+    "product",
+)
+
+
 def load_funnel(client: WBApiClient, run_context: RunContext) -> RawSourcePayload:
     body = _build_funnel_body(run_context)
     response = client.post_json(FUNNEL, json_body=body, allow_statuses={204: []})
-    rows = client.extract_rows(response.payload, ("data", "items", "products")) if response.ok else []
+    rows: list[dict[str, Any]] = []
+    extraction_meta: dict[str, Any] = {
+        "mode": "none",
+        "origin": None,
+        "compat_used": False,
+        "payload_shape": "none",
+        "explicit_empty_list": False,
+    }
+    if response.ok:
+        rows, extraction_meta = client.extract_rows_with_diagnostics(
+            response.payload,
+            ("data", "items", "products", "rows"),
+            allow_single_dict=True,
+            row_like_keys=_FUNNEL_ROW_LIKE_KEYS,
+        )
 
     warnings: list[str] = []
     reason = "ok"
@@ -47,10 +135,16 @@ def load_funnel(client: WBApiClient, run_context: RunContext) -> RawSourcePayloa
         status_code = SourceStatusCode.OK
     elif response.ok:
         status_code = SourceStatusCode.MISSING
-        reason = "no_data_for_date" if run_context.resolved_date_iso or run_context.requested_date_iso else "empty_payload"
-        if reason == "no_data_for_date":
+        payload_empty = _payload_is_empty(response.payload)
+        explicit_empty = _explicit_empty_rows(response.payload) or bool(extraction_meta.get("explicit_empty_list"))
+        if not payload_empty and not explicit_empty:
+            reason = "parse_failed"
+            warnings.append("funnel payload is non-empty but row extraction returned zero rows")
+        elif run_context.resolved_date_iso or run_context.requested_date_iso:
+            reason = "no_data_for_date"
             warnings.append("funnel source has no data for selected date")
         else:
+            reason = "empty_payload"
             warnings.append("funnel source returned empty payload")
     else:
         status_code = SourceStatusCode.ERROR
@@ -79,6 +173,11 @@ def load_funnel(client: WBApiClient, run_context: RunContext) -> RawSourcePayloa
             "request_body": body,
             "reason": reason,
             "funnel_reason": reason,
+            "funnel_compat_used": bool(extraction_meta.get("compat_used", False)),
+            "funnel_payload_shape": _infer_funnel_payload_shape(response.payload, extraction_meta.get("origin")),
+            "funnel_payload_origin": extraction_meta.get("origin"),
+            "funnel_extraction_mode": extraction_meta.get("mode"),
+            "funnel_rows_extracted": len(rows),
         },
     )
 

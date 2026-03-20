@@ -139,6 +139,8 @@ def _classify_cost_bucket(record: NormalizedRealizationRecord) -> tuple[str | No
         return "logistics", False
     if event_type == "storage" or _contains_any(text, STORAGE_KEYWORDS):
         return "storage", False
+    if event_type == "penalty":
+        return "penalties", False
     if _contains_any(text, COMMISSION_KEYWORDS):
         return "commission", False
     if _contains_any(text, ACQUIRING_KEYWORDS):

@@ -26,6 +26,7 @@ from ..core.contracts import (
     SourceStatus,
     SourceStatusCode,
 )
+from ..extraction_compat import extract_rows_with_meta
 from ..warnings_utils import append_warning, dedupe_warnings, extend_warnings
 
 
@@ -112,16 +113,62 @@ def _to_bool_or_none(value: Any) -> bool | None:
     return None
 
 
+_ROW_CONTAINER_KEYS: tuple[str, ...] = ("rows", "items", "products", "list", "result", "stocks", "data")
+_ROW_LIKE_KEYS: tuple[str, ...] = (
+    "nmId",
+    "nm_id",
+    "nmID",
+    "nmid",
+    "nm",
+    "rrd_id",
+    "saleID",
+    "saleId",
+    "odid",
+    "rid",
+    "supplier_oper_name",
+    "operationTypeName",
+    "doc_type_name",
+    "entity_id",
+    "id",
+    "views",
+    "openCount",
+    "openCardCount",
+    "orders",
+    "orderCount",
+    "buys",
+    "buyoutCount",
+    "advertId",
+    "campaignId",
+    "barcode",
+    "quantity",
+    "quantityFull",
+    "date",
+)
+
+
+def _extract_rows_from_any(payload: Any, *, allow_single_dict: bool = False) -> list[dict[str, Any]]:
+    rows, _ = extract_rows_with_meta(
+        payload,
+        preferred_keys=_ROW_CONTAINER_KEYS,
+        allow_single_dict=allow_single_dict,
+        row_like_keys=_ROW_LIKE_KEYS,
+    )
+    return rows
+
+
 def _extract_rows(raw_source_payload: RawSourcePayload | None) -> list[dict[str, Any]]:
     if raw_source_payload is None:
         return []
     payload = raw_source_payload.payload
-    if not isinstance(payload, dict):
-        return []
-    rows = payload.get("rows")
-    if not isinstance(rows, list):
-        return []
-    return [row for row in rows if isinstance(row, dict)]
+    if isinstance(payload, dict):
+        rows = _extract_rows_from_any(payload.get("rows"))
+        if rows:
+            return rows
+        rows = _extract_rows_from_any(payload.get("raw"), allow_single_dict=True)
+        if rows:
+            return rows
+        return _extract_rows_from_any(payload)
+    return _extract_rows_from_any(payload, allow_single_dict=True)
 
 
 def _is_source_usable(raw_source_payload: RawSourcePayload | None) -> bool:
@@ -146,14 +193,34 @@ def _raw_rows_stats(raw_source_payload: RawSourcePayload | None) -> tuple[int, i
     if raw_source_payload is None:
         return 0, 0
     payload = raw_source_payload.payload
-    if not isinstance(payload, dict):
+    if isinstance(payload, dict):
+        raw_rows = payload.get("rows")
+        if isinstance(raw_rows, list):
+            raw_total = len(raw_rows)
+            dict_total = sum(1 for row in raw_rows if isinstance(row, dict))
+            if raw_total > 0 or dict_total > 0:
+                return raw_total, dict_total
+        raw_candidate = payload.get("raw")
+        if isinstance(raw_candidate, list):
+            raw_total = len(raw_candidate)
+            dict_total = sum(1 for row in raw_candidate if isinstance(row, dict))
+            if raw_total > 0 or dict_total > 0:
+                return raw_total, dict_total
+        extracted = _extract_rows_from_any(raw_candidate, allow_single_dict=True)
+        if extracted:
+            return len(extracted), len(extracted)
+        extracted_payload = _extract_rows_from_any(payload, allow_single_dict=True)
+        if extracted_payload:
+            return len(extracted_payload), len(extracted_payload)
         return 0, 0
-    rows = payload.get("rows")
-    if not isinstance(rows, list):
-        return 0, 0
-    raw_total = len(rows)
-    dict_total = sum(1 for row in rows if isinstance(row, dict))
-    return raw_total, dict_total
+    if isinstance(payload, list):
+        raw_total = len(payload)
+        dict_total = sum(1 for row in payload if isinstance(row, dict))
+        return raw_total, dict_total
+    extracted = _extract_rows_from_any(payload, allow_single_dict=True)
+    if extracted:
+        return len(extracted), len(extracted)
+    return 0, 0
 
 
 def _status_reason(source_name: str, status: SourceStatus | None) -> str:
@@ -305,16 +372,20 @@ def _map_realization_event_type(raw_label: str | None) -> str:
     text = str(raw_label or "").strip().lower()
     if not text:
         return "other"
-    if any(token in text for token in ("логист", "достав", "перевоз", "складск")):
+    if any(token in text for token in ("логист", "достав", "перевоз", "складск", "logistic", "delivery", "transport")):
         return "logistics"
-    if "хранен" in text:
+    if any(token in text for token in ("хранен", "storage")):
         return "storage"
-    if any(token in text for token in ("удерж", "штраф", "лояль", "балл")):
+    if any(token in text for token in ("штраф", "penalty", "fine")):
+        return "penalty"
+    if any(token in text for token in ("удерж", "deduct", "лояль", "балл")):
         return "deduction"
     if any(token in text for token in ("возврат", "return")):
         return "return"
     if any(token in text for token in ("продаж", "sale", "реализац")):
         return "sale"
+    if any(token in text for token in ("комис", "commission", "эквайр", "acquiring")):
+        return "deduction"
     return "other"
 
 
@@ -323,6 +394,10 @@ _REALIZATION_REVENUE_KEYS = (
     "retailAmount",
     "sale_amount",
     "saleAmount",
+    "retail_price_withdisc_rub",
+    "retailPriceWithDiscRub",
+    "retail_price",
+    "retailPrice",
     "finishedPrice",
     "priceWithDisc",
 )
@@ -489,7 +564,7 @@ def normalize_realization_source(raw_source_payload: RawSourcePayload | None) ->
             NormalizedRealizationRecord(
                 record_id=record_id,
                 seller_id=_pick_text(row, ("sellerId", "supplierId", "supplierID", "supplierContractCode")),
-                nm_id=_pick_value(row, ("nm_id", "nmId", "nmID", "nmid")),
+                nm_id=_pick_value(row, ("nm_id", "nmId", "nmID", "nmid", "nm")),
                 event_date=_pick_date(row, ("rr_dt", "sale_dt", "date", "order_dt", "lastChangeDate", "create_dt")),
                 event_type=event_type,
                 amount=_resolve_realization_amount(
@@ -718,6 +793,8 @@ def normalize_funnel_source(raw_source_payload: RawSourcePayload | None) -> list
                 buys=_pick_float(stat, ("buys", "buyoutCount")),
                 source_tag=source_tag,
                 raw_ref=_make_raw_ref("funnel", index, entity_id),
+                revenue_orders=_pick_float(stat, ("orderSum", "ordersSum", "revenue_orders", "order_amount")),
+                revenue_buyouts=_pick_float(stat, ("buyoutSum", "buysSum", "revenue_buyouts", "buyout_amount")),
             )
         )
 
@@ -812,6 +889,11 @@ def build_normalized_bundle(raw_bundle: RawBundle) -> NormalizedBundle:
             reason=str(source_reason_map.get(source_name, "")).strip().lower(),
         )
 
+    realization_debug = source_statuses.get("realization").debug if source_statuses.get("realization") else {}
+    realization_debug = dict(realization_debug) if isinstance(realization_debug, dict) else {}
+    funnel_debug = source_statuses.get("funnel").debug if source_statuses.get("funnel") else {}
+    funnel_debug = dict(funnel_debug) if isinstance(funnel_debug, dict) else {}
+
     diagnostics = dict(raw_bundle.diagnostics)
     diagnostics.update(
         {
@@ -827,6 +909,14 @@ def build_normalized_bundle(raw_bundle: RawBundle) -> NormalizedBundle:
             "funnel_reason": funnel_reason,
             "source_reason_map": source_reason_map,
             "source_coverage_summary": source_coverage_summary,
+            "realization_rows_count": realization_debug.get("realization_rows_extracted"),
+            "realization_extraction_mode": realization_debug.get("realization_extraction_mode"),
+            "realization_payload_origin": realization_debug.get("realization_payload_origin"),
+            "realization_compat_used": realization_debug.get("realization_compat_used"),
+            "funnel_compat_used": funnel_debug.get("funnel_compat_used"),
+            "funnel_payload_shape": funnel_debug.get("funnel_payload_shape"),
+            "funnel_payload_origin": funnel_debug.get("funnel_payload_origin"),
+            "funnel_extraction_mode": funnel_debug.get("funnel_extraction_mode"),
         }
     )
 

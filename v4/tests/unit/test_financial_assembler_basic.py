@@ -77,6 +77,9 @@ class TestFinancialAssemblerBasic(unittest.TestCase):
         self.assertEqual(financial.net_realization_amount.value, 170.0)
         self.assertEqual(financial.financial_model_mode, "exact")
         self.assertEqual(financial.financial_confidence, "high")
+        self.assertEqual(financial.realization_rows_count, 5)
+        self.assertIn(financial.realization_extraction_mode, {"unknown", "top_list", "preferred_key_list", "recursive_list"})
+        self.assertIn("sale", financial.realization_detected_operations)
         self.assertEqual(financial.financial_mode, "full")
         self.assertIsNotNone(financial.margin.value)
 

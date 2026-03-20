@@ -122,6 +122,17 @@ def build_job_diagnostics(
     financial_model_mode = metrics_diag.get("financial_model_mode")
     financial_confidence = metrics_diag.get("financial_confidence")
     financial_source_date = metrics_diag.get("financial_source_date")
+    realization_rows_count = metrics_diag.get("realization_rows_count")
+    realization_extraction_mode = metrics_diag.get("realization_extraction_mode")
+    realization_detected_operations = (
+        list(metrics_diag.get("realization_detected_operations"))
+        if isinstance(metrics_diag.get("realization_detected_operations"), list)
+        else []
+    )
+    funnel_compat_used = metrics_diag.get("funnel_compat_used")
+    funnel_payload_shape = metrics_diag.get("funnel_payload_shape")
+    funnel_payload_origin = metrics_diag.get("funnel_payload_origin")
+    funnel_extraction_mode = metrics_diag.get("funnel_extraction_mode")
     profitability_method = metrics_diag.get("profitability_method")
     profitability_dependencies = (
         list(metrics_diag.get("profitability_dependencies"))
@@ -191,6 +202,13 @@ def build_job_diagnostics(
         "financial_model_mode": financial_model_mode,
         "financial_confidence": financial_confidence,
         "financial_source_date": financial_source_date,
+        "realization_rows_count": realization_rows_count,
+        "realization_extraction_mode": realization_extraction_mode,
+        "realization_detected_operations": realization_detected_operations,
+        "funnel_compat_used": funnel_compat_used,
+        "funnel_payload_shape": funnel_payload_shape,
+        "funnel_payload_origin": funnel_payload_origin,
+        "funnel_extraction_mode": funnel_extraction_mode,
         "profitability_method": profitability_method,
         "profitability_dependencies": profitability_dependencies,
         "profitability_blockers": profitability_blockers,

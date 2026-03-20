@@ -146,6 +146,9 @@ def _build_financial_section(metrics_bundle: MetricsBundle) -> FactSection | Non
         "financial_model_mode": section.financial_model_mode,
         "financial_confidence": section.financial_confidence,
         "financial_source_date": section.financial_source_date,
+        "realization_rows_count": section.realization_rows_count,
+        "realization_extraction_mode": section.realization_extraction_mode,
+        "realization_detected_operations": list(section.realization_detected_operations),
         "financial_mode": section.financial_mode,
         "financial_missing_components": list(section.financial_missing_components),
         "financial_available_components": list(section.financial_available_components),
@@ -230,9 +233,14 @@ def _build_funnel_section(metrics_bundle: MetricsBundle) -> FactSection | None:
         for key, title in metric_map
     ]
     warnings = list(section.warnings)
+    bundle_diag = metrics_bundle.diagnostics if isinstance(metrics_bundle.diagnostics, dict) else {}
     diagnostics = {
         "source_quality": dict(section.source_quality),
         "note": section.note,
+        "funnel_compat_used": bundle_diag.get("funnel_compat_used"),
+        "funnel_payload_shape": bundle_diag.get("funnel_payload_shape"),
+        "funnel_payload_origin": bundle_diag.get("funnel_payload_origin"),
+        "funnel_extraction_mode": bundle_diag.get("funnel_extraction_mode"),
     }
     return FactSection(
         section_name="funnel",

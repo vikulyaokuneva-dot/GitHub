@@ -283,6 +283,31 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
     return_rows = [row for row in sales_for_day if _is_return_sale(row) is True]
     sale_rows = [row for row in sales_for_day if _is_return_sale(row) is False]
     resolution = resolve_realization_window(normalized_bundle, normalized_bundle.run_context)
+    realization_rows_for_actual_date = _filter_by_date(
+        normalized_bundle.realization,
+        lambda row: row.event_date,
+        resolution.actual_date,
+    )
+    realization_detected_operations = sorted(
+        {
+            str(row.event_type).strip().lower()
+            for row in realization_rows_for_actual_date
+            if str(row.event_type or "").strip()
+        }
+    )
+    realization_status_debug = normalized_bundle.source_statuses.get("realization")
+    realization_status_debug = (
+        dict(realization_status_debug.debug)
+        if realization_status_debug is not None and isinstance(realization_status_debug.debug, dict)
+        else {}
+    )
+    realization_extraction_mode = str(
+        realization_status_debug.get("realization_extraction_mode")
+        or realization_status_debug.get("extraction_mode")
+        or "unknown"
+    ).strip()
+    if not realization_extraction_mode:
+        realization_extraction_mode = "unknown"
     components = classify_realization_components(normalized_bundle, actual_date=resolution.actual_date)
     warnings = list(resolution.warnings) + list(components.warnings)
     orders_count = _metric_from_count(count=len(orders_for_day), source_state=source_orders, source="orders")
@@ -370,6 +395,8 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
     append_warning(warnings, f"financial_model_mode={financial_model_mode}")
     append_warning(warnings, f"financial_confidence={financial_confidence}")
     append_warning(warnings, f"financial_status={financial_status}")
+    append_warning(warnings, f"realization_rows_count={len(realization_rows_for_actual_date)}")
+    append_warning(warnings, f"realization_extraction_mode={realization_extraction_mode}")
     warnings = dedupe_warnings(warnings)
     return FinancialMetricsSection(
         orders_count=orders_count, sales_count=sales_count, returns_count=returns_count, orders_amount=orders_amount, sales_amount=sales_amount, seller_payout=seller_payout,
@@ -378,7 +405,8 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
         acceptance_amount=acceptance_amount, paid_acceptance_amount=paid_acceptance_amount, other_costs_amount=other_costs_amount, gross_profit_like=gross_profit_like,
         net_profit_like=net_profit_like, margin=margin, profit_formula_note=(str(profile.get("formula", "")) or None), realization_target_date=resolution.target_date,
         realization_actual_date=resolution.actual_date, fallback_used=resolution.fallback_used, lag_days=resolution.lag_days, financial_model_mode=financial_model_mode,
-        financial_confidence=financial_confidence, financial_source_date=resolution.actual_date, financial_mode=financial_mode_compat,
+        financial_confidence=financial_confidence, financial_source_date=resolution.actual_date, realization_rows_count=len(realization_rows_for_actual_date),
+        realization_extraction_mode=realization_extraction_mode, realization_detected_operations=realization_detected_operations, financial_mode=financial_mode_compat,
         financial_missing_components=financial_missing_components, financial_available_components=financial_available_components, profitability_estimate_used=estimate_used,
         profitability_estimate_method=estimate_method, profitability_estimate_formula=estimate_formula, profitability_estimate_dependencies=estimate_dependencies,
         profitability_estimate_warning=estimate_warning, profitability_method=str(profile.get("method", "unavailable")),

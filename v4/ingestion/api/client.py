@@ -14,6 +14,7 @@ from typing import Any, Iterable
 
 import requests
 
+from ...extraction_compat import extract_rows_with_meta
 from .endpoints import BASE_ADVERT, BASE_ANALYTICS, BASE_STATISTICS, WBEndpoint
 
 
@@ -65,27 +66,27 @@ class WBApiClient:
         return str(text or "").strip()[:limit]
 
     @staticmethod
+    def extract_rows_with_diagnostics(
+        payload: Any,
+        keys: Iterable[str],
+        *,
+        allow_single_dict: bool = False,
+        row_like_keys: Iterable[str] | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Best-effort row extraction with metadata about extraction path."""
+
+        preferred_keys = tuple(str(key) for key in keys if str(key).strip())
+        return extract_rows_with_meta(
+            payload,
+            preferred_keys=preferred_keys,
+            allow_single_dict=allow_single_dict,
+            row_like_keys=row_like_keys,
+        )
+
+    @staticmethod
     def extract_rows(payload: Any, keys: Iterable[str]) -> list[dict[str, Any]]:
-        """Best-effort extraction of row-like dict items from mixed payloads."""
-
-        if isinstance(payload, list):
-            return [row for row in payload if isinstance(row, dict)]
-
-        if not isinstance(payload, dict):
-            return []
-
-        for key in keys:
-            rows = payload.get(key)
-            if isinstance(rows, list):
-                return [row for row in rows if isinstance(row, dict)]
-
-        for value in payload.values():
-            if isinstance(value, list):
-                dict_rows = [row for row in value if isinstance(row, dict)]
-                if dict_rows:
-                    return dict_rows
-
-        return []
+        rows, _ = WBApiClient.extract_rows_with_diagnostics(payload, keys)
+        return rows
 
     def _base_url(self, base: str) -> str:
         if base == BASE_ADVERT:

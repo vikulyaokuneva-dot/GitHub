@@ -98,6 +98,10 @@ class TestOutputsSummaryContract(unittest.TestCase):
                 "financial_model_mode",
                 "financial_confidence",
                 "profitability_method",
+                "realization_rows_count",
+                "realization_extraction_mode",
+                "funnel_compat_used",
+                "funnel_payload_shape",
                 "audit_note",
             },
         )

@@ -137,6 +137,8 @@ class NormalizedFunnelRecord:
     buys: float | None
     source_tag: str
     raw_ref: str | None
+    revenue_orders: float | None = None
+    revenue_buyouts: float | None = None
 
 
 @dataclass

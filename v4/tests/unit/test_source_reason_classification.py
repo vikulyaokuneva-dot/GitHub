@@ -26,6 +26,15 @@ class _StubClient:
     def extract_rows(payload, keys):  # noqa: ANN001, ANN201
         return WBApiClient.extract_rows(payload, keys)
 
+    @staticmethod
+    def extract_rows_with_diagnostics(payload, keys, *, allow_single_dict=False, row_like_keys=None):  # noqa: ANN001, ANN201
+        return WBApiClient.extract_rows_with_diagnostics(
+            payload,
+            keys,
+            allow_single_dict=allow_single_dict,
+            row_like_keys=row_like_keys,
+        )
+
 
 def _context() -> RunContext:
     return RunContext(

@@ -57,6 +57,15 @@ class _SequenceClient:
     def extract_rows(payload, keys):  # noqa: ANN001, ANN201
         return WBApiClient.extract_rows(payload, keys)
 
+    @staticmethod
+    def extract_rows_with_diagnostics(payload, keys, *, allow_single_dict=False, row_like_keys=None):  # noqa: ANN001, ANN201
+        return WBApiClient.extract_rows_with_diagnostics(
+            payload,
+            keys,
+            allow_single_dict=allow_single_dict,
+            row_like_keys=row_like_keys,
+        )
+
 
 class TestRealizationIngestion(unittest.TestCase):
     def test_exact_target_date_returns_rows(self) -> None:
@@ -171,6 +180,39 @@ class TestRealizationIngestion(unittest.TestCase):
         self.assertEqual(payload.status.debug.get("realization_reason"), "request_failed")
         self.assertEqual(payload.status.error_code, "request_exception")
         self.assertEqual(payload.status.debug.get("realization_attempts"), 1)
+
+    def test_nested_payload_and_json_string_are_extracted(self) -> None:
+        nested_client = _SequenceClient(
+            [
+                _response(
+                    ok=True,
+                    status_code=200,
+                    payload={"result": {"data": [{"rrd_id": 10, "rr_dt": "2026-03-19"}]}},
+                ),
+            ]
+        )
+        with patch.dict(os.environ, {"WB_MAX_FINANCE_LAG_DAYS": "0"}, clear=False):
+            nested_payload = load_realization(nested_client, _context())
+        self.assertEqual(nested_payload.status.status.value, "ok")
+        self.assertEqual(nested_payload.status.rows_loaded, 1)
+        self.assertEqual(nested_payload.status.debug.get("realization_extraction_mode"), "recursive_list")
+        self.assertEqual(nested_payload.status.debug.get("realization_payload_origin"), "result.data")
+        self.assertTrue(nested_payload.status.debug.get("realization_compat_used"))
+
+        json_client = _SequenceClient(
+            [
+                _response(
+                    ok=True,
+                    status_code=200,
+                    payload='[{"rrd_id": 11, "rr_dt": "2026-03-19"}]',
+                ),
+            ]
+        )
+        with patch.dict(os.environ, {"WB_MAX_FINANCE_LAG_DAYS": "0"}, clear=False):
+            json_payload = load_realization(json_client, _context())
+        self.assertEqual(json_payload.status.status.value, "ok")
+        self.assertEqual(json_payload.status.rows_loaded, 1)
+        self.assertEqual(json_payload.status.debug.get("realization_extraction_mode"), "top_list")
 
 
 if __name__ == "__main__":

@@ -119,6 +119,10 @@ def build_artifact_payloads(
         "financial_model_mode": facts_bundle.diagnostics.get("financial_model_mode"),
         "financial_confidence": facts_bundle.diagnostics.get("financial_confidence"),
         "profitability_method": facts_bundle.diagnostics.get("profitability_method"),
+        "realization_rows_count": facts_bundle.diagnostics.get("realization_rows_count"),
+        "realization_extraction_mode": facts_bundle.diagnostics.get("realization_extraction_mode"),
+        "funnel_compat_used": facts_bundle.diagnostics.get("funnel_compat_used"),
+        "funnel_payload_shape": facts_bundle.diagnostics.get("funnel_payload_shape"),
         "audit_note": AUDIT_DISCLAIMER if normalized_mode == "audit" else None,
     }
 

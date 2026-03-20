@@ -12,6 +12,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from ...core.contracts import RawSourcePayload, RunContext, SourceKind, SourceStatus, SourceStatusCode
+from ...extraction_compat import find_first_list, try_json_loads
 from .client import WBApiClient
 from .endpoints import REALIZATION
 
@@ -69,6 +70,7 @@ def _response_failure_reason(*, status_code: int | None, error_code: str | None)
 
 
 def _payload_is_empty(payload: Any) -> bool:
+    payload = try_json_loads(payload)
     if payload is None:
         return True
     if isinstance(payload, (list, dict, str, bytes, tuple, set)):
@@ -77,6 +79,7 @@ def _payload_is_empty(payload: Any) -> bool:
 
 
 def _payload_shape(payload: Any) -> str:
+    payload = try_json_loads(payload)
     if payload is None:
         return "none"
     if isinstance(payload, list):
@@ -87,20 +90,27 @@ def _payload_shape(payload: Any) -> str:
 
 
 def _raw_record_count(payload: Any) -> int:
+    payload = try_json_loads(payload)
     if isinstance(payload, list):
         return len(payload)
     if isinstance(payload, dict):
-        for key in ("data", "items", "rows"):
+        for key in ("data", "items", "rows", "products", "result", "list", "stocks"):
             rows = payload.get(key)
             if isinstance(rows, list):
                 return len(rows)
+        nested = find_first_list(payload)
+        if isinstance(nested, list):
+            return len(nested)
         return len(payload)
     return 0
 
 
 def _explicit_empty_rows(payload: Any) -> bool:
+    payload = try_json_loads(payload)
+    if isinstance(payload, list):
+        return len(payload) == 0
     if isinstance(payload, dict):
-        for key in ("data", "items", "rows"):
+        for key in ("data", "items", "rows", "products", "result", "list", "stocks"):
             if key in payload and isinstance(payload.get(key), list) and len(payload.get(key)) == 0:
                 return True
     return False
@@ -135,6 +145,7 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
     selected_source_date: str | None = None
     selected_request_params: dict[str, Any] = {}
     selected_raw_count = 0
+    selected_extraction_meta: dict[str, Any] = {}
     fallback_used = False
     lag_days: int | None = None
     total_attempts = 0
@@ -145,10 +156,22 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
         response = client.get_json(REALIZATION, params=params, allow_statuses={204: []})
         total_attempts += int(response.attempts or 0)
 
-        rows = client.extract_rows(response.payload, ("data", "items", "rows")) if response.ok else []
+        extraction_meta: dict[str, Any] = {
+            "mode": "none",
+            "origin": None,
+            "compat_used": False,
+            "explicit_empty_list": False,
+            "payload_shape": _payload_shape(response.payload),
+        }
+        rows: list[dict[str, Any]] = []
+        if response.ok:
+            rows, extraction_meta = client.extract_rows_with_diagnostics(
+                response.payload,
+                ("data", "items", "rows"),
+            )
         raw_count = _raw_record_count(response.payload)
         payload_empty = _payload_is_empty(response.payload)
-        explicit_empty_rows = _explicit_empty_rows(response.payload)
+        explicit_empty_rows = _explicit_empty_rows(response.payload) or bool(extraction_meta.get("explicit_empty_list"))
         extraction_empty_on_nonempty_payload = bool(
             response.ok and not payload_empty and not explicit_empty_rows and not rows
         )
@@ -179,6 +202,9 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
                 "payload_shape": _payload_shape(response.payload),
                 "payload_empty": payload_empty,
                 "explicit_empty_rows": explicit_empty_rows,
+                "extraction_mode": extraction_meta.get("mode"),
+                "payload_origin": extraction_meta.get("origin"),
+                "compat_used": bool(extraction_meta.get("compat_used", False)),
             }
         )
 
@@ -186,6 +212,7 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
         selected_request_params = dict(params)
         selected_source_date = source_date
         selected_raw_count = raw_count
+        selected_extraction_meta = dict(extraction_meta)
 
         if not response.ok:
             status_code = SourceStatusCode.ERROR
@@ -314,6 +341,9 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
             "realization_payload_shape": _payload_shape(debug_payload),
             "realization_payload_empty": _payload_is_empty(debug_payload),
             "realization_empty_by_status": debug_status_code == 204,
+            "realization_extraction_mode": selected_extraction_meta.get("mode"),
+            "realization_payload_origin": selected_extraction_meta.get("origin"),
+            "realization_compat_used": bool(selected_extraction_meta.get("compat_used", False)),
             "realization_attempt_log": attempt_log,
         },
     )
@@ -336,5 +366,6 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
             "attempt_count": len(attempt_log),
         },
         "reason": reason,
+        "extraction": dict(selected_extraction_meta),
     }
     return RawSourcePayload(source_name="realization", payload=payload, status=status)

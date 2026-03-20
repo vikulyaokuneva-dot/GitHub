@@ -79,6 +79,9 @@ class FinancialMetricsSection:
     financial_model_mode: str | None = None
     financial_confidence: str | None = None
     financial_source_date: str | None = None
+    realization_rows_count: int | None = None
+    realization_extraction_mode: str | None = None
+    realization_detected_operations: list[str] = field(default_factory=list)
     financial_mode: str | None = None
     financial_missing_components: list[str] = field(default_factory=list)
     financial_available_components: list[str] = field(default_factory=list)
