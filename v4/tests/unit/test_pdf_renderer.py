@@ -45,6 +45,10 @@ class TestPdfRenderer(unittest.TestCase):
         self.assertEqual(_display_value_by_status({"value": 100, "status": "confirmed"}), "100")
         self.assertEqual(_display_value_by_status({"value": 100, "status": "partial"}), "частично")
         self.assertEqual(_display_value_by_status({"value": None, "status": "unavailable"}), "нет данных")
+        self.assertEqual(
+            _display_value_by_status({"value": "нет данных (не хватает компонентов)", "status": "unavailable"}),
+            "нет данных (не хватает компонентов)",
+        )
 
     def test_mode_notes_audit_contains_disclaimer(self) -> None:
         payload = PdfPayload(mode="audit")

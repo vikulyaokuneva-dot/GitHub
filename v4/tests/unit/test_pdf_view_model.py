@@ -37,7 +37,7 @@ class TestPdfViewModel(unittest.TestCase):
         self.assertEqual(format_percent(0.1234), "12.34%")
         self.assertEqual(format_percent(12.34, status="estimated"), "12.34% (оценка)")
 
-    def test_mappers_build_russian_blocks(self) -> None:
+    def test_finance_mapping_has_expected_rows_and_honest_missing(self) -> None:
         facts = FactsBundle(
             run_context=_context(),
             sections={
@@ -47,17 +47,86 @@ class TestPdfViewModel(unittest.TestCase):
                     status="partial",
                     diagnostics={"financial_model_mode": "estimated", "profitability_estimate_used": True},
                     items=[
-                        FactItem("seller_payout", "Seller payout", FactValue(1000.0, "confirmed", "financial")),
-                        FactItem("net_profit_like", "Net profit", FactValue(200.0, "partial", "financial")),
-                        FactItem("margin", "Margin", FactValue(0.2, "partial", "financial")),
                         FactItem("revenue_gross", "Revenue gross", FactValue(3000.0, "confirmed", "financial")),
+                        FactItem("sales_amount", "Sales amount", FactValue(2800.0, "partial", "financial")),
+                        FactItem("seller_payout", "Seller payout", FactValue(2100.0, "partial", "financial", "seller payout is unavailable")),
+                        FactItem("commission_amount", "Commission", FactValue(300.0, "confirmed", "financial")),
+                        FactItem("acquiring_amount", "Acquiring", FactValue(40.0, "confirmed", "financial")),
+                        FactItem("pvz_amount", "PVZ", FactValue(20.0, "partial", "financial")),
+                        FactItem("logistics_cost", "Logistics", FactValue(200.0, "confirmed", "financial")),
+                        FactItem("storage_cost", "Storage", FactValue(10.0, "confirmed", "financial")),
+                        FactItem("penalties_amount", "Penalties", FactValue(None, "unavailable", "financial")),
+                        FactItem("deductions_amount", "Deductions", FactValue(70.0, "partial", "financial")),
+                        FactItem("acceptance_amount", "Acceptance", FactValue(15.0, "confirmed", "financial")),
+                        FactItem("paid_acceptance_amount", "Paid acceptance", FactValue(5.0, "confirmed", "financial")),
+                        FactItem("other_costs_amount", "Other costs", FactValue(None, "unavailable", "financial")),
+                        FactItem("net_profit_like", "Net profit", FactValue(1100.0, "partial", "financial")),
+                        FactItem("margin", "Margin", FactValue(0.3667, "partial", "financial")),
                     ],
                 ),
                 "ads": FactSection(
                     section_name="ads",
                     title="Ads",
-                    status="unavailable",
-                    items=[],
+                    status="partial",
+                    items=[FactItem("spend", "Spend", FactValue(250.0, "partial", "ads"))],
+                ),
+            },
+            diagnostics={"source_reason_map": {"ads": "request_failed"}},
+        )
+
+        rows = map_finance_section(facts)
+        labels = [row["label"] for row in rows]
+        self.assertEqual(
+            labels,
+            [
+                "Валовая выручка",
+                "WB реализовал",
+                "К перечислению продавцу",
+                "Комиссия WB",
+                "Эквайринг",
+                "ПВЗ / выдача-возврат",
+                "Логистика",
+                "Хранение",
+                "Штрафы",
+                "Удержания",
+                "Лояльность / бонусные удержания",
+                "Прочие корректировки",
+                "Себестоимость",
+                "Налог",
+                "Расход на рекламу",
+                "Чистая прибыль",
+                "Маржа",
+                "Проверка прибыли по компонентам",
+                "Дельта расчета прибыли",
+            ],
+        )
+
+        payout_row = next(row for row in rows if row["label"] == "К перечислению продавцу")
+        self.assertIn("2 100 ₽", payout_row["value"])
+        self.assertNotIn("unavailable", str(payout_row.get("note") or "").lower())
+
+        cogs_row = next(row for row in rows if row["label"] == "Себестоимость")
+        self.assertIn("нет данных", cogs_row["value"])
+        self.assertIn("контур", str(cogs_row.get("reason") or ""))
+
+        profit_row = next(row for row in rows if row["label"] == "Чистая прибыль")
+        self.assertIn("(оценка", profit_row["value"])
+
+        delta_row = next(row for row in rows if row["label"] == "Дельта расчета прибыли")
+        self.assertIn("₽", delta_row["value"])
+
+    def test_other_mappers_stay_human_readable(self) -> None:
+        facts = FactsBundle(
+            run_context=_context(),
+            sections={
+                "financial": FactSection(
+                    section_name="financial",
+                    title="Financial",
+                    status="partial",
+                    items=[
+                        FactItem("seller_payout", "Seller payout", FactValue(1000.0, "confirmed", "financial")),
+                        FactItem("net_profit_like", "Net profit", FactValue(200.0, "partial", "financial")),
+                    ],
                 ),
                 "funnel": FactSection(
                     section_name="funnel",
@@ -83,13 +152,9 @@ class TestPdfViewModel(unittest.TestCase):
         self.assertEqual(len(cards), 4)
         self.assertEqual(cards[0]["label"], "К перечислению продавцу")
 
-        finance_rows = map_finance_section(facts)
-        margin_row = next(row for row in finance_rows if row["label"] == "Маржа")
-        self.assertIn("(оценка)", margin_row["value"])
-
         funnel_rows = map_funnel_section(facts)
         self.assertEqual(len(funnel_rows), 4)
-        self.assertEqual(funnel_rows[1]["value"], "нет данных")
+        self.assertEqual(funnel_rows[1]["value"], "нет данных (данные воронки отсутствуют)")
 
         ads_block = map_ads_section(facts)
         self.assertFalse(ads_block["has_data"])

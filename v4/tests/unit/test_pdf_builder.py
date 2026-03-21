@@ -93,7 +93,7 @@ class TestPdfBuilder(unittest.TestCase):
         profit_row = next(row for row in rows if row["label"] == "Чистая прибыль")
 
         self.assertIn("нет данных", payout_row["value"])
-        self.assertEqual(profit_row["value"], "нет данных")
+        self.assertIn("нет данных", profit_row["value"])
 
     def test_pdf_finance_page_marks_estimated_proxy_mode(self) -> None:
         facts, decisions = self._bundles()
@@ -116,8 +116,8 @@ class TestPdfBuilder(unittest.TestCase):
         finance_page = next(page for page in payload.pages if page.title == "Финансы и реклама")
         rows = finance_page.blocks[0].rows
 
-        self.assertTrue(any(row["label"] == "Чистая прибыль" and "(оценка)" in row["value"] for row in rows))
-        self.assertTrue(any(row["label"] == "Маржа" and "(оценка)" in row["value"] for row in rows))
+        self.assertTrue(any(row["label"] == "Чистая прибыль" and "(оценка" in row["value"] for row in rows))
+        self.assertTrue(any(row["label"] == "Маржа" and "(оценка" in row["value"] for row in rows))
         self.assertTrue(
             any(
                 row["label"] == "Комментарий к прибыли"

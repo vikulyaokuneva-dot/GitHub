@@ -33,12 +33,16 @@ def _status_text(status: object) -> str:
 
 def _display_value_by_status(row: dict[str, Any]) -> str:
     status = _status_text(row.get("status"))
+    value = row.get("value")
+    if isinstance(value, str):
+        text = value.strip()
+        if text and status in {"partial", "unavailable"}:
+            return text
     if status == "unavailable":
         return "нет данных"
     if status == "partial":
         return "частично"
 
-    value = row.get("value")
     if value is None:
         return "нет данных"
     text = str(value).strip()

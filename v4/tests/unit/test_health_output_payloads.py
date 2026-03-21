@@ -101,9 +101,10 @@ class TestHealthOutputPayloads(unittest.TestCase):
         self.assertIn("Оценка товаров", page_titles)
         health_page = next(page for page in pdf_payload.pages if page.title == "Оценка товаров")
         rows = {row["label"]: row for row in health_page.blocks[0].rows}
-        self.assertEqual(rows["Оценка здоровья бизнеса"]["value"], "нет данных")
-        self.assertEqual(rows["Риск неликвида"]["value"], "нет данных")
+        self.assertTrue(str(rows["Оценка здоровья бизнеса"]["value"]).startswith("нет данных"))
+        self.assertTrue(str(rows["Риск неликвида"]["value"]).startswith("нет данных"))
 
 
 if __name__ == "__main__":
     unittest.main()
+
