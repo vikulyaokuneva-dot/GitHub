@@ -1,17 +1,38 @@
-﻿"""PDF-ready payload builder over facts + decisions.
+"""PDF-ready payload builder over facts + decisions.
 
 Input: FactsBundle and DecisionsBundle.
-Output: PdfPayload suitable for future renderer.
+Output: PdfPayload suitable for renderer.
 Does not render PDF and does not recalculate KPI.
 """
 
 from __future__ import annotations
 
-from ...core.contracts import DecisionItem, DecisionsBundle, FactItem, FactsBundle
+from ...core.contracts import DecisionItem, DecisionsBundle, FactsBundle
 from .contracts import PdfBlock, PdfPage, PdfPayload
+from .view_model import (
+    build_kpi_cards,
+    map_ads_section,
+    map_finance_section,
+    map_funnel_section,
+    map_health_section,
+    map_stock_section,
+)
 
 
 AUDIT_DISCLAIMER = "Отчет построен в audit_file_mode; выводы ограничены доступными файлами."
+ESTIMATE_EXPLANATION_RU = "Оценочный расчет, не основанный на финальной реализации"
+
+_DECISION_TITLE_RU: dict[str, str] = {
+    "negative_profit": "Отрицательная прибыль",
+    "low_margin": "Низкая маржинальность",
+    "ad_inefficiency": "Неэффективная реклама",
+    "out_of_stock_risk": "Риск дефицита",
+    "weak_conversion": "Слабая конверсия",
+    "overstock": "Риск оверстока",
+    "dead_sku": "Риск неликвида",
+    "low_business_health": "Снижение здоровья бизнеса",
+    "partial_data_warning": "Ограниченность данных",
+}
 
 
 def _decision_status_text(item: DecisionItem) -> str:
@@ -22,110 +43,106 @@ def _decision_priority_text(item: DecisionItem) -> str:
     return item.priority.value if hasattr(item.priority, "value") else str(item.priority)
 
 
-def _find_fact_item(facts_bundle: FactsBundle, section_name: str, key: str) -> FactItem | None:
-    section = facts_bundle.sections.get(section_name)
-    if section is None:
-        return None
-    for item in section.items:
-        if item.key == key:
-            return item
-    return None
+def _decision_status_ru(status: str) -> str:
+    token = str(status or "").strip().lower()
+    if token == "confirmed":
+        return "подтверждено"
+    if token == "partial":
+        return "частично подтверждено"
+    if token == "unavailable":
+        return "нет данных"
+    return token or "нет данных"
 
 
-def _render_fact_value(fact_item: FactItem | None) -> str:
-    if fact_item is None:
-        return "нет данных"
-    status = str(fact_item.value.status)
-    value = fact_item.value.value
-    if status == "unavailable":
-        return "нет данных"
-    if status == "partial":
-        if value is None:
-            return "частично"
-        return f"{value} (частично)"
-    if value is None:
-        return "нет данных"
-    return str(value)
+def _financial_estimate_mode(facts_bundle: FactsBundle) -> bool:
+    financial = facts_bundle.sections.get("financial")
+    diagnostics = financial.diagnostics if financial is not None and isinstance(financial.diagnostics, dict) else {}
+    model_mode = str(diagnostics.get("financial_model_mode") or diagnostics.get("financial_mode") or "")
+    estimate_used = bool(diagnostics.get("profitability_estimate_used", False))
+    return model_mode == "estimated" or estimate_used
 
 
 def _executive_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle, mode: str) -> PdfPage:
     partial_flag = bool(facts_bundle.data_quality.get("partial_sections") or facts_bundle.data_quality.get("unavailable_sections"))
-    rows = [
-        {"label": "Mode", "value": mode, "status": "info"},
-        {"label": "Seller", "value": facts_bundle.run_context.seller_id, "status": "info"},
-        {"label": "Sections present", "value": list(facts_bundle.sections.keys()), "status": "info"},
-        {"label": "Decisions count", "value": len(decisions_bundle.items), "status": "info"},
-        {"label": "Partial flag", "value": partial_flag, "status": "info"},
+
+    kpi_rows = list(build_kpi_cards(facts_bundle))
+    summary_rows = [
+        {"label": "Режим", "value": mode, "status": "confirmed"},
+        {"label": "Продавец", "value": facts_bundle.run_context.seller_id, "status": "confirmed"},
+        {"label": "Разделов в отчете", "value": len(facts_bundle.sections), "status": "confirmed"},
+        {"label": "Количество рекомендаций", "value": len(decisions_bundle.items), "status": "confirmed"},
+        {"label": "Признак неполных данных", "value": "да" if partial_flag else "нет", "status": "confirmed"},
     ]
     if mode == "audit":
-        rows.append({"label": "Audit note", "value": AUDIT_DISCLAIMER, "status": "info"})
-    block = PdfBlock(title="Executive Summary", rows=rows, status="info", diagnostics={"mode": mode})
-    return PdfPage(title="Executive Summary", blocks=[block])
+        summary_rows.append({"label": "Примечание audit", "value": AUDIT_DISCLAIMER, "status": "confirmed"})
+
+    funnel_rows = map_funnel_section(facts_bundle)
+
+    blocks = [
+        PdfBlock(title="Ключевые KPI", rows=kpi_rows, status="confirmed", diagnostics={"mode": mode}),
+        PdfBlock(title="Сводка запуска", rows=summary_rows, status="confirmed", diagnostics={"mode": mode}),
+        PdfBlock(title="Воронка", rows=funnel_rows, status="confirmed"),
+    ]
+    return PdfPage(title="Ключевые показатели дня", blocks=blocks)
 
 
-def _finance_page(facts_bundle: FactsBundle) -> PdfPage:
+def _finance_ads_page(facts_bundle: FactsBundle) -> PdfPage:
     section = facts_bundle.sections.get("financial")
     section_diag = section.diagnostics if isinstance(getattr(section, "diagnostics", None), dict) else {}
-    model_mode = section_diag.get("financial_model_mode") or section_diag.get("financial_mode")
-    estimate_used = bool(section_diag.get("profitability_estimate_used", False))
-    is_estimated = bool(model_mode == "estimated" or estimate_used)
+    model_mode = str(section_diag.get("financial_model_mode") or section_diag.get("financial_mode") or "")
+    confidence = str(section_diag.get("financial_confidence") or "none")
+    is_estimated = _financial_estimate_mode(facts_bundle)
 
-    keys = [
-        ("orders_count", "Orders count"),
-        ("sales_amount", "Sales amount"),
-        ("seller_payout", "Seller payout"),
-        ("revenue_gross", "Revenue gross"),
-        ("net_profit_like", "Net profit-like (estimate)" if is_estimated else "Net profit-like"),
-        ("margin", "Margin-like (estimate)" if is_estimated else "Margin-like"),
-    ]
-    rows: list[dict[str, str]] = []
-    for key, title in keys:
-        fact_item = _find_fact_item(facts_bundle, "financial", key)
-        rows.append(
-            {
-                "label": title,
-                "value": _render_fact_value(fact_item),
-                "status": fact_item.value.status if fact_item is not None else "unavailable",
-            }
-        )
-    confidence = section_diag.get("financial_confidence")
-    estimate_warning = str(section_diag.get("profitability_estimate_warning") or "").strip()
-    if model_mode is not None:
-        rows.append({"label": "Financial model mode", "value": str(model_mode), "status": "info"})
-    if confidence is not None:
-        rows.append({"label": "Financial confidence", "value": str(confidence), "status": "info"})
+    finance_rows = map_finance_section(facts_bundle)
+    finance_rows.append({"label": "Режим финансовой модели", "value": model_mode or "нет данных", "status": "confirmed"})
+    finance_rows.append({"label": "Уверенность модели", "value": confidence, "status": "confirmed"})
     if is_estimated:
-        rows.append(
+        finance_rows.append(
             {
-                "label": "Profitability scope",
-                "value": "estimated/proxy (not exact realization-based profitability)",
-                "status": "partial",
+                "label": "Комментарий к прибыли",
+                "value": ESTIMATE_EXPLANATION_RU,
+                "status": "confirmed",
             }
         )
-    if estimate_warning:
-        rows.append({"label": "Estimate note", "value": estimate_warning, "status": "partial"})
-    status = section.status if section is not None else "unavailable"
-    block = PdfBlock(
-        title="Finance Metrics",
-        rows=rows,
-        status=status,
+
+    ads_map = map_ads_section(facts_bundle)
+    ads_rows: list[dict[str, str]]
+    if ads_map.get("has_data"):
+        ads_rows = list(ads_map.get("rows", []))
+    else:
+        ads_rows = [
+            {
+                "label": "Реклама",
+                "value": str(ads_map.get("message") or "Данные по рекламе отсутствуют"),
+                "status": "unavailable",
+            }
+        ]
+
+    finance_block = PdfBlock(
+        title="Финансовая структура дня",
+        rows=finance_rows,
+        status=section.status if section is not None else "unavailable",
         diagnostics={"source_quality": section.diagnostics.get("source_quality") if section is not None else None},
     )
-    return PdfPage(title="Finance", blocks=[block])
+    ads_block = PdfBlock(title="Рекламный блок", rows=ads_rows, status="confirmed")
+    return PdfPage(title="Финансы и реклама", blocks=[finance_block, ads_block])
 
 
 def _decisions_page(decisions_bundle: DecisionsBundle) -> PdfPage:
     rows: list[dict[str, str]] = []
     for item in decisions_bundle.items:
+        title_ru = _DECISION_TITLE_RU.get(item.code, item.title)
+        status_ru = _decision_status_ru(_decision_status_text(item))
         rows.append(
             {
-                "label": f"{_decision_priority_text(item)} {item.title}",
-                "value": item.summary,
-                "status": _decision_status_text(item),
+                "label": f"{_decision_priority_text(item)} {title_ru}",
+                "value": f"{item.summary}. Причина: {item.reason}",
+                "status": "confirmed",
             }
         )
+        rows.append({"label": "Статус рекомендации", "value": status_ru, "status": "confirmed"})
     if not rows:
-        rows.append({"label": "Decisions", "value": "нет данных", "status": "unavailable"})
+        rows.append({"label": "Рекомендации", "value": "нет данных", "status": "unavailable"})
 
     status = "confirmed"
     if any(_decision_status_text(item) in {"partial", "unavailable"} for item in decisions_bundle.items):
@@ -134,42 +151,26 @@ def _decisions_page(decisions_bundle: DecisionsBundle) -> PdfPage:
         status = "unavailable"
 
     block = PdfBlock(
-        title="Decisions",
+        title="Рекомендации по действиям",
         rows=rows,
         status=status,
         diagnostics={"decision_codes": [item.code for item in decisions_bundle.items]},
     )
-    return PdfPage(title="Decisions", blocks=[block])
+    return PdfPage(title="Рекомендации", blocks=[block])
 
 
 def _stock_page(facts_bundle: FactsBundle) -> PdfPage | None:
     if "stock" not in facts_bundle.sections:
         return None
-    keys = [
-        ("total_stock_units", "Stock units"),
-        ("in_stock_items_count", "In-stock items"),
-        ("out_of_stock_items_count", "Out-of-stock items"),
-        ("distinct_nm_ids_count", "Distinct nm_id"),
-        ("distinct_warehouses_count", "Distinct warehouses"),
-    ]
-    rows: list[dict[str, str]] = []
-    for key, title in keys:
-        fact_item = _find_fact_item(facts_bundle, "stock", key)
-        rows.append(
-            {
-                "label": title,
-                "value": _render_fact_value(fact_item),
-                "status": fact_item.value.status if fact_item is not None else "unavailable",
-            }
-        )
+    rows = map_stock_section(facts_bundle)
     section = facts_bundle.sections["stock"]
     block = PdfBlock(
-        title="Stock Metrics",
+        title="Складская ситуация",
         rows=rows,
         status=section.status,
         diagnostics={"source_quality": section.diagnostics.get("source_quality")},
     )
-    return PdfPage(title="Stock", blocks=[block])
+    return PdfPage(title="Остатки", blocks=[block])
 
 
 def _health_page(facts_bundle: FactsBundle) -> PdfPage | None:
@@ -177,48 +178,10 @@ def _health_page(facts_bundle: FactsBundle) -> PdfPage | None:
     if health_section is None:
         return None
 
-    keys = [
-        ("business_health_score", "Business health score"),
-        ("score_status", "Score status"),
-        ("sku_health_signals_count", "SKU health signals"),
-        ("problematic_sku_count", "Problematic SKU count"),
-        ("dead_stock_risk_count", "Dead stock risk count"),
-        ("overstock_risk_count", "Overstock risk count"),
-        ("business_health_status_note", "Health note"),
-    ]
-    rows: list[dict[str, str]] = []
-    for key, title in keys:
-        fact_item = _find_fact_item(facts_bundle, "health", key)
-        if fact_item is None and key == "business_health_status_note":
-            continue
-        rows.append(
-            {
-                "label": title,
-                "value": _render_fact_value(fact_item),
-                "status": fact_item.value.status if fact_item is not None else "unavailable",
-            }
-        )
-
-    component_items = sorted(
-        [
-            item
-            for item in health_section.items
-            if item.key.startswith("component_") and item.key.endswith("_score")
-        ],
-        key=lambda item: item.key,
-    )
-    for item in component_items:
-        component_name = item.key[len("component_") : -len("_score")]
-        rows.append(
-            {
-                "label": f"Component {component_name}",
-                "value": _render_fact_value(item),
-                "status": item.value.status,
-            }
-        )
+    rows = map_health_section(facts_bundle)
 
     block = PdfBlock(
-        title="Health Metrics",
+        title="Состояние товарного портфеля",
         rows=rows,
         status=health_section.status,
         diagnostics={
@@ -227,7 +190,7 @@ def _health_page(facts_bundle: FactsBundle) -> PdfPage | None:
             "component_statuses": health_section.diagnostics.get("component_statuses"),
         },
     )
-    return PdfPage(title="Health", blocks=[block])
+    return PdfPage(title="Оценка товаров", blocks=[block])
 
 
 def _data_quality_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle, mode: str) -> PdfPage | None:
@@ -238,19 +201,19 @@ def _data_quality_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBun
         return None
 
     rows = [
-        {"label": "Partial sections", "value": str(partial_sections or []), "status": "partial" if partial_sections else "info"},
+        {"label": "Частично заполненные разделы", "value": str(partial_sections or []), "status": "partial" if partial_sections else "confirmed"},
         {
-            "label": "Unavailable sections",
+            "label": "Недоступные разделы",
             "value": str(unavailable_sections or []),
-            "status": "partial" if unavailable_sections else "info",
+            "status": "partial" if unavailable_sections else "confirmed",
         },
-        {"label": "Warnings count", "value": str(warnings_count), "status": "info"},
+        {"label": "Количество предупреждений", "value": str(warnings_count), "status": "confirmed"},
     ]
     if mode == "audit":
-        rows.append({"label": "Audit note", "value": AUDIT_DISCLAIMER, "status": "info"})
+        rows.append({"label": "Примечание audit", "value": AUDIT_DISCLAIMER, "status": "confirmed"})
 
     block = PdfBlock(
-        title="Data Quality",
+        title="Диагностика источников",
         rows=rows,
         status="partial" if partial_sections or unavailable_sections else "info",
         diagnostics={
@@ -259,7 +222,7 @@ def _data_quality_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBun
             "mode": mode,
         },
     )
-    return PdfPage(title="Data Quality", blocks=[block])
+    return PdfPage(title="Качество данных", blocks=[block])
 
 
 def build_pdf_payload(
@@ -270,7 +233,7 @@ def build_pdf_payload(
     normalized_mode = "audit" if str(mode).strip().lower() == "audit" else "daily"
     pages: list[PdfPage] = [
         _executive_page(facts_bundle, decisions_bundle, normalized_mode),
-        _finance_page(facts_bundle),
+        _finance_ads_page(facts_bundle),
         _decisions_page(decisions_bundle),
     ]
 
@@ -300,3 +263,4 @@ def build_pdf_payload(
         warnings=warnings,
         diagnostics=diagnostics,
     )
+

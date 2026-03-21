@@ -94,9 +94,8 @@ class TestHealthPipelineIntegration(unittest.TestCase):
         pdf_payload = outputs["pdf"]
 
         self.assertTrue(any(section.title == "Health" for section in email_payload.sections))
-        self.assertTrue(any(page.title == "Health" for page in pdf_payload.pages))
+        self.assertTrue(any(page.title == "Оценка товаров" for page in pdf_payload.pages))
 
 
 if __name__ == "__main__":
     unittest.main()
-

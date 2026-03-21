@@ -98,13 +98,12 @@ class TestHealthOutputPayloads(unittest.TestCase):
         self.assertTrue(any(line.startswith("Health score:") for line in email_payload.summary_lines))
 
         page_titles = [page.title for page in pdf_payload.pages]
-        self.assertIn("Health", page_titles)
-        health_page = next(page for page in pdf_payload.pages if page.title == "Health")
+        self.assertIn("Оценка товаров", page_titles)
+        health_page = next(page for page in pdf_payload.pages if page.title == "Оценка товаров")
         rows = {row["label"]: row for row in health_page.blocks[0].rows}
-        self.assertEqual(rows["Business health score"]["value"], "частично")
-        self.assertEqual(rows["Dead stock risk count"]["value"], "нет данных")
+        self.assertEqual(rows["Оценка здоровья бизнеса"]["value"], "нет данных")
+        self.assertEqual(rows["Риск неликвида"]["value"], "нет данных")
 
 
 if __name__ == "__main__":
     unittest.main()
-

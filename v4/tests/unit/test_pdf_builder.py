@@ -81,22 +81,31 @@ class TestPdfBuilder(unittest.TestCase):
         payload = build_pdf_payload(facts, decisions, mode="daily")
 
         titles = [page.title for page in payload.pages]
-        self.assertIn("Executive Summary", titles)
-        self.assertIn("Finance", titles)
-        self.assertIn("Decisions", titles)
-        self.assertIn("Stock", titles)
-        self.assertIn("Data Quality", titles)
+        self.assertIn("Ключевые показатели дня", titles)
+        self.assertIn("Финансы и реклама", titles)
+        self.assertIn("Рекомендации", titles)
+        self.assertIn("Остатки", titles)
+        self.assertIn("Качество данных", titles)
 
-        finance_page = next(page for page in payload.pages if page.title == "Finance")
+        finance_page = next(page for page in payload.pages if page.title == "Финансы и реклама")
         rows = finance_page.blocks[0].rows
-        payout_row = next(row for row in rows if row["label"] == "Seller payout")
-        profit_row = next(row for row in rows if row["label"] == "Net profit-like")
+        payout_row = next(row for row in rows if row["label"] == "К перечислению продавцу")
+        profit_row = next(row for row in rows if row["label"] == "Чистая прибыль")
 
-        self.assertIn("частично", payout_row["value"])
+        self.assertIn("нет данных", payout_row["value"])
         self.assertEqual(profit_row["value"], "нет данных")
 
     def test_pdf_finance_page_marks_estimated_proxy_mode(self) -> None:
         facts, decisions = self._bundles()
+        for item in facts.sections["financial"].items:
+            if item.key == "net_profit_like":
+                item.value = FactValue(120.0, "partial", "financial")
+            if item.key == "margin":
+                item.value = FactValue(0.12, "partial", "financial")
+        if not any(item.key == "margin" for item in facts.sections["financial"].items):
+            facts.sections["financial"].items.append(
+                FactItem("margin", "Margin", FactValue(0.12, "partial", "financial"))
+            )
         facts.sections["financial"].diagnostics = {
             "financial_model_mode": "estimated",
             "profitability_estimate_used": True,
@@ -104,12 +113,18 @@ class TestPdfBuilder(unittest.TestCase):
         }
 
         payload = build_pdf_payload(facts, decisions, mode="daily")
-        finance_page = next(page for page in payload.pages if page.title == "Finance")
+        finance_page = next(page for page in payload.pages if page.title == "Финансы и реклама")
         rows = finance_page.blocks[0].rows
 
-        self.assertTrue(any(row["label"] == "Net profit-like (estimate)" for row in rows))
-        self.assertTrue(any(row["label"] == "Margin-like (estimate)" for row in rows))
-        self.assertTrue(any(row["label"] == "Profitability scope" and "estimated/proxy" in row["value"] for row in rows))
+        self.assertTrue(any(row["label"] == "Чистая прибыль" and "(оценка)" in row["value"] for row in rows))
+        self.assertTrue(any(row["label"] == "Маржа" and "(оценка)" in row["value"] for row in rows))
+        self.assertTrue(
+            any(
+                row["label"] == "Комментарий к прибыли"
+                and "Оценочный расчет, не основанный на финальной реализации" in row["value"]
+                for row in rows
+            )
+        )
 
 
 if __name__ == "__main__":
