@@ -95,6 +95,22 @@ class TestPdfBuilder(unittest.TestCase):
         self.assertIn("частично", payout_row["value"])
         self.assertEqual(profit_row["value"], "нет данных")
 
+    def test_pdf_finance_page_marks_estimated_proxy_mode(self) -> None:
+        facts, decisions = self._bundles()
+        facts.sections["financial"].diagnostics = {
+            "financial_model_mode": "estimated",
+            "profitability_estimate_used": True,
+            "profitability_estimate_warning": "estimated/proxy: calculated without realization components",
+        }
+
+        payload = build_pdf_payload(facts, decisions, mode="daily")
+        finance_page = next(page for page in payload.pages if page.title == "Finance")
+        rows = finance_page.blocks[0].rows
+
+        self.assertTrue(any(row["label"] == "Net profit-like (estimate)" for row in rows))
+        self.assertTrue(any(row["label"] == "Margin-like (estimate)" for row in rows))
+        self.assertTrue(any(row["label"] == "Profitability scope" and "estimated/proxy" in row["value"] for row in rows))
+
 
 if __name__ == "__main__":
     unittest.main()

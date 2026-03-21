@@ -18,6 +18,7 @@ from .endpoints import REALIZATION
 
 
 _DEFAULT_MAX_FINANCE_LAG_DAYS = 3
+_DEFAULT_WINDOW_SCAN_FALLBACK_ENABLED = 1
 
 
 def _to_int(value: Any, *, default: int, minimum: int = 0) -> int:
@@ -26,6 +27,15 @@ def _to_int(value: Any, *, default: int, minimum: int = 0) -> int:
     except Exception:
         return default
     return max(parsed, minimum)
+
+
+def _to_bool(value: Any, *, default: bool) -> bool:
+    text = str(value if value is not None else "").strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return bool(default)
 
 
 def _parse_iso_date(value: str | None) -> date | None:
@@ -124,6 +134,60 @@ def _lag_days(target_date_iso: str | None, source_date_iso: str | None) -> int |
     return (parsed_target - parsed_source).days
 
 
+def _parse_row_date(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    iso_candidate = _parse_iso_date(text)
+    if iso_candidate is not None:
+        return iso_candidate.isoformat()
+    if len(text) >= 10 and text[2] == "." and text[5] == ".":
+        day = text[0:2]
+        month = text[3:5]
+        year = text[6:10]
+        iso = f"{year}-{month}-{day}"
+        if _parse_iso_date(iso) is not None:
+            return iso
+    return None
+
+
+def _row_event_date_iso(row: dict[str, Any]) -> str | None:
+    for key in ("rr_dt", "sale_dt", "order_dt", "date", "lastChangeDate", "create_dt"):
+        if key not in row:
+            continue
+        parsed = _parse_row_date(row.get(key))
+        if parsed:
+            return parsed
+    return None
+
+
+def _select_source_date_from_rows(rows: list[dict[str, Any]], target_date: str | None) -> str | None:
+    dates = sorted({d for d in (_row_event_date_iso(row) for row in rows) if d})
+    if not dates:
+        return None
+    if target_date and target_date in dates:
+        return target_date
+    if target_date:
+        previous = [d for d in dates if d <= target_date]
+        if previous:
+            return previous[-1]
+    return dates[-1]
+
+
+def _filter_rows_by_source_date(rows: list[dict[str, Any]], source_date: str | None) -> list[dict[str, Any]]:
+    if not source_date:
+        return list(rows)
+    selected = [row for row in rows if _row_event_date_iso(row) == source_date]
+    return selected or list(rows)
+
+
+def _build_window_scan_params(oldest_candidate_date: str | None) -> dict[str, Any]:
+    params: dict[str, Any] = {"limit": 100000, "rrdid": 0}
+    if oldest_candidate_date:
+        params["dateFrom"] = oldest_candidate_date
+    return params
+
+
 def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourcePayload:
     requested_date = run_context.requested_date_iso
     resolved_date = run_context.resolved_date_iso
@@ -133,6 +197,10 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
         os.getenv("WB_MAX_FINANCE_LAG_DAYS"),
         default=_DEFAULT_MAX_FINANCE_LAG_DAYS,
         minimum=0,
+    )
+    window_scan_fallback_enabled = _to_bool(
+        os.getenv("WB_REALIZATION_WINDOW_SCAN_FALLBACK"),
+        default=bool(_DEFAULT_WINDOW_SCAN_FALLBACK_ENABLED),
     )
     candidate_dates = _candidate_dates(target_date, max_lag_days)
 
@@ -150,6 +218,7 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
     lag_days: int | None = None
     total_attempts = 0
     attempt_log: list[dict[str, Any]] = []
+    window_scan_used = False
 
     for index, source_date in enumerate(candidate_dates):
         params = _build_request_params(source_date)
@@ -239,19 +308,108 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
             warnings.append("realization payload is non-empty but row extraction returned zero rows")
             break
     else:
-        status_code = SourceStatusCode.MISSING
-        selected_source_date = None
-        lag_days = None
-        fallback_used = False
-        if target_date and len(candidate_dates) > 1:
-            reason = "no_realization_in_window"
-            warnings.append("realization source has no data in fallback window")
-        elif target_date:
-            reason = "no_data_for_date"
-            warnings.append("realization source has no data for selected date")
+        if target_date and window_scan_fallback_enabled and len(candidate_dates) > 1:
+            oldest_candidate = candidate_dates[-1] if candidate_dates else None
+            scan_params = _build_window_scan_params(oldest_candidate)
+            scan_response = client.get_json(REALIZATION, params=scan_params, allow_statuses={204: []})
+            total_attempts += int(scan_response.attempts or 0)
+
+            scan_extraction_meta: dict[str, Any] = {
+                "mode": "none",
+                "origin": None,
+                "compat_used": False,
+                "explicit_empty_list": False,
+                "payload_shape": _payload_shape(scan_response.payload),
+            }
+            scan_rows: list[dict[str, Any]] = []
+            if scan_response.ok:
+                scan_rows, scan_extraction_meta = client.extract_rows_with_diagnostics(
+                    scan_response.payload,
+                    ("data", "items", "rows"),
+                )
+            scan_raw_count = _raw_record_count(scan_response.payload)
+            scan_payload_empty = _payload_is_empty(scan_response.payload)
+            scan_explicit_empty_rows = _explicit_empty_rows(scan_response.payload) or bool(
+                scan_extraction_meta.get("explicit_empty_list")
+            )
+            scan_extraction_empty = bool(
+                scan_response.ok and not scan_payload_empty and not scan_explicit_empty_rows and not scan_rows
+            )
+            scan_reason = "window_scan_empty"
+            if not scan_response.ok:
+                scan_reason = _response_failure_reason(
+                    status_code=scan_response.status_code,
+                    error_code=scan_response.error_code,
+                )
+            elif scan_rows:
+                scan_reason = "window_scan_rows_found"
+            elif scan_extraction_empty:
+                scan_reason = "parse_failed"
+
+            attempt_log.append(
+                {
+                    "source_date": "window_scan",
+                    "request_params": dict(scan_params),
+                    "http_status": scan_response.status_code,
+                    "ok": bool(scan_response.ok),
+                    "attempts": scan_response.attempts,
+                    "error_code": scan_response.error_code,
+                    "reason": scan_reason,
+                    "record_count_raw": scan_raw_count,
+                    "rows_extracted": len(scan_rows),
+                    "payload_shape": _payload_shape(scan_response.payload),
+                    "payload_empty": scan_payload_empty,
+                    "explicit_empty_rows": scan_explicit_empty_rows,
+                    "extraction_mode": scan_extraction_meta.get("mode"),
+                    "payload_origin": scan_extraction_meta.get("origin"),
+                    "compat_used": bool(scan_extraction_meta.get("compat_used", False)),
+                    "window_scan": True,
+                }
+            )
+
+            selected_response = scan_response
+            selected_request_params = dict(scan_params)
+            selected_raw_count = scan_raw_count
+            selected_extraction_meta = dict(scan_extraction_meta)
+            window_scan_used = True
+
+            if scan_response.ok and scan_rows:
+                source_date_from_rows = _select_source_date_from_rows(scan_rows, target_date=target_date)
+                selected_source_date = source_date_from_rows or target_date
+                selected_rows = _filter_rows_by_source_date(scan_rows, selected_source_date)
+                lag_days = _lag_days(target_date, selected_source_date)
+                fallback_used = True
+                status_code = SourceStatusCode.PARTIAL
+                reason = "fallback_used"
+                warnings.append("realization window-scan fallback applied: using closest available date from payload")
+            else:
+                status_code = SourceStatusCode.MISSING
+                selected_source_date = None
+                lag_days = None
+                fallback_used = False
+                if target_date and len(candidate_dates) > 1:
+                    reason = "no_realization_in_window"
+                    warnings.append("realization source has no data in fallback window")
+                elif target_date:
+                    reason = "no_data_for_date"
+                    warnings.append("realization source has no data for selected date")
+                else:
+                    reason = "ok_empty_payload"
+                    warnings.append("realization source returned empty payload")
         else:
-            reason = "ok_empty_payload"
-            warnings.append("realization source returned empty payload")
+            status_code = SourceStatusCode.MISSING
+            selected_source_date = None
+            lag_days = None
+            fallback_used = False
+            if target_date and len(candidate_dates) > 1:
+                reason = "no_realization_in_window"
+                warnings.append("realization source has no data in fallback window")
+            elif target_date:
+                reason = "no_data_for_date"
+                warnings.append("realization source has no data for selected date")
+            else:
+                reason = "ok_empty_payload"
+                warnings.append("realization source returned empty payload")
 
     debug_payload = selected_response.payload if selected_response is not None else None
     debug_status_code = selected_response.status_code if selected_response is not None else None
@@ -337,6 +495,8 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
             "realization_lag_days": lag_days,
             "realization_target_date": target_date,
             "realization_max_lag_days": max_lag_days,
+            "realization_window_scan_fallback_enabled": window_scan_fallback_enabled,
+            "realization_window_scan_used": window_scan_used,
             "realization_rows_extracted": len(selected_rows),
             "realization_payload_shape": _payload_shape(debug_payload),
             "realization_payload_empty": _payload_is_empty(debug_payload),
@@ -364,6 +524,8 @@ def load_realization(client: WBApiClient, run_context: RunContext) -> RawSourceP
             "lag_days": lag_days,
             "max_lag_days": max_lag_days,
             "attempt_count": len(attempt_log),
+            "window_scan_fallback_enabled": window_scan_fallback_enabled,
+            "window_scan_used": window_scan_used,
         },
         "reason": reason,
         "extraction": dict(selected_extraction_meta),

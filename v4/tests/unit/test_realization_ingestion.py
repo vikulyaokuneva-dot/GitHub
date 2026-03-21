@@ -119,6 +119,7 @@ class TestRealizationIngestion(unittest.TestCase):
                 _response(ok=True, status_code=200, payload=[]),
                 _response(ok=True, status_code=204, payload=[]),
                 _response(ok=True, status_code=200, payload=[]),
+                _response(ok=True, status_code=200, payload=[]),
             ]
         )
         with patch.dict(os.environ, {"WB_MAX_FINANCE_LAG_DAYS": "2"}, clear=False):
@@ -129,8 +130,36 @@ class TestRealizationIngestion(unittest.TestCase):
         self.assertFalse(payload.status.debug.get("realization_fallback_used"))
         self.assertIsNone(payload.status.debug.get("realization_source_date"))
         self.assertIsNone(payload.status.debug.get("realization_lag_days"))
-        self.assertEqual(len(payload.status.debug.get("realization_attempt_log", [])), 3)
+        self.assertEqual(len(payload.status.debug.get("realization_attempt_log", [])), 4)
+        self.assertTrue(payload.status.debug.get("realization_window_scan_used"))
         self.assertTrue(any("fallback window" in warning for warning in payload.status.warnings))
+        self.assertEqual(len(client.calls), 4)
+
+    def test_window_scan_fallback_recovers_rows(self) -> None:
+        client = _SequenceClient(
+            [
+                _response(ok=True, status_code=200, payload=[]),
+                _response(ok=True, status_code=200, payload=[]),
+                _response(ok=True, status_code=200, payload=[]),
+                _response(
+                    ok=True,
+                    status_code=200,
+                    payload=[{"rrd_id": 3, "rr_dt": "2026-03-17"}],
+                ),
+            ]
+        )
+        with patch.dict(os.environ, {"WB_MAX_FINANCE_LAG_DAYS": "2"}, clear=False):
+            payload = load_realization(client, _context())
+
+        self.assertEqual(payload.status.status.value, "partial")
+        self.assertEqual(payload.status.debug.get("realization_reason"), "fallback_used")
+        self.assertTrue(payload.status.debug.get("realization_fallback_used"))
+        self.assertTrue(payload.status.debug.get("realization_window_scan_used"))
+        self.assertEqual(payload.status.debug.get("realization_source_date"), "2026-03-17")
+        self.assertEqual(payload.status.debug.get("realization_lag_days"), 2)
+        self.assertEqual(payload.status.rows_loaded, 1)
+        self.assertEqual(len(payload.status.debug.get("realization_attempt_log", [])), 4)
+        self.assertEqual(len(client.calls), 4)
 
     def test_http_204_is_valid_empty_response(self) -> None:
         client = _SequenceClient(

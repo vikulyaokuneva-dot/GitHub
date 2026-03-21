@@ -98,6 +98,23 @@ class TestEmailBuilder(unittest.TestCase):
             )
         )
 
+    def test_email_financial_section_marks_estimated_proxy_mode(self) -> None:
+        facts, decisions = self._bundles()
+        financial = facts.sections["financial"]
+        financial.diagnostics = {
+            "financial_model_mode": "estimated",
+            "financial_confidence": "low",
+            "profitability_method": "seller_payout_proxy",
+            "profitability_estimate_used": True,
+            "profitability_estimate_warning": "estimated/proxy: calculated without realization components",
+        }
+
+        payload = build_email_payload(facts, decisions, mode="daily")
+        finance_section = next(section for section in payload.sections if section.title == "Финансы")
+
+        self.assertTrue(any("оценка" in line.lower() for line in finance_section.lines))
+        self.assertTrue(any("estimated/proxy" in line for line in finance_section.lines))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -175,13 +175,14 @@ def _build_finance_section(facts_bundle: FactsBundle) -> EmailSection:
     confidence = str(diagnostics.get("financial_confidence") or "none")
     profitability_method = str(diagnostics.get("profitability_method") or "unavailable")
     estimate_used = bool(diagnostics.get("profitability_estimate_used", False))
+    is_estimated = estimate_used or model_mode == "estimated"
     estimate_warning = str(diagnostics.get("profitability_estimate_warning") or "").strip()
     blockers = diagnostics.get("profitability_blockers")
     blocker_list = list(blockers) if isinstance(blockers, list) else []
 
     net_label = "Чистая прибыль-like"
     margin_label = "Margin-like"
-    if estimate_used:
+    if is_estimated:
         net_label = "Чистая прибыль-like (оценка)"
         margin_label = "Margin-like (оценка)"
 
@@ -193,10 +194,12 @@ def _build_finance_section(facts_bundle: FactsBundle) -> EmailSection:
         f"Модель: {model_mode}; confidence={confidence}",
         f"Метод profitability: {profitability_method}",
     ]
+    if is_estimated:
+        lines.append("Financial mode detail: estimated/proxy model (realization is unavailable or incomplete).")
     if estimate_warning:
         lines.append(f"Note: {estimate_warning}")
-    elif estimate_used:
-        lines.append("Note: рассчитано без realization components, на основе seller_payout.")
+    elif is_estimated:
+        lines.append("Note: estimated/proxy profitability from seller_payout and sales_amount.")
     if blocker_list:
         lines.append(f"Blockers: {blocker_list}")
     return EmailSection(title="Финансы", lines=lines, status=_section_status(facts_bundle, "financial"))
@@ -364,6 +367,7 @@ def _build_full_financial_section(facts_bundle: FactsBundle) -> EmailSection:
     confidence = str(diagnostics.get("financial_confidence") or "none")
     profitability_method = str(diagnostics.get("profitability_method") or "unavailable")
     estimate_used = bool(diagnostics.get("profitability_estimate_used", False))
+    is_estimated = estimate_used or model_mode == "estimated"
     estimate_formula = str(diagnostics.get("profitability_estimate_formula") or "").strip()
     estimate_warning = str(diagnostics.get("profitability_estimate_warning") or "").strip()
     dependencies = diagnostics.get("profitability_dependencies")
@@ -386,6 +390,8 @@ def _build_full_financial_section(facts_bundle: FactsBundle) -> EmailSection:
         f"profitability_method: {profitability_method}",
         f"profitability_estimate_used: {str(estimate_used).lower()}",
     ]
+    if is_estimated:
+        lines.append("financial_estimate_label: estimated/proxy (not exact realization-based profitability)")
     if estimate_formula:
         lines.append(f"profitability_estimate_formula: {estimate_formula}")
     if dependencies_list:

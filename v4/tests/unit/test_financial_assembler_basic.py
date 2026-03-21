@@ -127,7 +127,9 @@ class TestFinancialAssemblerBasic(unittest.TestCase):
         self.assertEqual(financial.net_profit_like.value, 700.0)
         self.assertEqual(financial.margin.status, "partial")
         self.assertEqual(financial.margin.value, 0.7)
-        self.assertIn("calculated without realization components", str(financial.net_profit_like.note))
+        self.assertIn("estimated/proxy", str(financial.net_profit_like.note))
+        self.assertEqual(financial.seller_payout.value, 700.0)
+        self.assertNotIn("unavailable", str(financial.seller_payout.note or "").lower())
         self.assertIn("margin", financial.financial_available_components)
 
 

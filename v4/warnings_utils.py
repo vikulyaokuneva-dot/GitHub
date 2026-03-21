@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-_REPEATED_PREFIX = re.compile(r"^\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*:\s*\1\s*:\s*(.+)$", flags=re.IGNORECASE)
+_PREFIX_HEAD = re.compile(r"^\s*([a-zA-Z_][a-zA-Z0-9_-]*)\s*:\s*(.+)$", flags=re.IGNORECASE)
 _KNOWN_NAMESPACES = {
     "orders",
     "sales",
@@ -35,11 +35,18 @@ def normalize_warning(value: object) -> str:
     if not text:
         return ""
     text = " ".join(text.split())
-    while True:
-        match = _REPEATED_PREFIX.match(text)
-        if not match:
-            break
-        text = f"{match.group(1)}: {match.group(2).strip()}"
+    head = _PREFIX_HEAD.match(text)
+    if head:
+        prefix = str(head.group(1) or "").strip()
+        remainder = str(head.group(2) or "").strip()
+        if prefix and remainder:
+            repeated = re.compile(rf"^\s*{re.escape(prefix)}\s*:\s*(.+)$", flags=re.IGNORECASE)
+            while True:
+                nested = repeated.match(remainder)
+                if not nested:
+                    break
+                remainder = str(nested.group(1) or "").strip()
+            text = f"{prefix}: {remainder}"
     return text
 
 
@@ -81,4 +88,3 @@ def append_warning(target: list[str], value: object, *, namespace: str | None = 
 def extend_warnings(target: list[str], values: Iterable[object], *, namespace: str | None = None) -> None:
     for value in values:
         append_warning(target, value, namespace=namespace)
-

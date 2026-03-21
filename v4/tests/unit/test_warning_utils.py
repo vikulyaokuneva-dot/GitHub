@@ -19,6 +19,14 @@ class TestWarningUtils(unittest.TestCase):
         text = namespace_warning("financial", "realization: source returned empty payload")
         self.assertEqual(text, "realization: source returned empty payload")
 
+    def test_repeated_namespace_chain_is_collapsed(self) -> None:
+        warnings = dedupe_warnings(
+            [
+                "realization: realization: realization: lag fallback applied",
+            ]
+        )
+        self.assertEqual(warnings, ["realization: lag fallback applied"])
+
 
 if __name__ == "__main__":
     unittest.main()

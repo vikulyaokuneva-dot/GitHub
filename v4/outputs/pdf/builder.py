@@ -64,13 +64,19 @@ def _executive_page(facts_bundle: FactsBundle, decisions_bundle: DecisionsBundle
 
 
 def _finance_page(facts_bundle: FactsBundle) -> PdfPage:
+    section = facts_bundle.sections.get("financial")
+    section_diag = section.diagnostics if isinstance(getattr(section, "diagnostics", None), dict) else {}
+    model_mode = section_diag.get("financial_model_mode") or section_diag.get("financial_mode")
+    estimate_used = bool(section_diag.get("profitability_estimate_used", False))
+    is_estimated = bool(model_mode == "estimated" or estimate_used)
+
     keys = [
         ("orders_count", "Orders count"),
         ("sales_amount", "Sales amount"),
         ("seller_payout", "Seller payout"),
         ("revenue_gross", "Revenue gross"),
-        ("net_profit_like", "Net profit-like"),
-        ("margin", "Margin-like"),
+        ("net_profit_like", "Net profit-like (estimate)" if is_estimated else "Net profit-like"),
+        ("margin", "Margin-like (estimate)" if is_estimated else "Margin-like"),
     ]
     rows: list[dict[str, str]] = []
     for key, title in keys:
@@ -82,14 +88,22 @@ def _finance_page(facts_bundle: FactsBundle) -> PdfPage:
                 "status": fact_item.value.status if fact_item is not None else "unavailable",
             }
         )
-    section = facts_bundle.sections.get("financial")
-    section_diag = section.diagnostics if isinstance(getattr(section, "diagnostics", None), dict) else {}
-    model_mode = section_diag.get("financial_model_mode") or section_diag.get("financial_mode")
     confidence = section_diag.get("financial_confidence")
+    estimate_warning = str(section_diag.get("profitability_estimate_warning") or "").strip()
     if model_mode is not None:
         rows.append({"label": "Financial model mode", "value": str(model_mode), "status": "info"})
     if confidence is not None:
         rows.append({"label": "Financial confidence", "value": str(confidence), "status": "info"})
+    if is_estimated:
+        rows.append(
+            {
+                "label": "Profitability scope",
+                "value": "estimated/proxy (not exact realization-based profitability)",
+                "status": "partial",
+            }
+        )
+    if estimate_warning:
+        rows.append({"label": "Estimate note", "value": estimate_warning, "status": "partial"})
     status = section.status if section is not None else "unavailable"
     block = PdfBlock(
         title="Finance Metrics",
