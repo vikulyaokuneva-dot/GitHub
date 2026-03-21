@@ -13,7 +13,7 @@ from .lag_fallback import resolve_realization_window
 USABLE_SOURCE_STATES = {"ok", "partial"}
 CORE_EXACT_COST_KEYS = ("logistics_cost", "storage_cost", "deductions_amount")
 ESTIMATED_PROXY_NOTE = "estimated/proxy: calculated without realization components"
-FALLBACK_ESTIMATE_NOTE = "рассчитано через fallback"
+FALLBACK_ESTIMATE_NOTE = "calculated via fallback"
 KPI_STATUS_OK = "ok"
 KPI_STATUS_ESTIMATED = "estimated"
 KPI_STATUS_PARTIAL = "partial"
@@ -45,6 +45,28 @@ def _source_usable(state: str) -> bool:
     return state in USABLE_SOURCE_STATES
 
 
+def _effective_source_state_for_finance(
+    *,
+    source_name: str,
+    source_state: str,
+    rows_count: int,
+    warnings: list[str],
+) -> str:
+    if _source_usable(source_state):
+        return source_state
+    if rows_count <= 0:
+        return source_state
+    append_warning(
+        warnings,
+        (
+            f"{source_name} source status={source_state} but normalized rows are present; "
+            "downgraded to partial for financial contour"
+        ),
+        namespace="financial",
+    )
+    return "partial"
+
+
 def _target_date(bundle: NormalizedBundle) -> str | None:
     return bundle.run_context.resolved_date_iso or bundle.run_context.requested_date_iso
 
@@ -69,9 +91,9 @@ def _is_return_sale(record: NormalizedSaleRecord) -> bool | None:
     text = str(record.operation_type or "").strip().lower()
     if not text:
         return None
-    if "возврат" in text or "return" in text:
+    if "\u0432\u043e\u0437\u0432\u0440\u0430\u0442" in text or "return" in text:
         return True
-    if "продаж" in text or "sale" in text or "реализац" in text:
+    if "\u043f\u0440\u043e\u0434\u0430\u0436" in text or "sale" in text or "\u0440\u0435\u0430\u043b\u0438\u0437\u0430\u0446" in text:
         return False
     return None
 
@@ -344,7 +366,8 @@ def resolve_financial_confidence(*, financial_model_mode: str, fallback_used: bo
     if financial_model_mode == "unavailable":
         return "none"
     if financial_model_mode == "estimated":
-        return str(estimate_confidence or "low")
+        normalized = str(estimate_confidence or "").strip().lower()
+        return normalized if normalized and normalized != "none" else "low"
     if selected_profit_metric.status == MetricStatus.CONFIRMED.value and selected_margin_metric.status == MetricStatus.CONFIRMED.value and not fallback_used:
         return "high"
     return "medium"
@@ -373,11 +396,24 @@ def _build_metric_provenance(*, metric: MetricValue, source_date: str | None, de
 
 def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> FinancialMetricsSection:
     target_date = _target_date(normalized_bundle)
-    source_orders = _source_state(normalized_bundle, "orders")
-    source_sales = _source_state(normalized_bundle, "sales")
-    source_realization = _source_state(normalized_bundle, "realization")
+    warnings: list[str] = []
+    source_orders_raw = _source_state(normalized_bundle, "orders")
+    source_sales_raw = _source_state(normalized_bundle, "sales")
+    source_realization_raw = _source_state(normalized_bundle, "realization")
     orders_for_day = _filter_by_date(normalized_bundle.orders, lambda row: row.order_date, target_date)
     sales_for_day = _filter_by_date(normalized_bundle.sales, lambda row: row.sale_date, target_date)
+    source_orders = _effective_source_state_for_finance(
+        source_name="orders",
+        source_state=source_orders_raw,
+        rows_count=len(orders_for_day),
+        warnings=warnings,
+    )
+    source_sales = _effective_source_state_for_finance(
+        source_name="sales",
+        source_state=source_sales_raw,
+        rows_count=len(sales_for_day),
+        warnings=warnings,
+    )
     return_rows = [row for row in sales_for_day if _is_return_sale(row) is True]
     sale_rows = [row for row in sales_for_day if _is_return_sale(row) is False]
     resolution = resolve_realization_window(normalized_bundle, normalized_bundle.run_context)
@@ -393,6 +429,12 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
             if str(row.event_type or "").strip()
         }
     )
+    source_realization = _effective_source_state_for_finance(
+        source_name="realization",
+        source_state=source_realization_raw,
+        rows_count=len(realization_rows_for_actual_date),
+        warnings=warnings,
+    )
     realization_status_debug = normalized_bundle.source_statuses.get("realization")
     realization_status_debug = (
         dict(realization_status_debug.debug)
@@ -406,8 +448,11 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
     ).strip()
     if not realization_extraction_mode:
         realization_extraction_mode = "unknown"
-    components = classify_realization_components(normalized_bundle, actual_date=resolution.actual_date)
-    warnings: list[str] = []
+    components = classify_realization_components(
+        normalized_bundle,
+        actual_date=resolution.actual_date,
+        source_state_override=source_realization,
+    )
     extend_warnings(warnings, resolution.warnings, namespace="realization")
     extend_warnings(warnings, components.warnings, namespace="realization")
     orders_count = _metric_from_count(count=len(orders_for_day), source_state=source_orders, source="orders")
@@ -503,20 +548,59 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
     cost_map = {"commission_amount": commission_amount, "acquiring_amount": acquiring_amount, "logistics_cost": logistics_cost, "storage_cost": storage_cost, "deductions_amount": deductions_amount, "pvz_amount": pvz_amount, "penalties_amount": penalties_amount, "acceptance_amount": acceptance_amount, "paid_acceptance_amount": paid_acceptance_amount, "other_costs_amount": other_costs_amount}
     exact_gross, exact_net, exact_meta = calculate_exact_profitability(revenue_gross=revenue_gross, cost_map=cost_map, fallback_used=bool(resolution.fallback_used))
     estimated_gross, estimated_net, estimate_meta = calculate_estimated_profitability(sales_amount=sales_amount, seller_payout=seller_payout)
+    structural_mode_metrics = {
+        "sales_amount": sales_amount,
+        "revenue_gross": revenue_gross,
+        "seller_payout": seller_payout,
+        "commission_amount": commission_amount,
+        "acquiring_amount": acquiring_amount,
+        "pvz_amount": pvz_amount,
+        "logistics_cost": logistics_cost,
+        "storage_cost": storage_cost,
+        "deductions_amount": deductions_amount,
+        "penalties_amount": penalties_amount,
+        "acceptance_amount": acceptance_amount,
+        "paid_acceptance_amount": paid_acceptance_amount,
+        "other_costs_amount": other_costs_amount,
+    }
+    structural_available_for_mode = sorted(
+        [name for name, metric in structural_mode_metrics.items() if _metric_available(metric)]
+    )
+    exact_source_states = {
+        "realization": source_realization_raw,
+    }
+    exact_sources_ready = all(_source_usable(state) for state in exact_source_states.values())
     realization_available = bool(_source_usable(source_realization) and resolution.actual_date)
-    financial_model_mode = "exact" if (realization_available and exact_net.status != MetricStatus.UNAVAILABLE.value) else ("estimated" if estimated_net.status != MetricStatus.UNAVAILABLE.value else "unavailable")
-    if financial_model_mode == "exact":
+    exact_mode_available = bool(
+        exact_sources_ready
+        and realization_available
+        and exact_net.status != MetricStatus.UNAVAILABLE.value
+    )
+    estimated_profit_available = bool(estimated_net.status != MetricStatus.UNAVAILABLE.value)
+    has_structural_financial_data = bool(structural_available_for_mode)
+
+    if exact_mode_available:
+        financial_model_mode = "exact"
         gross_profit_like, net_profit_like, profile = exact_gross, exact_net, exact_meta
         estimate_used, estimate_method, estimate_formula, estimate_dependencies, estimate_warning = False, None, None, [], None
-    elif financial_model_mode == "estimated":
+    elif estimated_profit_available or has_structural_financial_data:
+        financial_model_mode = "estimated"
         gross_profit_like, net_profit_like, profile = estimated_gross, estimated_net, estimate_meta
-        estimate_used = True
+        estimate_used = estimated_profit_available
         estimate_method = str(estimate_meta.get("method", "")) or None
         estimate_formula = str(estimate_meta.get("formula", "")) or None
         estimate_dependencies = [str(v) for v in estimate_meta.get("dependencies", [])]
         estimate_warning = str(estimate_meta.get("warning", "")) or None
-        append_warning(warnings, ESTIMATED_PROXY_NOTE, namespace="financial")
+        if estimated_profit_available:
+            append_warning(warnings, ESTIMATED_PROXY_NOTE, namespace="financial")
+        else:
+            append_warning(
+                warnings,
+                "estimated financial mode: profitability unavailable but structural components are present",
+                namespace="financial",
+            )
     else:
+        financial_model_mode = "unavailable"
         gross_profit_like = _unavailable_metric(source="financial_formula_v3", note="insufficient evidence for profitability calculation")
         net_profit_like = _unavailable_metric(source="financial_formula_v3", note="insufficient evidence for profitability calculation")
         profile = {
@@ -594,6 +678,47 @@ def assemble_financial_metrics(normalized_bundle: NormalizedBundle) -> Financial
     financial_mode_compat = "full" if financial_model_mode == "exact" else "partial" if financial_model_mode == "estimated" else "unavailable"
     extend_warnings(warnings, normalized_bundle.warnings)
     warnings = dedupe_warnings(warnings)
+    source_state_raw = {
+        "orders": source_orders_raw,
+        "sales": source_sales_raw,
+        "realization": source_realization_raw,
+    }
+    source_state_effective = {
+        "orders": source_orders,
+        "sales": source_sales,
+        "realization": source_realization,
+    }
+    missing_sources_raw = sorted(
+        [source_name for source_name, source_state in source_state_raw.items() if not _source_usable(source_state)]
+    )
+    collected_fields = sorted(
+        [name for name, metric in financial_kpi_metric_map.items() if _metric_available(metric)]
+    )
+    unavailable_fields = {
+        name: str(metric.note or "unavailable")
+        for name, metric in financial_kpi_metric_map.items()
+        if not _metric_available(metric)
+    }
+    financial_debug_snapshot = {
+        "source_flags": source_state_raw,
+        "source_flags_effective": source_state_effective,
+        "missing_sources": missing_sources_raw,
+        "financial_model_mode": financial_model_mode,
+        "financial_confidence": financial_confidence,
+        "mode_gate": {
+            "exact_mode_available": exact_mode_available,
+            "exact_sources_ready": exact_sources_ready,
+            "exact_source_states": exact_source_states,
+            "estimated_profit_available": estimated_profit_available,
+            "has_structural_financial_data": has_structural_financial_data,
+            "structural_available_components": structural_available_for_mode,
+            "profitability_blockers": [str(v) for v in profile.get("blockers", [])],
+            "missing_dependencies": [str(v) for v in profile.get("missing_dependencies", [])],
+        },
+        "collected_fields": collected_fields,
+        "unavailable_fields": unavailable_fields,
+    }
+    print("FINANCIAL DEBUG SNAPSHOT:", financial_debug_snapshot)
     print("FINANCIAL DEBUG:", financial_kpi)
     return FinancialMetricsSection(
         orders_count=orders_count, sales_count=sales_count, returns_count=returns_count, orders_amount=orders_amount, sales_amount=sales_amount, seller_payout=seller_payout,

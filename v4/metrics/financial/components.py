@@ -187,6 +187,7 @@ def classify_realization_components(
     normalized_bundle: NormalizedBundle,
     *,
     actual_date: str | None = None,
+    source_state_override: str | None = None,
 ) -> FinancialComponentTotals:
     """Classify realization events into financial component totals.
 
@@ -196,7 +197,7 @@ def classify_realization_components(
     - each fallback record is counted in exactly one bucket.
     """
 
-    source_state = _source_state(normalized_bundle, "realization")
+    source_state = str(source_state_override or _source_state(normalized_bundle, "realization")).strip().lower() or "missing"
     warnings: list[str] = []
 
     keys = [
@@ -214,6 +215,11 @@ def classify_realization_components(
         "other_costs",
     ]
     unavailable_quality = {key: MetricStatus.UNAVAILABLE.value for key in keys}
+
+    realization_records = _filter_by_date(normalized_bundle.realization, actual_date)
+    if not _source_usable(source_state) and realization_records:
+        source_state = MetricStatus.PARTIAL.value
+        warnings.append("realization status is missing but rows are present; downgraded to partial for component extraction")
 
     if not _source_usable(source_state):
         return FinancialComponentTotals(
@@ -233,8 +239,6 @@ def classify_realization_components(
             warnings=warnings,
             component_quality=unavailable_quality,
         )
-
-    realization_records = _filter_by_date(normalized_bundle.realization, actual_date)
     if not realization_records:
         warnings.append("no realization records for selected actual date")
 

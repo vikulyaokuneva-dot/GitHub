@@ -132,6 +132,37 @@ class TestFinancialAssemblerBasic(unittest.TestCase):
         self.assertNotIn("unavailable", str(financial.seller_payout.note or "").lower())
         self.assertIn("margin", financial.financial_available_components)
 
+    def test_missing_source_flags_with_rows_keep_estimated_mode(self) -> None:
+        bundle = NormalizedBundle(
+            run_context=_context(),
+            sales=[
+                NormalizedSaleRecord("s1", "seller_001", 1, 1, 1200.0, 860.0, "2026-03-15", "sale", False, "sales", None),
+            ],
+            realization=[
+                NormalizedRealizationRecord("r1", "seller_001", 1, "2026-03-15", "logistics", 120.0, None, "realization", None),
+                NormalizedRealizationRecord("r2", "seller_001", 1, "2026-03-15", "storage", 25.0, None, "realization", None),
+            ],
+            source_statuses={
+                "orders": _status("orders", SourceStatusCode.MISSING, True),
+                "sales": _status("sales", SourceStatusCode.MISSING, True),
+                "realization": _status("realization", SourceStatusCode.MISSING, True),
+            },
+        )
+
+        financial = assemble_financial_metrics(bundle)
+
+        self.assertEqual(financial.financial_model_mode, "estimated")
+        self.assertEqual(financial.financial_mode, "partial")
+        self.assertEqual(financial.source_quality.get("sales"), "partial")
+        self.assertEqual(financial.source_quality.get("realization"), "partial")
+        self.assertIsNotNone(financial.revenue_gross.value)
+        self.assertIsNotNone(financial.logistics_cost.value)
+        self.assertIsNotNone(financial.storage_cost.value)
+        self.assertIn(
+            "sales source status=missing but normalized rows are present",
+            " ".join(financial.warnings).lower(),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
