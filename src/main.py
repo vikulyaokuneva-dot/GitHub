@@ -60,7 +60,7 @@ def _fmt_money(value) -> str:
     try:
         amount = float(value)
     except Exception:
-        return "n/a"
+        return "н/д"
     if abs(amount - round(amount)) < 1e-9:
         return f"{int(round(amount))} RUB"
     return f"{amount:.2f} RUB"
@@ -70,7 +70,7 @@ def _fmt_pct(value) -> str:
     try:
         pct = float(value)
     except Exception:
-        return "n/a"
+        return "н/д"
     return f"{pct:.2f}".rstrip("0").rstrip(".").replace(".", ",") + "%"
 
 
@@ -156,72 +156,72 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         try:
             return str(int(value))
         except Exception:
-            return "n/a"
+            return "н/д"
 
     markdown_lines = [
-        f"# WB report for {report_date}",
+        f"# WB отчёт за {report_date}",
         "",
-        "## Funnel Summary",
-        f"- Orders: {_fmt_int(orders)}",
-        f"- Revenue from orders: {_fmt_money(revenue_orders)}",
-        f"- Views: {_fmt_int(views)}",
-        f"- Add to cart: {_fmt_int(add_to_cart)}",
-        f"- CR cart: {_fmt_pct(cr_cart)}",
-        f"- CR order: {_fmt_pct(cr_order)}",
+        "## Сводка Воронки",
+        f"- Заказы: {_fmt_int(orders)}",
+        f"- Выручка по заказам: {_fmt_money(revenue_orders)}",
+        f"- Просмотры: {_fmt_int(views)}",
+        f"- Добавления в корзину: {_fmt_int(add_to_cart)}",
+        f"- CR корзины: {_fmt_pct(cr_cart)}",
+        f"- CR заказа: {_fmt_pct(cr_order)}",
         "",
-        "## Stock Summary",
-        f"- Stock units: {_fmt_int(stock_units)}",
-        f"- SKU count: {_fmt_int(sku_count)}",
+        "## Сводка Остатков",
+        f"- Остатки (шт): {_fmt_int(stock_units)}",
+        f"- Количество SKU: {_fmt_int(sku_count)}",
         "",
-        "## Ad Summary",
-        f"- Ad spend: {_fmt_money(ad_spend)}",
-        f"- Ad attributed revenue: {_fmt_money(ad_attributed_revenue)}",
-        f"- ROAS: {_fmt_pct(roas) if roas is not None else 'n/a'}",
+        "## Сводка Рекламы",
+        f"- Расход на рекламу: {_fmt_money(ad_spend)}",
+        f"- Атрибутированная выручка рекламы: {_fmt_money(ad_attributed_revenue)}",
+        f"- ROAS: {_fmt_pct(roas) if roas is not None else 'н/д'}",
         "",
-        "## Financial Summary",
+        "## Финансовая Сводка",
     ]
 
     if not finance_available:
-        markdown_lines.append("- Financial data for the date is unavailable: WB did not return realization / financial report rows.")
+        markdown_lines.append("- Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
     else:
-        markdown_lines.append(f"- Financial rows count: {_fmt_int(rows_count)}")
+        markdown_lines.append(f"- Количество финансовых строк: {_fmt_int(rows_count)}")
 
     if ads_efficiency_limited:
-        markdown_lines.append("- Ads efficiency is limited: ad_spend exists but ad_attributed_revenue is missing.")
+        markdown_lines.append("- Оценка эффективности рекламы ограничена: есть расход, но нет атрибутированной выручки.")
 
-    markdown_lines.extend(["", "## SKU Summary"])
+    markdown_lines.extend(["", "## Сводка SKU"])
     if no_sales_top5:
-        markdown_lines.append("- SKU without sales but with stock (top-5):")
+        markdown_lines.append("- SKU без продаж, но с остатками (top-5):")
         for item in no_sales_top5:
             if isinstance(item, dict):
-                sku_id = item.get("sku", "n/a")
+                sku_id = item.get("sku", "н/д")
                 qty = item.get("stock_qty")
                 try:
                     qty_text = f"{float(qty):.2f}".rstrip("0").rstrip(".")
                 except Exception:
-                    qty_text = "n/a"
-                markdown_lines.append(f"- SKU {sku_id}: stock {qty_text} units")
+                    qty_text = "н/д"
+                markdown_lines.append(f"- SKU {sku_id}: остаток {qty_text} шт")
             else:
                 markdown_lines.append(f"- {item}")
     else:
-        markdown_lines.append("- SKU without sales but with stock: none")
+        markdown_lines.append("- SKU без продаж, но с остатками: нет")
 
     email_lines = [
-        f"WB report for {report_date}",
-        f"Orders: {_fmt_int(orders)}",
-        f"Revenue from orders: {_fmt_money(revenue_orders)}",
-        f"Stock units: {_fmt_int(stock_units)}",
-        f"Ad spend: {_fmt_money(ad_spend)}",
-        f"Ad attributed revenue: {_fmt_money(ad_attributed_revenue)}",
-        f"ROAS: {_fmt_pct(roas) if roas is not None else 'n/a'}",
+        f"WB отчёт за {report_date}",
+        f"Заказы: {_fmt_int(orders)}",
+        f"Выручка по заказам: {_fmt_money(revenue_orders)}",
+        f"Остатки (шт): {_fmt_int(stock_units)}",
+        f"Расход на рекламу: {_fmt_money(ad_spend)}",
+        f"Атрибутированная выручка рекламы: {_fmt_money(ad_attributed_revenue)}",
+        f"ROAS: {_fmt_pct(roas) if roas is not None else 'н/д'}",
     ]
     if not finance_available:
-        email_lines.append("Financial data for the date is unavailable: WB did not return realization / financial report rows.")
+        email_lines.append("Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
     else:
-        email_lines.append(f"Financial rows count: {_fmt_int(rows_count)}")
+        email_lines.append(f"Количество финансовых строк: {_fmt_int(rows_count)}")
 
     if ads_efficiency_limited:
-        email_lines.append("Ads efficiency is limited: ad_spend exists but ad_attributed_revenue is missing.")
+        email_lines.append("Оценка эффективности рекламы ограничена: есть расход, но нет атрибутированной выручки.")
 
     return {
         "email_text": "\n".join(email_lines),
