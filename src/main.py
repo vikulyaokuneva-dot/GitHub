@@ -78,21 +78,31 @@ def _fmt_pct(value) -> str:
 def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     account_summary = facts.get("account_summary") or {}
     funnel_summary = facts.get("funnel_summary") or {}
+    financial_summary = facts.get("financial_summary") or {}
 
     metrics = compute_report_metrics(facts)
 
-    orders = metrics.get("orders")
+    orders = account_summary.get("orders")
+    if orders is None:
+        orders = funnel_summary.get("orders")
+
     buyouts = account_summary.get("buyouts")
     if buyouts is None:
         buyouts = funnel_summary.get("buys")
+
     views = metrics.get("views")
     add_to_cart = metrics.get("add_to_cart")
     cr_cart = metrics.get("cr_cart")
     cr_order = metrics.get("cr_order")
-    revenue_orders = metrics.get("revenue_orders")
+
+    revenue_orders = funnel_summary.get("revenue_orders")
+    if revenue_orders is None:
+        revenue_orders = account_summary.get("revenue_orders")
+
     revenue_buyouts = funnel_summary.get("revenue_buyouts")
     if revenue_buyouts is None:
         revenue_buyouts = account_summary.get("revenue_buyouts")
+
     ad_spend = metrics.get("ad_spend")
     ad_attributed_revenue = metrics.get("ad_attributed_revenue")
     roas = metrics.get("roas")
@@ -111,6 +121,14 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         except Exception:
             return None
 
+    def _to_safe_float(value):
+        try:
+            if value is None or value == "":
+                return None
+            return float(value)
+        except Exception:
+            return None
+
     def _to_safe_qty(value):
         try:
             if value is None or value == "":
@@ -122,11 +140,11 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         except Exception:
             return None
 
-    def _extract_buyouts_from_financial_summary() -> dict[int, float]:
+    def _extract_buyouts_from_financial_summary() -> tuple[dict[int, float], bool]:
         qty = {}
-        sku_fin = (facts.get("financial_summary") or {}).get("sku_financials")
+        sku_fin = financial_summary.get("sku_financials")
         if not isinstance(sku_fin, dict):
-            return qty
+            return qty, False
         for sku_raw, row in sku_fin.items():
             if not isinstance(row, dict):
                 continue
@@ -135,59 +153,125 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
             if sku_i is None or qty_i is None or qty_i <= 0:
                 continue
             qty[sku_i] = qty.get(sku_i, 0.0) + qty_i
-        return qty
+        return qty, True
 
-    def _extract_from_sku_rows(field_names: tuple[str, ...]) -> dict[int, float]:
+    def _extract_buyouts_from_sku_rows() -> tuple[dict[int, float], bool]:
         qty = {}
         rows = (facts.get("sku_performance") or {}).get("rows")
         if not isinstance(rows, list):
-            return qty
+            return qty, False
+
+        has_buyout_fields = False
         for row in rows:
             if not isinstance(row, dict):
                 continue
             sku_i = _to_safe_int(row.get("sku") or row.get("nmId") or row.get("nm_id"))
             if sku_i is None:
                 continue
+
             qty_i = None
-            for field in field_names:
+            for field in ("buyouts", "buys"):
+                if field in row and row.get(field) not in (None, ""):
+                    has_buyout_fields = True
                 qty_i = _to_safe_qty(row.get(field))
                 if qty_i is not None:
                     break
+
             if qty_i is None or qty_i <= 0:
                 continue
             qty[sku_i] = qty.get(sku_i, 0.0) + qty_i
-        return qty
 
-    qty_by_sku = _extract_buyouts_from_financial_summary()
-    qty_source = "financial_summary.sku_financials.sales_qty" if qty_by_sku else None
+        return qty, has_buyout_fields
 
+    qty_source = None
+    qty_by_sku, fin_qty_source_found = _extract_buyouts_from_financial_summary()
+    if qty_by_sku:
+        qty_source = "financial_summary.sku_financials.sales_qty"
+
+    sku_qty_source_found = False
     if not qty_by_sku:
-        qty_by_sku = _extract_from_sku_rows(("buyouts", "buys"))
-        if qty_by_sku:
-            qty_source = "sku_performance.rows.buyouts"
+        sku_qty_by_sku, sku_qty_source_found = _extract_buyouts_from_sku_rows()
+        if sku_qty_by_sku:
+            qty_by_sku = sku_qty_by_sku
+            qty_source = "sku_performance.rows.buyouts/buys"
 
-    if not qty_by_sku:
-        qty_by_sku = _extract_from_sku_rows(("sales_qty", "orders"))
-        if qty_by_sku:
-            qty_source = "sku_performance.rows.sales_qty/orders"
+    qty_source_found = fin_qty_source_found or sku_qty_source_found
 
+    buyouts_num = _to_safe_float(buyouts)
+    revenue_buyouts_num = _to_safe_float(revenue_buyouts)
+    ad_spend_num = _to_safe_float(ad_spend)
+
+    cogs_unavailable_reason = None
     cogs_total = None
     cogs_by_sku = {}
     missing_cogs_sku = {}
-    if qty_by_sku:
+
+    if buyouts_num == 0:
+        cogs_total = 0.0
+    else:
         qty_for_cogs = {}
         for sku_i, qty_val in qty_by_sku.items():
-            q = int(qty_val)
+            q = int(float(qty_val))
             if q > 0:
                 qty_for_cogs[int(sku_i)] = q
+
         if qty_for_cogs:
             cogs_total_raw, cogs_by_sku, missing_cogs_sku = calc_cogs_for_rows(qty_for_cogs)
             cogs_total = cogs_total_raw
             if cogs_total_raw == 0 and missing_cogs_sku:
                 cogs_total = None
+        else:
+            cogs_unavailable_reason = "buyout_qty_by_sku missing or empty"
+
+    if not finance_available:
+        wb_commission = None
+        logistics = None
+        storage = None
+    else:
+        wb_commission = _to_safe_float(
+            financial_summary.get("commission")
+            if financial_summary.get("commission") is not None
+            else financial_summary.get("wb_commission")
+        )
+        logistics = _to_safe_float(
+            financial_summary.get("logistics")
+            if financial_summary.get("logistics") is not None
+            else financial_summary.get("logistics_cost")
+        )
+        storage = _to_safe_float(
+            financial_summary.get("storage")
+            if financial_summary.get("storage") is not None
+            else financial_summary.get("storage_fee")
+        )
+
+    tax = None if revenue_buyouts_num is None else round(revenue_buyouts_num * 0.06, 2)
+
+    total_costs = None
+    profit = None
+    margin = None
+    roi = None
+    if (
+        revenue_buyouts_num is not None
+        and cogs_total is not None
+        and wb_commission is not None
+        and logistics is not None
+        and storage is not None
+        and tax is not None
+        and ad_spend_num is not None
+    ):
+        total_costs = round(cogs_total + wb_commission + logistics + storage + tax + ad_spend_num, 2)
+        profit = round(revenue_buyouts_num - total_costs, 2)
+        if revenue_buyouts_num > 0:
+            margin = (profit / revenue_buyouts_num) * 100
+        if total_costs > 0:
+            roi = (profit / total_costs) * 100
 
     print("COGS QTY SOURCE:", qty_source or "unavailable")
     print("COGS QTY BY SKU:", json.dumps(qty_by_sku, ensure_ascii=False, sort_keys=True))
+    if not qty_source_found:
+        print("COGS DIAGNOSTIC: buyout_qty_by_sku source not found in facts")
+    if cogs_unavailable_reason:
+        print("COGS DIAGNOSTIC:", cogs_unavailable_reason)
     if missing_cogs_sku:
         print("COGS MISSING SKU:", json.dumps(missing_cogs_sku, ensure_ascii=False, sort_keys=True))
 
@@ -198,11 +282,13 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         json.dumps(
             {
                 "orders": orders,
+                "buyouts": buyouts,
                 "views": views,
                 "add_to_cart": add_to_cart,
                 "cr_cart": cr_cart,
                 "cr_order": cr_order,
                 "revenue_orders": revenue_orders,
+                "revenue_buyouts": revenue_buyouts,
                 "ad_spend": ad_spend,
                 "ad_attributed_revenue": ad_attributed_revenue,
                 "roas": roas,
@@ -211,6 +297,15 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
                 "financial_rows_count": rows_count,
                 "finance_available": finance_available,
                 "ads_efficiency_limited": ads_efficiency_limited,
+                "cogs_total": cogs_total,
+                "wb_commission": wb_commission,
+                "logistics": logistics,
+                "storage": storage,
+                "tax": tax,
+                "profit": profit,
+                "margin": margin,
+                "roi": roi,
+                "cogs_qty_source": qty_source,
             },
             ensure_ascii=False,
             sort_keys=True,
@@ -259,11 +354,26 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     markdown_lines = [
         f"# WB отчёт за {report_date}",
         "",
-        "## Сводка Воронки",
+        "## Продажи",
         f"- Заказы: {_fmt_int(orders)}",
         f"- Выкупы: {_fmt_int(buyouts)}",
         f"- Сумма заказов: {_fmt_money(revenue_orders)}",
         f"- Сумма выкупов: {_fmt_money(revenue_buyouts)}",
+        "",
+        "## Затраты",
+        f"- Себестоимость: {_fmt_money(cogs_total) if cogs_total is not None else 'н/д'}",
+        f"- Вознаграждение WB: {_fmt_money(wb_commission) if wb_commission is not None else 'н/д'}",
+        f"- Логистика: {_fmt_money(logistics) if logistics is not None else 'н/д'}",
+        f"- Хранение: {_fmt_money(storage) if storage is not None else 'н/д'}",
+        f"- Налог: {_fmt_money(tax) if tax is not None else 'н/д'}",
+        f"- Реклама: {_fmt_money(ad_spend_num) if ad_spend_num is not None else 'н/д'}",
+        "",
+        "## Финальный результат",
+        f"- Чистая прибыль: {_fmt_money(profit) if profit is not None else 'н/д'}",
+        f"- Маржинальность: {_fmt_pct(margin) if margin is not None else 'н/д'}",
+        f"- ROI: {_fmt_pct(roi) if roi is not None else 'н/д'}",
+        "",
+        "## Сводка Воронки",
         f"- Просмотры: {_fmt_int(views)}",
         f"- Добавления в корзину: {_fmt_int(add_to_cart)}",
         f"- CR корзины: {_fmt_pct(cr_cart)}",
@@ -274,12 +384,8 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         f"- Количество SKU: {_fmt_int(sku_count)}",
         "",
         "## Сводка Рекламы",
-        f"- Расход на рекламу: {_fmt_money(ad_spend)}",
         f"- Атрибутированная выручка рекламы: {_fmt_money(ad_attributed_revenue)}",
         f"- ROAS: {_fmt_pct(roas) if roas is not None else 'н/д'}",
-        "",
-        "## Финансовая Сводка",
-        f"- Себестоимость: {_fmt_money(cogs_total) if cogs_total is not None else 'н/д'}",
     ]
 
     if not finance_available:
@@ -309,15 +415,33 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
 
     email_lines = [
         f"WB отчёт за {report_date}",
+        "",
+        "Продажи:",
         f"Заказы: {_fmt_int(orders)}",
         f"Выкупы: {_fmt_int(buyouts)}",
         f"Сумма заказов: {_fmt_money(revenue_orders)}",
         f"Сумма выкупов: {_fmt_money(revenue_buyouts)}",
+        "",
+        "Затраты:",
+        f"Себестоимость: {_fmt_money(cogs_total) if cogs_total is not None else 'н/д'}",
+        f"Вознаграждение WB: {_fmt_money(wb_commission) if wb_commission is not None else 'н/д'}",
+        f"Логистика: {_fmt_money(logistics) if logistics is not None else 'н/д'}",
+        f"Хранение: {_fmt_money(storage) if storage is not None else 'н/д'}",
+        f"Налог: {_fmt_money(tax) if tax is not None else 'н/д'}",
+        f"Реклама: {_fmt_money(ad_spend_num) if ad_spend_num is not None else 'н/д'}",
+        "",
+        "Финальный результат:",
+        f"Чистая прибыль: {_fmt_money(profit) if profit is not None else 'н/д'}",
+        f"Маржинальность: {_fmt_pct(margin) if margin is not None else 'н/д'}",
+        f"ROI: {_fmt_pct(roi) if roi is not None else 'н/д'}",
+        "",
+        f"Просмотры: {_fmt_int(views)}",
+        f"Добавления в корзину: {_fmt_int(add_to_cart)}",
+        f"CR корзины: {_fmt_pct(cr_cart)}",
+        f"CR заказа: {_fmt_pct(cr_order)}",
         f"Остатки (шт): {_fmt_int(stock_units)}",
-        f"Расход на рекламу: {_fmt_money(ad_spend)}",
         f"Атрибутированная выручка рекламы: {_fmt_money(ad_attributed_revenue)}",
         f"ROAS: {_fmt_pct(roas) if roas is not None else 'н/д'}",
-        f"Себестоимость: {_fmt_money(cogs_total) if cogs_total is not None else 'н/д'}",
     ]
     if not finance_available:
         email_lines.append("Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
@@ -332,7 +456,6 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         "pdf_markdown": "\n".join(markdown_lines),
         "actions": actions,
     }
-
 
 def build_fallback_json(report_date: str, facts_json: str) -> dict:
     return {
