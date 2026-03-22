@@ -115,7 +115,7 @@ jobs:
           YANDEX_SMTP_USER: ${{ secrets.YANDEX_SMTP_USER }}
           YANDEX_SMTP_APP_PASS: ${{ secrets.YANDEX_SMTP_APP_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          GIGACHAT_AUTH_KEY: ${{ secrets.GIGACHAT_AUTH_KEY }}
+          USE_GIGACHAT: "false"
           GIGACHAT_SCOPE: ${{ secrets.GIGACHAT_SCOPE }}
           TZ: "Europe/Moscow"
           GIGACHAT_DEBUG: "1"

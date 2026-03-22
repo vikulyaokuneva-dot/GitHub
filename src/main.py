@@ -43,6 +43,175 @@ def _enforce_kpi_totals(pdf_markdown: str, facts: dict) -> str:
     return pdf_markdown
 
 
+def _env_flag(name: str, default: bool = True) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def _fmt_money(value) -> str:
+    try:
+        amount = float(value)
+    except Exception:
+        return "н/д"
+    if abs(amount - round(amount)) < 1e-9:
+        return f"{int(round(amount))} ₽"
+    return f"{amount:.2f} ₽"
+
+
+def _fmt_pct(value) -> str:
+    try:
+        pct = float(value)
+    except Exception:
+        return "н/д"
+    if abs(pct) <= 1:
+        pct *= 100.0
+    return f"{pct:.2f}".rstrip("0").rstrip(".").replace(".", ",") + "%"
+
+
+def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
+    account_summary = facts.get("account_summary") or {}
+    funnel_summary = facts.get("funnel_summary") or {}
+    financial_summary = facts.get("financial_summary") or {}
+    stock_summary = facts.get("stock_summary") or {}
+    sku_summary = facts.get("sku_summary") or {}
+    ad_summary = facts.get("ad_summary") or facts.get("ads_summary") or {}
+
+    orders = account_summary.get("orders")
+    if orders is None:
+        orders = funnel_summary.get("orders")
+
+    revenue_orders = funnel_summary.get("revenue_orders")
+    views = funnel_summary.get("views")
+    add_to_cart = funnel_summary.get("add_to_cart")
+    cr_cart = funnel_summary.get("cr_cart")
+    cr_order = funnel_summary.get("cr_order")
+
+    stock_units = stock_summary.get("stock_units")
+    sku_count = stock_summary.get("sku_count")
+
+    ad_spend = ad_summary.get("total_spend")
+    if ad_spend is None:
+        ad_spend = ad_summary.get("spend")
+
+    rows_count = int(financial_summary.get("rows_count", 0) or 0)
+
+    no_sales_with_stock = sku_summary.get("no_sales_with_stock")
+    if not isinstance(no_sales_with_stock, list):
+        no_sales_with_stock = []
+    no_sales_top5 = no_sales_with_stock[:5]
+
+    actions = []
+    existing_actions = facts.get("actions")
+    if isinstance(existing_actions, list):
+        actions.extend(existing_actions)
+
+    if rows_count == 0:
+        actions.append(
+            {
+                "priority": "P0",
+                "area": "finance",
+                "sku": "",
+                "campaign_id": "",
+                "action": "Проверить выгрузку финансового отчёта WB за дату",
+                "why": "financial_summary.rows_count = 0, финансовый отчёт за дату не получен",
+                "expected_effect": "После получения финансового отчёта станут доступны корректные финансовые выводы",
+                "numbers": {"financial_summary_rows_count": 0},
+            }
+        )
+
+    if no_sales_top5:
+        actions.append(
+            {
+                "priority": "P2",
+                "area": "stock",
+                "sku": "",
+                "campaign_id": "",
+                "action": "Проработать SKU без продаж с остатками",
+                "why": f"SKU без продаж с остатками: {len(no_sales_top5)} (top-5 в отчёте)",
+                "expected_effect": "Снижение замороженных остатков и рост оборачиваемости",
+                "numbers": {"sku_no_sales_with_stock_top5": len(no_sales_top5)},
+            }
+        )
+
+    def _fmt_int(value) -> str:
+        try:
+            return str(int(value))
+        except Exception:
+            return "н/д"
+
+    markdown_lines = [
+        f"# WB отчёт за {report_date}",
+        "",
+        "## Account Summary",
+        f"- Заказы: {_fmt_int(orders)}",
+        "",
+        "## Funnel Summary",
+        f"- Выручка по заказам: {_fmt_money(revenue_orders)}",
+        f"- Просмотры: {_fmt_int(views)}",
+        f"- Добавления в корзину: {_fmt_int(add_to_cart)}",
+        f"- CR корзины: {_fmt_pct(cr_cart)}",
+        f"- CR заказа: {_fmt_pct(cr_order)}",
+        "",
+        "## Stock Summary",
+        f"- Остатки, шт: {_fmt_int(stock_units)}",
+        f"- SKU в остатках: {_fmt_int(sku_count)}",
+        "",
+        "## Ad Summary",
+        f"- Расход на рекламу: {_fmt_money(ad_spend)}",
+        "",
+        "## Financial Summary",
+    ]
+
+    if rows_count == 0:
+        markdown_lines.append(
+            "- Финансовые данные за дату недоступны: WB не вернул реализацию / финансовый отчёт за этот день."
+        )
+    else:
+        markdown_lines.append(f"- Строк финансового отчёта: {rows_count}")
+
+    markdown_lines.extend(["", "## SKU Summary"])
+    if no_sales_top5:
+        markdown_lines.append("- SKU без продаж с остатками (top-5):")
+        for item in no_sales_top5:
+            if isinstance(item, dict):
+                sku_id = item.get("sku", "н/д")
+                qty = item.get("stock_qty")
+                try:
+                    qty_text = f"{float(qty):.2f}".rstrip("0").rstrip(".")
+                except Exception:
+                    qty_text = "н/д"
+                markdown_lines.append(f"  - SKU {sku_id}: остаток {qty_text} шт")
+            else:
+                markdown_lines.append(f"  - {item}")
+    else:
+        markdown_lines.append("- SKU без продаж с остатками: нет")
+
+    email_lines = [
+        f"WB отчёт за {report_date}",
+        f"Заказы: {_fmt_int(orders)}",
+        f"Выручка по заказам: {_fmt_money(revenue_orders)}",
+        f"Остатки, шт: {_fmt_int(stock_units)}",
+        f"Расход на рекламу: {_fmt_money(ad_spend)}",
+    ]
+    if rows_count == 0:
+        email_lines.append("Финансовые данные за дату недоступны: WB не вернул реализацию / финансовый отчёт за этот день.")
+    else:
+        email_lines.append(f"Строк финансового отчёта: {rows_count}")
+
+    return {
+        "email_text": "\n".join(email_lines),
+        "pdf_markdown": "\n".join(markdown_lines),
+        "actions": actions,
+    }
+
+
 def build_fallback_json(report_date: str, facts_json: str) -> dict:
     return {
         "email_text": f"WB отчёт за {report_date}\n\nМодель вернула некорректный ответ. См. PDF (fallback) и артефакты.",
@@ -255,10 +424,51 @@ def main():
         facts_for_llm["trends_7d"] = keep or t
 
     report_date = facts.get("date") or datetime.now(ZoneInfo("Europe/Berlin")).date().isoformat()
+    use_gigachat = _env_flag("USE_GIGACHAT", default=True)
+    print("USE_GIGACHAT:", use_gigachat)
 
     # ВАЖНО: без indent, чтобы не раздувать prompt
     facts_json = json.dumps(facts_for_llm, ensure_ascii=False)
     print("FACTS SIZE (chars):", len(facts_json))
+
+    if not use_gigachat:
+        data = build_local_report_from_facts(report_date, facts)
+
+        email_text = str(data.get("email_text", "")).strip()
+        pdf_markdown = str(data.get("pdf_markdown", "")).strip()
+
+        pdf_markdown = pdf_markdown.replace("\\n", "\n")
+        pdf_markdown = re.sub(r"\n-", "\n\n-", pdf_markdown)
+        pdf_markdown = re.sub(r"\n\s*,\s*\n", "\n", pdf_markdown)
+        pdf_markdown = re.sub(r"\n\s*comma\s*\n", "\n", pdf_markdown, flags=re.IGNORECASE)
+        pdf_markdown = re.sub(r"(?im)^\s*comma\s*$", "", pdf_markdown)
+        pdf_markdown = re.sub(r"\n{3,}", "\n\n", pdf_markdown).strip()
+        pdf_markdown = pdf_markdown.replace("$", "₽").replace("USD", "RUB")
+        pdf_markdown = _enforce_kpi_totals(pdf_markdown, facts)
+
+        actions = data.get("actions", [])
+
+        pdf_path = f"out/wb_report_{report_date}.pdf"
+        md_path = f"out/wb_report_{report_date}.md"
+        json_path = f"out/facts_{report_date}.json"
+        actions_path = f"out/actions_{report_date}.json"
+
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(pdf_markdown + "\n")
+        with open(json_path, "w", encoding="utf-8") as f:
+            f.write(facts_json)
+        with open(actions_path, "w", encoding="utf-8") as f:
+            json.dump(actions, f, ensure_ascii=False, indent=2)
+
+        markdown_to_simple_pdf(pdf_markdown, pdf_path, title=f"WB отчёт за {report_date}")
+
+        subject = f"WB отчёт за {report_date}"
+        if not email_text:
+            email_text = f"WB отчёт за {report_date}\n\nСм. PDF."
+        body = email_text + "\n\n(Артефакты сохранены в GitHub Actions.)"
+
+        send_email_with_pdf(subject, body, pdf_path)
+        return
 
     # 4) Prompt → LLM
     prompt = REPORT_PROMPT_TEMPLATE.replace("__FACTS_JSON__", facts_json)
