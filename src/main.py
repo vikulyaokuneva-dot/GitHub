@@ -76,14 +76,23 @@ def _fmt_pct(value) -> str:
 
 
 def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
+    account_summary = facts.get("account_summary") or {}
+    funnel_summary = facts.get("funnel_summary") or {}
+
     metrics = compute_report_metrics(facts)
 
     orders = metrics.get("orders")
+    buyouts = account_summary.get("buyouts")
+    if buyouts is None:
+        buyouts = funnel_summary.get("buys")
     views = metrics.get("views")
     add_to_cart = metrics.get("add_to_cart")
     cr_cart = metrics.get("cr_cart")
     cr_order = metrics.get("cr_order")
     revenue_orders = metrics.get("revenue_orders")
+    revenue_buyouts = funnel_summary.get("revenue_buyouts")
+    if revenue_buyouts is None:
+        revenue_buyouts = account_summary.get("revenue_buyouts")
     ad_spend = metrics.get("ad_spend")
     ad_attributed_revenue = metrics.get("ad_attributed_revenue")
     roas = metrics.get("roas")
@@ -252,7 +261,9 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         "",
         "## Сводка Воронки",
         f"- Заказы: {_fmt_int(orders)}",
-        f"- Выручка по заказам: {_fmt_money(revenue_orders)}",
+        f"- Выкупы: {_fmt_int(buyouts)}",
+        f"- Сумма заказов: {_fmt_money(revenue_orders)}",
+        f"- Сумма выкупов: {_fmt_money(revenue_buyouts)}",
         f"- Просмотры: {_fmt_int(views)}",
         f"- Добавления в корзину: {_fmt_int(add_to_cart)}",
         f"- CR корзины: {_fmt_pct(cr_cart)}",
@@ -299,7 +310,9 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     email_lines = [
         f"WB отчёт за {report_date}",
         f"Заказы: {_fmt_int(orders)}",
-        f"Выручка по заказам: {_fmt_money(revenue_orders)}",
+        f"Выкупы: {_fmt_int(buyouts)}",
+        f"Сумма заказов: {_fmt_money(revenue_orders)}",
+        f"Сумма выкупов: {_fmt_money(revenue_buyouts)}",
         f"Остатки (шт): {_fmt_int(stock_units)}",
         f"Расход на рекламу: {_fmt_money(ad_spend)}",
         f"Атрибутированная выручка рекламы: {_fmt_money(ad_attributed_revenue)}",
