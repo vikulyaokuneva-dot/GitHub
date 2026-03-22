@@ -9,6 +9,7 @@ from src.gigachat_client import generate_report_from_facts
 from src.pdf_report import markdown_to_simple_pdf
 from src.mailer_yandex import send_email_with_pdf
 from src.facts_builder import build_facts_json
+from src.report_metrics import compute_report_metrics
 from src.trends import save_snapshot, compute_trends_7d
 
 
@@ -59,69 +60,80 @@ def _fmt_money(value) -> str:
     try:
         amount = float(value)
     except Exception:
-        return "н/д"
+        return "n/a"
     if abs(amount - round(amount)) < 1e-9:
-        return f"{int(round(amount))} ₽"
-    return f"{amount:.2f} ₽"
+        return f"{int(round(amount))} RUB"
+    return f"{amount:.2f} RUB"
 
 
 def _fmt_pct(value) -> str:
     try:
         pct = float(value)
     except Exception:
-        return "н/д"
-    if abs(pct) <= 1:
-        pct *= 100.0
+        return "n/a"
     return f"{pct:.2f}".rstrip("0").rstrip(".").replace(".", ",") + "%"
 
 
 def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
-    account_summary = facts.get("account_summary") or {}
-    funnel_summary = facts.get("funnel_summary") or {}
-    financial_summary = facts.get("financial_summary") or {}
-    stock_summary = facts.get("stock_summary") or {}
-    sku_summary = facts.get("sku_summary") or {}
-    ad_summary = facts.get("ad_summary") or facts.get("ads_summary") or {}
+    metrics = compute_report_metrics(facts)
 
-    orders = account_summary.get("orders")
-    if orders is None:
-        orders = funnel_summary.get("orders")
+    orders = metrics.get("orders")
+    views = metrics.get("views")
+    add_to_cart = metrics.get("add_to_cart")
+    cr_cart = metrics.get("cr_cart")
+    cr_order = metrics.get("cr_order")
+    revenue_orders = metrics.get("revenue_orders")
+    ad_spend = metrics.get("ad_spend")
+    ad_attributed_revenue = metrics.get("ad_attributed_revenue")
+    roas = metrics.get("roas")
+    stock_units = metrics.get("stock_units")
+    sku_count = metrics.get("sku_count")
+    rows_count = metrics.get("financial_rows_count")
+    finance_available = bool(metrics.get("finance_available"))
+    ads_efficiency_limited = bool(metrics.get("ads_efficiency_limited"))
+    no_sales_top5 = metrics.get("no_sales_with_stock_top5") or []
 
-    revenue_orders = funnel_summary.get("revenue_orders")
-    views = funnel_summary.get("views")
-    add_to_cart = funnel_summary.get("add_to_cart")
-    cr_cart = funnel_summary.get("cr_cart")
-    cr_order = funnel_summary.get("cr_order")
-
-    stock_units = stock_summary.get("stock_units")
-    sku_count = stock_summary.get("sku_count")
-
-    ad_spend = ad_summary.get("total_spend")
-    if ad_spend is None:
-        ad_spend = ad_summary.get("spend")
-
-    rows_count = int(financial_summary.get("rows_count", 0) or 0)
-
-    no_sales_with_stock = sku_summary.get("no_sales_with_stock")
-    if not isinstance(no_sales_with_stock, list):
-        no_sales_with_stock = []
-    no_sales_top5 = no_sales_with_stock[:5]
+    print("REPORT METRICS RAW:", json.dumps(metrics.get("raw_values", {}), ensure_ascii=False, sort_keys=True))
+    print("REPORT METRICS SOURCES:", json.dumps(metrics.get("sources", {}), ensure_ascii=False, sort_keys=True))
+    print(
+        "REPORT METRICS COMPUTED:",
+        json.dumps(
+            {
+                "orders": orders,
+                "views": views,
+                "add_to_cart": add_to_cart,
+                "cr_cart": cr_cart,
+                "cr_order": cr_order,
+                "revenue_orders": revenue_orders,
+                "ad_spend": ad_spend,
+                "ad_attributed_revenue": ad_attributed_revenue,
+                "roas": roas,
+                "stock_units": stock_units,
+                "sku_count": sku_count,
+                "financial_rows_count": rows_count,
+                "finance_available": finance_available,
+                "ads_efficiency_limited": ads_efficiency_limited,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        ),
+    )
 
     actions = []
     existing_actions = facts.get("actions")
     if isinstance(existing_actions, list):
         actions.extend(existing_actions)
 
-    if rows_count == 0:
+    if not finance_available:
         actions.append(
             {
                 "priority": "P0",
                 "area": "finance",
                 "sku": "",
                 "campaign_id": "",
-                "action": "Проверить выгрузку финансового отчёта WB за дату",
-                "why": "financial_summary.rows_count = 0, финансовый отчёт за дату не получен",
-                "expected_effect": "После получения финансового отчёта станут доступны корректные финансовые выводы",
+                "action": "Check WB financial report export for the report date",
+                "why": 'financial_summary.rows_count = 0, финансовый отчёт за дату не получен',
+                "expected_effect": "Financial conclusions become available after WB returns financial rows",
                 "numbers": {"financial_summary_rows_count": 0},
             }
         )
@@ -133,9 +145,9 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
                 "area": "stock",
                 "sku": "",
                 "campaign_id": "",
-                "action": "Проработать SKU без продаж с остатками",
-                "why": f"SKU без продаж с остатками: {len(no_sales_top5)} (top-5 в отчёте)",
-                "expected_effect": "Снижение замороженных остатков и рост оборачиваемости",
+                "action": "Review SKU with stock but no sales",
+                "why": f"SKU without sales but with stock: {len(no_sales_top5)} (top-5 in report)",
+                "expected_effect": "Lower frozen stock and improve turnover",
                 "numbers": {"sku_no_sales_with_stock_top5": len(no_sales_top5)},
             }
         )
@@ -144,66 +156,72 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         try:
             return str(int(value))
         except Exception:
-            return "н/д"
+            return "n/a"
 
     markdown_lines = [
-        f"# WB отчёт за {report_date}",
-        "",
-        "## Account Summary",
-        f"- Заказы: {_fmt_int(orders)}",
+        f"# WB report for {report_date}",
         "",
         "## Funnel Summary",
-        f"- Выручка по заказам: {_fmt_money(revenue_orders)}",
-        f"- Просмотры: {_fmt_int(views)}",
-        f"- Добавления в корзину: {_fmt_int(add_to_cart)}",
-        f"- CR корзины: {_fmt_pct(cr_cart)}",
-        f"- CR заказа: {_fmt_pct(cr_order)}",
+        f"- Orders: {_fmt_int(orders)}",
+        f"- Revenue from orders: {_fmt_money(revenue_orders)}",
+        f"- Views: {_fmt_int(views)}",
+        f"- Add to cart: {_fmt_int(add_to_cart)}",
+        f"- CR cart: {_fmt_pct(cr_cart)}",
+        f"- CR order: {_fmt_pct(cr_order)}",
         "",
         "## Stock Summary",
-        f"- Остатки, шт: {_fmt_int(stock_units)}",
-        f"- SKU в остатках: {_fmt_int(sku_count)}",
+        f"- Stock units: {_fmt_int(stock_units)}",
+        f"- SKU count: {_fmt_int(sku_count)}",
         "",
         "## Ad Summary",
-        f"- Расход на рекламу: {_fmt_money(ad_spend)}",
+        f"- Ad spend: {_fmt_money(ad_spend)}",
+        f"- Ad attributed revenue: {_fmt_money(ad_attributed_revenue)}",
+        f"- ROAS: {_fmt_pct(roas) if roas is not None else 'n/a'}",
         "",
         "## Financial Summary",
     ]
 
-    if rows_count == 0:
-        markdown_lines.append(
-            "- Финансовые данные за дату недоступны: WB не вернул реализацию / финансовый отчёт за этот день."
-        )
+    if not finance_available:
+        markdown_lines.append("- Financial data for the date is unavailable: WB did not return realization / financial report rows.")
     else:
-        markdown_lines.append(f"- Строк финансового отчёта: {rows_count}")
+        markdown_lines.append(f"- Financial rows count: {_fmt_int(rows_count)}")
+
+    if ads_efficiency_limited:
+        markdown_lines.append("- Ads efficiency is limited: ad_spend exists but ad_attributed_revenue is missing.")
 
     markdown_lines.extend(["", "## SKU Summary"])
     if no_sales_top5:
-        markdown_lines.append("- SKU без продаж с остатками (top-5):")
+        markdown_lines.append("- SKU without sales but with stock (top-5):")
         for item in no_sales_top5:
             if isinstance(item, dict):
-                sku_id = item.get("sku", "н/д")
+                sku_id = item.get("sku", "n/a")
                 qty = item.get("stock_qty")
                 try:
                     qty_text = f"{float(qty):.2f}".rstrip("0").rstrip(".")
                 except Exception:
-                    qty_text = "н/д"
-                markdown_lines.append(f"  - SKU {sku_id}: остаток {qty_text} шт")
+                    qty_text = "n/a"
+                markdown_lines.append(f"- SKU {sku_id}: stock {qty_text} units")
             else:
-                markdown_lines.append(f"  - {item}")
+                markdown_lines.append(f"- {item}")
     else:
-        markdown_lines.append("- SKU без продаж с остатками: нет")
+        markdown_lines.append("- SKU without sales but with stock: none")
 
     email_lines = [
-        f"WB отчёт за {report_date}",
-        f"Заказы: {_fmt_int(orders)}",
-        f"Выручка по заказам: {_fmt_money(revenue_orders)}",
-        f"Остатки, шт: {_fmt_int(stock_units)}",
-        f"Расход на рекламу: {_fmt_money(ad_spend)}",
+        f"WB report for {report_date}",
+        f"Orders: {_fmt_int(orders)}",
+        f"Revenue from orders: {_fmt_money(revenue_orders)}",
+        f"Stock units: {_fmt_int(stock_units)}",
+        f"Ad spend: {_fmt_money(ad_spend)}",
+        f"Ad attributed revenue: {_fmt_money(ad_attributed_revenue)}",
+        f"ROAS: {_fmt_pct(roas) if roas is not None else 'n/a'}",
     ]
-    if rows_count == 0:
-        email_lines.append("Финансовые данные за дату недоступны: WB не вернул реализацию / финансовый отчёт за этот день.")
+    if not finance_available:
+        email_lines.append("Financial data for the date is unavailable: WB did not return realization / financial report rows.")
     else:
-        email_lines.append(f"Строк финансового отчёта: {rows_count}")
+        email_lines.append(f"Financial rows count: {_fmt_int(rows_count)}")
+
+    if ads_efficiency_limited:
+        email_lines.append("Ads efficiency is limited: ad_spend exists but ad_attributed_revenue is missing.")
 
     return {
         "email_text": "\n".join(email_lines),
@@ -424,7 +442,10 @@ def main():
         facts_for_llm["trends_7d"] = keep or t
 
     report_date = facts.get("date") or datetime.now(ZoneInfo("Europe/Berlin")).date().isoformat()
-    use_gigachat = _env_flag("USE_GIGACHAT", default=True)
+    use_gigachat = _env_flag("USE_GIGACHAT", default=False)
+    if use_gigachat:
+        print("USE_GIGACHAT=true requested, but deterministic mode is enforced.")
+        use_gigachat = False
     print("USE_GIGACHAT:", use_gigachat)
 
     # ВАЖНО: без indent, чтобы не раздувать prompt
