@@ -8,6 +8,7 @@ from src.report_prompt import REPORT_PROMPT_TEMPLATE
 from src.gigachat_client import generate_report_from_facts
 from src.pdf_report import markdown_to_simple_pdf
 from src.mailer_yandex import send_email_with_pdf
+from src.cogs import calc_cogs_for_rows
 from src.facts_builder import build_facts_json
 from src.report_metrics import compute_report_metrics
 from src.trends import save_snapshot, compute_trends_7d
@@ -92,6 +93,94 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     finance_available = bool(metrics.get("finance_available"))
     ads_efficiency_limited = bool(metrics.get("ads_efficiency_limited"))
     no_sales_top5 = metrics.get("no_sales_with_stock_top5") or []
+
+    def _to_safe_int(value):
+        try:
+            if value is None or value == "":
+                return None
+            return int(value)
+        except Exception:
+            return None
+
+    def _to_safe_qty(value):
+        try:
+            if value is None or value == "":
+                return None
+            qty = float(value)
+            if qty < 0:
+                return None
+            return qty
+        except Exception:
+            return None
+
+    def _extract_buyouts_from_financial_summary() -> dict[int, float]:
+        qty = {}
+        sku_fin = (facts.get("financial_summary") or {}).get("sku_financials")
+        if not isinstance(sku_fin, dict):
+            return qty
+        for sku_raw, row in sku_fin.items():
+            if not isinstance(row, dict):
+                continue
+            sku_i = _to_safe_int(sku_raw)
+            qty_i = _to_safe_qty(row.get("sales_qty"))
+            if sku_i is None or qty_i is None or qty_i <= 0:
+                continue
+            qty[sku_i] = qty.get(sku_i, 0.0) + qty_i
+        return qty
+
+    def _extract_from_sku_rows(field_names: tuple[str, ...]) -> dict[int, float]:
+        qty = {}
+        rows = (facts.get("sku_performance") or {}).get("rows")
+        if not isinstance(rows, list):
+            return qty
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            sku_i = _to_safe_int(row.get("sku") or row.get("nmId") or row.get("nm_id"))
+            if sku_i is None:
+                continue
+            qty_i = None
+            for field in field_names:
+                qty_i = _to_safe_qty(row.get(field))
+                if qty_i is not None:
+                    break
+            if qty_i is None or qty_i <= 0:
+                continue
+            qty[sku_i] = qty.get(sku_i, 0.0) + qty_i
+        return qty
+
+    qty_by_sku = _extract_buyouts_from_financial_summary()
+    qty_source = "financial_summary.sku_financials.sales_qty" if qty_by_sku else None
+
+    if not qty_by_sku:
+        qty_by_sku = _extract_from_sku_rows(("buyouts", "buys"))
+        if qty_by_sku:
+            qty_source = "sku_performance.rows.buyouts"
+
+    if not qty_by_sku:
+        qty_by_sku = _extract_from_sku_rows(("sales_qty", "orders"))
+        if qty_by_sku:
+            qty_source = "sku_performance.rows.sales_qty/orders"
+
+    cogs_total = None
+    cogs_by_sku = {}
+    missing_cogs_sku = {}
+    if qty_by_sku:
+        qty_for_cogs = {}
+        for sku_i, qty_val in qty_by_sku.items():
+            q = int(qty_val)
+            if q > 0:
+                qty_for_cogs[int(sku_i)] = q
+        if qty_for_cogs:
+            cogs_total_raw, cogs_by_sku, missing_cogs_sku = calc_cogs_for_rows(qty_for_cogs)
+            cogs_total = cogs_total_raw
+            if cogs_total_raw == 0 and missing_cogs_sku:
+                cogs_total = None
+
+    print("COGS QTY SOURCE:", qty_source or "unavailable")
+    print("COGS QTY BY SKU:", json.dumps(qty_by_sku, ensure_ascii=False, sort_keys=True))
+    if missing_cogs_sku:
+        print("COGS MISSING SKU:", json.dumps(missing_cogs_sku, ensure_ascii=False, sort_keys=True))
 
     print("REPORT METRICS RAW:", json.dumps(metrics.get("raw_values", {}), ensure_ascii=False, sort_keys=True))
     print("REPORT METRICS SOURCES:", json.dumps(metrics.get("sources", {}), ensure_ascii=False, sort_keys=True))
@@ -179,6 +268,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         f"- ROAS: {_fmt_pct(roas) if roas is not None else 'н/д'}",
         "",
         "## Финансовая Сводка",
+        f"- Себестоимость: {_fmt_money(cogs_total) if cogs_total is not None else 'н/д'}",
     ]
 
     if not finance_available:
@@ -214,6 +304,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         f"Расход на рекламу: {_fmt_money(ad_spend)}",
         f"Атрибутированная выручка рекламы: {_fmt_money(ad_attributed_revenue)}",
         f"ROAS: {_fmt_pct(roas) if roas is not None else 'н/д'}",
+        f"Себестоимость: {_fmt_money(cogs_total) if cogs_total is not None else 'н/д'}",
     ]
     if not finance_available:
         email_lines.append("Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
