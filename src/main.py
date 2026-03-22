@@ -112,6 +112,18 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     finance_available = bool(metrics.get("finance_available"))
     ads_efficiency_limited = bool(metrics.get("ads_efficiency_limited"))
     no_sales_top5 = metrics.get("no_sales_with_stock_top5") or []
+    raw_values = metrics.get("raw_values") or {}
+
+    ad_attr_candidates = [
+        raw_values.get("ad_summary.ad_attributed_revenue"),
+        raw_values.get("ad_summary.revenue_attr"),
+        raw_values.get("ad_summary.revenue"),
+        raw_values.get("ads_summary.ad_attributed_revenue"),
+        raw_values.get("ads_summary.revenue_attr"),
+        raw_values.get("ads_summary.revenue"),
+    ]
+    ad_attribution_available = any(v is not None for v in ad_attr_candidates)
+    roas_text = _fmt_pct(roas) if (ad_attribution_available and roas is not None) else "н/д"
 
     def _to_safe_int(value):
         try:
@@ -385,7 +397,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         "",
         "## Сводка Рекламы",
         f"- Атрибутированная выручка рекламы: {_fmt_money(ad_attributed_revenue)}",
-        f"- ROAS: {_fmt_pct(roas) if roas is not None else 'н/д'}",
+        f"- ROAS: {roas_text}",
     ]
 
     if not finance_available:
@@ -441,7 +453,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         f"CR заказа: {_fmt_pct(cr_order)}",
         f"Остатки (шт): {_fmt_int(stock_units)}",
         f"Атрибутированная выручка рекламы: {_fmt_money(ad_attributed_revenue)}",
-        f"ROAS: {_fmt_pct(roas) if roas is not None else 'н/д'}",
+        f"ROAS: {roas_text}",
     ]
     if not finance_available:
         email_lines.append("Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
