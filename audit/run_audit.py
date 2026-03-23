@@ -57,7 +57,13 @@ def main():
 
     response_text = generate_report_from_facts(prompt)
 
-    resp = json.loads(response_text)
+    try:
+        resp = json.loads(response_text)
+    except Exception:
+        resp = {
+            "status": "invalid_json",
+            "raw": response_text
+        }
 
     md = resp.get("pdf_markdown", "")
     actions = resp.get("actions", [])

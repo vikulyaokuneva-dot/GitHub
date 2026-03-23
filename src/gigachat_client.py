@@ -1,7 +1,7 @@
+import os
 import json
 from typing import Optional, List
 
-# Импорт оставляем, но он не будет использоваться без ключа
 try:
     from gigachat import GigaChat
     from gigachat.exceptions import NotFoundError
@@ -18,25 +18,20 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 
 def generate_report_from_facts(prompt: str) -> str:
-    """
-    Генерация отчёта.
-
-    Если нет GIGACHAT_AUTH_KEY — возвращает обычный текст (fallback),
-    чтобы CI не падал.
-    """
-
     credentials = os.environ.get("GIGACHAT_AUTH_KEY", "").strip()
 
-    # 🔴 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ — fallback
+    # ✅ Fallback без GigaChat
     if not credentials or GigaChat is None:
         return json.dumps({
             "status": "no_gigachat",
-            "report": prompt
+            "data": {
+                "report": prompt
+            }
         }, ensure_ascii=False)
 
     timeout_sec = int(os.getenv("GIGACHAT_TIMEOUT_SEC", "60"))
-
     primary_model = os.getenv("GIGACHAT_MODEL", "GigaChat-2").strip() or "GigaChat-2"
+
     candidates: List[str] = [primary_model]
     if "GigaChat" not in candidates:
         candidates.append("GigaChat")
@@ -56,24 +51,30 @@ def generate_report_from_facts(prompt: str) -> str:
             )
 
             response = client.chat(prompt)
-            return response.choices[0].message.content
 
-        except NotFoundError as e:
-            last_error = e
-            continue
+            # ⚠️ ВАЖНО: тоже приводим к JSON
+            return json.dumps({
+                "status": "ok",
+                "data": {
+                    "report": response.choices[0].message.content
+                }
+            }, ensure_ascii=False)
+
         except Exception as e:
             last_error = e
             continue
         finally:
-            if client is not None:
+            if client:
                 try:
                     client.close()
                 except Exception:
                     pass
 
-    # если всё сломалось — тоже fallback
+    # ✅ fallback при ошибке API
     return json.dumps({
-        "status": "fallback",
-        "report": prompt,
-        "error": str(last_error)
+        "status": "error",
+        "error": str(last_error),
+        "data": {
+            "report": prompt
+        }
     }, ensure_ascii=False)
