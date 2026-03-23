@@ -1,4 +1,4 @@
-import os
+import json
 from typing import Optional, List
 
 # Импорт оставляем, но он не будет использоваться без ключа
@@ -29,7 +29,10 @@ def generate_report_from_facts(prompt: str) -> str:
 
     # 🔴 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ — fallback
     if not credentials or GigaChat is None:
-        return f"[AUTO REPORT - NO GIGACHAT]\n\n{prompt}"
+        return json.dumps({
+            "status": "no_gigachat",
+            "report": prompt
+        }, ensure_ascii=False)
 
     timeout_sec = int(os.getenv("GIGACHAT_TIMEOUT_SEC", "60"))
 
@@ -69,4 +72,8 @@ def generate_report_from_facts(prompt: str) -> str:
                     pass
 
     # если всё сломалось — тоже fallback
-    return f"[AUTO REPORT - FALLBACK]\n\n{prompt}\n\nError: {last_error}"
+    return json.dumps({
+        "status": "fallback",
+        "report": prompt,
+        "error": str(last_error)
+    }, ensure_ascii=False)
