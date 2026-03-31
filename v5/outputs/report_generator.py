@@ -22,14 +22,18 @@ class ReportGenerator:
         Returns:
             Path to generated PDF file
         """
-        # TODO: Implement PDF generation
-        # 1. Create report with charts and tables
-        # 2. Include metrics summary
-        # 3. Include facts and recommendations
-        # 4. Save to reports_dir
-        # 5. Return path
+        # Basic implementation - create placeholder PDF
+        # TODO: Full PDF generation with charts and tables
         
-        raise NotImplementedError("ReportGenerator.generate_pdf() not yet implemented")
+        reports_dir = self.cabinet_ctx.cabinet_path / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        
+        pdf_path = reports_dir / f"report_{metrics.date}.pdf"
+        
+        # Create placeholder PDF file
+        pdf_path.write_text(f"Report for {metrics.date}\nMetrics: {metrics}\nFacts: {facts}")
+        
+        return pdf_path
     
     def generate_excel(self, metrics: MetricsBundle, facts: FactsBundle) -> Path:
         """
@@ -42,11 +46,15 @@ class ReportGenerator:
         Returns:
             Path to generated Excel file
         """
-        # TODO: Implement Excel generation
-        # 1. Create Excel workbook
-        # 2. Add sheets: Summary, Ads, SKUs, Facts, Recommendations
-        # 3. Format cells, add charts
-        # 4. Save to reports_dir
-        # 5. Return path
+        # Basic implementation - create placeholder Excel
+        # TODO: Full Excel generation with proper formatting
         
-        raise NotImplementedError("ReportGenerator.generate_excel() not yet implemented")
+        reports_dir = self.cabinet_ctx.cabinet_path / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        
+        excel_path = reports_dir / f"report_{metrics.date}.xlsx"
+        
+        # Create placeholder Excel file
+        excel_path.write_text(f"Excel Report for {metrics.date}")
+        
+        return excel_path

@@ -39,12 +39,27 @@ class FactsBuilder:
         Returns:
             FactsBundle with facts and recommendations
         """
-        # TODO: Implement facts generation
-        # 1. Compare current metrics with historical data
-        # 2. Detect opportunities (high ROAS, low CPC)
-        # 3. Detect risks (declining CTR, rising CPC)
-        # 4. Detect anomalies (check config thresholds)
-        # 5. Identify trends (growth/decline over time)
-        # 6. Return FactsBundle
+        # Basic implementation - return empty bundle with defaults
+        # TODO: Full implementation with actual facts generation
         
-        raise NotImplementedError("FactsBuilder.build() not yet implemented")
+        facts = []
+        
+        # Example: Basic anomaly detection (can be extended later)
+        if metrics.portfolio_metrics.get("ctr", 0) == 0:
+            facts.append(Fact(
+                type=FactType.ANOMALY,
+                title="No clicks detected",
+                description="Portfolio has no clicks today",
+                severity=1,
+                impact_area="general"
+            ))
+        
+        return FactsBundle(
+            date=metrics.date,
+            facts=facts,
+            total_facts=len(facts),
+            opportunities_count=0,
+            risks_count=0,
+            anomalies_count=len([f for f in facts if f.type == FactType.ANOMALY]),
+            metadata={"generated": True}
+        )

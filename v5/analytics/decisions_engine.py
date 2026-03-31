@@ -24,12 +24,22 @@ class DecisionsEngine:
         Returns:
             List of recommendations with priority
         """
-        # TODO: Implement recommendation generation
-        # 1. For each OPPORTUNITY fact: suggest budget increase
-        # 2. For each RISK fact: suggest bid/budget reduction
-        # 3. For each ANOMALY fact: suggest investigation
-        # 4. For each TREND fact: suggest portfolio rebalancing
-        # 5. Assign priorities (1-10)
-        # 6. Return list[Recommendation]
+        # Basic implementation - convert facts to recommendations
+        # TODO: Full implementation with more sophisticated rules
         
-        raise NotImplementedError("DecisionsEngine.generate_recommendations() not yet implemented")
+        recommendations = []
+        
+        # Example: Create recommendation for each fact
+        for fact in facts.facts:
+            rec = Recommendation(
+                id=f"rec_{fact.type.value}_{len(recommendations)}",
+                title=f"Action: {fact.title}",
+                description=fact.description,
+                priority=fact.severity,
+                recommendation_type=fact.type.value,
+                action="investigate",
+                impact_area=fact.impact_area
+            )
+            recommendations.append(rec)
+        
+        return recommendations

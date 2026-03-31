@@ -1,6 +1,7 @@
 """Orchestrator – main execution pipeline"""
 
 from datetime import date
+from pathlib import Path
 
 from .domain import CabinetContext, Cabinet, CabinetConfig, RunMode, ProcessingResult
 from .infrastructure.sources import WBAPILoader, FileReportLoader
@@ -30,9 +31,9 @@ class Orchestrator:
           3. Normalizer.normalize() → NormalizedDataBundle
           4. MetricsEngine.calculate() → MetricsBundle
           5. FactsBuilder.build() → FactsBundle
-          6. DecisionsEngine.generate() → Recommendations
-          7. ReportGenerator.generate() → PDF/Excel
-          8. CabinetStorage.save_all()
+          6. DecisionsEngine.generate_recommendations() → Recommendations
+          7. ReportGenerator.generate_pdf() → PDF
+          8. CabinetStorage.save_*() → Persistence
         
         Args:
             cabinet_id: Cabinet ID (e.g. "seller_001")
@@ -40,14 +41,68 @@ class Orchestrator:
         Returns:
             ProcessingResult with status
         """
-        # TODO: Implement daily pipeline
-        # 1. Load cabinet config
-        # 2. Create WBAPILoader
-        # 3. Load data → Normalize → Calculate → Build facts → Generate reports
-        # 4. Save all bundles
-        # 5. Return ProcessingResult
-        
-        raise NotImplementedError("Orchestrator.run_daily() not yet implemented")
+        try:
+            # 1. Load cabinet config
+            cabinet_path = Path(self.config_root) / "cabinets" / cabinet_id
+            cabinet_path.mkdir(parents=True, exist_ok=True)
+            
+            # Create Cabinet instance (simplified - in production load from config)
+            cabinet = Cabinet(
+                id=cabinet_id,
+                name=f"Cabinet {cabinet_id}",
+                api_key="",  # Will be loaded from env in production
+                wb_seller_id=cabinet_id
+            )
+            
+            # Create context
+            config = CabinetConfig()
+            ctx = CabinetContext(cabinet, config, cabinet_path)
+            
+            # 2. Load data with WBAPILoader
+            api_loader = WBAPILoader()
+            raw_bundle = await api_loader.load_data(ctx, date.today())
+            
+            # 3. Normalize
+            normalized = self.normalizer.normalize(raw_bundle)
+            
+            # 4. Calculate metrics
+            metrics = self.metrics_engine.calculate(normalized)
+            
+            # 5. Build facts
+            facts_builder = FactsBuilder(config)
+            facts = facts_builder.build(normalized, metrics)
+            
+            # 6. Generate decisions
+            decisions_engine = DecisionsEngine(config)
+            decisions = decisions_engine.generate_recommendations(facts)
+            
+            # 7. Generate reports
+            report_gen = ReportGenerator(ctx)
+            pdf_path = report_gen.generate_pdf(metrics, facts)
+            
+            # 8. Save all bundles
+            storage = CabinetStorage(ctx)
+            storage.save_raw(raw_bundle)
+            storage.save_normalized(normalized)
+            storage.save_metrics(metrics)
+            storage.save_facts(facts)
+            
+            return ProcessingResult(
+                status="success",
+                cabinet_id=cabinet_id,
+                records_processed=len(raw_bundle.ads) + len(raw_bundle.orders),
+                message=f"Successfully processed {cabinet_id}"
+            )
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return ProcessingResult(
+                status="error",
+                cabinet_id=cabinet_id,
+                records_processed=0,
+                message=f"Error processing {cabinet_id}: {str(e)}"
+            )
     
     async def run_audit(self, cabinet_id: str, target_date: date) -> ProcessingResult:
         """
@@ -64,10 +119,68 @@ class Orchestrator:
         Returns:
             ProcessingResult with status
         """
-        # TODO: Implement audit pipeline
-        # Same as run_daily, but use FileReportLoader instead of WBAPILoader
-        
-        raise NotImplementedError("Orchestrator.run_audit() not yet implemented")
+        try:
+            # 1. Load cabinet config
+            cabinet_path = Path(self.config_root) / "cabinets" / cabinet_id
+            cabinet_path.mkdir(parents=True, exist_ok=True)
+            
+            # Create Cabinet instance (simplified - in production load from config)
+            cabinet = Cabinet(
+                id=cabinet_id,
+                name=f"Cabinet {cabinet_id}",
+                api_key="",  # Not needed for audit mode
+                wb_seller_id=cabinet_id
+            )
+            
+            # Create context
+            config = CabinetConfig()
+            ctx = CabinetContext(cabinet, config, cabinet_path)
+            
+            # 2. Load data with FileReportLoader (instead of API)
+            file_loader = FileReportLoader()
+            raw_bundle = await file_loader.load_data(ctx, target_date)
+            
+            # 3. Normalize
+            normalized = self.normalizer.normalize(raw_bundle)
+            
+            # 4. Calculate metrics
+            metrics = self.metrics_engine.calculate(normalized)
+            
+            # 5. Build facts
+            facts_builder = FactsBuilder(config)
+            facts = facts_builder.build(normalized, metrics)
+            
+            # 6. Generate decisions
+            decisions_engine = DecisionsEngine(config)
+            decisions = decisions_engine.generate_recommendations(facts)
+            
+            # 7. Generate reports
+            report_gen = ReportGenerator(ctx)
+            pdf_path = report_gen.generate_pdf(metrics, facts)
+            
+            # 8. Save all bundles
+            storage = CabinetStorage(ctx)
+            storage.save_raw(raw_bundle)
+            storage.save_normalized(normalized)
+            storage.save_metrics(metrics)
+            storage.save_facts(facts)
+            
+            return ProcessingResult(
+                status="success",
+                cabinet_id=cabinet_id,
+                records_processed=len(raw_bundle.ads) + len(raw_bundle.orders),
+                message=f"Successfully audited {cabinet_id} for {target_date}"
+            )
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return ProcessingResult(
+                status="error",
+                cabinet_id=cabinet_id,
+                records_processed=0,
+                message=f"Error auditing {cabinet_id}: {str(e)}"
+            )
     
     async def show_analytics(self, cabinet_id: str) -> None:
         """
