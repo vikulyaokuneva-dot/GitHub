@@ -1,23 +1,38 @@
 # Requirements for v5
 
-# Core
-dataclasses
-typing
+# Core dependencies
+python>=3.10
+pydantic>=2.0         # Data validation & settings
 
-# Async
-asyncio
+# Async & HTTP
+aiohttp>=3.8          # Async HTTP client (for WB API calls)
+asyncio               # Built-in
 
 # Data processing
-# TODO: Add as needed
+pandas>=1.5.0         # DataFrames for Excel/CSV handling
+openpyxl>=3.9         # Excel file I/O
+python-dateutil>=2.8  # Date utilities
+
+# Configuration
+pyyaml>=6.0           # YAML config files
+python-dotenv>=0.19   # Environment variables
+
+# Logging
+loguru>=0.6           # Better logging than stdlib
 
 # Testing
-pytest
-pytest-asyncio
+pytest>=7.0
+pytest-asyncio>=0.20  # Async test support
+pytest-cov>=4.0       # Coverage reporting
 
-# Reports (when implementing outputs)
-# reportlab  # For PDF
-# openpyxl   # For Excel
-# pandas     # For data manipulation
+# Development
+black>=22.0           # Code formatting
+pylint>=2.15          # Linting
+mypy>=0.99            # Type checking
+
+# Reports (phase 4+)
+reportlab>=4.0        # PDF generation
+Pillow>=9.0           # Image handling for PDFs
 
 # API clients
 # aiohttp    # For async HTTP requests
