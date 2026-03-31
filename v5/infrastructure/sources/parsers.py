@@ -8,7 +8,7 @@ import logging
 from datetime import date, datetime
 from typing import Any, Dict, Optional
 
-from domain.contracts import (
+from ...domain.contracts import (
     RawAdsData,
     RawOrdersData,
     RawMarginsData,

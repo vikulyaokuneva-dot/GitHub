@@ -1,6 +1,6 @@
 """Data normalization – convert raw data to unified format"""
 
-from domain import RawDataBundle, NormalizedDataBundle, CabinetContext
+from ..domain import RawDataBundle, NormalizedDataBundle, CabinetContext
 
 
 class Normalizer:

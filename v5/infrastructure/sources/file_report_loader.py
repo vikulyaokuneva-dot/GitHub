@@ -8,7 +8,7 @@ import zipfile
 
 import pandas as pd
 
-from domain import RawDataBundle, CabinetContext, RawAdsData, RawOrdersData, RawMarginsData, RawReturnsData
+from ...domain import RawDataBundle, CabinetContext, RawAdsData, RawOrdersData, RawMarginsData, RawReturnsData
 from .base import DataSource
 
 

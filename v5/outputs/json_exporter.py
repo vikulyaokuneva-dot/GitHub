@@ -3,7 +3,7 @@
 from pathlib import Path
 from datetime import date
 
-from domain import MetricsBundle, FactsBundle, CabinetContext
+from ..domain import MetricsBundle, FactsBundle, CabinetContext
 
 
 class JSONExporter:

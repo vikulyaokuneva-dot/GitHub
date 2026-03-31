@@ -1,6 +1,6 @@
 """Metrics calculation engine"""
 
-from domain import NormalizedDataBundle, MetricsBundle, CabinetContext
+from ..domain import NormalizedDataBundle, MetricsBundle, CabinetContext
 
 
 class MetricsEngine:

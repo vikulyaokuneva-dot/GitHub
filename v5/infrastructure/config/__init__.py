@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Optional
-from domain.cabinet import CabinetContext
+from ...domain.cabinet import CabinetContext
 
 
 def create_cabinet_directories(cabinet_ctx: CabinetContext) -> None:

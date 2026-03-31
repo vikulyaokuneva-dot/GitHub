@@ -7,8 +7,8 @@ from typing import Optional
 
 import aiohttp
 
-from domain import RawDataBundle, CabinetContext
-from infrastructure.wb_api_client import AsyncWBClient
+from ...domain import RawDataBundle, CabinetContext
+from ..wb_api_client import AsyncWBClient
 from .base import DataSource
 from .parsers import (
     AdsParser,

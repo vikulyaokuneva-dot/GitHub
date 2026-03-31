@@ -9,15 +9,15 @@ from datetime import date
 from unittest.mock import Mock, AsyncMock, patch
 import asyncio
 
-from domain.contracts import (
+from ..domain.contracts import (
     RawDataBundle,
     RawAdsData,
     RawOrdersData,
     RawMarginsData,
 )
-from domain.cabinet import Cabinet, CabinetConfig, CabinetContext
-from infrastructure.sources.wb_api_loader import WBAPILoader
-from infrastructure.sources.parsers import (
+from ..domain.cabinet import Cabinet, CabinetConfig, CabinetContext
+from ..infrastructure.sources.wb_api_loader import WBAPILoader
+from ..infrastructure.sources.parsers import (
     AdsParser,
     OrdersParser,
     MarginsParser,

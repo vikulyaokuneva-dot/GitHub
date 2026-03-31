@@ -2,14 +2,14 @@
 
 from datetime import date
 
-from domain import CabinetContext, Cabinet, CabinetConfig, RunMode, ProcessingResult
-from infrastructure.sources import WBAPILoader, FileReportLoader
-from infrastructure.storage import CabinetStorage
-from analytics.normalization import Normalizer
-from analytics.metrics_engine import MetricsEngine
-from analytics.facts_builder import FactsBuilder
-from analytics.decisions_engine import DecisionsEngine
-from outputs.report_generator import ReportGenerator
+from .domain import CabinetContext, Cabinet, CabinetConfig, RunMode, ProcessingResult
+from .infrastructure.sources import WBAPILoader, FileReportLoader
+from .infrastructure.storage import CabinetStorage
+from .analytics.normalization import Normalizer
+from .analytics.metrics_engine import MetricsEngine
+from .analytics.facts_builder import FactsBuilder
+from .analytics.decisions_engine import DecisionsEngine
+from .outputs.report_generator import ReportGenerator
 
 
 class Orchestrator:

@@ -1,6 +1,6 @@
 """Facts and insights builder"""
 
-from domain import (
+from ..domain import (
     NormalizedDataBundle,
     MetricsBundle,
     FactsBundle,

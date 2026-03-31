@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from domain import MetricsBundle, FactsBundle, CabinetContext
+from ..domain import MetricsBundle, FactsBundle, CabinetContext
 
 
 class ReportGenerator:

@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from datetime import date
 
-from domain import RawDataBundle, CabinetContext
+from ...domain import RawDataBundle, CabinetContext
 
 
 class DataSource(ABC):

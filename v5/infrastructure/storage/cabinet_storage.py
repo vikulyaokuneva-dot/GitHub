@@ -5,7 +5,7 @@ from datetime import date
 from pathlib import Path
 from dataclasses import asdict
 
-from domain import (
+from ...domain import (
     RawDataBundle,
     NormalizedDataBundle,
     MetricsBundle,

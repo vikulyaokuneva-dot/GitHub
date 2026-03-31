@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from domain import CabinetContext
+from ..domain import CabinetContext
 
 
 @dataclass

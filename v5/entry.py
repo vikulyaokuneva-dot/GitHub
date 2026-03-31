@@ -12,8 +12,8 @@ import asyncio
 from datetime import datetime, date
 from pathlib import Path
 
-from orchestrator import Orchestrator
-from config import get_config
+from .orchestrator import Orchestrator
+from .config import get_config
 
 
 async def main():

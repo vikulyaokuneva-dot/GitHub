@@ -1,6 +1,6 @@
 """Decisions and recommendations engine"""
 
-from domain import FactsBundle, Recommendation, CabinetConfig
+from ..domain import FactsBundle, Recommendation, CabinetConfig
 
 
 class DecisionsEngine:
