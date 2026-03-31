@@ -6,7 +6,7 @@ from datetime import date
 from ..domain import MetricsBundle, FactsBundle, CabinetContext
 
 
-class JSONExporter:
+class JsonExporter:
     """Exports bundles to JSON for archival and analysis"""
     
     def __init__(self, cabinet_ctx: CabinetContext):
