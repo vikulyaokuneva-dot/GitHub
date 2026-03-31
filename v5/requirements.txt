@@ -1,0 +1,24 @@
+# Requirements for v5
+
+# Core
+dataclasses
+typing
+
+# Async
+asyncio
+
+# Data processing
+# TODO: Add as needed
+
+# Testing
+pytest
+pytest-asyncio
+
+# Reports (when implementing outputs)
+# reportlab  # For PDF
+# openpyxl   # For Excel
+# pandas     # For data manipulation
+
+# API clients
+# aiohttp    # For async HTTP requests
+# requests   # For sync HTTP requests
