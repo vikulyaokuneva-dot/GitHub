@@ -75,8 +75,8 @@ jobs:
           echo "🔍 Looking for ZIP archives in v5/audit/input/..."
           
           zip_count=0
-          for zip_file in v5/audit/input/**/*.zip v5/audit/input/*.zip 2>/dev/null; do
-            if [ -f "$zip_file" ]; then
+          while IFS= read -r zip_file; do
+            if [ -n "$zip_file" ]; then
               zip_count=$((zip_count + 1))
               dir=$(dirname "$zip_file")
               echo "📦 Extracting: $zip_file → $dir"
@@ -84,7 +84,7 @@ jobs:
               rm "$zip_file"
               echo "✅ Removed source ZIP after extraction"
             fi
-          done
+          done < <(find v5/audit/input -name "*.zip" 2>/dev/null || true)
           
           if [ $zip_count -eq 0 ]; then
             echo "ℹ️ No ZIP archives found (this is OK)"
