@@ -2,8 +2,9 @@
 
 from datetime import date
 from pathlib import Path
+from typing import Union
 
-from .domain import CabinetContext, Cabinet, CabinetConfig, RunMode, ProcessingResult
+from .domain import CabinetContext, Cabinet, CabinetConfig, RunMode, ProcessingResult, ProcessingStatus
 from .infrastructure.sources import WBAPILoader, FileReportLoader
 from .infrastructure.storage import CabinetStorage
 from .analytics.normalization import Normalizer
@@ -16,8 +17,14 @@ from .outputs.report_generator import ReportGenerator
 class Orchestrator:
     """Main execution orchestrator"""
     
-    def __init__(self, config_root: str = ""):
-        self.config_root = config_root
+    def __init__(self, config: Union[CabinetConfig, str] = ""):
+        if isinstance(config, str):
+            self.config_root = Path(config)
+            self.config = CabinetConfig()
+        else:
+            self.config = config
+            self.config_root = Path("cabinets")
+        
         self.normalizer = Normalizer()
         self.metrics_engine = MetricsEngine()
     
@@ -88,9 +95,10 @@ class Orchestrator:
             storage.save_facts(facts)
             
             return ProcessingResult(
-                status="success",
+                status=ProcessingStatus.SUCCESS,
                 cabinet_id=cabinet_id,
-                records_processed=len(raw_bundle.ads) + len(raw_bundle.orders),
+                run_date=date.today(),
+                mode="daily",
                 message=f"Successfully processed {cabinet_id}"
             )
             
@@ -98,10 +106,12 @@ class Orchestrator:
             import traceback
             traceback.print_exc()
             return ProcessingResult(
-                status="error",
+                status=ProcessingStatus.FAILED,
                 cabinet_id=cabinet_id,
-                records_processed=0,
-                message=f"Error processing {cabinet_id}: {str(e)}"
+                run_date=date.today(),
+                mode="daily",
+                message=f"Error processing {cabinet_id}: {str(e)}",
+                errors=[str(e)]
             )
     
     async def run_audit(self, cabinet_id: str, target_date: date) -> ProcessingResult:
@@ -166,9 +176,10 @@ class Orchestrator:
             storage.save_facts(facts)
             
             return ProcessingResult(
-                status="success",
+                status=ProcessingStatus.SUCCESS,
                 cabinet_id=cabinet_id,
-                records_processed=len(raw_bundle.ads) + len(raw_bundle.orders),
+                run_date=target_date,
+                mode="audit",
                 message=f"Successfully audited {cabinet_id} for {target_date}"
             )
             
@@ -176,10 +187,12 @@ class Orchestrator:
             import traceback
             traceback.print_exc()
             return ProcessingResult(
-                status="error",
+                status=ProcessingStatus.FAILED,
                 cabinet_id=cabinet_id,
-                records_processed=0,
-                message=f"Error auditing {cabinet_id}: {str(e)}"
+                run_date=target_date,
+                mode="audit",
+                message=f"Error auditing {cabinet_id}: {str(e)}",
+                errors=[str(e)]
             )
     
     async def show_analytics(self, cabinet_id: str) -> None:
