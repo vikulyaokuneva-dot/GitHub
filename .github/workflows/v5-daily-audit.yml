@@ -56,82 +56,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r v5/requirements.txt
 
-      - name: Prepare local audit inputs
+      # Validate isolated v5/audit/input/ structure
+      - name: Validate audit input structure
         run: |
-          set -euo pipefail
-          python - <<'PY'
-          import os
-          import shutil
-          import zipfile
-          from pathlib import Path
-
-          seller = str(os.environ.get("V5_SELLER_ID") or "seller_001").strip() or "seller_001"
-          repo = Path(".").resolve()
-          input_dir = repo / "cabinets" / seller / "input"
-          unpack_root = input_dir / "__unpacked"
-          input_dir.mkdir(parents=True, exist_ok=True)
-          unpack_root.mkdir(parents=True, exist_ok=True)
-
-          # Collect input files from various locations
-          source_dirs = [
-              repo / "input",
-              repo / ".github" / "input",
-              repo / "data" / "input",
-              repo / "audit" / "input",
-              repo / "cabinets" / seller / "input",
-              repo / "cabinets" / "__missing_seller__" / "input",
-          ]
-          allowed_ext = {".zip", ".xlsx", ".xls", ".csv"}
-
-          copied = []
-          for source_dir in source_dirs:
-              if not source_dir.is_dir():
-                  continue
-              for path in source_dir.rglob("*"):
-                  if not path.is_file():
-                      continue
-                  if path.suffix.lower() not in allowed_ext:
-                      continue
-                  target = input_dir / path.name
-                  if path.resolve() == target.resolve():
-                      continue
-                  shutil.copy2(path, target)
-                  copied.append(target)
-
-          unpacked = []
-          for archive_path in sorted(input_dir.glob("*.zip")):
-              target_dir = unpack_root / archive_path.stem
-              target_dir.mkdir(parents=True, exist_ok=True)
-              try:
-                  with zipfile.ZipFile(archive_path, "r") as zf:
-                      for info in zf.infolist():
-                          if info.is_dir():
-                              continue
-                          entry = Path(info.filename)
-                          if entry.suffix.lower() not in {".xlsx", ".xls", ".csv"}:
-                              continue
-                          normalized = entry.as_posix()
-                          if normalized.startswith("/") or ".." in normalized.split("/"):
-                              continue
-                          out_path = (target_dir / normalized).resolve()
-                          if not str(out_path).startswith(str(target_dir.resolve())):
-                              continue
-                          out_path.parent.mkdir(parents=True, exist_ok=True)
-                          with zf.open(info, "r") as source_fh, open(out_path, "wb") as out_fh:
-                              shutil.copyfileobj(source_fh, out_fh)
-                          unpacked.append(out_path)
-              except Exception as exc:
-                  print(f"[v5] archive_unpack_error file={archive_path.name} error={exc}")
-
-          available = sorted(
-              str(path.relative_to(repo)).replace("\\", "/")
-              for path in input_dir.rglob("*")
-              if path.is_file() and path.suffix.lower() in {".xlsx", ".xls", ".csv"}
-          )
-          print(f"[v5] local_inputs seller={seller} copied={len(copied)} unpacked={len(unpacked)} available={len(available)}")
-          for rel_path in available[:30]:
-              print(f"[v5] local_input_file {rel_path}")
-          PY
+          echo "📂 Creating/validating v5/audit/input structure..."
+          
+          # Create required directories if missing
+          mkdir -p v5/audit/input/{ads,finance,funnel,warehouse}
+          
+          # Show available input files
+          echo "✅ Audit input directories ready:"
+          ls -lR v5/audit/input/ 2>/dev/null | head -50 || echo "(empty, waiting for files)"
+          
+          # Count available files
+          csv_count=$(find v5/audit/input -name "*.csv" 2>/dev/null | wc -l)
+          xlsx_count=$(find v5/audit/input -name "*.xlsx" 2>/dev/null | wc -l)
+          echo "📊 Found: $csv_count CSV files, $xlsx_count XLSX files"
 
       - name: Prepare cabinet directories
         run: |
