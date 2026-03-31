@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Optional
 from ...domain.cabinet import CabinetContext
+from .api_mapping import WB_API_ENDPOINTS
 
 
 def create_cabinet_directories(cabinet_ctx: CabinetContext) -> None:
@@ -23,3 +24,10 @@ def create_cabinet_directories(cabinet_ctx: CabinetContext) -> None:
 def ensure_cabinet_paths(cabinet_ctx: CabinetContext) -> None:
     """Ensure all cabinet paths exist"""
     create_cabinet_directories(cabinet_ctx)
+
+
+__all__ = [
+    "create_cabinet_directories",
+    "ensure_cabinet_paths",
+    "WB_API_ENDPOINTS",
+]

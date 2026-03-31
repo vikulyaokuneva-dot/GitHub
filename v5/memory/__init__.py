@@ -1,3 +1,7 @@
 """Memory layer – state and history"""
 
-__all__ = []
+from .state import StateManager
+
+__all__ = [
+    "StateManager",
+]
