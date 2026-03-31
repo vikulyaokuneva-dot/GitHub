@@ -66,19 +66,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "[v5] Starting daily API run"
-          echo "[v5] seller_id=${V5_SELLER_ID}"
-          if [ -n "${V5_REQUESTED_DATE}" ]; then
-            echo "[v5] requested_date=${V5_REQUESTED_DATE}"
-            python -m v5.entry daily \
-              --seller "${V5_SELLER_ID}" \
-              --date "${V5_REQUESTED_DATE}" \
-              --mode "${V5_MODE}"
-          else
-            echo "[v5] requested_date=<auto-resolve by timezone>"
-            python -m v5.entry daily \
-              --seller "${V5_SELLER_ID}" \
-              --mode "${V5_MODE}"
-          fi
+          echo "[v5] cabinet=${V5_SELLER_ID}"
+          python -m v5.entry daily --cabinet "${V5_SELLER_ID}"
           echo "[v5] Pipeline finished"
 
       - name: Print cabinet artifacts
