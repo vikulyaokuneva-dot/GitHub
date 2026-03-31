@@ -2,9 +2,8 @@ name: V5 Daily Audit (File Mode)
 
 on:
   schedule:
-    # Optional: different schedule for audit mode (e.g., evenings)
-    # 20:00 Europe/Moscow == 17:00 UTC.
-    # - cron: "0 17 * * *"
+    # 20:00 Europe/Moscow == 17:00 UTC (evening audit run)
+    - cron: "0 17 * * *"
   workflow_dispatch:
     inputs:
       seller_id:
@@ -15,6 +14,10 @@ on:
         description: "Optional audit date YYYY-MM-DD (empty = auto-resolve)"
         required: false
         default: ""
+      unzip_archives:
+        description: "Auto-unzip archives in v5/audit/input/ (true/false)"
+        required: false
+        default: "true"
 
 jobs:
   v5_daily_audit:
@@ -26,6 +29,7 @@ jobs:
       V5_SELLER_ID: ${{ github.event.inputs.seller_id || vars.V5_AUDIT_SELLER || 'seller_001' }}
       V5_REQUESTED_DATE: ${{ github.event.inputs.run_date || '' }}
       V5_MODE: audit
+      V5_UNZIP: ${{ github.event.inputs.unzip_archives || 'true' }}
       TZ: Europe/Moscow
 
       # WB API (optional for audit, shared with v2/v3)
@@ -56,22 +60,60 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r v5/requirements.txt
 
-      # Validate isolated v5/audit/input/ structure
-      - name: Validate audit input structure
+      # Setup and validate audit input structure
+      - name: Setup audit input structure
         run: |
-          echo "📂 Creating/validating v5/audit/input structure..."
-          
-          # Create required directories if missing
+          echo "📂 Setting up v5/audit/input structure..."
           mkdir -p v5/audit/input/{ads,finance,funnel,warehouse}
+          echo "✅ Directories created: ads, finance, funnel, warehouse"
+
+      # Auto-unzip archives if present
+      - name: Extract ZIP archives
+        if: ${{ env.V5_UNZIP == 'true' }}
+        run: |
+          set -euo pipefail
+          echo "🔍 Looking for ZIP archives in v5/audit/input/..."
           
-          # Show available input files
-          echo "✅ Audit input directories ready:"
-          ls -lR v5/audit/input/ 2>/dev/null | head -50 || echo "(empty, waiting for files)"
+          zip_count=0
+          for zip_file in v5/audit/input/**/*.zip v5/audit/input/*.zip 2>/dev/null; do
+            if [ -f "$zip_file" ]; then
+              zip_count=$((zip_count + 1))
+              dir=$(dirname "$zip_file")
+              echo "📦 Extracting: $zip_file → $dir"
+              unzip -q -o "$zip_file" -d "$dir"
+              rm "$zip_file"
+              echo "✅ Removed source ZIP after extraction"
+            fi
+          done
           
-          # Count available files
+          if [ $zip_count -eq 0 ]; then
+            echo "ℹ️ No ZIP archives found (this is OK)"
+          else
+            echo "✅ Extracted $zip_count ZIP archive(s)"
+          fi
+
+      # Validate and list input files
+      - name: Validate audit input files
+        run: |
+          echo "📊 Audit input inventory:"
+          echo ""
+          
+          for category in ads finance funnel warehouse; do
+            count=$(find v5/audit/input/$category -type f \( -name "*.csv" -o -name "*.xlsx" \) 2>/dev/null | wc -l)
+            echo "📁 $category: $count files"
+            find v5/audit/input/$category -type f \( -name "*.csv" -o -name "*.xlsx" \) 2>/dev/null | sed 's|^|  ├─ |' || true
+          done
+          
+          # Count all files
           csv_count=$(find v5/audit/input -name "*.csv" 2>/dev/null | wc -l)
           xlsx_count=$(find v5/audit/input -name "*.xlsx" 2>/dev/null | wc -l)
-          echo "📊 Found: $csv_count CSV files, $xlsx_count XLSX files"
+          echo ""
+          echo "📈 Total: $csv_count CSV + $xlsx_count XLSX = $((csv_count + xlsx_count)) files"
+          
+          if [ $((csv_count + xlsx_count)) -eq 0 ]; then
+            echo "⚠️ WARNING: No data files found in v5/audit/input/"
+            echo "Pipeline will run but may not produce meaningful results"
+          fi
 
       - name: Prepare cabinet directories
         run: |
@@ -82,40 +124,56 @@ jobs:
       - name: Run V5 daily audit pipeline
         run: |
           set -euo pipefail
-          echo "[v5] Starting daily audit run"
-          echo "[v5] seller_id=${V5_SELLER_ID}"
+          echo "[v5] 🚀 Starting daily audit run"
+          echo "[v5] 📅 seller_id=${V5_SELLER_ID}"
           if [ -n "${V5_REQUESTED_DATE}" ]; then
-            echo "[v5] requested_date=${V5_REQUESTED_DATE}"
+            echo "[v5] 📆 requested_date=${V5_REQUESTED_DATE}"
             python -m v5.entry daily \
               --seller "${V5_SELLER_ID}" \
               --date "${V5_REQUESTED_DATE}" \
               --mode "${V5_MODE}"
           else
-            echo "[v5] requested_date=<auto-resolve by timezone>"
+            echo "[v5] 📆 requested_date=<auto-resolve by timezone>"
             python -m v5.entry daily \
               --seller "${V5_SELLER_ID}" \
               --mode "${V5_MODE}"
           fi
-          echo "[v5] Pipeline finished"
+          echo "[v5] ✅ Pipeline finished"
 
-      - name: Print cabinet artifacts
-        run: |
-          echo "[v5] Artifacts in ./cabinets/${V5_SELLER_ID}:"
-          find "cabinets/${V5_SELLER_ID}" -type f -name "*.json" -o -name "*.pdf" | sort || true
-
-      - name: Upload V5 audit artifacts
+      # Upload results as artifacts
+      - name: Upload audit results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v5-daily-audit-${{ env.V5_SELLER_ID }}
-          path: cabinets/${{ env.V5_SELLER_ID }}/artifacts/**
+          name: v5-audit-${{ env.V5_SELLER_ID }}-${{ github.run_number }}
+          path: |
+            cabinets/${{ env.V5_SELLER_ID }}/artifacts/
+            cabinets/${{ env.V5_SELLER_ID }}/outputs/
+          retention-days: 30
+          if-no-files-found: warn
 
-      - name: Check for PDF reports
-        if: always()
+      # Summary
+      - name: Audit completed
+        if: success()
         run: |
-          REPORT=$(find "cabinets/${V5_SELLER_ID}/outputs" -name "*.pdf" -type f | head -1)
-          if [ -n "$REPORT" ]; then
-            echo "[v5] PDF report generated: $REPORT"
-          else
-            echo "[v5] No PDF report generated"
-          fi
+          echo "✅ V5 Audit Pipeline Completed"
+          echo ""
+          echo "📊 Results available:"
+          echo "  📁 Cabinet: cabinets/${V5_SELLER_ID}/"
+          echo "  📄 Outputs: cabinets/${V5_SELLER_ID}/outputs/"
+          echo "  🗂️ Artifacts: cabinets/${V5_SELLER_ID}/artifacts/"
+          echo ""
+          echo "📌 Next: Check GitHub Actions artifacts or local cabinet folder"
+
+      # Error handling
+      - name: Pipeline failed
+        if: failure()
+        run: |
+          echo "❌ V5 Audit Pipeline FAILED"
+          echo ""
+          echo "📋 Troubleshooting:"
+          echo "  1. Check v5/audit/input/ has CSV/XLSX files"
+          echo "  2. Review logs above for parse errors"
+          echo "  3. Ensure WB_API_TOKEN is set (optional for audit)"
+          echo "  4. Check Python version: $(python --version)"
+          exit 1
