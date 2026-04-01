@@ -12,6 +12,7 @@ from .analytics.metrics_engine import MetricsEngine
 from .analytics.facts_builder import FactsBuilder
 from .analytics.decisions_engine import DecisionsEngine
 from .outputs.report_generator import ReportGenerator
+from .outputs.json_exporter import JsonExporter
 
 
 class Orchestrator:
@@ -87,7 +88,12 @@ class Orchestrator:
             report_gen = ReportGenerator(ctx)
             pdf_path = report_gen.generate_pdf(metrics, facts)
             
-            # 8. Save all bundles
+            # 8. Export to JSON files (for analysis and archival)
+            json_exporter = JsonExporter(ctx)
+            metrics_json = json_exporter.export_metrics(metrics, date.today())
+            facts_json = json_exporter.export_facts(facts, date.today())
+            
+            # 9. Save all bundles
             storage = CabinetStorage(ctx)
             storage.save_raw(raw_bundle)
             storage.save_normalized(normalized)
@@ -168,7 +174,12 @@ class Orchestrator:
             report_gen = ReportGenerator(ctx)
             pdf_path = report_gen.generate_pdf(metrics, facts)
             
-            # 8. Save all bundles
+            # 8. Export to JSON files (for analysis and archival)
+            json_exporter = JsonExporter(ctx)
+            metrics_json = json_exporter.export_metrics(metrics, target_date)
+            facts_json = json_exporter.export_facts(facts, target_date)
+            
+            # 9. Save all bundles
             storage = CabinetStorage(ctx)
             storage.save_raw(raw_bundle)
             storage.save_normalized(normalized)

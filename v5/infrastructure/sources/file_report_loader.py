@@ -45,20 +45,20 @@ class FileReportLoader(DataSource):
         )
 
         # Параллельная загрузка из всех папок
-        ads_task = asyncio.to_thread(self._load_ads_data)
-        orders_task = asyncio.to_thread(self._load_orders_data)
-        margins_task = asyncio.to_thread(self._load_margins_data)
-        returns_task = asyncio.to_thread(self._load_returns_data)
-        ratings_task = asyncio.to_thread(self._load_ratings_data)
+        ads_task = asyncio.to_thread(self._load_ads_data, target_date)
+        orders_task = asyncio.to_thread(self._load_orders_data, target_date)
+        margins_task = asyncio.to_thread(self._load_margins_data, target_date)
+        returns_task = asyncio.to_thread(self._load_returns_data, target_date)
+        ratings_task = asyncio.to_thread(self._load_ratings_data, target_date)
 
         ads, orders, margins, returns, ratings = await asyncio.gather(
             ads_task, orders_task, margins_task, returns_task, ratings_task
         )
 
         bundle = RawDataBundle(
-            source="file_report",
+            source="report",
             cabinet_id=cabinet_ctx.cabinet.id,
-            loaded_date=datetime.now().date(),
+            period_date=target_date or datetime.now().date(),
             ads=ads,
             orders=orders,
             margins=margins,
@@ -75,7 +75,7 @@ class FileReportLoader(DataSource):
 
         return bundle
 
-    def _load_ads_data(self) -> List[RawAdsData]:
+    def _load_ads_data(self, target_date: Optional[date] = None) -> List[RawAdsData]:
         """Загружает данные объявлений из папки ads/"""
         ads = []
         ads_dir = self.input_dir / "ads"
@@ -100,49 +100,40 @@ class FileReportLoader(DataSource):
                 # Парсим объявления
                 for _, row in df.iterrows():
                     try:
-                        sku = self._get_val(row, ["sku", "артикул", "nmid"])
-                        if not sku:
+                        ad_id = self._get_val(row, ["id адреса", "campaign id", "id"])
+                        if not ad_id:
                             continue
+                        
+                        sku = self._get_val(row, ["sku", "артикул", "nmid"])
+                        sku_ids = [str(sku)] if sku else []
 
                         ads.append(
                             RawAdsData(
-                                sku=int(sku),
-                                adv_name=self._get_val(
+                                ad_id=str(ad_id),
+                                name=self._get_val(
                                     row,
                                     [
                                         "название",
                                         "наименование",
                                         "adv name",
+                                        "name",
                                     ],
                                 )
                                 or "Unknown",
-                                adv_type=self._get_val(
-                                    row, ["тип объявления", "campaign type"]
+                                sku_ids=sku_ids,
+                                budget_daily=self._get_float(row, ["дневной бюджет", "daily budget"])
+                                or 0.0,
+                                status=self._get_val(
+                                    row, ["статус", "status"]
                                 )
-                                or "unknown",
-                                daily_budget=self._get_float(row, ["дневной бюджет"])
-                                or 0,
-                                views=int(self._get_val(row, ["просмотры", "views"]) or 0),
+                                or "active",
+                                views=int(self._get_val(row, ["просмотры", "views", "impressions"]) or 0),
                                 clicks=int(
                                     self._get_val(row, ["клики", "clicks"]) or 0
                                 ),
-                                ctr=self._get_float(row, ["ctr", "ctr %"]) or 0,
-                                spend=self._get_float(row, ["трата", "расход", "spend"])
-                                or 0,
-                                cpc=self._get_float(row, ["cpc"]) or 0,
-                                conversions=int(
-                                    self._get_val(row, ["конверсии", "conversions"])
-                                    or 0
-                                ),
-                                orders=int(self._get_val(row, ["заказы", "orders"]) or 0),
-                                revenue=self._get_float(
-                                    row, ["доход", "выручка", "revenue"]
-                                )
-                                or 0,
-                                roas=self._get_float(
-                                    row, ["roas", "roi", "рентабельность"]
-                                )
-                                or 0,
+                                spend=self._get_float(row, ["трата", "расход", "spend", "cost"])
+                                or 0.0,
+                                date=target_date or date.today(),
                             )
                         )
                     except Exception as e:
@@ -157,7 +148,7 @@ class FileReportLoader(DataSource):
 
         return ads
 
-    def _load_orders_data(self) -> List[RawOrdersData]:
+    def _load_orders_data(self, target_date: Optional[date] = None) -> List[RawOrdersData]:
         """Загружает данные заказов из папки finance/"""
         orders = []
         finance_dir = self.input_dir / "finance"
@@ -181,15 +172,17 @@ class FileReportLoader(DataSource):
 
                 df.columns = [c.lower().strip() for c in df.columns]
 
-                for _, row in df.iterrows():
+                for idx, row in df.iterrows():
                     try:
-                        sku = self._get_val(row, ["sku", "артикул", "nmid", "nm id"])
-                        if not sku:
+                        sku_id = self._get_val(row, ["sku", "артикул", "nmid", "nm id"])
+                        if not sku_id:
                             continue
 
                         orders.append(
                             RawOrdersData(
-                                sku=int(sku),
+                                order_id=str(self._get_val(row, ["id заказа", "order id", "номер заказа"]) or f"ord_{idx}"),
+                                sku_id=str(sku_id),
+                                ad_id=self._get_val(row, ["id рекламы", "ad id", "campaign id"]),
                                 quantity=int(
                                     self._get_val(row, ["количество", "qty", "кол-во"]) or 0
                                 ),
@@ -202,28 +195,12 @@ class FileReportLoader(DataSource):
                                         "сумма продаж",
                                     ],
                                 )
-                                or 0,
+                                or 0.0,
                                 commission=self._get_float(
                                     row, ["комиссия", "commission", "комиссионный сбор"]
                                 )
-                                or 0,
-                                commission_percent=self._get_float(
-                                    row, ["процент комиссии", "commission %"]
-                                )
-                                or 0,
-                                fbo_count=int(self._get_val(row, ["fbo"]) or 0),
-                                fbs_count=int(self._get_val(row, ["fbs"]) or 0),
-                                return_count=int(
-                                    self._get_val(
-                                        row,
-                                        ["возвраты", "returns", "количество возвратов"]
-                                    )
-                                    or 0
-                                ),
-                                average_price=self._get_float(
-                                    row, ["средняя цена", "average price"]
-                                )
-                                or 0,
+                                or 0.0,
+                                date=target_date or date.today(),
                             )
                         )
                     except Exception as e:
@@ -238,7 +215,7 @@ class FileReportLoader(DataSource):
 
         return orders
 
-    def _load_margins_data(self) -> List[RawMarginsData]:
+    def _load_margins_data(self, target_date: Optional[date] = None) -> List[RawMarginsData]:
         """Загружает данные маржи из папки finance/ (margin_report)"""
         margins = []
         finance_dir = self.input_dir / "finance"
@@ -259,11 +236,11 @@ class FileReportLoader(DataSource):
 
                 for _, row in df.iterrows():
                     try:
-                        sku = self._get_val(row, ["sku", "артикул", "nmid", "nm id"])
-                        if not sku:
+                        sku_id = self._get_val(row, ["sku", "артикул", "nmid", "nm id"])
+                        if not sku_id:
                             continue
 
-                        cost_price = self._get_float(row, ["себестоимость", "cost"])
+                        cost_price = self._get_float(row, ["себестоимость", "cost", "cost price"])
                         if not cost_price or cost_price <= 0:
                             continue  # Пропускаем с нулевой себестоимостью
 
@@ -274,22 +251,20 @@ class FileReportLoader(DataSource):
                                 "selling price",
                                 "цена",
                                 "retail price",
+                                "price",
                             ],
                         )
                         margin_percent = self._get_float(
-                            row, ["маржа", "margin %", "margin"]
-                        )
+                            row, ["маржа %", "margin %", "margin", "маржа"]
+                        ) or 0.0
 
                         margins.append(
                             RawMarginsData(
-                                sku=int(sku),
+                                sku_id=str(sku_id),
                                 cost_price=cost_price,
-                                selling_price=selling_price or 0,
-                                margin_percent=margin_percent or 0,
-                                margin_rub=self._get_float(
-                                    row, ["маржа руб", "margin rub"]
-                                )
-                                or 0,
+                                selling_price=selling_price or 0.0,
+                                margin_percent=margin_percent,
+                                date=target_date or date.today(),
                             )
                         )
                     except Exception as e:
@@ -304,7 +279,7 @@ class FileReportLoader(DataSource):
 
         return margins
 
-    def _load_returns_data(self) -> List[RawReturnsData]:
+    def _load_returns_data(self, target_date: Optional[date] = None) -> List[RawReturnsData]:
         """Загружает данные возвратов"""
         returns = []
         # Returns можно найти в funnel или finance разделах
@@ -329,27 +304,26 @@ class FileReportLoader(DataSource):
 
                     df.columns = [c.lower().strip() for c in df.columns]
 
-                    for _, row in df.iterrows():
+                    for idx, row in df.iterrows():
                         try:
-                            sku = self._get_val(row, ["sku", "артикул", "nmid", "nm id"])
-                            if not sku:
+                            sku_id = self._get_val(row, ["sku", "артикул", "nmid", "nm id"])
+                            if not sku_id:
                                 continue
 
                             returns.append(
                                 RawReturnsData(
-                                    sku=int(sku),
-                                    return_count=int(
-                                        self._get_val(row, ["количество", "count"])
-                                        or 0
-                                    ),
-                                    return_reason=self._get_val(
-                                        row, ["причина", "reason", "description"]
+                                    return_id=str(self._get_val(row, ["id возврата", "return id"]) or f"ret_{idx}"),
+                                    order_id=str(self._get_val(row, ["id заказа", "order id"]) or "unknown"),
+                                    sku_id=str(sku_id),
+                                    reason=self._get_val(
+                                        row, ["причина", "reason", "description", "причина возврата"]
                                     )
                                     or "unknown",
-                                    lost_revenue=self._get_float(
-                                        row, ["потери", "lost revenue", "сумма"]
+                                    revenue_lost=self._get_float(
+                                        row, ["потери", "lost revenue", "сумма", "доход потери"]
                                     )
-                                    or 0,
+                                    or 0.0,
+                                    date=target_date or date.today(),
                                 )
                             )
                         except Exception as e:
@@ -366,7 +340,7 @@ class FileReportLoader(DataSource):
 
         return returns
 
-    def _load_ratings_data(self) -> List[RawRatingsData]:
+    def _load_ratings_data(self, target_date: Optional[date] = None) -> List[RawRatingsData]:
         """Загружает данные рейтингов"""
         ratings = []
 
@@ -393,30 +367,39 @@ class FileReportLoader(DataSource):
 
                     for _, row in df.iterrows():
                         try:
-                            sku = self._get_val(row, ["sku", "артикул", "nmid", "nm id"])
-                            if not sku:
+                            sku_id = self._get_val(row, ["sku", "артикул", "nmid", "nm id"])
+                            if not sku_id:
                                 continue
+
+                            rating = self._get_float(
+                                row,
+                                [
+                                    "средний рейтинг",
+                                    "average rating",
+                                    "rating",
+                                    "средняя оценка",
+                                ],
+                            )
+                            
+                            # Рассчитаем количество негативных отзывов
+                            review_count = int(
+                                self._get_val(row, ["отзывы", "reviews", "количество отзывов"])
+                                or 0
+                            )
+                            
+                            positive_percent = self._get_float(
+                                row, ["% позитивных", "positive %", "процент позитива"]
+                            ) or 0.0
+                            
+                            negative_reviews = int(review_count * (100 - positive_percent) / 100)
 
                             ratings.append(
                                 RawRatingsData(
-                                    sku=int(sku),
-                                    average_rating=self._get_float(
-                                        row,
-                                        [
-                                            "средний рейтинг",
-                                            "average rating",
-                                            "rating",
-                                        ],
-                                    )
-                                    or 0,
-                                    review_count=int(
-                                        self._get_val(row, ["отзывы", "reviews"])
-                                        or 0
-                                    ),
-                                    positive_percent=self._get_float(
-                                        row, ["% позитивных", "positive %"]
-                                    )
-                                    or 0,
+                                    sku_id=str(sku_id),
+                                    rating=rating or 0.0,
+                                    review_count=review_count,
+                                    negative_reviews=negative_reviews,
+                                    date=target_date or date.today(),
                                 )
                             )
                         except Exception as e:

@@ -31,7 +31,7 @@ class CabinetStorage:
     # Raw data
     def save_raw(self, bundle: RawDataBundle) -> None:
         """Save raw data bundle"""
-        filename = self._get_filename("raw", bundle.date)
+        filename = self._get_filename("raw", bundle.period_date)
         try:
             data = asdict(bundle)
             filename.write_text(json.dumps(data, indent=2, default=str))
@@ -53,7 +53,7 @@ class CabinetStorage:
     # Normalized data
     def save_normalized(self, bundle: NormalizedDataBundle) -> None:
         """Save normalized data bundle"""
-        filename = self._get_filename("normalized", bundle.date)
+        filename = self._get_filename("normalized", bundle.period_date)
         try:
             data = asdict(bundle)
             filename.write_text(json.dumps(data, indent=2, default=str))
@@ -75,7 +75,7 @@ class CabinetStorage:
     # Metrics
     def save_metrics(self, bundle: MetricsBundle) -> None:
         """Save metrics bundle"""
-        filename = self._get_filename("metrics", bundle.date)
+        filename = self._get_filename("metrics", bundle.period_date)
         try:
             data = asdict(bundle)
             filename.write_text(json.dumps(data, indent=2, default=str))
@@ -97,7 +97,7 @@ class CabinetStorage:
     # Facts
     def save_facts(self, bundle: FactsBundle) -> None:
         """Save facts bundle"""
-        filename = self._get_filename("facts", bundle.date)
+        filename = self._get_filename("facts", bundle.period_date)
         try:
             data = asdict(bundle)
             filename.write_text(json.dumps(data, indent=2, default=str))
