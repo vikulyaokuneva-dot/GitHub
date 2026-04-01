@@ -141,6 +141,27 @@ _DAILY_PAYMENT_REASON_TOKENS = {
     "deductions_rows": ("удержан",),
 }
 
+_DAILY_DOCUMENT_TYPE_COLUMN_HINTS = (
+    "тип_документа",
+    "тип_операции",
+    "документ",
+)
+
+_DAILY_FINANCIAL_OPERATION_TOKENS = {
+    "return": ("возврат", "return"),
+    "sale": ("продаж", "выкуп", "realization", "sale"),
+    "commission": ("вознаграждение", "комисси", "commission"),
+    "logistics": ("логист", "доставк", "transport"),
+    "storage": ("хранен", "storage"),
+    "acquiring": ("эквайр", "платежн", "acquiring"),
+    "pvz_service": ("пвз", "выдач", "pickup"),
+    "loyalty_program": ("лояльн", "балл", "loyalty"),
+    "deductions": ("удержан", "deduction"),
+    "penalties": ("штраф", "penalt", "fine"),
+    "tax": ("налог", "ндс", "tax"),
+    "compensation": ("возмещен", "компенсац", "compens"),
+}
+
 FIELD_SYNONYMS = {
     "sku": ["sku", "nm_id", "nmid", "артикул", "артикул_wb", "артикул_продавца", "номенклатура", "код_товара", "код_номенклатуры", "наименование", "товар", "предмет"],
     "seller_sku": ["seller_sku", "supplier_sku", "артикул_поставщика", "артикул_продавца", "артикул", "vendor_code"],
@@ -206,6 +227,15 @@ FIELD_SYNONYMS = {
     ],
     "buys": ["buys", "выкупы", "продажи", "колво_выкупов", "количество_выкупов", "выкупили", "кол_во", "количество", "кол-во"],
     "sales_count": ["sales_count", "продаж", "колво_продаж", "количество_продаж", "реализовано", "кол_во", "количество", "кол-во"],
+    "quantity": ["quantity", "qty", "count", "кол-во", "кол_во", "количество"],
+    "document_type": ["document_type", "doc_type", "тип_документа", "тип_операции"],
+    "payment_reason": [
+        "payment_reason",
+        "reason_for_payment",
+        "обоснование_для_оплаты",
+        "обоснование",
+        "основание_для_оплаты",
+    ],
     "stock": [
         "stock",
         "остаток",
@@ -292,6 +322,7 @@ FIELD_SYNONYMS = {
         "сумма_удержанная_за_начисленные_баллы_программы_лояльности",
     ],
     "other_adjustments": ["other_adjustments", "прочие_корректировки", "корректировки"],
+    "tax": ["tax", "налог", "ндс", "tax_amount", "vat"],
 }
 
 _STOCK_COLUMN_BLACKLIST = {
@@ -511,6 +542,86 @@ def _find_daily_payment_reason_column(normalized_columns: List[str]) -> str:
         if any(_normalize_text(hint) in col for hint in _DAILY_PAYMENT_REASON_COLUMN_HINTS):
             return col
     return ""
+
+
+def _find_daily_document_type_column(normalized_columns: List[str]) -> str:
+    for hint in _DAILY_DOCUMENT_TYPE_COLUMN_HINTS:
+        token = _normalize_text(hint)
+        if token in normalized_columns:
+            return token
+    for col in normalized_columns:
+        if any(_normalize_text(hint) in col for hint in _DAILY_DOCUMENT_TYPE_COLUMN_HINTS):
+            return col
+    return ""
+
+
+def _classify_daily_financial_operation(
+    row: Dict[str, Any],
+    payment_reason_column: str,
+    document_type_column: str,
+) -> Tuple[str, str]:
+    reason_raw = str(row.get(payment_reason_column) or "").strip() if payment_reason_column else ""
+    doc_type_raw = str(row.get(document_type_column) or "").strip() if document_type_column else ""
+    operation_text = " ".join(part for part in (reason_raw, doc_type_raw) if part).strip()
+    operation_normalized = _normalize_text(operation_text)
+    if not operation_normalized:
+        return "sale", operation_text
+
+    for bucket in (
+        "return",
+        "sale",
+        "commission",
+        "logistics",
+        "storage",
+        "acquiring",
+        "pvz_service",
+        "loyalty_program",
+        "deductions",
+        "penalties",
+        "tax",
+        "compensation",
+    ):
+        tokens = _DAILY_FINANCIAL_OPERATION_TOKENS.get(bucket, ())
+        if any(_normalize_text(token) in operation_normalized for token in tokens):
+            return bucket, operation_text
+    return "other", operation_text
+
+
+def _safe_abs_component(value: Any) -> float | None:
+    number = _as_float(value)
+    if number is None:
+        return None
+    return abs(float(number))
+
+
+def _row_has_financial_signal(row: Dict[str, Any]) -> bool:
+    numeric_keys = (
+        "revenue",
+        "gross_revenue",
+        "wb_realized_revenue",
+        "seller_payout",
+        "cost_price",
+        "wb_commission",
+        "acquiring",
+        "pvz_service",
+        "logistics",
+        "penalties",
+        "storage",
+        "deductions",
+        "loyalty_program",
+        "loyalty_points_withheld",
+        "other_adjustments",
+        "tax",
+        "orders",
+        "buys",
+        "sales_count",
+        "quantity",
+    )
+    for key in numeric_keys:
+        value = _as_float(row.get(key))
+        if value is not None and abs(float(value)) > 1e-9:
+            return True
+    return False
 
 
 def _split_daily_detailed_rows_by_reason(
@@ -1689,6 +1800,7 @@ def _rows_from_table(
 ) -> Tuple[List[Dict[str, Any]], List[str], Dict[str, str]]:
     ncols, nrows = _normalize_records(columns, records)
     payment_reason_column = ""
+    document_type_column = ""
     daily_detailed_rows: Dict[str, List[Dict[str, Any]]] | None = None
     canon = _canonical_columns(ncols)
     if report_type == "sales":
@@ -1714,6 +1826,7 @@ def _rows_from_table(
             "loyalty_program",
             "loyalty_points_withheld",
             "other_adjustments",
+            "tax",
         ]
         string_fields = ["warehouse", "seller_sku"]
         # Prefer stable SKU identifiers for weekly detailed report.
@@ -1730,6 +1843,7 @@ def _rows_from_table(
                 canon["warehouse"] = preferred
                 break
         payment_reason_column = _find_daily_payment_reason_column(ncols)
+        document_type_column = _find_daily_document_type_column(ncols)
         daily_detailed_rows = _split_daily_detailed_rows_by_reason(nrows, payment_reason_column)
     elif report_type == "ads":
         required, useful = ["sku"], [
@@ -1788,6 +1902,8 @@ def _rows_from_table(
         matched_columns["sku"] = canon["sku"]
     if report_type == "sales" and payment_reason_column:
         matched_columns["payment_reason"] = payment_reason_column
+    if report_type == "sales" and document_type_column:
+        matched_columns["document_type"] = document_type_column
     if report_type == "ads":
         ads_metric_fields = ("ads_spend", "impressions", "clicks", "ctr", "cpc", "cpo", "orders", "revenue")
         if not any(field in canon for field in ads_metric_fields):
@@ -1797,8 +1913,6 @@ def _rows_from_table(
 
     rows: List[Dict[str, Any]] = []
     source_rows = nrows
-    if report_type == "sales" and daily_detailed_rows is not None:
-        source_rows = daily_detailed_rows.get("sales_rows", [])
 
     for r in source_rows:
         if report_type == "ads" and _is_ads_campaign_total_row(r):
@@ -1819,12 +1933,13 @@ def _rows_from_table(
             continue
 
         sku_col = canon.get("sku")
-        if not sku_col:
+        if not sku_col and report_type != "sales":
             continue
-        sku = str(r.get(sku_col, "")).strip()
-        if not sku or sku.lower() == "nan":
-            continue
-        item: Dict[str, Any] = {"sku": sku, "_sku_source_field": sku_col}
+        sku = str(r.get(sku_col, "")).strip() if sku_col else ""
+        item: Dict[str, Any] = {
+            "sku": (sku if sku and sku.lower() != "nan" else ""),
+            "_sku_source_field": (sku_col or ""),
+        }
         for field in useful:
             col = canon.get(field)
             if not col:
@@ -1841,6 +1956,92 @@ def _rows_from_table(
                 item[field] = text
 
         if report_type == "sales":
+            operation_type, operation_name = _classify_daily_financial_operation(
+                r,
+                payment_reason_column,
+                document_type_column,
+            )
+            payment_reason_raw = str(r.get(payment_reason_column) or "").strip() if payment_reason_column else ""
+            document_type_raw = str(r.get(document_type_column) or "").strip() if document_type_column else ""
+            item["_operation_type"] = operation_type
+            item["_operation_name"] = operation_name
+            item["_operation"] = operation_name
+            item["_payment_reason"] = payment_reason_raw
+            item["_document_type"] = document_type_raw
+
+            fallback_amount = (
+                item.get("seller_payout")
+                if item.get("seller_payout") is not None
+                else (
+                    item.get("revenue")
+                    if item.get("revenue") is not None
+                    else (
+                        item.get("deductions")
+                        if item.get("deductions") is not None
+                        else item.get("other_adjustments")
+                    )
+                )
+            )
+            bucket_component_map = {
+                "commission": "wb_commission",
+                "logistics": "logistics",
+                "storage": "storage",
+                "acquiring": "acquiring",
+                "pvz_service": "pvz_service",
+                "deductions": "deductions",
+                "loyalty_program": "loyalty_program",
+                "penalties": "penalties",
+                "tax": "tax",
+            }
+            mapped_component = bucket_component_map.get(operation_type)
+            if mapped_component and item.get(mapped_component) is None and fallback_amount is not None:
+                item[mapped_component] = fallback_amount
+
+            if operation_type == "compensation" and item.get("other_adjustments") is None and fallback_amount is not None:
+                item["other_adjustments"] = -abs(float(fallback_amount or 0.0))
+
+            # Expense components are normalized to positive values so they always reduce profit.
+            expense_fields = (
+                "wb_commission",
+                "acquiring",
+                "pvz_service",
+                "logistics",
+                "penalties",
+                "storage",
+                "deductions",
+                "loyalty_program",
+                "loyalty_points_withheld",
+                "tax",
+            )
+            for expense_field in expense_fields:
+                if item.get(expense_field) is None:
+                    continue
+                item[expense_field] = float(abs(float(item.get(expense_field) or 0.0)))
+
+            if operation_type == "return":
+                for rev_field in ("revenue", "gross_revenue", "wb_realized_revenue", "seller_payout"):
+                    if item.get(rev_field) is not None:
+                        item[rev_field] = -abs(float(item.get(rev_field) or 0.0))
+                for qty_field in ("buys", "sales_count"):
+                    if item.get(qty_field) is not None:
+                        item[qty_field] = -abs(float(item.get(qty_field) or 0.0))
+
+            if operation_type in {
+                "commission",
+                "logistics",
+                "storage",
+                "acquiring",
+                "pvz_service",
+                "loyalty_program",
+                "deductions",
+                "penalties",
+                "tax",
+            }:
+                item.pop("revenue", None)
+                item.pop("gross_revenue", None)
+                item.pop("wb_realized_revenue", None)
+                item.pop("seller_payout", None)
+
             qty = item.get("sales_count")
             if qty is None:
                 qty = item.get("buys")
@@ -1856,6 +2057,11 @@ def _rows_from_table(
                     order_qty = item.get("buys")
                 if order_qty is not None:
                     item["orders"] = float(order_qty)
+
+            if operation_type not in {"sale", "return"}:
+                item["orders"] = 0.0
+                item["buys"] = float(item.get("buys") or 0.0)
+                item["sales_count"] = float(item.get("sales_count") or 0.0)
 
             gross_revenue = item.get("gross_revenue")
             wb_realized_revenue = item.get("wb_realized_revenue")
@@ -1888,6 +2094,7 @@ def _rows_from_table(
                 loyalty_program = float(item.get("loyalty_program") or 0.0)
                 loyalty_points_withheld = float(item.get("loyalty_points_withheld") or 0.0)
                 other_adjustments = float(item.get("other_adjustments") or 0.0)
+                tax = float(item.get("tax") or 0.0)
                 item["profit"] = (
                     float(revenue_base)
                     - cost_price
@@ -1901,13 +2108,21 @@ def _rows_from_table(
                     - loyalty_program
                     - loyalty_points_withheld
                     - other_adjustments
+                    - tax
                 )
+
+            if not item.get("sku") and not _row_has_financial_signal(item):
+                continue
         elif report_type == "stocks":
+            if not item.get("sku"):
+                continue
             ignored_columns = set(canon.values())
             ignored_columns.add(canon.get("seller_sku", ""))
             stock_map = _extract_stock_by_warehouse_map(r, ncols, ignored_columns)
             if stock_map:
                 item["stock_by_warehouse"] = stock_map
+        elif not item.get("sku"):
+            continue
 
         rows.append(item)
     return rows, missing, matched_columns
@@ -2255,6 +2470,21 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
     if not discovered["stocks"] or not stocks_rows:
         warnings.append({"code": "stocks_report_missing", "message": "No valid stocks report found in input/."})
 
+    sales_operation_counts: Dict[str, int] = {}
+    sales_rows_without_sku_with_financial_signal = 0
+    sales_rows_with_financial_signal = 0
+    for row in sales_rows:
+        if not isinstance(row, dict):
+            continue
+        op_type = str(row.get("_operation_type") or "unknown")
+        sales_operation_counts[op_type] = int(sales_operation_counts.get(op_type, 0) or 0) + 1
+        has_financial_signal = _row_has_financial_signal(row)
+        if has_financial_signal:
+            sales_rows_with_financial_signal += 1
+            sku_text = str(row.get("sku") or "").strip()
+            if not sku_text:
+                sales_rows_without_sku_with_financial_signal += 1
+
     return {
         "files": discovered,
         "sales_rows": sales_rows,
@@ -2297,12 +2527,18 @@ def load_local_reports(input_dir: str) -> Dict[str, Any]:
                 "ads_impressions": int(round(float(ads_campaign_totals["impressions"]))),
                 "ads_clicks": int(round(float(ads_campaign_totals["clicks"]))),
             },
+            "sales_operation_counts": sales_operation_counts,
+            "sales_rows_with_financial_signal": int(sales_rows_with_financial_signal),
+            "sales_rows_without_sku_with_financial_signal": int(sales_rows_without_sku_with_financial_signal),
             "loaded_rows": {"sales": len(sales_rows), "ads": len(ads_rows), "stocks": len(stocks_rows)},
         },
     }
 
 
 def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[Dict[str, Any]], stocks_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _expense_amount(row: Dict[str, Any], key: str) -> float:
+        return abs(float(row.get(key) or 0.0))
+
     def _row_profit_value(row: Dict[str, Any]) -> float:
         if row.get("profit") is not None:
             return float(row.get("profit") or 0.0)
@@ -2322,17 +2558,17 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         return (
             revenue_base
             - float(row.get("cost_price") or 0.0)
-            - float(row.get("wb_commission") or 0.0)
-            - float(row.get("acquiring") or 0.0)
-            - float(row.get("pvz_service") or 0.0)
-            - float(row.get("logistics") or 0.0)
-            - float(row.get("penalties") or 0.0)
-            - float(row.get("storage") or 0.0)
-            - float(row.get("deductions") or 0.0)
-            - float(row.get("loyalty_program") or 0.0)
-            - float(row.get("loyalty_points_withheld") or 0.0)
+            - _expense_amount(row, "wb_commission")
+            - _expense_amount(row, "acquiring")
+            - _expense_amount(row, "pvz_service")
+            - _expense_amount(row, "logistics")
+            - _expense_amount(row, "penalties")
+            - _expense_amount(row, "storage")
+            - _expense_amount(row, "deductions")
+            - _expense_amount(row, "loyalty_program")
+            - _expense_amount(row, "loyalty_points_withheld")
             - float(row.get("other_adjustments") or 0.0)
-            - float(row.get("tax") or 0.0)
+            - _expense_amount(row, "tax")
         )
 
     def _financial_status(
@@ -2440,17 +2676,17 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         wb_realized_revenue = float(row.get("wb_realized_revenue") or 0.0)
         seller_payout = float(row.get("seller_payout") or revenue)
         cost_price = float(row.get("cost_price") or 0.0)
-        wb_commission = float(row.get("wb_commission") or 0.0)
-        acquiring = float(row.get("acquiring") or 0.0)
-        pvz_service = float(row.get("pvz_service") or 0.0)
-        logistics = float(row.get("logistics") or 0.0)
-        penalties = float(row.get("penalties") or 0.0)
-        storage = float(row.get("storage") or 0.0)
-        deductions = float(row.get("deductions") or 0.0)
-        loyalty_program = float(row.get("loyalty_program") or 0.0)
-        loyalty_points_withheld = float(row.get("loyalty_points_withheld") or 0.0)
+        wb_commission = _expense_amount(row, "wb_commission")
+        acquiring = _expense_amount(row, "acquiring")
+        pvz_service = _expense_amount(row, "pvz_service")
+        logistics = _expense_amount(row, "logistics")
+        penalties = _expense_amount(row, "penalties")
+        storage = _expense_amount(row, "storage")
+        deductions = _expense_amount(row, "deductions")
+        loyalty_program = _expense_amount(row, "loyalty_program")
+        loyalty_points_withheld = _expense_amount(row, "loyalty_points_withheld")
         other_adjustments = float(row.get("other_adjustments") or 0.0)
-        tax = float(row.get("tax") or 0.0)
+        tax = _expense_amount(row, "tax")
         row_profit = _row_profit_value(row)
 
         unassigned_costs["revenue"] += revenue
@@ -2499,16 +2735,16 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             "wb_realized_revenue_component": round(float(row.get("wb_realized_revenue") or 0.0), 2),
             "seller_payout_component": round(float(row.get("seller_payout") or row.get("revenue") or 0.0), 2),
             "cost_price_component": round(float(row.get("cost_price") or 0.0), 2),
-            "wb_commission_component": round(float(row.get("wb_commission") or 0.0), 2),
-            "acquiring_component": round(float(row.get("acquiring") or 0.0), 2),
-            "pvz_service_component": round(float(row.get("pvz_service") or 0.0), 2),
-            "logistics_component": round(float(row.get("logistics") or 0.0), 2),
-            "storage_component": round(float(row.get("storage") or 0.0), 2),
-            "deductions_component": round(float(row.get("deductions") or 0.0), 2),
-            "loyalty_program_component": round(float(row.get("loyalty_program") or 0.0), 2),
-            "loyalty_points_withheld_component": round(float(row.get("loyalty_points_withheld") or 0.0), 2),
+            "wb_commission_component": round(_expense_amount(row, "wb_commission"), 2),
+            "acquiring_component": round(_expense_amount(row, "acquiring"), 2),
+            "pvz_service_component": round(_expense_amount(row, "pvz_service"), 2),
+            "logistics_component": round(_expense_amount(row, "logistics"), 2),
+            "storage_component": round(_expense_amount(row, "storage"), 2),
+            "deductions_component": round(_expense_amount(row, "deductions"), 2),
+            "loyalty_program_component": round(_expense_amount(row, "loyalty_program"), 2),
+            "loyalty_points_withheld_component": round(_expense_amount(row, "loyalty_points_withheld"), 2),
             "other_adjustments_component": round(float(row.get("other_adjustments") or 0.0), 2),
-            "tax_component": round(float(row.get("tax") or 0.0), 2),
+            "tax_component": round(_expense_amount(row, "tax"), 2),
             "assigned_to_sku": str(row.get("sku") or "") if is_valid else None,
             "unassigned": not is_valid,
             "source_dataset": str(row.get("_source_dataset") or ""),
@@ -2574,17 +2810,17 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         item["buys"] += float(row.get("buys") or 0.0)
         item["sales_count"] += float(row.get("sales_count") or 0.0)
         item["cost_price"] += float(row.get("cost_price") or 0.0)
-        item["wb_commission"] += float(row.get("wb_commission") or 0.0)
-        item["acquiring"] += float(row.get("acquiring") or 0.0)
-        item["pvz_service"] += float(row.get("pvz_service") or 0.0)
-        item["logistics"] += float(row.get("logistics") or 0.0)
-        item["penalties"] += float(row.get("penalties") or 0.0)
-        item["storage"] += float(row.get("storage") or 0.0)
-        item["deductions"] += float(row.get("deductions") or 0.0)
-        item["loyalty_program"] += float(row.get("loyalty_program") or 0.0)
-        item["loyalty_points_withheld"] += float(row.get("loyalty_points_withheld") or 0.0)
+        item["wb_commission"] += _expense_amount(row, "wb_commission")
+        item["acquiring"] += _expense_amount(row, "acquiring")
+        item["pvz_service"] += _expense_amount(row, "pvz_service")
+        item["logistics"] += _expense_amount(row, "logistics")
+        item["penalties"] += _expense_amount(row, "penalties")
+        item["storage"] += _expense_amount(row, "storage")
+        item["deductions"] += _expense_amount(row, "deductions")
+        item["loyalty_program"] += _expense_amount(row, "loyalty_program")
+        item["loyalty_points_withheld"] += _expense_amount(row, "loyalty_points_withheld")
         item["other_adjustments"] += float(row.get("other_adjustments") or 0.0)
-        item["tax"] += float(row.get("tax") or 0.0)
+        item["tax"] += _expense_amount(row, "tax")
 
     for row in valid_ads_rows:
         sku = str(row.get("sku") or "").strip()
@@ -2729,17 +2965,17 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
     valid_sales_profit_before_ads = sum(_row_profit_value(row) for row in valid_sales_rows)
     valid_ads_spend = sum(float(row.get("ads_spend") or 0.0) for row in valid_ads_rows)
     valid_cost_price = sum(float(row.get("cost_price") or 0.0) for row in valid_sales_rows)
-    valid_wb_commission = sum(float(row.get("wb_commission") or 0.0) for row in valid_sales_rows)
-    valid_acquiring = sum(float(row.get("acquiring") or 0.0) for row in valid_sales_rows)
-    valid_pvz_service = sum(float(row.get("pvz_service") or 0.0) for row in valid_sales_rows)
-    valid_logistics = sum(float(row.get("logistics") or 0.0) for row in valid_sales_rows)
-    valid_storage = sum(float(row.get("storage") or 0.0) for row in valid_sales_rows)
-    valid_penalties = sum(float(row.get("penalties") or 0.0) for row in valid_sales_rows)
-    valid_deductions = sum(float(row.get("deductions") or 0.0) for row in valid_sales_rows)
-    valid_loyalty_program = sum(float(row.get("loyalty_program") or 0.0) for row in valid_sales_rows)
-    valid_loyalty_points_withheld = sum(float(row.get("loyalty_points_withheld") or 0.0) for row in valid_sales_rows)
+    valid_wb_commission = sum(_expense_amount(row, "wb_commission") for row in valid_sales_rows)
+    valid_acquiring = sum(_expense_amount(row, "acquiring") for row in valid_sales_rows)
+    valid_pvz_service = sum(_expense_amount(row, "pvz_service") for row in valid_sales_rows)
+    valid_logistics = sum(_expense_amount(row, "logistics") for row in valid_sales_rows)
+    valid_storage = sum(_expense_amount(row, "storage") for row in valid_sales_rows)
+    valid_penalties = sum(_expense_amount(row, "penalties") for row in valid_sales_rows)
+    valid_deductions = sum(_expense_amount(row, "deductions") for row in valid_sales_rows)
+    valid_loyalty_program = sum(_expense_amount(row, "loyalty_program") for row in valid_sales_rows)
+    valid_loyalty_points_withheld = sum(_expense_amount(row, "loyalty_points_withheld") for row in valid_sales_rows)
     valid_other_adjustments = sum(float(row.get("other_adjustments") or 0.0) for row in valid_sales_rows)
-    valid_tax = sum(float(row.get("tax") or 0.0) for row in valid_sales_rows)
+    valid_tax = sum(_expense_amount(row, "tax") for row in valid_sales_rows)
 
     derived_ads_impressions = sum(float(row.get("impressions") or 0.0) for row in ads_rows)
     derived_ads_clicks = sum(float(row.get("clicks") or 0.0) for row in ads_rows)
