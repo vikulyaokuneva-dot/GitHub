@@ -317,6 +317,39 @@
         "invalid_sku_rows": 0
       },
       "seller_id": "seller_001"
+    },
+    {
+      "date": "2026-04-01",
+      "path": "daily/2026-04-01",
+      "files": [
+        "2026-04-01_outcomes.json",
+        "abc_analysis.json",
+        "decisions.json",
+        "event_ledger.json",
+        "facts.json",
+        "health_score.json",
+        "keyword_monitoring.json",
+        "logistics_ktr.json",
+        "metrics.json",
+        "profit_contribution.json",
+        "sku_alerts.json",
+        "sku_daily_dynamics.json",
+        "sku_watchlists.json",
+        "territorial_distribution.json",
+        "territorial_distribution_metrics.json",
+        "territorial_distribution_summary.json",
+        "warnings.json"
+      ],
+      "kpi": {
+        "revenue": 9166.6,
+        "profit": 8829.99,
+        "buyouts": 0,
+        "ads_spend": 1005.19,
+        "sku_count": 6,
+        "valid_sku_count": 6,
+        "invalid_sku_rows": 0
+      },
+      "seller_id": "seller_001"
     }
   ]
 }

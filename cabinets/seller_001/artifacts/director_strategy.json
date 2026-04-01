@@ -1,11 +1,50 @@
 {
   "strategy": {
-    "scale": [],
+    "scale": [
+      "430679462",
+      "452102417"
+    ],
     "fix": [],
-    "watch": [],
+    "watch": [
+      "453526507",
+      "333615320",
+      "584904841",
+      "590614192"
+    ],
     "liquidate": []
   },
-  "tasks": [],
+  "tasks": [
+    {
+      "sku": "430679462",
+      "task": "increase_ads",
+      "priority": "P1"
+    },
+    {
+      "sku": "452102417",
+      "task": "increase_ads",
+      "priority": "P1"
+    },
+    {
+      "sku": "453526507",
+      "task": "monitor",
+      "priority": "P3"
+    },
+    {
+      "sku": "333615320",
+      "task": "monitor",
+      "priority": "P3"
+    },
+    {
+      "sku": "584904841",
+      "task": "monitor",
+      "priority": "P3"
+    },
+    {
+      "sku": "590614192",
+      "task": "monitor",
+      "priority": "P3"
+    }
+  ],
   "signals": [],
   "territorial_analysis_enabled": false,
   "territorial_actionable_enabled": false,

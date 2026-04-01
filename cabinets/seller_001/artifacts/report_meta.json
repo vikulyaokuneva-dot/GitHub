@@ -1,37 +1,36 @@
 {
   "seller_id": "seller_001",
-  "report_date": "2026-03-15",
-  "operational_day": "2026-03-15",
-  "email_subject": "WB ИИ-агент v3 — управленческое резюме: seller_001 (2026-03-15)",
-  "email_body_text": "Управленческое резюме WB ИИ-агент v3\nКабинет: seller_001\nДата отчета: 2026-03-15\nОперационный день: 2026-03-15\n\nОтчет собран в ограниченном режиме по raw-отчетам WB, часть метрик может быть недоступна до подключения API\n\nКЛЮЧЕВЫЕ ПОКАЗАТЕЛИ\n- Заказы: недостаточно данных (non-API mode)\n- Выкупы: недостаточно данных (non-API mode)\n- Заказы, сумма: недостаточно данных (non-API mode)\n- Выкупы, сумма: недостаточно данных (non-API mode)\n- Средний чек: недостаточно данных (non-API mode)\n- Конверсия просмотр → заказ: недостаточно данных (non-API mode)\n- Конверсия заказ → выкуп: недостаточно данных (non-API mode)\n\nФИНАНСОВЫЕ ПОКАЗАТЕЛИ\n- К перечислению продавцу: нет данных\n- Чистая прибыль: недостаточно данных\n- Маржа: недостаточно данных (non-API mode)\n- Рентабельность: недостаточно данных (non-API mode)\n\nГЛАВНЫЕ ВЫВОДЫ\n- Отчет собран в ограниченном режиме по raw-отчетам WB, часть метрик может быть недоступна до подключения API.\n- Финансовые показатели за день предварительные и требуют повторной проверки после финализации данных.\n- Рекомендации переведены в режим гипотез до подтверждения качества данных.\n\nРЕКОМЕНДАЦИИ\n- Фокусироваться только на подтвержденных финансовых событиях до подключения API.\n- Рекомендации ниже являются гипотезами до подтверждения данных (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме; недостаточно данных по рекламе).\n- Гипотеза: сохранить текущий курс и перепроверить показатели на следующем цикле.\n\nВЫВОД ДНЯ\nПредварительный вывод: высокие по влиянию действия требуют подтверждения (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме; недостаточно данных по рекламе).\n\nДетали в PDF.",
+  "report_date": "2026-04-01",
+  "operational_day": "2026-04-01",
+  "email_subject": "WB ИИ-агент v3 — управленческое резюме: seller_001 (2026-04-01)",
+  "email_body_text": "Управленческое резюме WB ИИ-агент v3\nКабинет: seller_001\nДата отчета: 2026-04-01\nОперационный день: 2026-04-01\n\nОтчет собран в ограниченном режиме по raw-отчетам WB, часть метрик может быть недоступна до подключения API\n\nКЛЮЧЕВЫЕ ПОКАЗАТЕЛИ\n- Заказы: недостаточно данных (non-API mode)\n- Выкупы: недостаточно данных (non-API mode)\n- Заказы, сумма: недостаточно данных (non-API mode)\n- Выкупы, сумма: недостаточно данных (non-API mode)\n- Средний чек: недостаточно данных (non-API mode)\n- Конверсия просмотр → заказ: недостаточно данных (non-API mode)\n- Конверсия заказ → выкуп: недостаточно данных (non-API mode)\n\nФИНАНСОВЫЕ ПОКАЗАТЕЛИ\n- К перечислению продавцу: 9 167\n- Чистая прибыль: недостаточно данных\n- Маржа: недостаточно данных (non-API mode)\n- Рентабельность: недостаточно данных (non-API mode)\n\nГЛАВНЫЕ ВЫВОДЫ\n- Отчет собран в ограниченном режиме по raw-отчетам WB, часть метрик может быть недоступна до подключения API.\n- Финансовые показатели за день предварительные и требуют повторной проверки после финализации данных.\n- Рекомендации переведены в режим гипотез до подтверждения качества данных.\n\nРЕКОМЕНДАЦИИ\n- Фокусироваться только на подтвержденных финансовых событиях до подключения API.\n- Рекомендации ниже являются гипотезами до подтверждения данных (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме).\n- Гипотеза: сохранить текущий курс и перепроверить показатели на следующем цикле.\n\nВЫВОД ДНЯ\nПредварительный вывод: высокие по влиянию действия требуют подтверждения (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме).\n\nДетали в PDF.",
   "financial_interpretation": "provisional",
   "render_warnings": [
     "Financial KPI are provisional and must not be interpreted as final daily profit.",
-    "Ads analysis is suppressed because ads source data is missing.",
-    "View-dependent conversion interpretation is suppressed because views are missing.",
-    "No local input files found in cabinets/seller_001/input",
-    "No valid sales report found in input/.",
-    "No valid ads report found in input/.",
+    "Advertising efficiency is preview-only until buyout confirmation is available.",
+    "Ads report loaded from file: Статистика (15).xlsx",
     "No valid stocks report found in input/.",
-    "daily_orders_count is unknown: no_confirmed_orders_source: supplier_goods/api.orders/api.sales",
-    "daily_buyouts_count is unknown: no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization",
+    "quantity column cannot be used as orders_count fallback",
+    "totals orders/buys not confirmed; keeping totals.orders/totals.buys at 0 while sales_activity_qty=15",
+    "daily_orders_count is unknown: no_confirmed_orders_source: supplier_goods/api.orders/api.sales; quantity_hint_blocked_for_orders_count (sku_activity_hint=15)",
+    "daily_buyouts_count is unknown: no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization; quantity_hint_blocked_for_buyouts_count (sku_activity_hint=15)",
     "daily orders/buyouts counts remain unknown because no confirmed source is available"
   ],
-  "pdf_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report.pdf",
+  "pdf_path": "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report.pdf",
   "font": {
     "family": "DejaVuSans",
-    "regular": "D:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf",
-    "bold": "D:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf"
+    "regular": "d:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf",
+    "bold": "d:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf"
   },
   "pages": 7,
   "visual_previews": [
-    "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_1.png",
-    "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_2.png",
-    "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_3.png",
-    "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_4.png",
-    "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_5.png",
-    "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_6.png",
-    "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_7.png"
+    "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_1.png",
+    "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_2.png",
+    "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_3.png",
+    "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_4.png",
+    "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_5.png",
+    "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_6.png",
+    "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_preview_page_7.png"
   ],
   "data_mode": "raw_reports_fallback",
   "non_api_mode": true,
@@ -42,7 +41,7 @@
     "daily_buyouts_count": null,
     "daily_buyouts_amount": null,
     "avg_check": null,
-    "views": null,
+    "views": 2255,
     "add_to_cart": null,
     "view_to_order_conversion": null,
     "cart_rate": null,
@@ -53,10 +52,10 @@
     "cpo": null,
     "data_source_orders": "unknown",
     "data_source_orders_count": "unknown",
-    "data_source_orders_amount": "unknown",
+    "data_source_orders_amount": "supplier_goods",
     "data_source_buyouts": "unknown",
     "data_source_buyouts_count": "unknown",
-    "data_source_buyouts_amount": "unknown",
+    "data_source_buyouts_amount": "supplier_goods",
     "orders_count_confirmed": false,
     "buyouts_count_confirmed": false,
     "display": {
@@ -68,12 +67,12 @@
     }
   },
   "daily_financial_kpi": {
-    "seller_payout": null,
-    "gross_revenue": 0.0,
-    "wb_realized_revenue": 0.0,
-    "revenue": null,
+    "seller_payout": 9166.6,
+    "gross_revenue": 13417.0,
+    "wb_realized_revenue": 8814.0,
+    "revenue": 9166.6,
     "cost_price": null,
-    "wb_commission": null,
+    "wb_commission": -668.58,
     "acquiring": 0.0,
     "pvz_service": 0.0,
     "logistics": null,
@@ -85,94 +84,94 @@
     "loyalty_total": 0.0,
     "other_adjustments": 0.0,
     "tax": null,
-    "ads_spend": null,
-    "ads_impressions": 0,
-    "ads_clicks": 0,
-    "ads_orders": 0,
-    "ads_rows": 0,
-    "ads_source_file": "",
-    "ads_loaded_from_file": false,
-    "ads_attribution_quality": "unknown",
-    "gross_profit": null,
+    "ads_spend": 1005.19,
+    "ads_impressions": 2255,
+    "ads_clicks": 77,
+    "ads_orders": 1,
+    "ads_rows": 1,
+    "ads_source_file": "Статистика (15).xlsx",
+    "ads_loaded_from_file": true,
+    "ads_attribution_quality": "direct_only",
+    "gross_profit": 9835.18,
     "net_profit": null,
     "explained_net_profit": null,
     "net_profit_explain_delta": null,
     "margin_pct": null,
     "profitability_pct": null,
-    "financial_completeness_pct": 0.0,
+    "financial_completeness_pct": 33.33,
     "financial_partial": true,
-    "financial_finality_status": "unavailable",
+    "financial_finality_status": "partial",
     "display": {
-      "seller_payout": "нет данных",
+      "seller_payout": "9 167",
       "net_profit": "нет данных",
       "margin_pct": "недостаточно данных для расчета",
       "profitability_pct": "нет данных"
     }
   },
   "event_date_model": {
-    "report_date": "2026-03-15",
-    "operational_date": "2026-03-15",
-    "orders_date": "2026-03-15",
-    "buyouts_date": "2026-03-15",
-    "financial_date": "2026-03-15",
+    "report_date": "2026-04-01",
+    "operational_date": "2026-04-01",
+    "orders_date": "2026-04-01",
+    "buyouts_date": "2026-04-01",
+    "financial_date": "2026-04-01",
     "shifted_to_previous_day": false,
     "timezone": "Europe/Moscow"
   },
   "daily_status_matrix": {
-    "orders": "not_confirmed",
-    "buyouts": "not_confirmed",
-    "financials": "not_confirmed",
-    "ads": "missing",
+    "orders": "partial",
+    "buyouts": "partial",
+    "financials": "partial",
+    "ads": "confirmed",
     "ai_reliability": "low"
   },
   "order_kpi": {
-    "date": "2026-03-15",
+    "date": "2026-04-01",
     "orders_count": null,
-    "orders_amount": null,
+    "orders_amount": 13417.0,
     "orders_count_confirmed": false,
-    "orders_amount_confirmed": false,
+    "orders_amount_confirmed": true,
     "source_count": "unknown",
-    "source_amount": "unknown"
+    "source_amount": "supplier_goods"
   },
   "buyout_kpi": {
-    "date": "2026-03-15",
+    "date": "2026-04-01",
     "buyouts_count": null,
-    "buyouts_amount": null,
+    "buyouts_amount": 9166.6,
     "buyouts_count_confirmed": false,
-    "buyouts_amount_confirmed": false,
+    "buyouts_amount_confirmed": true,
     "source_count": "unknown",
-    "source_amount": "unknown"
+    "source_amount": "supplier_goods"
   },
   "event_ledger_preview": [
     {
       "event_type": "orders_snapshot",
-      "event_date": "2026-03-15",
+      "event_date": "2026-04-01",
       "source": "unknown",
       "confirmed": false,
       "rows": 0,
-      "amount": null
+      "amount": 13417.0
     },
     {
       "event_type": "buyouts_snapshot",
-      "event_date": "2026-03-15",
+      "event_date": "2026-04-01",
       "source": "unknown",
       "confirmed": false,
       "rows": 0,
-      "amount": null
+      "amount": 9166.6
     },
     {
       "event_type": "financial_snapshot",
-      "event_date": "2026-03-15",
-      "source": "unknown",
+      "event_date": "2026-04-01",
+      "source": "local.supplier_goods",
       "confirmed": false,
       "rows": 0,
       "amount": null
     }
   ],
   "funnel_snapshot": {
-    "date": "2026-03-15",
+    "date": "2026-04-01",
     "funnel": {
-      "views": null,
+      "views": 2255,
       "add_to_cart": null,
       "orders": null,
       "buyouts": null,
@@ -186,11 +185,11 @@
       "order_to_buyout_note": "",
       "orders_amount": null,
       "buyouts_amount": null,
-      "ads_spend": null,
+      "ads_spend": 1005.19,
       "cpo": null,
-      "impressions": 0,
-      "clicks": 0,
-      "ctr": null,
+      "impressions": 2255,
+      "clicks": 77,
+      "ctr": 3.41,
       "cart_count": null,
       "cart_conversion_pct": null,
       "cart_rate_pct": null,
@@ -206,54 +205,241 @@
       "marketing_layer": {
         "basis": "orders",
         "orders": null,
-        "ads_spend": null,
+        "ads_spend": 1005.19,
         "cpo": null
       },
       "financial_layer": {
         "basis": "buyouts",
         "buyouts": null,
-        "revenue": 0.0,
-        "commission": 0.0,
+        "revenue": 9166.6,
+        "commission": -668.58,
         "logistics": 0.0,
         "tax": 0.0,
         "cogs": 0.0,
-        "profit": 0.0
+        "profit": 8829.99
       }
     },
     "data_sources": {
-      "views": "unknown",
+      "views": "api",
       "add_to_cart": "unknown",
       "orders": "unknown",
       "buyouts": "unknown",
       "orders_amount": "unknown",
       "buyouts_amount": "unknown",
-      "ads_spend": "unknown",
+      "ads_spend": "local_report",
       "cpo": "derived"
     },
     "status": {
-      "traffic": "unknown",
+      "traffic": "partial",
       "conversion": "unknown",
       "buyout_stage": "unknown"
     },
     "marketing_layer": {
       "basis": "orders",
       "orders": null,
-      "ads_spend": null,
+      "ads_spend": 1005.19,
       "cpo": null
     },
     "financial_layer": {
       "basis": "buyouts",
       "buyouts": null,
-      "revenue": 0.0,
-      "commission": 0.0,
+      "revenue": 9166.6,
+      "commission": -668.58,
       "logistics": 0.0,
       "tax": 0.0,
       "cogs": 0.0,
-      "profit": 0.0
+      "profit": 8829.99
     },
-    "sku_funnel": [],
+    "sku_funnel": [
+      {
+        "views": 0,
+        "add_to_cart": null,
+        "orders": 4,
+        "buyouts": 4,
+        "view_to_order_conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 100.0,
+        "buyout_rate_over_100": false,
+        "buyout_rate_note": "",
+        "ads_spend": 0.0,
+        "cpo": 0.0,
+        "marketing_layer": {
+          "basis": "orders",
+          "orders": 4,
+          "ads_spend": 0.0,
+          "cpo": 0.0
+        },
+        "financial_layer": {
+          "basis": "buyouts",
+          "buyouts": 4,
+          "revenue": 2417.5,
+          "commission": -168.0,
+          "logistics": 0.0,
+          "tax": 0.0,
+          "cogs": 0.0,
+          "profit": 2585.5
+        },
+        "sku": "452102417"
+      },
+      {
+        "views": 0,
+        "add_to_cart": null,
+        "orders": 3,
+        "buyouts": 3,
+        "view_to_order_conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 100.0,
+        "buyout_rate_over_100": false,
+        "buyout_rate_note": "",
+        "ads_spend": 0.0,
+        "cpo": 0.0,
+        "marketing_layer": {
+          "basis": "orders",
+          "orders": 3,
+          "ads_spend": 0.0,
+          "cpo": 0.0
+        },
+        "financial_layer": {
+          "basis": "buyouts",
+          "buyouts": 3,
+          "revenue": 1802.28,
+          "commission": -168.9,
+          "logistics": 0.0,
+          "tax": 0.0,
+          "cogs": 0.0,
+          "profit": 1971.18
+        },
+        "sku": "430679462"
+      },
+      {
+        "views": 2255,
+        "add_to_cart": null,
+        "orders": 4,
+        "buyouts": 4,
+        "view_to_order_conversion": 0.18,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 100.0,
+        "buyout_rate_over_100": false,
+        "buyout_rate_note": "",
+        "ads_spend": 1005.19,
+        "cpo": 251.3,
+        "marketing_layer": {
+          "basis": "orders",
+          "orders": 4,
+          "ads_spend": 1005.19,
+          "cpo": 251.3
+        },
+        "financial_layer": {
+          "basis": "buyouts",
+          "buyouts": 4,
+          "revenue": 2447.1,
+          "commission": -190.07,
+          "logistics": 0.0,
+          "tax": 0.0,
+          "cogs": 0.0,
+          "profit": 1631.98
+        },
+        "sku": "333615320"
+      },
+      {
+        "views": 0,
+        "add_to_cart": null,
+        "orders": 2,
+        "buyouts": 2,
+        "view_to_order_conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 100.0,
+        "buyout_rate_over_100": false,
+        "buyout_rate_note": "",
+        "ads_spend": 0.0,
+        "cpo": 0.0,
+        "marketing_layer": {
+          "basis": "orders",
+          "orders": 2,
+          "ads_spend": 0.0,
+          "cpo": 0.0
+        },
+        "financial_layer": {
+          "basis": "buyouts",
+          "buyouts": 2,
+          "revenue": 1298.97,
+          "commission": -72.75,
+          "logistics": 0.0,
+          "tax": 0.0,
+          "cogs": 0.0,
+          "profit": 1371.72
+        },
+        "sku": "453526507"
+      },
+      {
+        "views": 0,
+        "add_to_cart": null,
+        "orders": 1,
+        "buyouts": 1,
+        "view_to_order_conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 100.0,
+        "buyout_rate_over_100": false,
+        "buyout_rate_note": "",
+        "ads_spend": 0.0,
+        "cpo": 0.0,
+        "marketing_layer": {
+          "basis": "orders",
+          "orders": 1,
+          "ads_spend": 0.0,
+          "cpo": 0.0
+        },
+        "financial_layer": {
+          "basis": "buyouts",
+          "buyouts": 1,
+          "revenue": 610.78,
+          "commission": -40.83,
+          "logistics": 0.0,
+          "tax": 0.0,
+          "cogs": 0.0,
+          "profit": 651.61
+        },
+        "sku": "584904841"
+      },
+      {
+        "views": 0,
+        "add_to_cart": null,
+        "orders": 1,
+        "buyouts": 1,
+        "view_to_order_conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 100.0,
+        "buyout_rate_over_100": false,
+        "buyout_rate_note": "",
+        "ads_spend": 0.0,
+        "cpo": 0.0,
+        "marketing_layer": {
+          "basis": "orders",
+          "orders": 1,
+          "ads_spend": 0.0,
+          "cpo": 0.0
+        },
+        "financial_layer": {
+          "basis": "buyouts",
+          "buyouts": 1,
+          "revenue": 589.97,
+          "commission": -28.03,
+          "logistics": 0.0,
+          "tax": 0.0,
+          "cogs": 0.0,
+          "profit": 618.0
+        },
+        "sku": "590614192"
+      }
+    ],
     "sku_diagnostics": {
-      "date": "2026-03-15",
+      "date": "2026-04-01",
       "status": "partial_success",
       "thresholds": {
         "min_views_for_analysis": 50.0,
@@ -265,52 +451,183 @@
         "max_orders_for_ads_efficiency_problem": 0.0,
         "weak_conversion_for_ads_efficiency": 0.005
       },
-      "items": [],
+      "items": [
+        {
+          "sku": "452102417",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 4,
+          "buyouts": 4,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "430679462",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 3,
+          "buyouts": 3,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "333615320",
+          "views": 2255,
+          "add_to_cart": null,
+          "orders": 4,
+          "buyouts": 4,
+          "ads_spend": 1005.19,
+          "conversion": 0.0018,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": true,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "ads_efficiency_problem",
+          "issue_reason_ru": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+        },
+        {
+          "sku": "453526507",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 2,
+          "buyouts": 2,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "584904841",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 1,
+          "buyouts": 1,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "590614192",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 1,
+          "buyouts": 1,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        }
+      ],
       "summary": {
-        "sku_count": 0,
-        "analyzed_sku_count": 0,
+        "sku_count": 6,
+        "analyzed_sku_count": 1,
         "issue_counts": {
           "traffic_problem": 0,
           "card_problem": 0,
           "price_or_offer_problem": 0,
           "buyout_problem": 0,
-          "ads_efficiency_problem": 0,
+          "ads_efficiency_problem": 1,
           "healthy_funnel": 0,
-          "insufficient_data": 0
+          "insufficient_data": 5
         },
-        "top_problem_groups": [],
-        "top_problem_skus": []
+        "top_problem_groups": [
+          {
+            "issue_type": "ads_efficiency_problem",
+            "count": 1
+          }
+        ],
+        "top_problem_skus": [
+          {
+            "sku": "333615320",
+            "issue_type": "ads_efficiency_problem",
+            "reason": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+          }
+        ]
       },
       "warnings": [
         {
-          "code": "sales_funnel_sku_metrics_missing",
-          "message": "SKU-level metrics for sales funnel are missing."
+          "code": "sales_funnel_insufficient_data",
+          "message": "Insufficient funnel data for 5 SKU."
         }
       ]
     }
   },
   "sales_funnel_summary": {
-    "sku_count": 0,
-    "analyzed_sku_count": 0,
+    "sku_count": 6,
+    "analyzed_sku_count": 1,
     "issue_counts": {
       "traffic_problem": 0,
       "card_problem": 0,
       "price_or_offer_problem": 0,
       "buyout_problem": 0,
-      "ads_efficiency_problem": 0,
+      "ads_efficiency_problem": 1,
       "healthy_funnel": 0,
-      "insufficient_data": 0
+      "insufficient_data": 5
     },
-    "top_problem_groups": [],
-    "top_problem_skus": []
+    "top_problem_groups": [
+      {
+        "issue_type": "ads_efficiency_problem",
+        "count": 1
+      }
+    ],
+    "top_problem_skus": [
+      {
+        "sku": "333615320",
+        "issue_type": "ads_efficiency_problem",
+        "reason": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+      }
+    ]
   },
   "sku_status_counts": {
     "growth": 0,
-    "normal": 0,
+    "normal": 6,
     "risk": 0,
     "liquidation": 0
   },
-  "sku_status_detail_count": 0,
+  "sku_status_detail_count": 6,
   "key_problem_data_status": {
     "low_traffic": "insufficient",
     "conversion_drop": "insufficient",
@@ -320,15 +637,317 @@
   "key_problem_reasons": {
     "low_traffic": "недостаточно данных (non-API mode): нет подтвержденных просмотров",
     "conversion_drop": "недостаточно данных (non-API mode): нет согласованных просмотров/заказов за единый период",
-    "inefficient_ads": "недостаточно данных (non-API mode): рекламные данные отсутствуют или равны нулю",
-    "liquidation_skus": "SKU в зоне ликвидации не выявлены"
+    "inefficient_ads": "недостаточно данных (non-API mode): рекламные данные отсутствуют или равны нулю"
   },
   "sku_watchlists_preview": {
-    "top_growth": [],
-    "top_risk": [],
+    "top_growth": [
+      {
+        "sku": "430679462",
+        "attention_score": 19,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 3.0,
+          "buyouts": 3.0,
+          "revenue": 1802.28,
+          "net_profit": 1971.18,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 20.0,
+          "revenue_vs_7d_pct": 797.26,
+          "net_profit_vs_7d_pct": 1619.83
+        }
+      },
+      {
+        "sku": "333615320",
+        "attention_score": 45,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 4.0,
+          "buyouts": 4.0,
+          "revenue": 2447.1,
+          "net_profit": 1631.98,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": 33.33,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -65.22,
+          "revenue_vs_7d_pct": 224.74,
+          "net_profit_vs_7d_pct": 867.99
+        }
+      },
+      {
+        "sku": "590614192",
+        "attention_score": 65,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 1.0,
+          "revenue": 589.97,
+          "net_profit": 618.0,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -33.33,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -73.33,
+          "revenue_vs_7d_pct": 387.1,
+          "net_profit_vs_7d_pct": 452.2
+        }
+      },
+      {
+        "sku": "452102417",
+        "attention_score": 45,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 4.0,
+          "buyouts": 4.0,
+          "revenue": 2417.5,
+          "net_profit": 2585.5,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -23.81,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -65.22,
+          "revenue_vs_7d_pct": 166.33,
+          "net_profit_vs_7d_pct": 195.39
+        }
+      },
+      {
+        "sku": "453526507",
+        "attention_score": 45,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 2.0,
+          "revenue": 1298.97,
+          "net_profit": 1371.72,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": 33.33,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -70.37,
+          "revenue_vs_7d_pct": 112.21,
+          "net_profit_vs_7d_pct": 154.22
+        }
+      }
+    ],
+    "top_risk": [
+      {
+        "sku": "590614192",
+        "attention_score": 65,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 1.0,
+          "revenue": 589.97,
+          "net_profit": 618.0,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -33.33,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -73.33,
+          "revenue_vs_7d_pct": 387.1,
+          "net_profit_vs_7d_pct": 452.2
+        }
+      },
+      {
+        "sku": "333615320",
+        "attention_score": 45,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 4.0,
+          "buyouts": 4.0,
+          "revenue": 2447.1,
+          "net_profit": 1631.98,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": 33.33,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -65.22,
+          "revenue_vs_7d_pct": 224.74,
+          "net_profit_vs_7d_pct": 867.99
+        }
+      },
+      {
+        "sku": "452102417",
+        "attention_score": 45,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 4.0,
+          "buyouts": 4.0,
+          "revenue": 2417.5,
+          "net_profit": 2585.5,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -23.81,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -65.22,
+          "revenue_vs_7d_pct": 166.33,
+          "net_profit_vs_7d_pct": 195.39
+        }
+      },
+      {
+        "sku": "453526507",
+        "attention_score": 45,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 2.0,
+          "revenue": 1298.97,
+          "net_profit": 1371.72,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": 33.33,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -70.37,
+          "revenue_vs_7d_pct": 112.21,
+          "net_profit_vs_7d_pct": 154.22
+        }
+      },
+      {
+        "sku": "584904841",
+        "attention_score": 45,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 1.0,
+          "revenue": 610.78,
+          "net_profit": 651.61,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -66.67,
+          "revenue_vs_7d_pct": 12.3,
+          "net_profit_vs_7d_pct": 63.85
+        }
+      }
+    ],
     "dead_stock": [],
     "ad_inefficiency": [],
-    "conversion_drop": [],
+    "conversion_drop": [
+      {
+        "sku": "590614192",
+        "attention_score": 65,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 1.0,
+          "revenue": 589.97,
+          "net_profit": 618.0,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -33.33,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -73.33,
+          "revenue_vs_7d_pct": 387.1,
+          "net_profit_vs_7d_pct": 452.2
+        }
+      },
+      {
+        "sku": "333615320",
+        "attention_score": 45,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 4.0,
+          "buyouts": 4.0,
+          "revenue": 2447.1,
+          "net_profit": 1631.98,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": 33.33,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -65.22,
+          "revenue_vs_7d_pct": 224.74,
+          "net_profit_vs_7d_pct": 867.99
+        }
+      },
+      {
+        "sku": "452102417",
+        "attention_score": 45,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 4.0,
+          "buyouts": 4.0,
+          "revenue": 2417.5,
+          "net_profit": 2585.5,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -23.81,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -65.22,
+          "revenue_vs_7d_pct": 166.33,
+          "net_profit_vs_7d_pct": 195.39
+        }
+      },
+      {
+        "sku": "453526507",
+        "attention_score": 45,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 2.0,
+          "revenue": 1298.97,
+          "net_profit": 1371.72,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": 33.33,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -70.37,
+          "revenue_vs_7d_pct": 112.21,
+          "net_profit_vs_7d_pct": 154.22
+        }
+      },
+      {
+        "sku": "584904841",
+        "attention_score": 45,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 1.0,
+          "revenue": 610.78,
+          "net_profit": 651.61,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -66.67,
+          "revenue_vs_7d_pct": 12.3,
+          "net_profit_vs_7d_pct": 63.85
+        }
+      }
+    ],
     "logistics_risk": []
   },
   "funnel_section_preview": [
@@ -342,14 +961,14 @@
     "",
     "## Финансовые KPI",
     "Показатель | Значение",
-    "К перечислению продавцу | нет данных",
-    "Чистая прибыль | нет данных",
+    "К перечислению продавцу | 9 167 (предварительно)",
+    "Чистая прибыль | 8 830 (предварительно)",
     "Маржа | недостаточно данных для расчета",
-    "Полнота финансовых данных | 0.0 %",
+    "Полнота финансовых данных | 33.3 %",
     "",
     "## Эффективность рекламы",
     "Показатель | Значение",
-    "Расход на рекламу | 0 (предварительно)",
+    "Расход на рекламу | 1 005 (предварительно)",
     "Выручка из рекламы | нет данных",
     "Прибыль из рекламы | нет данных",
     "ROMI | нет данных",
@@ -361,11 +980,21 @@
   "sku_monitor_section_preview": [
     "# Мониторинг товаров",
     "## Рост",
-    "- Нет данных",
+    "- SKU 430679462",
+    "- SKU 333615320",
+    "- SKU 590614192",
+    "- SKU 452102417",
+    "- SKU 453526507",
     "## Риск",
-    "- Нет данных",
+    "- SKU 590614192",
+    "- SKU 333615320",
+    "- SKU 452102417",
+    "- SKU 453526507",
+    "- SKU 584904841",
     "## Наблюдать",
-    "- Нет данных",
+    "- SKU 453526507",
+    "- SKU 584904841",
+    "- SKU 590614192",
     "## Ликвидировать",
     "- Нет данных"
   ],
@@ -375,19 +1004,20 @@
       "lines": [
         "# AI-аудит кабинета Wildberries",
         "### Кабинет: seller 001",
-        "### Дата анализа: 2026-03-15",
-        "### Надежность данных: РЅРёР·РєР°СЏ",
+        "### Дата анализа: 2026-04-01",
+        "### Надежность данных: СЃСЂРµРґРЅСЏСЏ",
         "",
         "## Краткое резюме",
-        "- В памяти AI уже накоплено 88 решений.",
-        "- Территориальные выводы предварительные: для уверенных решений нужны подтвержденные данные по складам и логистике.",
+        "- 4 SKU формируют основную прибыль бизнеса (P1).",
+        "- В памяти AI уже накоплено 94 решений.",
+        "- В текущем запуске добавлено 6 новых решений в память.",
         "",
         "## KPI карточки",
         "Показатель | Значение",
-        "К перечислению продавцу | нет данных",
-        "Чистая прибыль | нет данных",
-        "Расход на рекламу | 0 (предварительно)",
-        "Товары под риском | 0",
+        "К перечислению продавцу | 9 167 (предварительно)",
+        "Чистая прибыль | 8 830 (предварительно)",
+        "Расход на рекламу | 1 005 (предварительно)",
+        "Товары под риском | 3",
         "",
         "## Главный вывод AI",
         "Вывод формируется по данным текущего дня."
@@ -406,14 +1036,14 @@
         "",
         "## Финансовые KPI",
         "Показатель | Значение",
-        "К перечислению продавцу | нет данных",
-        "Чистая прибыль | нет данных",
+        "К перечислению продавцу | 9 167 (предварительно)",
+        "Чистая прибыль | 8 830 (предварительно)",
         "Маржа | недостаточно данных для расчета",
-        "Полнота финансовых данных | 0.0 %",
+        "Полнота финансовых данных | 33.3 %",
         "",
         "## Эффективность рекламы",
         "Показатель | Значение",
-        "Расход на рекламу | 0 (предварительно)",
+        "Расход на рекламу | 1 005 (предварительно)",
         "Выручка из рекламы | нет данных",
         "Прибыль из рекламы | нет данных",
         "ROMI | нет данных",
@@ -449,7 +1079,6 @@
         "## Что пока не подтверждено и требует перепроверки",
         "- Заказы дня: данные не подтверждены",
         "- Выкупы дня: данные не подтверждены",
-        "- Рекламные метрики: данные не подтверждены",
         "- Финансовые метрики: предварительные"
       ]
     },
@@ -458,11 +1087,21 @@
       "lines": [
         "# Мониторинг товаров",
         "## Рост",
-        "- Нет данных",
+        "- SKU 430679462",
+        "- SKU 333615320",
+        "- SKU 590614192",
+        "- SKU 452102417",
+        "- SKU 453526507",
         "## Риск",
-        "- Нет данных",
+        "- SKU 590614192",
+        "- SKU 333615320",
+        "- SKU 452102417",
+        "- SKU 453526507",
+        "- SKU 584904841",
         "## Наблюдать",
-        "- Нет данных",
+        "- SKU 453526507",
+        "- SKU 584904841",
+        "- SKU 590614192",
         "## Ликвидировать",
         "- Нет данных"
       ]
@@ -472,12 +1111,12 @@
       "lines": [
         "# Качество данных",
         "Показатель | Значение",
-        "Валидные товары (SKU) | 0",
+        "Валидные товары (SKU) | 6",
         "Строки с ошибками | 0",
         "Не распределённые строки | 0",
-        "Полнота финансовых данных | 0.0 %",
-        "Статус финансового контура | РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚",
-        "Надежность отчета | РЅРёР·РєР°СЏ",
+        "Полнота финансовых данных | 33.3 %",
+        "Статус финансового контура | С‡Р°СЃС‚РёС‡РЅС‹Р№",
+        "Надежность отчета | СЃСЂРµРґРЅСЏСЏ",
         "",
         "## Подтверждено",
         "- реклама",

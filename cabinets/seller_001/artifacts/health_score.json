@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-03-18T18:08:44Z",
+  "generated_at": "2026-04-01T11:39:44Z",
   "seller_id": "seller_001",
-  "date": "2026-03-15",
-  "status": "insufficient_data",
+  "date": "2026-04-01",
+  "status": "ok",
   "warnings": [
-    "SKU-level metrics not found in metrics payload",
-    "insufficient_data"
+    "funnel_insufficient_data",
+    "ads_efficiency_partial"
   ],
   "thresholds": {
     "orders_strong": 10.0,
@@ -26,31 +26,530 @@
     "unstable_max_score": 6.5,
     "healthy_max_score": 8.5
   },
-  "items": [],
+  "items": [
+    {
+      "sku": "452102417",
+      "health_score": 8.94,
+      "health_status": "strong",
+      "status": "SCALE",
+      "scoring_status": "ok",
+      "confidence": "medium",
+      "factors": [
+        "orders_ok",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "warnings": [
+        "funnel_insufficient_data"
+      ],
+      "reasons": [
+        "orders_ok",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.75
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 1.0
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "funnel": {
+          "available": false,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Масштабировать трафик/рекламу",
+          "details": "Увеличивать бюджет ступенчато с контролем ROMI/DDR."
+        },
+        {
+          "priority": "P2",
+          "title": "Проверить остатки и поставку",
+          "details": "Не допускать OOS при росте продаж."
+        },
+        {
+          "priority": "P3",
+          "title": "Расширить ключи/органику",
+          "details": "Укрепить поисковое покрытие и SEO карточки."
+        }
+      ]
+    },
+    {
+      "sku": "430679462",
+      "health_score": 8.94,
+      "health_status": "strong",
+      "status": "SCALE",
+      "scoring_status": "ok",
+      "confidence": "medium",
+      "factors": [
+        "orders_ok",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "warnings": [
+        "funnel_insufficient_data"
+      ],
+      "reasons": [
+        "orders_ok",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.75
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 1.0
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "funnel": {
+          "available": false,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Масштабировать трафик/рекламу",
+          "details": "Увеличивать бюджет ступенчато с контролем ROMI/DDR."
+        },
+        {
+          "priority": "P2",
+          "title": "Проверить остатки и поставку",
+          "details": "Не допускать OOS при росте продаж."
+        },
+        {
+          "priority": "P3",
+          "title": "Расширить ключи/органику",
+          "details": "Укрепить поисковое покрытие и SEO карточки."
+        }
+      ]
+    },
+    {
+      "sku": "333615320",
+      "health_score": 7.95,
+      "health_status": "healthy",
+      "status": "FIX",
+      "scoring_status": "ok",
+      "confidence": "high",
+      "factors": [
+        "orders_ok",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "weak_funnel",
+        "funnel_ads_efficiency_problem",
+        "ads_with_orders"
+      ],
+      "warnings": [
+        "ads_efficiency_partial"
+      ],
+      "reasons": [
+        "orders_ok",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "weak_funnel",
+        "funnel_ads_efficiency_problem",
+        "ads_with_orders"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.75
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 1.0
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "funnel": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.2
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.65
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Поднять маржу/проверить цену и себестоимость",
+          "details": "Пересчитать юнит-экономику и целевую цену."
+        },
+        {
+          "priority": "P2",
+          "title": "Оптимизировать карточку (конверсия)",
+          "details": "Улучшить контент, фото, оффер и отзывы."
+        },
+        {
+          "priority": "P3",
+          "title": "Точечная реклама/ключи",
+          "details": "Оставить только высокоинтентные запросы и связки."
+        }
+      ]
+    },
+    {
+      "sku": "453526507",
+      "health_score": 8.24,
+      "health_status": "healthy",
+      "status": "FIX",
+      "scoring_status": "ok",
+      "confidence": "medium",
+      "factors": [
+        "low_orders",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "warnings": [
+        "funnel_insufficient_data"
+      ],
+      "reasons": [
+        "low_orders",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.45
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 1.0
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "funnel": {
+          "available": false,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Поднять маржу/проверить цену и себестоимость",
+          "details": "Пересчитать юнит-экономику и целевую цену."
+        },
+        {
+          "priority": "P2",
+          "title": "Оптимизировать карточку (конверсия)",
+          "details": "Улучшить контент, фото, оффер и отзывы."
+        },
+        {
+          "priority": "P3",
+          "title": "Точечная реклама/ключи",
+          "details": "Оставить только высокоинтентные запросы и связки."
+        }
+      ]
+    },
+    {
+      "sku": "584904841",
+      "health_score": 8.24,
+      "health_status": "healthy",
+      "status": "FIX",
+      "scoring_status": "ok",
+      "confidence": "medium",
+      "factors": [
+        "low_orders",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "warnings": [
+        "funnel_insufficient_data"
+      ],
+      "reasons": [
+        "low_orders",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.45
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 1.0
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "funnel": {
+          "available": false,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Поднять маржу/проверить цену и себестоимость",
+          "details": "Пересчитать юнит-экономику и целевую цену."
+        },
+        {
+          "priority": "P2",
+          "title": "Оптимизировать карточку (конверсия)",
+          "details": "Улучшить контент, фото, оффер и отзывы."
+        },
+        {
+          "priority": "P3",
+          "title": "Точечная реклама/ключи",
+          "details": "Оставить только высокоинтентные запросы и связки."
+        }
+      ]
+    },
+    {
+      "sku": "590614192",
+      "health_score": 8.24,
+      "health_status": "healthy",
+      "status": "FIX",
+      "scoring_status": "ok",
+      "confidence": "medium",
+      "factors": [
+        "low_orders",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "warnings": [
+        "funnel_insufficient_data"
+      ],
+      "reasons": [
+        "low_orders",
+        "healthy_buyout_rate",
+        "strong_profitability",
+        "healthy_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.45
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 1.0
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "funnel": {
+          "available": false,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Поднять маржу/проверить цену и себестоимость",
+          "details": "Пересчитать юнит-экономику и целевую цену."
+        },
+        {
+          "priority": "P2",
+          "title": "Оптимизировать карточку (конверсия)",
+          "details": "Улучшить контент, фото, оффер и отзывы."
+        },
+        {
+          "priority": "P3",
+          "title": "Точечная реклама/ключи",
+          "details": "Оставить только высокоинтентные запросы и связки."
+        }
+      ]
+    }
+  ],
   "summary": {
-    "status": "insufficient_data",
-    "sku_count": 0,
-    "scored_sku_count": 0,
+    "status": "ok",
+    "sku_count": 6,
+    "scored_sku_count": 6,
     "insufficient_data_count": 0,
     "status_counts": {
       "risk": 0,
       "unstable": 0,
-      "healthy": 0,
-      "strong": 0
+      "healthy": 4,
+      "strong": 2
     },
-    "average_health_score": null,
+    "average_health_score": 8.43,
     "top_risk_sku": [],
-    "top_strong_sku": [],
-    "total_skus": 0,
-    "SCALE": 0,
-    "FIX": 0,
+    "top_strong_sku": [
+      {
+        "sku": "452102417",
+        "score": 8.94,
+        "health_status": "strong",
+        "status": "SCALE",
+        "profit": 2585.5,
+        "warnings": [
+          "funnel_insufficient_data"
+        ]
+      },
+      {
+        "sku": "430679462",
+        "score": 8.94,
+        "health_status": "strong",
+        "status": "SCALE",
+        "profit": 1971.18,
+        "warnings": [
+          "funnel_insufficient_data"
+        ]
+      }
+    ],
+    "total_skus": 6,
+    "SCALE": 2,
+    "FIX": 4,
     "WATCH": 0,
     "LIQUIDATE": 0,
-    "confidence": "low",
-    "reasons": [
-      "SKU-level metrics not found in metrics payload"
+    "confidence": "medium",
+    "reasons": [],
+    "top_scale": [
+      {
+        "sku": "452102417",
+        "score": 8.94,
+        "health_status": "strong",
+        "status": "SCALE",
+        "profit": 2585.5,
+        "warnings": [
+          "funnel_insufficient_data"
+        ]
+      },
+      {
+        "sku": "430679462",
+        "score": 8.94,
+        "health_status": "strong",
+        "status": "SCALE",
+        "profit": 1971.18,
+        "warnings": [
+          "funnel_insufficient_data"
+        ]
+      }
     ],
-    "top_scale": [],
     "top_liquidate": []
   }
 }

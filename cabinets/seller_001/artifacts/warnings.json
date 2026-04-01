@@ -1,55 +1,87 @@
 [
   {
     "code": "input_files_found",
-    "message": "Input files found: total=0, sales=0, ads=0, stocks=0, funnel=0, supplier_goods=0, unknown=0"
+    "message": "Input files found: total=3, sales=1, ads=1, stocks=0, funnel=0, supplier_goods=1, unknown=1"
   },
   {
-    "code": "input_files_missing",
-    "message": "No local input files found in cabinets/seller_001/input"
+    "code": "input_file_unknown_type",
+    "message": "Unknown report type, skipped: 30-3-2026 23-29 с 23-03-2026 по 29-03-2026.xlsx"
   },
   {
-    "code": "sales_report_missing",
-    "message": "No valid sales report found in input/."
+    "code": "input_file_skipped",
+    "message": "Skipped 30-3-2026 23-29 с 23-03-2026 по 29-03-2026.xlsx: report type is unknown"
   },
   {
-    "code": "ads_report_missing",
-    "message": "No valid ads report found in input/."
+    "code": "input_file_detected_type",
+    "message": "Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx => sales (name)"
+  },
+  {
+    "code": "input_file_detected_type",
+    "message": "Статистика (15).xlsx => ads (ads_name_hint)"
+  },
+  {
+    "code": "primary_sales_source",
+    "message": "Primary sales source: Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx"
+  },
+  {
+    "code": "primary_sales_matched_columns",
+    "message": "Primary sales matched columns: sku=код_номенклатуры, revenue=к_перечислению_продавцу_за_реализованный_товар, profit=, orders=кол_во, buys=кол_во"
+  },
+  {
+    "code": "ads_file_loaded",
+    "message": "Ads report loaded from file: Статистика (15).xlsx"
   },
   {
     "code": "stocks_report_missing",
     "message": "No valid stocks report found in input/."
   },
   {
-    "code": "sales_funnel_sku_metrics_missing",
-    "message": "SKU-level metrics for sales funnel are missing."
+    "code": "supplier_goods_report_detected",
+    "message": "Supplier goods report detected: Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx"
   },
   {
-    "code": "keyword_source_rows_missing",
-    "message": "Keyword source rows are missing in the current daily input."
+    "code": "sales_funnel_insufficient_data",
+    "message": "Insufficient funnel data for 5 SKU."
+  },
+  {
+    "code": "keyword_query_column_missing",
+    "message": "Rows skipped without query value: 1."
+  },
+  {
+    "code": "keyword_sku_missing",
+    "message": "Rows skipped without SKU value: 1."
   },
   {
     "code": "keyword_monitoring_insufficient_data",
     "message": "Keyword monitoring has no query-level rows for analysis."
   },
   {
-    "code": "advertising_efficiency_disabled",
-    "message": "Advertising efficiency engine is disabled because ads data is missing."
+    "code": "advertising_efficiency_preview",
+    "message": "Advertising efficiency is preview-only because buyouts are not confirmed."
   },
   {
-    "code": "advertising_efficiency_ads_missing",
-    "message": "Advertising efficiency analysis is disabled because ads data is missing."
+    "code": "advertising_efficiency_preview",
+    "message": "Advertising efficiency is preview-only: buyouts are not confirmed."
   },
   {
     "code": "advertising_efficiency_query_missing",
     "message": "Query-level advertising rows are missing; query analysis is limited."
   },
   {
+    "code": "quantity_orders_fallback_blocked",
+    "message": "quantity column cannot be used as orders_count fallback"
+  },
+  {
+    "code": "totals_orders_buys_not_confirmed",
+    "message": "totals orders/buys not confirmed; keeping totals.orders/totals.buys at 0 while sales_activity_qty=15"
+  },
+  {
     "code": "daily_orders_count_unknown",
-    "message": "daily_orders_count is unknown: no_confirmed_orders_source: supplier_goods/api.orders/api.sales"
+    "message": "daily_orders_count is unknown: no_confirmed_orders_source: supplier_goods/api.orders/api.sales; quantity_hint_blocked_for_orders_count (sku_activity_hint=15)"
   },
   {
     "code": "daily_buyouts_count_unknown",
-    "message": "daily_buyouts_count is unknown: no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization"
+    "message": "daily_buyouts_count is unknown: no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization; quantity_hint_blocked_for_buyouts_count (sku_activity_hint=15)"
   },
   {
     "code": "daily_kpi_unknown",
@@ -64,16 +96,20 @@
     "message": "Financial margin is not final because net profit is partial."
   },
   {
-    "code": "financial_data_missing",
-    "message": "Financial contour is missing: no realization rows and no local financial fallback."
+    "code": "ads_file_loaded",
+    "message": "Ads report loaded from file: Статистика (15).xlsx"
   },
   {
-    "code": "profit_contribution_partial_data",
-    "message": "Profit contribution computed with status=insufficient_data."
+    "code": "ads_spend_applied_to_profit",
+    "message": "Ads spend applied to net profit calculation."
   },
   {
-    "code": "territorial_distribution_sku_missing",
-    "message": "No SKU rows available for territorial distribution analysis."
+    "code": "net_profit_reduced_by_ads",
+    "message": "Net profit reduced by ads spend."
+  },
+  {
+    "code": "territorial_distribution_stock_rows_missing",
+    "message": "Stock rows are missing for robust localization estimation."
   },
   {
     "code": "territorial_distribution_suppressed_due_to_data_quality",
@@ -88,15 +124,19 @@
     "message": "Territorial conclusions are preview-only due to limited evidence coverage."
   },
   {
-    "code": "sku_health_partial_data",
-    "message": "SKU health score computed with status=insufficient_data."
+    "code": "insufficient_warehouse_data",
+    "message": "Insufficient warehouse-level data for full territorial analysis"
   },
   {
-    "code": "no_decisions_ready_for_outcome",
-    "message": "No decisions are ready for outcome evaluation yet"
+    "code": "decision_memory_updated",
+    "message": "Decision memory updated: added 6 records."
+  },
+  {
+    "code": "decision_outcomes_evaluated",
+    "message": "Decision outcomes evaluated: 16"
   },
   {
     "code": "history_snapshot_saved",
-    "message": "History snapshot saved for 2026-03-15"
+    "message": "History snapshot saved for 2026-04-01"
   }
 ]
