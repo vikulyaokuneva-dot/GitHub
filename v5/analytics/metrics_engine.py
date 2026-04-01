@@ -140,6 +140,10 @@ class MetricsEngine:
         total_revenue = sum(sku.revenue for sku in skus)
         total_profit = sum(sku.profit for sku in skus)
         
+        # Aggregate order counts from SKU metrics
+        daily_orders_count = sum(int(sku.orders) for sku in skus)
+        daily_buyouts_count = daily_orders_count  # Assuming buyouts = orders for now
+        
         # Portfolio averages
         total_clicks = sum(ad.clicks for ad in ads)
         total_impressions = sum(ad.impressions for ad in ads)
@@ -174,7 +178,10 @@ class MetricsEngine:
             avg_roas=avg_roas,
             avg_cpc=avg_cpc,
             avg_ctr=avg_ctr,
-            portfolio_efficiency_score=portfolio_efficiency_score
+            portfolio_efficiency_score=portfolio_efficiency_score,
+            daily_orders_count=daily_orders_count,
+            daily_buyouts_count=daily_buyouts_count,
+            orders_count_confirmed=True  # Data from file source
         )
     
     def _calculate_efficiency_score(

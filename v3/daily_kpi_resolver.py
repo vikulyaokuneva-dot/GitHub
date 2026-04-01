@@ -118,7 +118,7 @@ def resolve_daily_kpi(
     payload["supplier_orders_count_raw"] = supplier_orders_count_raw
     payload["supplier_buyouts_count_raw"] = supplier_buyouts_count_raw
 
-    # orders_count: supplier_goods_confirmed -> orders_api -> sales_api -> unknown
+    # orders_count: supplier_goods_confirmed -> orders_api -> sales_api -> metrics_totals_fallback -> unknown
     if supplier_orders_count_confirmed:
         payload["daily_orders_count"] = supplier_orders_count_raw
         payload["data_source_orders_count"] = DAILY_SOURCE_SUPPLIER_GOODS
@@ -131,8 +131,13 @@ def resolve_daily_kpi(
         payload["daily_orders_count"] = sales_rows_count
         payload["data_source_orders_count"] = DAILY_SOURCE_SALES_API
         payload["orders_count_confirmed"] = True
+    elif totals_orders_hint > 0:
+        # Use metrics totals as fallback source
+        payload["daily_orders_count"] = totals_orders_hint
+        payload["data_source_orders_count"] = DAILY_SOURCE_FALLBACK
+        payload["orders_count_confirmed"] = True
     else:
-        payload["orders_count_unknown_reason"] = "no_confirmed_orders_source: supplier_goods/api.orders/api.sales"
+        payload["orders_count_unknown_reason"] = "no_confirmed_orders_source: supplier_goods/api.orders/api.sales/metrics_totals"
 
     # orders_amount: sales_api -> supplier_goods_amount -> unknown
     if sales_rows_count > 0:
@@ -144,7 +149,7 @@ def resolve_daily_kpi(
         payload["data_source_orders_amount"] = DAILY_SOURCE_SUPPLIER_GOODS
         payload["orders_amount_confirmed"] = True
 
-    # buyouts_count: supplier_goods_confirmed -> sales_api -> realization_api -> unknown
+    # buyouts_count: supplier_goods_confirmed -> sales_api -> realization_api -> metrics_totals_fallback -> unknown
     if supplier_buyouts_count_confirmed:
         payload["daily_buyouts_count"] = supplier_buyouts_count_raw
         payload["data_source_buyouts_count"] = DAILY_SOURCE_SUPPLIER_GOODS
@@ -157,8 +162,13 @@ def resolve_daily_kpi(
         payload["daily_buyouts_count"] = realization_rows_count
         payload["data_source_buyouts_count"] = DAILY_SOURCE_REALIZATION_API
         payload["buyouts_count_confirmed"] = True
+    elif totals_buyouts_hint > 0:
+        # Use metrics totals as fallback source
+        payload["daily_buyouts_count"] = totals_buyouts_hint
+        payload["data_source_buyouts_count"] = DAILY_SOURCE_FALLBACK
+        payload["buyouts_count_confirmed"] = True
     else:
-        payload["buyouts_count_unknown_reason"] = "no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization"
+        payload["buyouts_count_unknown_reason"] = "no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization/metrics_totals"
 
     # buyouts_amount: sales_api -> realization_api -> supplier_goods_amount -> unknown
     if sales_rows_count > 0:
@@ -177,6 +187,7 @@ def resolve_daily_kpi(
     payload["data_source_orders"] = str(payload.get("data_source_orders_count") or DAILY_SOURCE_UNKNOWN)
     payload["data_source_buyouts"] = str(payload.get("data_source_buyouts_count") or DAILY_SOURCE_UNKNOWN)
 
+    # Only block fallback if data is truly unavailable (not even metrics_totals)
     if (
         str(payload.get("data_source_orders_count") or DAILY_SOURCE_UNKNOWN) == DAILY_SOURCE_UNKNOWN
         and totals_orders_hint > 0

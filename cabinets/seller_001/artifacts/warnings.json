@@ -56,36 +56,8 @@
     "message": "Keyword monitoring has no query-level rows for analysis."
   },
   {
-    "code": "advertising_efficiency_preview",
-    "message": "Advertising efficiency is preview-only because buyouts are not confirmed."
-  },
-  {
-    "code": "advertising_efficiency_preview",
-    "message": "Advertising efficiency is preview-only: buyouts are not confirmed."
-  },
-  {
     "code": "advertising_efficiency_query_missing",
     "message": "Query-level advertising rows are missing; query analysis is limited."
-  },
-  {
-    "code": "quantity_orders_fallback_blocked",
-    "message": "quantity column cannot be used as orders_count fallback"
-  },
-  {
-    "code": "totals_orders_buys_not_confirmed",
-    "message": "totals orders/buys not confirmed; keeping totals.orders/totals.buys at 0 while sales_activity_qty=15"
-  },
-  {
-    "code": "daily_orders_count_unknown",
-    "message": "daily_orders_count is unknown: no_confirmed_orders_source: supplier_goods/api.orders/api.sales; quantity_hint_blocked_for_orders_count (sku_activity_hint=15)"
-  },
-  {
-    "code": "daily_buyouts_count_unknown",
-    "message": "daily_buyouts_count is unknown: no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization; quantity_hint_blocked_for_buyouts_count (sku_activity_hint=15)"
-  },
-  {
-    "code": "daily_kpi_unknown",
-    "message": "daily orders/buyouts counts remain unknown because no confirmed source is available"
   },
   {
     "code": "net_profit_partial",
@@ -128,12 +100,8 @@
     "message": "Insufficient warehouse-level data for full territorial analysis"
   },
   {
-    "code": "decision_memory_updated",
-    "message": "Decision memory updated: added 6 records."
-  },
-  {
-    "code": "decision_outcomes_evaluated",
-    "message": "Decision outcomes evaluated: 16"
+    "code": "no_decisions_ready_for_outcome",
+    "message": "No decisions are ready for outcome evaluation yet"
   },
   {
     "code": "history_snapshot_saved",

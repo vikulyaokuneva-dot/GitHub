@@ -3,10 +3,10 @@
   "mode": "daily",
   "run_date": "2026-04-01",
   "status": "partial_success",
-  "started_at": "2026-04-01T11:39:33Z",
-  "finished_at": "2026-04-01T11:39:45Z",
+  "started_at": "2026-04-01T18:16:45Z",
+  "finished_at": "2026-04-01T18:16:57Z",
   "error": "финансовая атрибуция частичная",
-  "artifacts_dir": "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
+  "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
   "source_mode": "local_reports",
   "financial_partial": true,
   "data_quality": "partial",
@@ -42,22 +42,22 @@
     "report.pdf"
   ],
   "input_debug": {
-    "input_dir": "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input",
+    "input_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input",
     "input_files_detected": 3,
     "discovered": {
       "ads": [
-        "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Статистика (15).xlsx"
+        "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Статистика (15).xlsx"
       ],
       "funnel": [],
       "sales": [
-        "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx"
+        "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx"
       ],
       "stocks": [],
       "supplier_goods": [
-        "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx"
+        "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx"
       ],
       "unknown": [
-        "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\30-3-2026 23-29 с 23-03-2026 по 29-03-2026.xlsx"
+        "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\30-3-2026 23-29 с 23-03-2026 по 29-03-2026.xlsx"
       ]
     },
     "details": {},
@@ -83,7 +83,7 @@
       }
     ],
     "detection_reason": "{'30-3-2026 23-29 с 23-03-2026 по 29-03-2026.xlsx': 'unknown', 'Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx': 'name', 'Статистика (15).xlsx': 'ads_by_name:статистика'}",
-    "primary_sales_source": "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx",
+    "primary_sales_source": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx",
     "primary_sales_columns": {
       "revenue": "к_перечислению_продавцу_за_реализованный_товар",
       "gross_revenue": "цена_розничная",
@@ -198,7 +198,7 @@
     },
     "supplier_goods_daily": {
       "source_file": "Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx",
-      "source_path": "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx",
+      "source_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx",
       "rows_used": 46,
       "matched_columns": {
         "payment_reason": "обоснование_для_оплаты",
@@ -4082,7 +4082,7 @@
     "parsed_daily_report": {
       "found": true,
       "source_file": "Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx",
-      "source_path": "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx",
+      "source_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\input\\Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx",
       "rows_used": 46
     },
     "raw_layer": {
@@ -4107,8 +4107,8 @@
     "source_policy": {
       "policy_version": "wb_source_policy_v1",
       "sources": {
-        "orders_count": "unknown",
-        "buyouts_count": "unknown",
+        "orders_count": "fallback",
+        "buyouts_count": "fallback",
         "orders_amount": "supplier_goods",
         "buyouts_amount": "supplier_goods",
         "revenue": "supplier_goods",
@@ -4122,15 +4122,15 @@
           "api": false,
           "supplier_goods": false,
           "local_report": false,
-          "fallback": false,
-          "unknown": true
+          "fallback": true,
+          "unknown": false
         },
         "buyouts_count": {
           "api": false,
           "supplier_goods": false,
           "local_report": false,
-          "fallback": false,
-          "unknown": true
+          "fallback": true,
+          "unknown": false
         },
         "orders_amount": {
           "api": false,
@@ -4225,9 +4225,9 @@
     "realization_fallback_used": false,
     "realization_fallback_lag_days": 0
   },
-  "daily_orders_count": 0,
+  "daily_orders_count": 15,
   "daily_orders_amount": 13417.0,
-  "daily_buyouts_count": 0,
+  "daily_buyouts_count": 15,
   "daily_buyouts_amount": 9166.6,
   "ads_rows": 1,
   "ads_spend": 1005.19,
@@ -4253,26 +4253,26 @@
   "ads_rows_usable": 1,
   "ads_loader_error": "",
   "ads_attribution_quality": "direct_only",
-  "data_source_orders": "unknown",
-  "data_source_orders_count": "unknown",
+  "data_source_orders": "fallback",
+  "data_source_orders_count": "fallback",
   "data_source_orders_amount": "supplier_goods",
-  "data_source_buyouts": "unknown",
-  "data_source_buyouts_count": "unknown",
+  "data_source_buyouts": "fallback",
+  "data_source_buyouts_count": "fallback",
   "data_source_buyouts_amount": "supplier_goods",
-  "orders_count_confirmed": false,
-  "buyouts_count_confirmed": false,
+  "orders_count_confirmed": true,
+  "buyouts_count_confirmed": true,
   "sku_activity_orders_hint": 15,
   "sku_activity_buyouts_hint": 15,
-  "orders_count_unknown_reason": "no_confirmed_orders_source: supplier_goods/api.orders/api.sales; quantity_hint_blocked_for_orders_count (sku_activity_hint=15)",
-  "buyouts_count_unknown_reason": "no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization; quantity_hint_blocked_for_buyouts_count (sku_activity_hint=15)",
+  "orders_count_unknown_reason": "",
+  "buyouts_count_unknown_reason": "",
   "commerce_activity": {
     "item_qty": 15,
     "sales_activity_qty": 15,
     "sku_activity_count": 6,
-    "confirmed_daily_orders_count": 0,
-    "confirmed_daily_buyouts_count": 0,
-    "orders_gap_vs_activity": 15,
-    "buyouts_gap_vs_activity": 15
+    "confirmed_daily_orders_count": 15,
+    "confirmed_daily_buyouts_count": 15,
+    "orders_gap_vs_activity": 0,
+    "buyouts_gap_vs_activity": 0
   },
   "data_source_revenue": "supplier_goods",
   "data_source_wb_commission": "supplier_goods",
@@ -4284,15 +4284,15 @@
       "api": false,
       "supplier_goods": false,
       "local_report": false,
-      "fallback": false,
-      "unknown": true
+      "fallback": true,
+      "unknown": false
     },
     "buyouts_count": {
       "api": false,
       "supplier_goods": false,
       "local_report": false,
-      "fallback": false,
-      "unknown": true
+      "fallback": true,
+      "unknown": false
     },
     "orders_amount": {
       "api": false,
@@ -4358,35 +4358,35 @@
   },
   "order_kpi": {
     "date": "2026-04-01",
-    "orders_count": null,
+    "orders_count": 15,
     "orders_amount": 13417.0,
-    "orders_count_confirmed": false,
+    "orders_count_confirmed": true,
     "orders_amount_confirmed": true,
-    "source_count": "unknown",
+    "source_count": "fallback",
     "source_amount": "supplier_goods"
   },
   "buyout_kpi": {
     "date": "2026-04-01",
-    "buyouts_count": null,
+    "buyouts_count": 15,
     "buyouts_amount": 9166.6,
-    "buyouts_count_confirmed": false,
+    "buyouts_count_confirmed": true,
     "buyouts_amount_confirmed": true,
-    "source_count": "unknown",
+    "source_count": "fallback",
     "source_amount": "supplier_goods"
   },
   "daily_status_matrix": {
-    "orders": "partial",
-    "buyouts": "partial",
+    "orders": "confirmed",
+    "buyouts": "confirmed",
     "financials": "partial",
     "ads": "confirmed",
     "ai_reliability": "low"
   },
   "render_kpi": {
-    "orders_count": null,
+    "orders_count": 15,
     "orders_amount": 13417.0,
-    "buyouts_count": null,
+    "buyouts_count": 15,
     "buyouts_amount": 9166.6,
-    "avg_check": null,
+    "avg_check": 611.11,
     "revenue": 9166.6,
     "gross_profit": 9835.18,
     "net_profit": 8829.99,
@@ -4400,16 +4400,16 @@
       {
         "event_type": "orders_snapshot",
         "event_date": "2026-04-01",
-        "source": "unknown",
-        "confirmed": false,
+        "source": "fallback",
+        "confirmed": true,
         "rows": 0,
         "amount": 13417.0
       },
       {
         "event_type": "buyouts_snapshot",
         "event_date": "2026-04-01",
-        "source": "unknown",
-        "confirmed": false,
+        "source": "fallback",
+        "confirmed": true,
         "rows": 0,
         "amount": 9166.6
       },
@@ -4418,14 +4418,14 @@
         "event_date": "2026-04-01",
         "source": "local.supplier_goods",
         "confirmed": false,
-        "rows": 0,
+        "rows": 15,
         "amount": null
       }
     ]
   },
-  "decision_memory_added": 6,
-  "decision_outcomes_evaluated": 16,
-  "decision_outcomes_file": "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\memory\\outcomes\\2026-04-01_outcomes.json",
+  "decision_memory_added": 0,
+  "decision_outcomes_evaluated": 0,
+  "decision_outcomes_file": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\memory\\outcomes\\2026-04-01_outcomes.json",
   "email_summary": {
     "profit": null,
     "net_profit": null,
@@ -4457,14 +4457,14 @@
     "daily_orders_amount": null,
     "daily_buyouts_count": null,
     "daily_buyouts_amount": null,
-    "data_source_orders": "unknown",
-    "data_source_orders_count": "unknown",
+    "data_source_orders": "fallback",
+    "data_source_orders_count": "fallback",
     "data_source_orders_amount": "supplier_goods",
-    "data_source_buyouts": "unknown",
-    "data_source_buyouts_count": "unknown",
+    "data_source_buyouts": "fallback",
+    "data_source_buyouts_count": "fallback",
     "data_source_buyouts_amount": "supplier_goods",
-    "orders_count_confirmed": false,
-    "buyouts_count_confirmed": false,
+    "orders_count_confirmed": true,
+    "buyouts_count_confirmed": true,
     "key_insights": [
       "Отчет собран в ограниченном режиме по raw-отчетам WB, часть метрик может быть недоступна до подключения API.",
       "Финансовые показатели за день предварительные и требуют повторной проверки после финализации данных.",
@@ -4475,7 +4475,7 @@
       "Рекомендации ниже являются гипотезами до подтверждения данных (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме).",
       "Гипотеза: сохранить текущий курс и перепроверить показатели на следующем цикле."
     ],
-    "ai_day_conclusion": "Предварительный вывод: высокие по влиянию действия требуют подтверждения (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме).\nВОРОНКА ПРОДАЖ:\n- Просмотры: 2 255, в корзину: нет данных, заказы: нет данных, выкупы: нет данных\n- Конверсия просмотр → заказ: недостаточно данных, корзина → заказ: недостаточно данных, заказ → выкуп: недостаточно данных, CPO: недостаточно данных\n- Статусы воронки: трафик — частичный, конверсия — нет данных, выкуп — нет данных\nМОНИТОРИНГ ТОВАРОВ:\n- Рост: 430679462(19), 333615320(45), 590614192(65), 452102417(45), 453526507(45)\n- Риск: 590614192(65), 333615320(45), 452102417(45), 453526507(45), 584904841(45)\n- Конверсия: 590614192(65), 333615320(45), 452102417(45), 453526507(45), 584904841(45)",
+    "ai_day_conclusion": "Предварительный вывод: высокие по влиянию действия требуют подтверждения (финансовый контур не финализирован; низкая полнота финансовых данных; территориальный анализ в ограниченном режиме).\nВОРОНКА ПРОДАЖ:\n- Просмотры: 2 255, в корзину: нет данных, заказы: 15, выкупы: 15\n- Конверсия просмотр → заказ: 0.7 %, корзина → заказ: недостаточно данных, заказ → выкуп: 100.0 %, CPO: 67.01\n- Статусы воронки: трафик — частичный, конверсия — подтверждено, выкуп — подтверждено\nМОНИТОРИНГ ТОВАРОВ:\n- Рост: 430679462(19), 333615320(45), 590614192(65), 452102417(45), 453526507(45)\n- Риск: 590614192(65), 333615320(45), 452102417(45), 453526507(45), 584904841(45)\n- Конверсия: 590614192(65), 333615320(45), 452102417(45), 453526507(45), 584904841(45)",
     "event_date_model": {
       "report_date": "2026-04-01",
       "operational_date": "2026-04-01",
@@ -4487,20 +4487,20 @@
     },
     "order_kpi": {
       "date": "2026-04-01",
-      "orders_count": null,
+      "orders_count": 15,
       "orders_amount": 13417.0,
-      "orders_count_confirmed": false,
+      "orders_count_confirmed": true,
       "orders_amount_confirmed": true,
-      "source_count": "unknown",
+      "source_count": "fallback",
       "source_amount": "supplier_goods"
     },
     "buyout_kpi": {
       "date": "2026-04-01",
-      "buyouts_count": null,
+      "buyouts_count": 15,
       "buyouts_amount": 9166.6,
-      "buyouts_count_confirmed": false,
+      "buyouts_count_confirmed": true,
       "buyouts_amount_confirmed": true,
-      "source_count": "unknown",
+      "source_count": "fallback",
       "source_amount": "supplier_goods"
     },
     "financial_kpi": {
@@ -4635,18 +4635,18 @@
       "confirmed": false
     },
     "daily_status_matrix": {
-      "orders": "partial",
-      "buyouts": "partial",
+      "orders": "confirmed",
+      "buyouts": "confirmed",
       "financials": "partial",
       "ads": "confirmed",
       "ai_reliability": "low"
     },
     "render_kpi": {
-      "orders_count": null,
+      "orders_count": 15,
       "orders_amount": 13417.0,
-      "buyouts_count": null,
+      "buyouts_count": 15,
       "buyouts_amount": 9166.6,
-      "avg_check": null,
+      "avg_check": 611.11,
       "revenue": 9166.6,
       "gross_profit": 9835.18,
       "net_profit": 8829.99,
@@ -4658,20 +4658,20 @@
       "funnel": {
         "views": 2255,
         "add_to_cart": null,
-        "orders": null,
-        "buyouts": null,
+        "orders": 15,
+        "buyouts": 15,
         "view_to_order_conversion": null,
-        "view_to_order": null,
+        "view_to_order": 0.67,
         "cart_rate": null,
         "cart_to_order": null,
         "buyout_rate": null,
-        "order_to_buyout": null,
+        "order_to_buyout": 100.0,
         "order_to_buyout_over_100": false,
         "order_to_buyout_note": "",
         "orders_amount": null,
         "buyouts_amount": null,
         "ads_spend": 1005.19,
-        "cpo": null,
+        "cpo": 67.01,
         "impressions": 2255,
         "clicks": 77,
         "ctr": 3.41,
@@ -4681,21 +4681,21 @@
         "click_to_order_conversion_pct": null,
         "order_to_buyout_conversion_pct": null,
         "conversion_rates": {
-          "view_to_order": null,
+          "view_to_order": 0.67,
           "cart_to_order": null,
-          "order_to_buyout": null,
+          "order_to_buyout": 100.0,
           "order_to_buyout_over_100": false,
           "order_to_buyout_note": ""
         },
         "marketing_layer": {
           "basis": "orders",
-          "orders": null,
+          "orders": 15,
           "ads_spend": 1005.19,
-          "cpo": null
+          "cpo": 67.01
         },
         "financial_layer": {
           "basis": "buyouts",
-          "buyouts": null,
+          "buyouts": 15,
           "revenue": 9166.6,
           "commission": -668.58,
           "logistics": 0.0,
@@ -4707,8 +4707,8 @@
       "data_sources": {
         "views": "api",
         "add_to_cart": "unknown",
-        "orders": "unknown",
-        "buyouts": "unknown",
+        "orders": "api",
+        "buyouts": "api",
         "orders_amount": "unknown",
         "buyouts_amount": "unknown",
         "ads_spend": "local_report",
@@ -4721,13 +4721,13 @@
       },
       "marketing_layer": {
         "basis": "orders",
-        "orders": null,
+        "orders": 15,
         "ads_spend": 1005.19,
-        "cpo": null
+        "cpo": 67.01
       },
       "financial_layer": {
         "basis": "buyouts",
-        "buyouts": null,
+        "buyouts": 15,
         "revenue": 9166.6,
         "commission": -668.58,
         "logistics": 0.0,
@@ -6289,12 +6289,12 @@
   },
   "pdf_font": {
     "family": "DejaVuSans",
-    "regular": "d:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf",
-    "bold": "d:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf"
+    "regular": "D:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf",
+    "bold": "D:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf"
   },
   "history_snapshot": {
     "date": "2026-04-01",
-    "path": "d:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\history\\daily\\2026-04-01",
+    "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\history\\daily\\2026-04-01",
     "files": [
       "2026-04-01_outcomes.json",
       "abc_analysis.json",
@@ -6373,36 +6373,8 @@
       "message": "Keyword monitoring has no query-level rows for analysis."
     },
     {
-      "code": "advertising_efficiency_preview",
-      "message": "Advertising efficiency is preview-only because buyouts are not confirmed."
-    },
-    {
-      "code": "advertising_efficiency_preview",
-      "message": "Advertising efficiency is preview-only: buyouts are not confirmed."
-    },
-    {
       "code": "advertising_efficiency_query_missing",
       "message": "Query-level advertising rows are missing; query analysis is limited."
-    },
-    {
-      "code": "quantity_orders_fallback_blocked",
-      "message": "quantity column cannot be used as orders_count fallback"
-    },
-    {
-      "code": "totals_orders_buys_not_confirmed",
-      "message": "totals orders/buys not confirmed; keeping totals.orders/totals.buys at 0 while sales_activity_qty=15"
-    },
-    {
-      "code": "daily_orders_count_unknown",
-      "message": "daily_orders_count is unknown: no_confirmed_orders_source: supplier_goods/api.orders/api.sales; quantity_hint_blocked_for_orders_count (sku_activity_hint=15)"
-    },
-    {
-      "code": "daily_buyouts_count_unknown",
-      "message": "daily_buyouts_count is unknown: no_confirmed_buyouts_source: supplier_goods/api.sales/api.realization; quantity_hint_blocked_for_buyouts_count (sku_activity_hint=15)"
-    },
-    {
-      "code": "daily_kpi_unknown",
-      "message": "daily orders/buyouts counts remain unknown because no confirmed source is available"
     },
     {
       "code": "net_profit_partial",
@@ -6445,12 +6417,8 @@
       "message": "Insufficient warehouse-level data for full territorial analysis"
     },
     {
-      "code": "decision_memory_updated",
-      "message": "Decision memory updated: added 6 records."
-    },
-    {
-      "code": "decision_outcomes_evaluated",
-      "message": "Decision outcomes evaluated: 16"
+      "code": "no_decisions_ready_for_outcome",
+      "message": "No decisions are ready for outcome evaluation yet"
     },
     {
       "code": "history_snapshot_saved",

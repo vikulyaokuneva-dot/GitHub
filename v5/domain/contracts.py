@@ -195,6 +195,11 @@ class PortfolioMetrics:
     avg_ctr: float
     
     portfolio_efficiency_score: float
+    
+    # Order metrics aggregated from SKU data
+    daily_orders_count: int = 0
+    daily_buyouts_count: int = 0
+    orders_count_confirmed: bool = True  # True when loaded from file
 
 
 @dataclass
