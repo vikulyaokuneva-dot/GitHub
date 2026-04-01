@@ -7,7 +7,7 @@ Zero dependencies on frameworks or infrastructure.
 
 from dataclasses import dataclass, field
 from datetime import datetime, date
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from enum import Enum
 
 
@@ -39,6 +39,26 @@ class RawOrdersData:
     revenue: float
     commission: float
     date: date
+    operation_type: str = ""
+    operation_basis: str = ""
+    document_type: str = ""
+    gross_revenue: float = 0.0
+    realized_revenue: float = 0.0
+    seller_payout: float = 0.0
+    logistics: float = 0.0
+    storage: float = 0.0
+    penalties: float = 0.0
+    deductions: float = 0.0
+    loyalty_program: float = 0.0
+    loyalty_points_withheld: float = 0.0
+    acquiring: float = 0.0
+    pvz_service: float = 0.0
+    other_adjustments: float = 0.0
+    rebill_logistic_cost: float = 0.0
+    source_file: str = ""
+    raw_row_index: int = -1
+    is_valid_sku: bool = True
+    excluded_reason: str = ""
 
 
 @dataclass
@@ -84,6 +104,7 @@ class RawDataBundle:
     margins: list[RawMarginsData] = field(default_factory=list)
     returns: list[RawReturnsData] = field(default_factory=list)
     ratings: list[RawRatingsData] = field(default_factory=list)
+    debug: dict[str, Any] = field(default_factory=dict)
 
 
 # ============================================================================
@@ -200,6 +221,7 @@ class PortfolioMetrics:
     daily_orders_count: int = 0
     daily_buyouts_count: int = 0
     orders_count_confirmed: bool = True  # True when loaded from file
+    financial_summary: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -211,6 +233,7 @@ class MetricsBundle:
     ad_metrics: list[AdMetrics] = field(default_factory=list)
     sku_metrics: list[SKUMetrics] = field(default_factory=list)
     portfolio_metrics: Optional[PortfolioMetrics] = None
+    financial_summary: dict[str, Any] = field(default_factory=dict)
 
 
 # ============================================================================

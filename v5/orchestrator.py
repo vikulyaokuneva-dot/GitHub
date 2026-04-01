@@ -74,7 +74,7 @@ class Orchestrator:
             normalized = self.normalizer.normalize(raw_bundle)
             
             # 4. Calculate metrics
-            metrics = self.metrics_engine.calculate(normalized)
+            metrics = self.metrics_engine.calculate(normalized, raw_bundle=raw_bundle)
             
             # 5. Build facts
             facts_builder = FactsBuilder(config)
@@ -100,12 +100,19 @@ class Orchestrator:
             storage.save_metrics(metrics)
             storage.save_facts(facts)
             
+            financial_finality = str(metrics.financial_summary.get("financial_finality_status") or "final")
+            run_status = ProcessingStatus.SUCCESS if financial_finality == "final" else ProcessingStatus.PARTIAL
+
             return ProcessingResult(
-                status=ProcessingStatus.SUCCESS,
+                status=run_status,
                 cabinet_id=cabinet_id,
                 run_date=date.today(),
                 mode="daily",
-                message=f"Successfully processed {cabinet_id}"
+                message=(
+                    f"Successfully processed {cabinet_id}"
+                    if run_status == ProcessingStatus.SUCCESS
+                    else f"Processed {cabinet_id} with partial financial finality ({financial_finality})"
+                ),
             )
             
         except Exception as e:
@@ -160,7 +167,7 @@ class Orchestrator:
             normalized = self.normalizer.normalize(raw_bundle)
             
             # 4. Calculate metrics
-            metrics = self.metrics_engine.calculate(normalized)
+            metrics = self.metrics_engine.calculate(normalized, raw_bundle=raw_bundle)
             
             # 5. Build facts
             facts_builder = FactsBuilder(config)
@@ -186,12 +193,22 @@ class Orchestrator:
             storage.save_metrics(metrics)
             storage.save_facts(facts)
             
+            financial_finality = str(metrics.financial_summary.get("financial_finality_status") or "final")
+            run_status = ProcessingStatus.SUCCESS if financial_finality == "final" else ProcessingStatus.PARTIAL
+
             return ProcessingResult(
-                status=ProcessingStatus.SUCCESS,
+                status=run_status,
                 cabinet_id=cabinet_id,
                 run_date=target_date,
                 mode="audit",
-                message=f"Successfully audited {cabinet_id} for {target_date}"
+                message=(
+                    f"Successfully audited {cabinet_id} for {target_date}"
+                    if run_status == ProcessingStatus.SUCCESS
+                    else (
+                        f"Audited {cabinet_id} for {target_date} "
+                        f"with partial financial finality ({financial_finality})"
+                    )
+                ),
             )
             
         except Exception as e:

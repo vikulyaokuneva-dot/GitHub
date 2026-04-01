@@ -186,6 +186,22 @@ class OrdersParser:
         """
         result = []
         
+        def _f(value: Any) -> float:
+            try:
+                if value is None or value == "":
+                    return 0.0
+                return float(value)
+            except Exception:
+                return 0.0
+
+        def _i(value: Any, default: int = 0) -> int:
+            try:
+                if value is None or value == "":
+                    return int(default)
+                return int(float(value))
+            except Exception:
+                return int(default)
+
         for record in realization:
             if not isinstance(record, dict):
                 continue
@@ -210,9 +226,62 @@ class OrdersParser:
                     continue
                 
                 order_id = str(record.get("rrdId") or record.get("orderId") or f"{sku_id}_{target_date}")
-                quantity = int(record.get("quantity") or record.get("cnt") or 1)
-                revenue = float(record.get("saleSum") or record.get("orderSum") or 0.0)
-                commission = float(record.get("commission") or 0.0)
+                quantity = _i(record.get("quantity") or record.get("cnt") or 1, default=1)
+                gross_revenue = _f(
+                    record.get("retail_price")
+                    or record.get("retailAmount")
+                    or record.get("retail_amount")
+                    or record.get("price")
+                )
+                realized_revenue = _f(
+                    record.get("saleSum")
+                    or record.get("retail_amount_withdisc_rub")
+                    or record.get("orderSum")
+                )
+                seller_payout = _f(
+                    record.get("ppvz_for_pay")
+                    or record.get("ppvzForPay")
+                    or record.get("forPay")
+                    or record.get("to_pay")
+                    or record.get("toPay")
+                )
+                revenue = seller_payout if abs(seller_payout) > 1e-9 else (
+                    realized_revenue if abs(realized_revenue) > 1e-9 else gross_revenue
+                )
+                commission = _f(
+                    record.get("ppvz_sales_commission")
+                    or record.get("commission")
+                    or record.get("commission_amount")
+                )
+                logistics = _f(
+                    record.get("delivery_rub")
+                    or record.get("deliveryRub")
+                    or record.get("logistics")
+                    or record.get("logistics_cost")
+                )
+                storage = _f(record.get("storage_fee") or record.get("storageFee") or record.get("storage"))
+                penalties = _f(record.get("penalty") or record.get("penaltyAmount") or record.get("fine"))
+                deductions = _f(record.get("deductions") or record.get("holding") or record.get("withholdings"))
+                loyalty_program = _f(
+                    record.get("loyalty_program")
+                    or record.get("loyaltyProgram")
+                    or record.get("loyalty_discount")
+                )
+                loyalty_points_withheld = _f(
+                    record.get("loyalty_points_withheld")
+                    or record.get("loyaltyPointsWithheld")
+                    or record.get("loyalty_points")
+                )
+                acquiring = _f(record.get("acquiring") or record.get("acquiring_fee"))
+                pvz_service = _f(record.get("pvz_service") or record.get("pvz"))
+                other_adjustments = _f(
+                    record.get("other_adjustments")
+                    or record.get("adjustments")
+                    or record.get("correction")
+                )
+                rebill_logistic_cost = _f(record.get("rebill_logistic_cost"))
+                operation_type = str(record.get("doc_type_name") or record.get("operationTypeName") or "").strip()
+                operation_basis = str(record.get("supplier_oper_name") or record.get("reason") or "").strip()
                 
                 # Try to get ad_id if available (not always present)
                 ad_id = record.get("campaignId") or record.get("advertId")
@@ -227,6 +296,26 @@ class OrdersParser:
                     revenue=revenue,
                     commission=commission,
                     date=target_date,
+                    operation_type=operation_type,
+                    operation_basis=operation_basis,
+                    document_type=operation_type,
+                    gross_revenue=gross_revenue,
+                    realized_revenue=realized_revenue,
+                    seller_payout=seller_payout,
+                    logistics=logistics,
+                    storage=storage,
+                    penalties=penalties,
+                    deductions=deductions,
+                    loyalty_program=loyalty_program,
+                    loyalty_points_withheld=loyalty_points_withheld,
+                    acquiring=acquiring,
+                    pvz_service=pvz_service,
+                    other_adjustments=other_adjustments,
+                    rebill_logistic_cost=rebill_logistic_cost,
+                    source_file="api:reportDetailByPeriod",
+                    raw_row_index=_i(record.get("rrd_id") or record.get("rrdId"), default=-1),
+                    is_valid_sku=bool(sku_id) and str(sku_id).strip().lower() not in {"0", "0.0", "nan", "none"},
+                    excluded_reason="",
                 )
                 
                 result.append(order)

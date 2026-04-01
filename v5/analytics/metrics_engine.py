@@ -2,6 +2,7 @@
 
 from datetime import date
 from ..domain import (
+    RawDataBundle,
     NormalizedDataBundle,
     MetricsBundle,
     AdMetrics,
@@ -9,6 +10,7 @@ from ..domain import (
     PortfolioMetrics,
     CabinetContext,
 )
+from .financial_summary import aggregate_financial_summary
 
 
 class MetricsEngine:
@@ -17,7 +19,8 @@ class MetricsEngine:
     def calculate(
         self,
         normalized: NormalizedDataBundle,
-        historical_metrics: dict | None = None
+        historical_metrics: dict | None = None,
+        raw_bundle: RawDataBundle | None = None,
     ) -> MetricsBundle:
         """
         Calculate metrics from normalized data.
@@ -31,6 +34,7 @@ class MetricsEngine:
         Args:
             normalized: Normalized data bundle
             historical_metrics: Previous metrics for comparison/anomaly detection
+            raw_bundle: Optional raw bundle for finance-aware aggregation
             
         Returns:
             MetricsBundle with calculated metrics
@@ -40,13 +44,26 @@ class MetricsEngine:
         
         # Calculate SKU metrics
         sku_metrics = self._calculate_sku_metrics(normalized.skus)
+
+        financial_summary = {}
+        if raw_bundle is not None:
+            loader_debug = {}
+            if isinstance(raw_bundle.debug, dict):
+                loader_debug = raw_bundle.debug.get("finance_loader") or {}
+            financial_summary = aggregate_financial_summary(
+                orders=raw_bundle.orders,
+                margins=raw_bundle.margins,
+                tax_rate=0.06,
+                loader_debug=loader_debug if isinstance(loader_debug, dict) else {},
+            )
         
         # Calculate portfolio metrics
         portfolio_metrics = self._calculate_portfolio_metrics(
             normalized.ads,
             normalized.skus,
             ad_metrics,
-            sku_metrics
+            sku_metrics,
+            financial_summary=financial_summary,
         )
         
         return MetricsBundle(
@@ -54,7 +71,8 @@ class MetricsEngine:
             period_date=normalized.period_date,
             ad_metrics=ad_metrics,
             sku_metrics=sku_metrics,
-            portfolio_metrics=portfolio_metrics
+            portfolio_metrics=portfolio_metrics,
+            financial_summary=financial_summary,
         )
     
     def _calculate_ad_metrics(self, ads) -> list[AdMetrics]:
@@ -132,17 +150,26 @@ class MetricsEngine:
         ads,
         skus,
         ad_metrics,
-        sku_metrics
+        sku_metrics,
+        financial_summary: dict | None = None,
     ) -> PortfolioMetrics:
         """Calculate portfolio-level metrics"""
         # Portfolio totals
         total_spend = sum(ad.spend for ad in ads)
         total_revenue = sum(sku.revenue for sku in skus)
         total_profit = sum(sku.profit for sku in skus)
+
+        fin = financial_summary if isinstance(financial_summary, dict) else {}
+        if fin and int(fin.get("rows_count", 0) or 0) > 0:
+            total_revenue = float(fin.get("gross_revenue", total_revenue) or total_revenue)
+            total_profit = float(fin.get("profit", total_profit) or total_profit)
         
         # Aggregate order counts from SKU metrics
         daily_orders_count = sum(int(sku.orders) for sku in skus)
         daily_buyouts_count = daily_orders_count  # Assuming buyouts = orders for now
+        if fin:
+            daily_buyouts_count = int(fin.get("sales_qty", daily_buyouts_count) or daily_buyouts_count)
+            daily_orders_count = int(fin.get("sales_qty", daily_orders_count) or daily_orders_count)
         
         # Portfolio averages
         total_clicks = sum(ad.clicks for ad in ads)
@@ -181,7 +208,8 @@ class MetricsEngine:
             portfolio_efficiency_score=portfolio_efficiency_score,
             daily_orders_count=daily_orders_count,
             daily_buyouts_count=daily_buyouts_count,
-            orders_count_confirmed=True  # Data from file source
+            orders_count_confirmed=True,  # Data from file source
+            financial_summary=fin,
         )
     
     def _calculate_efficiency_score(
