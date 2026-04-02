@@ -1,0 +1,8 @@
+{
+  "total_skus": 0,
+  "items": [],
+  "generated_at": "2026-04-02T19:58:38.275682+00:00",
+  "status": "ok",
+  "sheet_name": "Статистика по ключевым словам",
+  "input_file": "runtime\\cabinets\\seller_001\\raw\\search_queries.xlsx"
+}

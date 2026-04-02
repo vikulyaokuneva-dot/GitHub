@@ -1,0 +1,14 @@
+{
+  "total_rows": 0,
+  "unique_queries": 0,
+  "unique_skus": 0,
+  "top_queries_by_query_count": [],
+  "top_queries_by_clicks": [],
+  "top_queries_by_add_to_cart": [],
+  "top_queries_with_no_orders": [],
+  "top_queries_low_visibility": [],
+  "generated_at": "2026-04-02T19:58:38.275682+00:00",
+  "status": "ok",
+  "sheet_name": "Статистика по ключевым словам",
+  "input_file": "runtime\\cabinets\\seller_001\\raw\\search_queries.xlsx"
+}

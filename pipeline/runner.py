@@ -8,6 +8,7 @@ from pipeline.steps.assortment import run as run_assortment
 from pipeline.steps.finance import run as run_finance
 from pipeline.steps.ingest import run as run_ingest
 from pipeline.steps.reporting import run as run_reporting
+from pipeline.steps.search_queries import run as run_search_queries
 from shared.config.seller_config import load_seller_config
 from shared.dates.date_policy import get_report_date
 from shared.paths.paths import get_paths
@@ -33,6 +34,7 @@ def run_pipeline(seller: str, mode: str = "daily") -> dict:
         seller_config=seller_config,
     )
     assortment_summary = run_assortment(paths=paths, mode=mode, report_date=report_date)
+    search_queries_summary = run_search_queries(paths=paths, mode=mode, report_date=report_date)
     report = run_reporting(
         paths=paths,
         mode=mode,
@@ -46,5 +48,6 @@ def run_pipeline(seller: str, mode: str = "daily") -> dict:
         "report_date": report_date.isoformat(),
         "finance_summary": finance_summary,
         "assortment_summary": assortment_summary,
+        "search_queries_summary": search_queries_summary,
         "report": report,
     }
