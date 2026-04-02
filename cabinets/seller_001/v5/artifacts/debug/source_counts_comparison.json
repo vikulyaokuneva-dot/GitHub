@@ -1,0 +1,28 @@
+{
+  "v2_truth_counts": {
+    "ads_count": 1,
+    "orders_count": 3,
+    "realization_rows_count": 2,
+    "stocks_count": 1,
+    "returns_count": 1,
+    "ratings_count": 1
+  },
+  "v5_compat_counts": {
+    "ads_count": 1,
+    "orders_count": 3,
+    "realization_rows_count": 2,
+    "stocks_count": 1,
+    "returns_count": 1,
+    "ratings_count": 1
+  },
+  "not_less_than_v2": {
+    "ads_count": true,
+    "orders_count": true,
+    "returns_count": true,
+    "ratings_count": true
+  },
+  "notes": {
+    "realization_rows_count": "same raw source for v2 and v5-compat in this run",
+    "stocks_count": "same raw source for v2 and v5-compat in this run"
+  }
+}

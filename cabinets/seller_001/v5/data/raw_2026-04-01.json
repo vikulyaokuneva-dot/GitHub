@@ -1,0 +1,159 @@
+{
+  "cabinet_id": "seller_001",
+  "period_date": "2026-04-01",
+  "source": "api",
+  "ads": [
+    {
+      "ad_id": "501",
+      "name": "Compat Ad",
+      "sku_ids": [],
+      "budget_daily": 0.0,
+      "status": "active",
+      "views": 100,
+      "clicks": 12,
+      "spend": 48.5,
+      "date": "2026-04-01"
+    }
+  ],
+  "orders": [
+    {
+      "order_id": "1",
+      "sku_id": "111",
+      "ad_id": null,
+      "quantity": 1,
+      "revenue": 1100.0,
+      "commission": 120.0,
+      "date": "2026-03-31",
+      "operation_type": "???????",
+      "operation_basis": "???????",
+      "document_type": "???????",
+      "gross_revenue": 1100.0,
+      "realized_revenue": 1100.0,
+      "seller_payout": 0.0,
+      "logistics": 0.0,
+      "storage": 0.0,
+      "penalties": 0.0,
+      "deductions": 0.0,
+      "loyalty_program": 0.0,
+      "loyalty_points_withheld": 0.0,
+      "acquiring": 0.0,
+      "pvz_service": 0.0,
+      "other_adjustments": 0.0,
+      "rebill_logistic_cost": 0.0,
+      "source_file": "api:reportDetailByPeriod",
+      "raw_row_index": 1,
+      "is_valid_sku": true,
+      "excluded_reason": ""
+    },
+    {
+      "order_id": "2",
+      "sku_id": "111",
+      "ad_id": null,
+      "quantity": 1,
+      "revenue": 1100.0,
+      "commission": 0.0,
+      "date": "2026-03-31",
+      "operation_type": "???????",
+      "operation_basis": "???????",
+      "document_type": "???????",
+      "gross_revenue": 0.0,
+      "realized_revenue": 1100.0,
+      "seller_payout": 0.0,
+      "logistics": 0.0,
+      "storage": 0.0,
+      "penalties": 0.0,
+      "deductions": 0.0,
+      "loyalty_program": 0.0,
+      "loyalty_points_withheld": 0.0,
+      "acquiring": 0.0,
+      "pvz_service": 0.0,
+      "other_adjustments": 0.0,
+      "rebill_logistic_cost": 0.0,
+      "source_file": "api:reportDetailByPeriod",
+      "raw_row_index": 2,
+      "is_valid_sku": true,
+      "excluded_reason": ""
+    }
+  ],
+  "margins": [
+    {
+      "sku_id": "111",
+      "cost_price": 700.0,
+      "selling_price": 1100.0,
+      "margin_percent": 36.36363636363637,
+      "date": "2026-03-31"
+    }
+  ],
+  "returns": [
+    {
+      "return_id": "2",
+      "order_id": "",
+      "sku_id": "111",
+      "reason": "unknown",
+      "revenue_lost": 1100.0,
+      "date": "2026-03-31"
+    }
+  ],
+  "ratings": [
+    {
+      "sku_id": "111",
+      "rating": 4.8,
+      "review_count": 15,
+      "negative_reviews": 0,
+      "date": "2026-04-01"
+    }
+  ],
+  "debug": {
+    "ingestion_path": "v2_compat",
+    "finance_date_used": "2026-03-31",
+    "finance_lag_days": 1,
+    "ads_source": "api",
+    "manual_ads_dir": "cabinets\\seller_001\\data\\manual_ads",
+    "manual_ads_file": null,
+    "source_counts_comparison": {
+      "v2_truth_counts": {
+        "ads_count": 1,
+        "orders_count": 3,
+        "realization_rows_count": 2,
+        "stocks_count": 1,
+        "returns_count": 1,
+        "ratings_count": 1
+      },
+      "v5_compat_counts": {
+        "ads_count": 1,
+        "orders_count": 3,
+        "realization_rows_count": 2,
+        "stocks_count": 1,
+        "returns_count": 1,
+        "ratings_count": 1
+      },
+      "not_less_than_v2": {
+        "ads_count": true,
+        "orders_count": true,
+        "returns_count": true,
+        "ratings_count": true
+      },
+      "notes": {
+        "realization_rows_count": "same raw source for v2 and v5-compat in this run",
+        "stocks_count": "same raw source for v2 and v5-compat in this run"
+      }
+    },
+    "v2_raw_counts": {
+      "ads_count": 1,
+      "orders_count": 3,
+      "realization_rows_count": 2,
+      "stocks_count": 1,
+      "returns_count": 1,
+      "ratings_count": 1
+    },
+    "v5_compat_counts": {
+      "ads_count": 1,
+      "orders_count": 3,
+      "realization_rows_count": 2,
+      "stocks_count": 1,
+      "returns_count": 1,
+      "ratings_count": 1
+    },
+    "orders_records_count": 2
+  }
+}

@@ -1,0 +1,7 @@
+[
+  {
+    "code": "financial_finality_not_final",
+    "severity": "medium",
+    "message": "Financial finality status is 'partial'."
+  }
+]

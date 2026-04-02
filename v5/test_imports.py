@@ -29,6 +29,9 @@ def test_imports():
         
         print("  ✓ infrastructure.sources")
         from v5.infrastructure.sources import WBAPILoader, FileReportLoader
+
+        print("  ✓ infrastructure.sources_v2_compat")
+        from v5.infrastructure.sources_v2_compat import V2CompatibleWBAPILoader
         
         print("  ✓ infrastructure.storage")
         from v5.infrastructure.storage import CabinetStorage

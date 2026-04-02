@@ -1,0 +1,79 @@
+{
+  "rows_read": 2,
+  "rows_loaded": 2,
+  "rows_dropped": 0,
+  "dropped_reasons": {},
+  "operation_basis_detected": {
+    "???????": 2
+  },
+  "operation_classification_counts": {
+    "other": 2
+  },
+  "component_nonzero_rows": {
+    "gross_revenue": 1,
+    "realized_revenue": 2,
+    "seller_payout": 2,
+    "commission": 1,
+    "logistics": 0,
+    "storage": 0,
+    "penalties": 0,
+    "deductions": 0,
+    "loyalty_program": 0,
+    "loyalty_points_withheld": 0,
+    "acquiring": 0,
+    "pvz_service": 0,
+    "other_adjustments": 0
+  },
+  "row_debug": [
+    {
+      "raw_row_index": 1,
+      "source_file": "api:reportDetailByPeriod",
+      "sku": "111",
+      "operation_basis": "???????",
+      "operation_type": "???????",
+      "operation_classes": [
+        "other"
+      ],
+      "gross_revenue_component": 1100.0,
+      "realized_revenue_component": 1100.0,
+      "seller_payout_component": 1100.0,
+      "commission_component": 120.0,
+      "logistics_component": 0.0,
+      "storage_component": 0.0,
+      "penalties_component": 0.0,
+      "deductions_component": 0.0,
+      "loyalty_program_component": 0.0,
+      "loyalty_points_withheld_component": 0.0,
+      "acquiring_component": 0.0,
+      "pvz_service_component": 0.0,
+      "other_adjustments_component": 0.0,
+      "excluded": false,
+      "excluded_reason": null
+    },
+    {
+      "raw_row_index": 2,
+      "source_file": "api:reportDetailByPeriod",
+      "sku": "111",
+      "operation_basis": "???????",
+      "operation_type": "???????",
+      "operation_classes": [
+        "other"
+      ],
+      "gross_revenue_component": 0.0,
+      "realized_revenue_component": 1100.0,
+      "seller_payout_component": 1100.0,
+      "commission_component": 0.0,
+      "logistics_component": 0.0,
+      "storage_component": 0.0,
+      "penalties_component": 0.0,
+      "deductions_component": 0.0,
+      "loyalty_program_component": 0.0,
+      "loyalty_points_withheld_component": 0.0,
+      "acquiring_component": 0.0,
+      "pvz_service_component": 0.0,
+      "other_adjustments_component": 0.0,
+      "excluded": false,
+      "excluded_reason": null
+    }
+  ]
+}

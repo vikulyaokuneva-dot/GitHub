@@ -177,7 +177,8 @@ class OrdersParser:
     @staticmethod
     def parse_orders_from_realization(
         realization: list[Dict[str, Any]],
-        target_date: date
+        target_date: date,
+        enforce_date_match: bool = True,
     ) -> list[RawOrdersData]:
         """
         Parse detailed orders from reportDetailByPeriod endpoint.
@@ -209,7 +210,7 @@ class OrdersParser:
             try:
                 # Filter by date
                 record_date_str = record.get("date") or record.get("reportDate") or ""
-                if record_date_str:
+                if enforce_date_match and record_date_str:
                     try:
                         record_date = datetime.fromisoformat(record_date_str).date()
                         if record_date != target_date:
@@ -334,7 +335,8 @@ class MarginsParser:
     @staticmethod
     def parse_margins_from_realization(
         realization: list[Dict[str, Any]],
-        target_date: date
+        target_date: date,
+        enforce_date_match: bool = True,
     ) -> list[RawMarginsData]:
         """
         Extract margin data from realization report.
@@ -351,7 +353,7 @@ class MarginsParser:
             try:
                 # Filter by date
                 record_date_str = record.get("date") or record.get("reportDate") or ""
-                if record_date_str:
+                if enforce_date_match and record_date_str:
                     try:
                         record_date = datetime.fromisoformat(record_date_str).date()
                         if record_date != target_date:
@@ -398,7 +400,8 @@ class ReturnsParser:
     @staticmethod
     def parse_returns(
         realization: list[Dict[str, Any]],
-        target_date: date
+        target_date: date,
+        enforce_date_match: bool = True,
     ) -> list[RawReturnsData]:
         """
         Extract return information from realization report.
@@ -420,7 +423,7 @@ class ReturnsParser:
                 
                 # Filter by date
                 record_date_str = record.get("date") or record.get("reportDate") or ""
-                if record_date_str:
+                if enforce_date_match and record_date_str:
                     try:
                         record_date = datetime.fromisoformat(record_date_str).date()
                         if record_date != target_date:

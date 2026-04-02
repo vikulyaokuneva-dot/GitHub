@@ -1,0 +1,9 @@
+{
+  "cabinet_id": "seller_001",
+  "last_successful_daily_run": "2026-04-02T20:39:36.137257",
+  "last_successful_audit_run": null,
+  "last_error": "Cabinet seller_001 has no API key configured",
+  "last_error_time": "2026-04-02T20:41:45.488750",
+  "runs_count": 3,
+  "errors_count": 1
+}

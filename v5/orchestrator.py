@@ -20,6 +20,7 @@ from .domain import (
 )
 from .infrastructure.config import ensure_cabinet_paths
 from .infrastructure.sources import WBAPILoader, FileReportLoader
+from .infrastructure.sources_v2_compat import V2CompatibleWBAPILoader
 from .infrastructure.storage import CabinetStorage
 from .analytics.normalization import Normalizer
 from .analytics.metrics_engine import MetricsEngine
@@ -140,9 +141,17 @@ class Orchestrator:
         report_date = date_resolution.report_date
         run_date = date_resolution.run_date
 
-        loader = WBAPILoader() if mode == "daily" else FileReportLoader(
-            shared_input_dir=self.config.shared_audit_input_root
-        )
+        if mode == "daily":
+            if self.config.use_v2_compat_ingestion:
+                loader = V2CompatibleWBAPILoader(
+                    max_finance_lag_days=self.config.wb_max_finance_lag_days,
+                    manual_ads_dir=self.config.v2_manual_ads_dir,
+                    tax_rate=self.config.wb_tax_rate,
+                )
+            else:
+                loader = WBAPILoader()
+        else:
+            loader = FileReportLoader(shared_input_dir=self.config.shared_audit_input_root)
 
         state_mgr = StateManager(ctx)
         state = state_mgr.load_state()

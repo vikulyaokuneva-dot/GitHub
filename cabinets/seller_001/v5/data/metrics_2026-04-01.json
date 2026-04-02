@@ -1,0 +1,527 @@
+{
+  "cabinet_id": "seller_001",
+  "period_date": "2026-04-01",
+  "ad_metrics": [
+    {
+      "ad_id": "501",
+      "ctr": 12.0,
+      "cpc": 4.041666666666667,
+      "roas": 0.0,
+      "efficiency_score": 100,
+      "has_anomaly": true,
+      "anomaly_severity": 3
+    }
+  ],
+  "sku_metrics": [
+    {
+      "sku_id": "111",
+      "daily_orders": 2.0,
+      "daily_revenue": 2200.0,
+      "daily_profit": 800.0,
+      "margin_percent": 36.36363636363637,
+      "growth_rate": 0.0,
+      "rating": 4.8,
+      "negative_review_rate": 0.0
+    }
+  ],
+  "portfolio_metrics": {
+    "total_spend": 48.5,
+    "total_revenue": 2200.0,
+    "total_profit": -120.0,
+    "avg_roas": 45.36082474226804,
+    "avg_cpc": 4.041666666666667,
+    "avg_ctr": 12.0,
+    "portfolio_efficiency_score": 100,
+    "daily_orders_count": 2,
+    "daily_buyouts_count": 2,
+    "orders_count_confirmed": true,
+    "financial_summary": {
+      "rows_count": 2,
+      "rows_read": 2,
+      "rows_dropped": 0,
+      "sales_qty": 0,
+      "returns_qty": 0,
+      "gross_revenue": 0.0,
+      "revenue_buyouts": 0.0,
+      "realized_revenue": 0.0,
+      "payout": 2200.0,
+      "seller_payout": 2200.0,
+      "commission": 120.0,
+      "acquiring": 0.0,
+      "pvz_service": 0.0,
+      "logistics": 0.0,
+      "storage": 0.0,
+      "penalties": 0.0,
+      "deductions": 0.0,
+      "loyalty_program": 0.0,
+      "loyalty_points_withheld": 0.0,
+      "other_adjustments": 0.0,
+      "tax_rate": 0.06,
+      "tax": 0.0,
+      "cogs_total": 0.0,
+      "profit": -120.0,
+      "margin": 0.0,
+      "revenue_basis": "gross_revenue_v2",
+      "completeness_pct": 26.67,
+      "available_components": 4,
+      "total_components": 15,
+      "components": {
+        "gross_revenue": {
+          "available": true,
+          "source_rows": 1,
+          "value": 0.0
+        },
+        "revenue_buyouts": {
+          "available": true,
+          "source_rows": 2,
+          "value": 0.0
+        },
+        "seller_payout": {
+          "available": true,
+          "source_rows": 2,
+          "value": 2200.0
+        },
+        "commission": {
+          "available": true,
+          "source_rows": 1,
+          "value": 120.0
+        },
+        "acquiring": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        },
+        "pvz_service": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        },
+        "logistics": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        },
+        "storage": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        },
+        "penalties": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        },
+        "deductions": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        },
+        "loyalty_program": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        },
+        "loyalty_points_withheld": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        },
+        "other_adjustments": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        },
+        "tax": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        },
+        "cogs_total": {
+          "available": false,
+          "source_rows": 0,
+          "value": 0.0
+        }
+      },
+      "financial_finality_status": "partial",
+      "is_partial": true,
+      "financial_status": "partial",
+      "financial_partial": true,
+      "confirmed": false,
+      "cogs_by_sku": {},
+      "missing_cogs_sku": {},
+      "sku_financials": {
+        "111": {
+          "sales_qty": 0,
+          "returns_qty": 0,
+          "gross_revenue": 0.0,
+          "revenue_buyouts": 0.0,
+          "payout": 2200.0,
+          "commission": 120.0,
+          "acquiring": 0.0,
+          "pvz_service": 0.0,
+          "logistics": 0.0,
+          "storage": 0.0,
+          "penalties": 0.0,
+          "deductions": 0.0,
+          "loyalty_program": 0.0,
+          "loyalty_points_withheld": 0.0,
+          "other_adjustments": 0.0,
+          "tax_alloc": 0.0,
+          "cogs": 0.0,
+          "profit": -120.0,
+          "margin": 0.0
+        }
+      },
+      "net_profit_formula": {
+        "revenue_basis": 0.0,
+        "commission": 120.0,
+        "acquiring": 0.0,
+        "pvz_service": 0.0,
+        "logistics": 0.0,
+        "storage": 0.0,
+        "penalties": 0.0,
+        "deductions": 0.0,
+        "loyalty_program": 0.0,
+        "loyalty_points_withheld": 0.0,
+        "other_adjustments": 0.0,
+        "tax": 0.0,
+        "cogs_total": 0.0,
+        "profit": -120.0
+      },
+      "debug": {
+        "rows_read": 2,
+        "rows_loaded": 2,
+        "rows_dropped": 0,
+        "dropped_reasons": {},
+        "operation_basis_detected": {
+          "???????": 2
+        },
+        "operation_classification_counts": {
+          "other": 2
+        },
+        "component_nonzero_rows": {
+          "gross_revenue": 1,
+          "realized_revenue": 2,
+          "seller_payout": 2,
+          "commission": 1,
+          "logistics": 0,
+          "storage": 0,
+          "penalties": 0,
+          "deductions": 0,
+          "loyalty_program": 0,
+          "loyalty_points_withheld": 0,
+          "acquiring": 0,
+          "pvz_service": 0,
+          "other_adjustments": 0
+        },
+        "row_debug": [
+          {
+            "raw_row_index": 1,
+            "source_file": "api:reportDetailByPeriod",
+            "sku": "111",
+            "operation_basis": "???????",
+            "operation_type": "???????",
+            "operation_classes": [
+              "other"
+            ],
+            "gross_revenue_component": 1100.0,
+            "realized_revenue_component": 1100.0,
+            "seller_payout_component": 1100.0,
+            "commission_component": 120.0,
+            "logistics_component": 0.0,
+            "storage_component": 0.0,
+            "penalties_component": 0.0,
+            "deductions_component": 0.0,
+            "loyalty_program_component": 0.0,
+            "loyalty_points_withheld_component": 0.0,
+            "acquiring_component": 0.0,
+            "pvz_service_component": 0.0,
+            "other_adjustments_component": 0.0,
+            "excluded": false,
+            "excluded_reason": null
+          },
+          {
+            "raw_row_index": 2,
+            "source_file": "api:reportDetailByPeriod",
+            "sku": "111",
+            "operation_basis": "???????",
+            "operation_type": "???????",
+            "operation_classes": [
+              "other"
+            ],
+            "gross_revenue_component": 0.0,
+            "realized_revenue_component": 1100.0,
+            "seller_payout_component": 1100.0,
+            "commission_component": 0.0,
+            "logistics_component": 0.0,
+            "storage_component": 0.0,
+            "penalties_component": 0.0,
+            "deductions_component": 0.0,
+            "loyalty_program_component": 0.0,
+            "loyalty_points_withheld_component": 0.0,
+            "acquiring_component": 0.0,
+            "pvz_service_component": 0.0,
+            "other_adjustments_component": 0.0,
+            "excluded": false,
+            "excluded_reason": null
+          }
+        ]
+      },
+      "diagnostics": {
+        "rows_read": 2,
+        "rows_loaded": 2,
+        "rows_dropped": 0,
+        "dropped_reasons": {},
+        "operation_basis_detected_count": 1,
+        "available_components": 4,
+        "total_components": 15,
+        "completeness_pct": 26.67,
+        "financial_finality_status": "partial"
+      }
+    }
+  },
+  "financial_summary": {
+    "rows_count": 2,
+    "rows_read": 2,
+    "rows_dropped": 0,
+    "sales_qty": 0,
+    "returns_qty": 0,
+    "gross_revenue": 0.0,
+    "revenue_buyouts": 0.0,
+    "realized_revenue": 0.0,
+    "payout": 2200.0,
+    "seller_payout": 2200.0,
+    "commission": 120.0,
+    "acquiring": 0.0,
+    "pvz_service": 0.0,
+    "logistics": 0.0,
+    "storage": 0.0,
+    "penalties": 0.0,
+    "deductions": 0.0,
+    "loyalty_program": 0.0,
+    "loyalty_points_withheld": 0.0,
+    "other_adjustments": 0.0,
+    "tax_rate": 0.06,
+    "tax": 0.0,
+    "cogs_total": 0.0,
+    "profit": -120.0,
+    "margin": 0.0,
+    "revenue_basis": "gross_revenue_v2",
+    "completeness_pct": 26.67,
+    "available_components": 4,
+    "total_components": 15,
+    "components": {
+      "gross_revenue": {
+        "available": true,
+        "source_rows": 1,
+        "value": 0.0
+      },
+      "revenue_buyouts": {
+        "available": true,
+        "source_rows": 2,
+        "value": 0.0
+      },
+      "seller_payout": {
+        "available": true,
+        "source_rows": 2,
+        "value": 2200.0
+      },
+      "commission": {
+        "available": true,
+        "source_rows": 1,
+        "value": 120.0
+      },
+      "acquiring": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      },
+      "pvz_service": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      },
+      "logistics": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      },
+      "storage": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      },
+      "penalties": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      },
+      "deductions": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      },
+      "loyalty_program": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      },
+      "loyalty_points_withheld": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      },
+      "other_adjustments": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      },
+      "tax": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      },
+      "cogs_total": {
+        "available": false,
+        "source_rows": 0,
+        "value": 0.0
+      }
+    },
+    "financial_finality_status": "partial",
+    "is_partial": true,
+    "financial_status": "partial",
+    "financial_partial": true,
+    "confirmed": false,
+    "cogs_by_sku": {},
+    "missing_cogs_sku": {},
+    "sku_financials": {
+      "111": {
+        "sales_qty": 0,
+        "returns_qty": 0,
+        "gross_revenue": 0.0,
+        "revenue_buyouts": 0.0,
+        "payout": 2200.0,
+        "commission": 120.0,
+        "acquiring": 0.0,
+        "pvz_service": 0.0,
+        "logistics": 0.0,
+        "storage": 0.0,
+        "penalties": 0.0,
+        "deductions": 0.0,
+        "loyalty_program": 0.0,
+        "loyalty_points_withheld": 0.0,
+        "other_adjustments": 0.0,
+        "tax_alloc": 0.0,
+        "cogs": 0.0,
+        "profit": -120.0,
+        "margin": 0.0
+      }
+    },
+    "net_profit_formula": {
+      "revenue_basis": 0.0,
+      "commission": 120.0,
+      "acquiring": 0.0,
+      "pvz_service": 0.0,
+      "logistics": 0.0,
+      "storage": 0.0,
+      "penalties": 0.0,
+      "deductions": 0.0,
+      "loyalty_program": 0.0,
+      "loyalty_points_withheld": 0.0,
+      "other_adjustments": 0.0,
+      "tax": 0.0,
+      "cogs_total": 0.0,
+      "profit": -120.0
+    },
+    "debug": {
+      "rows_read": 2,
+      "rows_loaded": 2,
+      "rows_dropped": 0,
+      "dropped_reasons": {},
+      "operation_basis_detected": {
+        "???????": 2
+      },
+      "operation_classification_counts": {
+        "other": 2
+      },
+      "component_nonzero_rows": {
+        "gross_revenue": 1,
+        "realized_revenue": 2,
+        "seller_payout": 2,
+        "commission": 1,
+        "logistics": 0,
+        "storage": 0,
+        "penalties": 0,
+        "deductions": 0,
+        "loyalty_program": 0,
+        "loyalty_points_withheld": 0,
+        "acquiring": 0,
+        "pvz_service": 0,
+        "other_adjustments": 0
+      },
+      "row_debug": [
+        {
+          "raw_row_index": 1,
+          "source_file": "api:reportDetailByPeriod",
+          "sku": "111",
+          "operation_basis": "???????",
+          "operation_type": "???????",
+          "operation_classes": [
+            "other"
+          ],
+          "gross_revenue_component": 1100.0,
+          "realized_revenue_component": 1100.0,
+          "seller_payout_component": 1100.0,
+          "commission_component": 120.0,
+          "logistics_component": 0.0,
+          "storage_component": 0.0,
+          "penalties_component": 0.0,
+          "deductions_component": 0.0,
+          "loyalty_program_component": 0.0,
+          "loyalty_points_withheld_component": 0.0,
+          "acquiring_component": 0.0,
+          "pvz_service_component": 0.0,
+          "other_adjustments_component": 0.0,
+          "excluded": false,
+          "excluded_reason": null
+        },
+        {
+          "raw_row_index": 2,
+          "source_file": "api:reportDetailByPeriod",
+          "sku": "111",
+          "operation_basis": "???????",
+          "operation_type": "???????",
+          "operation_classes": [
+            "other"
+          ],
+          "gross_revenue_component": 0.0,
+          "realized_revenue_component": 1100.0,
+          "seller_payout_component": 1100.0,
+          "commission_component": 0.0,
+          "logistics_component": 0.0,
+          "storage_component": 0.0,
+          "penalties_component": 0.0,
+          "deductions_component": 0.0,
+          "loyalty_program_component": 0.0,
+          "loyalty_points_withheld_component": 0.0,
+          "acquiring_component": 0.0,
+          "pvz_service_component": 0.0,
+          "other_adjustments_component": 0.0,
+          "excluded": false,
+          "excluded_reason": null
+        }
+      ]
+    },
+    "diagnostics": {
+      "rows_read": 2,
+      "rows_loaded": 2,
+      "rows_dropped": 0,
+      "dropped_reasons": {},
+      "operation_basis_detected_count": 1,
+      "available_components": 4,
+      "total_components": 15,
+      "completeness_pct": 26.67,
+      "financial_finality_status": "partial"
+    }
+  }
+}

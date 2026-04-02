@@ -6,6 +6,7 @@ pydantic>=2.0         # Data validation & settings
 
 # Async & HTTP
 aiohttp>=3.8          # Async HTTP client (for WB API calls)
+requests>=2.31        # Sync HTTP client used by v2-compatible ingestion (src/wb_client.py)
 
 # Data processing
 pandas>=1.5.0         # DataFrames for Excel/CSV handling

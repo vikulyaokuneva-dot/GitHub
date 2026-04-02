@@ -1,0 +1,35 @@
+{
+  "schema_version": "v5",
+  "generated_at": "2026-04-02T17:39:36Z",
+  "cabinet_id": "seller_001",
+  "mode": "daily",
+  "run_date": "2026-04-02",
+  "report_date": "2026-04-01",
+  "date_shift_applied": false,
+  "date_shift_reason": "",
+  "paths": {
+    "artifacts_dir": "cabinets\\seller_001\\v5\\artifacts",
+    "outputs_dir": "cabinets\\seller_001\\v5\\outputs",
+    "memory_dir": "cabinets\\seller_001\\v5\\memory",
+    "report_pdf": "cabinets\\seller_001\\v5\\artifacts\\report.pdf",
+    "metrics_json": "cabinets\\seller_001\\v5\\artifacts\\metrics.json",
+    "warnings_json": "cabinets\\seller_001\\v5\\artifacts\\warnings.json",
+    "financial_debug_json": "cabinets\\seller_001\\v5\\artifacts\\financial_debug.json",
+    "source_counts_comparison_json": "cabinets\\seller_001\\v5\\artifacts\\debug\\source_counts_comparison.json"
+  },
+  "counts": {
+    "ads": 1,
+    "orders": 2,
+    "margins": 1,
+    "returns": 1,
+    "ratings": 1,
+    "facts": 2,
+    "recommendations": 1
+  },
+  "financial_finality_status": "partial",
+  "legacy_markers": {
+    "v3_title_detected": false,
+    "legacy_fallback_detected": false,
+    "legacy_mode_flag_detected": false
+  }
+}

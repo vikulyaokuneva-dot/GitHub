@@ -71,6 +71,7 @@ class JsonExporter:
         normalized_payload = asdict(normalized_bundle)
         financial_summary = metrics_payload.get("financial_summary") or {}
         financial_debug = financial_summary.get("debug") if isinstance(financial_summary, dict) else {}
+        debug_dir = self.cabinet_ctx.debug_artifacts_dir
 
         metrics_json = self._write_json(self.cabinet_ctx.metrics_json_path, metrics_payload)
         warnings_json = self._write_json(self.cabinet_ctx.warnings_path, warnings)
@@ -84,6 +85,15 @@ class JsonExporter:
         if report_pdf_path.resolve() != canonical_report_path.resolve():
             canonical_report_path.parent.mkdir(parents=True, exist_ok=True)
             canonical_report_path.write_bytes(report_pdf_path.read_bytes())
+
+        source_counts_comparison_json: Path | None = None
+        if isinstance(raw_bundle.debug, dict):
+            source_counts = raw_bundle.debug.get("source_counts_comparison")
+            if isinstance(source_counts, dict):
+                source_counts_comparison_json = self._write_json(
+                    debug_dir / "source_counts_comparison.json",
+                    source_counts,
+                )
 
         report_meta = {
             "schema_version": "v5",
@@ -102,6 +112,9 @@ class JsonExporter:
                 "metrics_json": str(metrics_json),
                 "warnings_json": str(warnings_json),
                 "financial_debug_json": str(financial_debug_json),
+                "source_counts_comparison_json": (
+                    str(source_counts_comparison_json) if source_counts_comparison_json else ""
+                ),
             },
             "counts": {
                 "ads": len(raw_bundle.ads),
@@ -123,12 +136,11 @@ class JsonExporter:
         }
         report_meta_json = self._write_json(self.cabinet_ctx.report_meta_path, report_meta)
 
-        debug_dir = self.cabinet_ctx.debug_artifacts_dir
         raw_debug = self._write_json(debug_dir / "raw_bundle.json", raw_payload)
         normalized_debug = self._write_json(debug_dir / "normalized_bundle.json", normalized_payload)
         facts_debug = self._write_json(debug_dir / "facts_bundle.json", facts_payload)
 
-        return {
+        exported_paths: dict[str, Path] = {
             "metrics_json": metrics_json,
             "warnings_json": warnings_json,
             "financial_debug_json": financial_debug_json,
@@ -138,3 +150,6 @@ class JsonExporter:
             "debug_normalized": normalized_debug,
             "debug_facts": facts_debug,
         }
+        if source_counts_comparison_json:
+            exported_paths["debug_source_counts_comparison"] = source_counts_comparison_json
+        return exported_paths
