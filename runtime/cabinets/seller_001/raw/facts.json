@@ -1,0 +1,33 @@
+{
+  "date": "2026-04-02",
+  "report_date": "2026-04-02",
+  "finance_status": "delayed",
+  "sku_performance": {
+    "rows": [
+      {
+        "sku": "WB-001",
+        "seller_sku": "SKU-PROFIT",
+        "revenue": 1000,
+        "orders": 5,
+        "ad_spend": 50,
+        "ad_revenue_attr": 200
+      },
+      {
+        "sku": "WB-002",
+        "seller_sku": "SKU-LOSS",
+        "revenue": 500,
+        "orders": 5,
+        "ad_spend": 120,
+        "ad_revenue_attr": 200
+      },
+      {
+        "sku": "WB-003",
+        "seller_sku": "SKU-NOCOGS",
+        "revenue": 300,
+        "orders": 3,
+        "ad_spend": 30,
+        "ad_revenue_attr": 0
+      }
+    ]
+  }
+}
