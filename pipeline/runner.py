@@ -8,6 +8,7 @@ from pipeline.steps.assortment import run as run_assortment
 from pipeline.steps.finance import run as run_finance
 from pipeline.steps.ingest import run as run_ingest
 from pipeline.steps.reporting import run as run_reporting
+from shared.config.seller_config import load_seller_config
 from shared.dates.date_policy import get_report_date
 from shared.paths.paths import get_paths
 
@@ -22,11 +23,22 @@ def run_pipeline(seller: str, mode: str = "daily") -> dict:
     paths = get_paths(seller)
     _ensure_runtime_dirs(paths)
     report_date = get_report_date()
+    seller_config = load_seller_config(seller)
 
     run_ingest(paths=paths, mode=mode, report_date=report_date)
-    finance_summary = run_finance(paths=paths, mode=mode, report_date=report_date)
+    finance_summary = run_finance(
+        paths=paths,
+        mode=mode,
+        report_date=report_date,
+        seller_config=seller_config,
+    )
     assortment_summary = run_assortment(paths=paths, mode=mode, report_date=report_date)
-    report = run_reporting(paths=paths, mode=mode, report_date=report_date)
+    report = run_reporting(
+        paths=paths,
+        mode=mode,
+        report_date=report_date,
+        seller_config=seller_config,
+    )
 
     return {
         "seller": seller,
@@ -36,4 +48,3 @@ def run_pipeline(seller: str, mode: str = "daily") -> dict:
         "assortment_summary": assortment_summary,
         "report": report,
     }
-

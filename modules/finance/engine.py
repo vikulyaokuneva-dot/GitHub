@@ -17,7 +17,7 @@ def _to_float(value: Any) -> float:
         return 0.0
 
 
-def run_finance(seller_path: Path) -> dict:
+def run_finance(seller_path: Path, seller_config: dict[str, Any] | None = None) -> dict:
     """
     Read realization JSON, compute revenue/tax, save finance_summary.json.
 
@@ -28,16 +28,13 @@ def run_finance(seller_path: Path) -> dict:
       runtime/cabinets/<seller>/analytics/finance_summary.json
     """
     realization_path = seller_path / "raw" / "realization.json"
-    cogs_path = seller_path / "config" / "cogs.json"
     output_path = seller_path / "analytics" / "finance_summary.json"
 
     realization_payload = read_json(realization_path)
     rows = realization_payload if isinstance(realization_payload, list) else []
     revenue = sum(_to_float(row.get("sale_amount")) for row in rows if isinstance(row, dict))
 
-    cogs_payload = read_json(cogs_path)
-    settings = cogs_payload.get("settings", {}) if isinstance(cogs_payload, dict) else {}
-    tax_rate = _to_float(settings.get("tax_rate")) or 0.06
+    tax_rate = _to_float((seller_config or {}).get("tax_rate")) or 0.06
     tax = revenue * tax_rate
 
     summary = {
@@ -48,4 +45,3 @@ def run_finance(seller_path: Path) -> dict:
     }
     write_json(output_path, summary)
     return summary
-

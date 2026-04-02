@@ -7,5 +7,10 @@
     "revenue": 0,
     "tax_rate": 0.06,
     "tax": 0.0
+  },
+  "config_snapshot": {
+    "seller": "seller_002",
+    "mode": "daily",
+    "tax_rate": 0.06
   }
 }
