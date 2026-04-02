@@ -67,7 +67,13 @@ jobs:
           set -euo pipefail
           echo "[v5] Starting daily API run"
           echo "[v5] cabinet=${V5_SELLER_ID}"
-          python -m v5.entry daily --cabinet "${V5_SELLER_ID}"
+          if [ -n "${V5_REQUESTED_DATE}" ]; then
+            echo "[v5] requested_date=${V5_REQUESTED_DATE}"
+            python -m v5.entry daily --cabinet "${V5_SELLER_ID}" --date "${V5_REQUESTED_DATE}"
+          else
+            echo "[v5] requested_date=<auto D-1 by Europe/Berlin policy>"
+            python -m v5.entry daily --cabinet "${V5_SELLER_ID}"
+          fi
           echo "[v5] Pipeline finished"
 
       - name: Print cabinet artifacts

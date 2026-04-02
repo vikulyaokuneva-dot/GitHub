@@ -9,11 +9,12 @@ Usage:
 
 import argparse
 import asyncio
-from datetime import datetime, date
+from datetime import datetime
 
 from .orchestrator import Orchestrator
 from .config import get_config
 from .domain import ProcessingStatus
+from .date_policy import get_berlin_today
 
 
 async def main() -> int:
@@ -27,11 +28,20 @@ async def main() -> int:
     # daily mode
     daily_parser = subparsers.add_parser("daily", help="Daily API pull")
     daily_parser.add_argument("--cabinet", required=True, help="Cabinet ID (e.g., seller_001)")
+    daily_parser.add_argument(
+        "--date",
+        default="",
+        help="Optional requested report date (YYYY-MM-DD); daily policy may adjust to D-1",
+    )
     
     # audit mode
     audit_parser = subparsers.add_parser("audit", help="Report audit mode")
     audit_parser.add_argument("--cabinet", required=True, help="Cabinet ID")
-    audit_parser.add_argument("--date", default=str(date.today()), help="Report date (YYYY-MM-DD)")
+    audit_parser.add_argument(
+        "--date",
+        default=str(get_berlin_today()),
+        help="Report date (YYYY-MM-DD)",
+    )
     
     # analytics query
     analytics_parser = subparsers.add_parser("analytics", help="View analytics")
@@ -51,7 +61,12 @@ async def main() -> int:
     
     # Execute command
     if args.command == "daily":
-        result = await orchestrator.run_daily(args.cabinet)
+        requested_date = (
+            datetime.strptime(args.date, "%Y-%m-%d").date()
+            if str(args.date or "").strip()
+            else None
+        )
+        result = await orchestrator.run_daily(args.cabinet, requested_date=requested_date)
         print(result.message)
         return 0 if result.status != ProcessingStatus.FAILED else 1
     elif args.command == "audit":

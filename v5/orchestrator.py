@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .config import Config
+from .date_policy import DateResolution, resolve_processing_dates
 from .domain import (
     CabinetContext,
     Cabinet,
@@ -83,8 +84,14 @@ class Orchestrator:
             return {}
 
     @staticmethod
-    def _build_warnings(metrics_financial: dict[str, Any], raw_debug: dict[str, Any]) -> list[dict[str, Any]]:
+    def _build_warnings(
+        metrics_financial: dict[str, Any],
+        raw_debug: dict[str, Any],
+        date_warnings: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, Any]]:
         warnings: list[dict[str, Any]] = []
+        if date_warnings:
+            warnings.extend(date_warnings)
         finality = str(metrics_financial.get("financial_finality_status") or "unavailable")
         if finality in {"partial", "unavailable"}:
             warnings.append(
@@ -121,11 +128,17 @@ class Orchestrator:
         self,
         *,
         cabinet_id: str,
-        target_date: date,
+        requested_date: date | None,
         mode: Literal["daily", "audit"],
     ) -> ProcessingResult:
         ctx = self._build_context(cabinet_id)
         cogs_map = self._load_cogs_map(ctx)
+        date_resolution: DateResolution = resolve_processing_dates(
+            mode=mode,
+            requested_date=requested_date,
+        )
+        report_date = date_resolution.report_date
+        run_date = date_resolution.run_date
 
         loader = WBAPILoader() if mode == "daily" else FileReportLoader(
             shared_input_dir=self.config.shared_audit_input_root
@@ -135,7 +148,7 @@ class Orchestrator:
         state = state_mgr.load_state()
 
         try:
-            raw_bundle = await loader.load_data(ctx, target_date)
+            raw_bundle = await loader.load_data(ctx, report_date)
             normalized = self.normalizer.normalize(raw_bundle)
             metrics = self.metrics_engine.calculate(
                 normalized,
@@ -152,20 +165,24 @@ class Orchestrator:
             report_pdf_path = report_gen.generate_pdf(
                 metrics=metrics,
                 facts=facts,
-                target_date=target_date,
+                target_date=report_date,
                 mode=mode,
             )
 
             json_exporter = JsonExporter(ctx)
-            json_exporter.export_metrics(metrics, target_date)
-            json_exporter.export_facts(facts, target_date)
+            json_exporter.export_metrics(metrics, report_date)
+            json_exporter.export_facts(facts, report_date)
 
             warnings = self._build_warnings(
                 metrics_financial=metrics.financial_summary or {},
                 raw_debug=raw_bundle.debug if isinstance(raw_bundle.debug, dict) else {},
+                date_warnings=date_resolution.warnings,
             )
             json_exporter.export_required_artifacts(
-                target_date=target_date,
+                run_date=run_date,
+                report_date=report_date,
+                date_shift_applied=date_resolution.date_shift_applied,
+                date_shift_reason=date_resolution.date_shift_reason,
                 mode=mode,
                 metrics=metrics,
                 facts=facts,
@@ -197,10 +214,12 @@ class Orchestrator:
             return ProcessingResult(
                 status=run_status,
                 cabinet_id=cabinet_id,
-                run_date=target_date,
+                run_date=run_date,
                 mode=mode,
                 message=(
-                    f"v5 pipeline completed ({mode}) with financial_finality_status={finality}. "
+                    f"v5 pipeline completed ({mode}) "
+                    f"run_date={run_date.isoformat()} report_date={report_date.isoformat()} "
+                    f"with financial_finality_status={finality}. "
                     f"Output root: {ctx.cabinet_root}"
                 ),
             )
@@ -213,17 +232,21 @@ class Orchestrator:
             return ProcessingResult(
                 status=ProcessingStatus.FAILED,
                 cabinet_id=cabinet_id,
-                run_date=target_date,
+                run_date=run_date,
                 mode=mode,
                 message=f"Error processing {cabinet_id} in {mode}: {exc}",
                 errors=[str(exc)],
             )
 
-    async def run_daily(self, cabinet_id: str) -> ProcessingResult:
+    async def run_daily(
+        self,
+        cabinet_id: str,
+        requested_date: date | None = None,
+    ) -> ProcessingResult:
         """Run daily API mode."""
         return await self._run_pipeline(
             cabinet_id=cabinet_id,
-            target_date=date.today(),
+            requested_date=requested_date,
             mode="daily",
         )
 
@@ -231,7 +254,7 @@ class Orchestrator:
         """Run audit (file) mode."""
         return await self._run_pipeline(
             cabinet_id=cabinet_id,
-            target_date=target_date,
+            requested_date=target_date,
             mode="audit",
         )
 

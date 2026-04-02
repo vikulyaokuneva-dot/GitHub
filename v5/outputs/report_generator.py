@@ -46,7 +46,7 @@ class ReportGenerator:
         c.setFont("Helvetica", 10)
         c.drawString(40, y, f"Cabinet: {metrics.cabinet_id}")
         y -= 14
-        c.drawString(40, y, f"Date: {report_date.isoformat()}")
+        c.drawString(40, y, f"Report date: {report_date.isoformat()}")
         y -= 14
 
         portfolio = metrics.portfolio_metrics

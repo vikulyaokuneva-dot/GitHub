@@ -45,7 +45,10 @@ class JsonExporter:
     def export_required_artifacts(
         self,
         *,
-        target_date: date,
+        run_date: date,
+        report_date: date,
+        date_shift_applied: bool,
+        date_shift_reason: str,
         mode: str,
         metrics: MetricsBundle,
         facts: FactsBundle,
@@ -87,7 +90,10 @@ class JsonExporter:
             "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
             "cabinet_id": metrics.cabinet_id,
             "mode": mode,
-            "report_date": target_date.isoformat(),
+            "run_date": run_date.isoformat(),
+            "report_date": report_date.isoformat(),
+            "date_shift_applied": bool(date_shift_applied),
+            "date_shift_reason": str(date_shift_reason or ""),
             "paths": {
                 "artifacts_dir": str(self.cabinet_ctx.artifacts_dir),
                 "outputs_dir": str(self.cabinet_ctx.outputs_dir),
