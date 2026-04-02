@@ -1,8 +1,944 @@
 {
-  "total_skus": 0,
-  "items": [],
-  "generated_at": "2026-04-02T19:58:38.275682+00:00",
+  "total_skus": 22,
+  "items": [
+    {
+      "seller_sku": "Маз Простор Бежевый",
+      "wb_sku": "875412618",
+      "rows_count": 5,
+      "query_count_total": 90,
+      "clicks_total": 4,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "маз",
+          "query_count": 85,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 0.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 32.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали вольво фн13",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        },
+        {
+          "query": "аксессуары для маза",
+          "query_count": 0,
+          "card_clicks": 0,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 0.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Sitrak",
+      "wb_sku": "430679462",
+      "rows_count": 5,
+      "query_count_total": 50,
+      "clicks_total": 9,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "ситрак",
+          "query_count": 30,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 25.0,
+          "rows_count": 1
+        },
+        {
+          "query": "маз аксессуары",
+          "query_count": 15,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "накладки на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 89.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 32.0,
+          "rows_count": 1
+        },
+        {
+          "query": "накладки чехлы на педали на ситрак",
+          "query_count": 1,
+          "card_clicks": 4,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Кросс блок",
+      "wb_sku": "898642228",
+      "rows_count": 5,
+      "query_count_total": 46,
+      "clicks_total": 22,
+      "add_to_cart_total": 2,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "кросс блок фундаментный",
+          "query_count": 14,
+          "card_clicks": 5,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "блок фундаментный",
+          "query_count": 13,
+          "card_clicks": 4,
+          "add_to_cart": 1,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "фундаментный блок под брус",
+          "query_count": 7,
+          "card_clicks": 6,
+          "add_to_cart": 1,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "кросс блок",
+          "query_count": 7,
+          "card_clicks": 3,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        },
+        {
+          "query": "бетонный блок для фундамента",
+          "query_count": 5,
+          "card_clicks": 4,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Дверь Sitrak",
+      "wb_sku": "473036762",
+      "rows_count": 4,
+      "query_count_total": 45,
+      "clicks_total": 4,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "ситрак",
+          "query_count": 30,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 4.0,
+          "rows_count": 1
+        },
+        {
+          "query": "sitrak",
+          "query_count": 12,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 18.0,
+          "rows_count": 1
+        },
+        {
+          "query": "аксессуары ситрак",
+          "query_count": 3,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 50.0,
+          "rows_count": 1
+        },
+        {
+          "query": "для ситрак",
+          "query_count": 0,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 11.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Shacman",
+      "wb_sku": "453526507",
+      "rows_count": 5,
+      "query_count_total": 37,
+      "clicks_total": 6,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "ситрак",
+          "query_count": 30,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 25.0,
+          "rows_count": 1
+        },
+        {
+          "query": "накладки на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 89.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 32.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали вольво фн13",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Маз Простор",
+      "wb_sku": "452102417",
+      "rows_count": 5,
+      "query_count_total": 22,
+      "clicks_total": 7,
+      "add_to_cart_total": 1,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "маз аксессуары",
+          "query_count": 15,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "аксессуары в кабину маз",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 1,
+          "orders_count": 0,
+          "visibility_pct_avg": 89.0,
+          "rows_count": 1
+        },
+        {
+          "query": "грузовые аксессуары",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 0.0,
+          "rows_count": 1
+        },
+        {
+          "query": "а сексуары на автомобиль маз",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Sitrak красный 2х",
+      "wb_sku": "590614192",
+      "rows_count": 5,
+      "query_count_total": 21,
+      "clicks_total": 5,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "маз аксессуары",
+          "query_count": 15,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "накладки на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 56.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 32.0,
+          "rows_count": 1
+        },
+        {
+          "query": "накладки чехлы на педали на ситрак",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали вольво фн13",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Трёшка стандарт",
+      "wb_sku": "333615320",
+      "rows_count": 5,
+      "query_count_total": 20,
+      "clicks_total": 13,
+      "add_to_cart_total": 1,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "sitrak",
+          "query_count": 12,
+          "card_clicks": 3,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 35.0,
+          "rows_count": 1
+        },
+        {
+          "query": "мягкие накладки на педали грузовика",
+          "query_count": 4,
+          "card_clicks": 2,
+          "add_to_cart": 1,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        },
+        {
+          "query": "накладки на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 5,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "шехлы на педали шахман",
+          "query_count": 1,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "аксессуары вкабину камаз",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 71.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Shacman бежевый",
+      "wb_sku": "875337018",
+      "rows_count": 5,
+      "query_count_total": 20,
+      "clicks_total": 4,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "маз аксессуары",
+          "query_count": 15,
+          "card_clicks": 0,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 0.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали",
+          "query_count": 2,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 22.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали вольво фн13",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        },
+        {
+          "query": "накладки на педали для фуры",
+          "query_count": 0,
+          "card_clicks": 0,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 0.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Накладки Iveco",
+      "wb_sku": "875380656",
+      "rows_count": 5,
+      "query_count_total": 9,
+      "clicks_total": 7,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "чехлы на педали",
+          "query_count": 2,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 22.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 89.0,
+          "rows_count": 1
+        },
+        {
+          "query": "накладки на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 63.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы педали на шахман",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 20.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали вольво фн13",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Трешка бежевая",
+      "wb_sku": "584904841",
+      "rows_count": 5,
+      "query_count_total": 9,
+      "clicks_total": 5,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "накладки на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 63.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 32.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "камаз нео тюнинг",
+          "query_count": 2,
+          "card_clicks": 0,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 0.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали вольво фн13",
+          "query_count": 1,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Маз автомат",
+      "wb_sku": "414589567",
+      "rows_count": 5,
+      "query_count_total": 8,
+      "clicks_total": 3,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "аксессуары для грузовиков в кабину",
+          "query_count": 3,
+          "card_clicks": 0,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 0.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 32.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали вольво фн13",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы для педалей",
+          "query_count": 0,
+          "card_clicks": 0,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 0.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Газон Next",
+      "wb_sku": "411974544",
+      "rows_count": 3,
+      "query_count_total": 5,
+      "clicks_total": 2,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали",
+          "query_count": 2,
+          "card_clicks": 0,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 0.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали вольво фн13",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Scania",
+      "wb_sku": "453436372",
+      "rows_count": 2,
+      "query_count_total": 4,
+      "clicks_total": 1,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали",
+          "query_count": 2,
+          "card_clicks": 0,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 0.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "wb27ixaw1g",
+      "wb_sku": "283212418",
+      "rows_count": 3,
+      "query_count_total": 3,
+      "clicks_total": 4,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "корзиночка ручная работа с крышкой",
+          "query_count": 1,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 20.0,
+          "rows_count": 1
+        },
+        {
+          "query": "корзина вязаная с крышкой",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        },
+        {
+          "query": "корзина из полиэфирного шнура с крышкой",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 56.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Shacman синий",
+      "wb_sku": "739384273",
+      "rows_count": 2,
+      "query_count_total": 3,
+      "clicks_total": 2,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        },
+        {
+          "query": "чехлы на педали вольво фн13",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 79.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Педали Sitrak красные",
+      "wb_sku": "583470321",
+      "rows_count": 1,
+      "query_count_total": 2,
+      "clicks_total": 2,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 2,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Трешка Синяя",
+      "wb_sku": "583633646",
+      "rows_count": 1,
+      "query_count_total": 2,
+      "clicks_total": 1,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Sitrak бежевый",
+      "wb_sku": "584925420",
+      "rows_count": 1,
+      "query_count_total": 2,
+      "clicks_total": 1,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "Простор синий",
+      "wb_sku": "739377515",
+      "rows_count": 1,
+      "query_count_total": 2,
+      "clicks_total": 1,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "чехлы на педали грузовика",
+          "query_count": 2,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 100.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "wb5j0f7z1w",
+      "wb_sku": "291361554",
+      "rows_count": 1,
+      "query_count_total": 1,
+      "clicks_total": 1,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "корзиночка ручная работа с крышкой",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 20.0,
+          "rows_count": 1
+        }
+      ]
+    },
+    {
+      "seller_sku": "wb2fp7wxeg",
+      "wb_sku": "295325676",
+      "rows_count": 1,
+      "query_count_total": 1,
+      "clicks_total": 1,
+      "add_to_cart_total": 0,
+      "orders_total": 0,
+      "top_queries": [
+        {
+          "query": "корзиночка ручная работа с крышкой",
+          "query_count": 1,
+          "card_clicks": 1,
+          "add_to_cart": 0,
+          "orders_count": 0,
+          "visibility_pct_avg": 20.0,
+          "rows_count": 1
+        }
+      ]
+    }
+  ],
+  "generated_at": "2026-04-02T20:32:09.067276+00:00",
   "status": "ok",
-  "sheet_name": "Статистика по ключевым словам",
+  "message": "Loaded 75 rows from Детальные показатели; header_row=2; recognized=['add_to_cart', 'avg_position', 'card_clicks', 'cart_conv_pct', 'median_position', 'order_conv_pct', 'orders_count', 'price_max', 'price_min', 'query', 'query_count', 'seller_sku', 'visibility_pct', 'wb_sku']",
+  "sheet_name": "Детальные показатели",
+  "header_row_index": 2,
+  "recognized_columns": {
+    "seller_sku": "Артикул продавца",
+    "wb_sku": "Артикул WB",
+    "query": "Поисковый запрос",
+    "query_count": "Количество запросов",
+    "visibility_pct": "Видимость, %",
+    "avg_position": "Средняя позиция",
+    "median_position": "Медианная позиция",
+    "card_clicks": "Переходы в карточку",
+    "add_to_cart": "Положили в корзину",
+    "cart_conv_pct": "Конверсия в корзину, %",
+    "orders_count": "Заказали, шт",
+    "order_conv_pct": "Конверсия в заказ, %",
+    "price_min": "Минимальная цена со скидкой (по размерам), ₽",
+    "price_max": "Максимальная цена со скидкой (по размерам), ₽"
+  },
   "input_file": "runtime\\cabinets\\seller_001\\raw\\search_queries.xlsx"
 }

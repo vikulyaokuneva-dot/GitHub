@@ -44,13 +44,16 @@ def _aggregate_by_query(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-def build_search_queries_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def build_search_queries_summary(rows: list[dict[str, Any]], has_sku_columns: bool = True) -> dict[str, Any]:
     query_agg = _aggregate_by_query(rows)
-    sku_keys = {
-        (str(r.get("seller_sku", "")).strip(), str(r.get("wb_sku", "")).strip())
-        for r in rows
-        if str(r.get("seller_sku", "")).strip() or str(r.get("wb_sku", "")).strip()
-    }
+    if has_sku_columns:
+        sku_keys = {
+            (str(r.get("seller_sku", "")).strip(), str(r.get("wb_sku", "")).strip())
+            for r in rows
+            if str(r.get("seller_sku", "")).strip() or str(r.get("wb_sku", "")).strip()
+        }
+    else:
+        sku_keys = set()
     top_no_orders = _top([x for x in query_agg if int(x.get("orders_count", 0) or 0) <= 0], "query_count", 20)
     top_low_visibility = _top(query_agg, "visibility_pct_avg", 20, reverse=False)
 
@@ -67,10 +70,19 @@ def build_search_queries_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def build_search_queries_by_sku(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def build_search_queries_by_sku(rows: list[dict[str, Any]], has_sku_columns: bool = True) -> dict[str, Any]:
+    if not has_sku_columns:
+        return {
+            "total_skus": 0,
+            "items": [],
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for row in rows:
         key = (str(row.get("seller_sku", "")).strip(), str(row.get("wb_sku", "")).strip())
+        if not key[0] and not key[1]:
+            continue
         grouped.setdefault(key, []).append(row)
 
     sku_rows: list[dict[str, Any]] = []
@@ -95,4 +107,3 @@ def build_search_queries_by_sku(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "items": sku_rows,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
-

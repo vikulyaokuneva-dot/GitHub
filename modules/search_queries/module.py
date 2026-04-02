@@ -26,12 +26,17 @@ def run(seller_path: str | Path) -> dict[str, Any]:
     status = str(read_result.get("status") or "read_error")
     message = str(read_result.get("message") or "")
     sheet_name = read_result.get("sheet_name")
+    header_row_index = read_result.get("header_row_index")
+    recognized_columns = read_result.get("recognized_columns") or {}
+    has_sku_columns = bool(read_result.get("has_sku_columns", False))
 
     if status != "ok":
         summary = {
             "status": status,
             "message": message,
             "sheet_name": sheet_name,
+            "header_row_index": header_row_index,
+            "recognized_columns": recognized_columns,
             "total_rows": 0,
             "unique_queries": 0,
             "unique_skus": 0,
@@ -45,6 +50,9 @@ def run(seller_path: str | Path) -> dict[str, Any]:
         by_sku = {
             "status": status,
             "message": message,
+            "sheet_name": sheet_name,
+            "header_row_index": header_row_index,
+            "recognized_columns": recognized_columns,
             "total_skus": 0,
             "items": [],
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -62,28 +70,41 @@ def run(seller_path: str | Path) -> dict[str, Any]:
         }
 
     raw_rows = read_result.get("rows") or []
-    normalized_rows = normalize_search_queries_rows(raw_rows)
-    summary = build_search_queries_summary(normalized_rows)
-    by_sku = build_search_queries_by_sku(normalized_rows)
-    summary["status"] = "ok"
+    normalized_rows = normalize_search_queries_rows(raw_rows, recognized_columns=recognized_columns)
+    summary = build_search_queries_summary(normalized_rows, has_sku_columns=has_sku_columns)
+    by_sku = build_search_queries_by_sku(normalized_rows, has_sku_columns=has_sku_columns)
+    final_status = "ok" if has_sku_columns else "query_only_mode"
+    final_message = message
+    if not has_sku_columns:
+        final_message = "SKU columns were not detected; summary built in query-only mode"
+
+    summary["status"] = final_status
+    summary["message"] = final_message
     summary["sheet_name"] = sheet_name
+    summary["header_row_index"] = header_row_index
+    summary["recognized_columns"] = recognized_columns
     summary["input_file"] = str(input_path)
-    by_sku["status"] = "ok"
+    by_sku["status"] = final_status
+    by_sku["message"] = final_message
     by_sku["sheet_name"] = sheet_name
+    by_sku["header_row_index"] = header_row_index
+    by_sku["recognized_columns"] = recognized_columns
     by_sku["input_file"] = str(input_path)
 
     write_json(summary_path, summary)
     write_json(by_sku_path, by_sku)
     print(
-        f"[search_queries] ok: rows={summary['total_rows']} "
+        f"[search_queries] {final_status}: rows={summary['total_rows']} "
         f"queries={summary['unique_queries']} skus={summary['unique_skus']} "
         f"sheet={sheet_name}"
     )
     return {
-        "status": "ok",
+        "status": final_status,
+        "message": final_message,
         "sheet_name": sheet_name,
+        "header_row_index": header_row_index,
+        "recognized_columns": recognized_columns,
         "total_rows": summary["total_rows"],
         "summary_path": str(summary_path),
         "by_sku_path": str(by_sku_path),
     }
-

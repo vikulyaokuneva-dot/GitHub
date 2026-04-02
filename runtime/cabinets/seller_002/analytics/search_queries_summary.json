@@ -2,6 +2,8 @@
   "status": "no_input",
   "message": "Input file not found: runtime\\cabinets\\seller_002\\raw\\search_queries.xlsx",
   "sheet_name": null,
+  "header_row_index": null,
+  "recognized_columns": {},
   "total_rows": 0,
   "unique_queries": 0,
   "unique_skus": 0,
@@ -10,5 +12,5 @@
   "top_queries_by_add_to_cart": [],
   "top_queries_with_no_orders": [],
   "top_queries_low_visibility": [],
-  "generated_at": "2026-04-02T20:00:08.519138+00:00"
+  "generated_at": "2026-04-02T20:30:42.169921+00:00"
 }
