@@ -1,0 +1,30 @@
+{
+  "name": "wb_modular_runtime",
+  "version": "0.1.0",
+  "description": "Modular runtime layer on top of existing v2 ingestion",
+  "modules": {
+    "finance": {
+      "path": "modules/finance",
+      "purpose": "Compute finance summary JSON from realization raw data"
+    },
+    "assortment": {
+      "path": "modules/assortment",
+      "purpose": "Assortment analytics placeholder over JSON inputs"
+    },
+    "reporting": {
+      "path": "modules/reporting",
+      "purpose": "Build final report JSON from analytics outputs"
+    }
+  },
+  "pipeline": {
+    "runner": "pipeline/runner.py",
+    "steps": [
+      "pipeline/steps/ingest.py",
+      "pipeline/steps/finance.py",
+      "pipeline/steps/assortment.py",
+      "pipeline/steps/reporting.py"
+    ]
+  },
+  "runtime_root": "runtime/cabinets"
+}
+
