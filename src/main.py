@@ -99,7 +99,21 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     if revenue_orders is None:
         revenue_orders = account_summary.get("revenue_orders")
 
-    revenue_buyouts = funnel_summary.get("revenue_buyouts")
+    # Buyouts amount must come from realization-based finance first.
+    # Funnel buyout sum is used only as fallback when finance is unavailable.
+    revenue_buyouts = None
+    finance_rows_count = 0
+    try:
+        raw_rows = financial_summary.get("rows_count")
+        if raw_rows is not None and raw_rows != "":
+            finance_rows_count = int(float(raw_rows))
+    except Exception:
+        finance_rows_count = 0
+
+    if finance_rows_count > 0:
+        revenue_buyouts = financial_summary.get("gross_revenue")
+    if revenue_buyouts is None:
+        revenue_buyouts = funnel_summary.get("revenue_buyouts")
     if revenue_buyouts is None:
         revenue_buyouts = account_summary.get("revenue_buyouts")
 
