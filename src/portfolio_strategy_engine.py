@@ -41,7 +41,11 @@ def _cfg_int(name: str, default: int) -> int:
         return default
 
 
-def classify_sku(row: Dict[str, Any], cfg: Dict[str, Any]) -> Tuple[str, str, List[str], str]:
+def classify_sku(
+    row: Dict[str, Any],
+    cfg: Dict[str, Any],
+    finance_status: str = "ok",
+) -> Tuple[str, str, List[str], str]:
     """
     Returns:
       category: "Growth" | "Stable" | "Problem" | "Dead"
@@ -68,6 +72,16 @@ def classify_sku(row: Dict[str, Any], cfg: Dict[str, Any]) -> Tuple[str, str, Li
     min_buyouts_growth = int(cfg["min_buyouts_growth"])
 
     reasons: List[str] = []
+    finance_status_norm = str(finance_status or "").strip().lower()
+
+    # When WB finance rows are delayed, avoid hard profit/dead conclusions.
+    if finance_status_norm == "delayed":
+        reasons.append("Финансовые строки WB за дату задерживаются; статус SKU предварительный.")
+        if orders > 0 or buyouts > 0:
+            return "Stable", "medium", reasons, "wait_finance_refresh"
+        if stock_qty > 0:
+            return "Problem", "low", reasons, "check_listing_and_wait_finance"
+        return "Problem", "low", reasons, "wait_finance_refresh"
 
     # --- DEAD ---
     if buyouts == 0 and orders == 0 and stock_qty > 0:
@@ -153,6 +167,7 @@ def classify_sku(row: Dict[str, Any], cfg: Dict[str, Any]) -> Tuple[str, str, Li
 def analyze_portfolio_strategy(
     *,
     sku_performance: Dict[str, Any],
+    finance_status: str = "ok",
 ) -> Dict[str, Any]:
     """
     Input: facts_json.sku_performance (output of analyze_sku_performance)
@@ -183,7 +198,7 @@ def analyze_portfolio_strategy(
     for r in rows:
         if not isinstance(r, dict):
             continue
-        cat, pr, reasons, primary = classify_sku(r, cfg)
+        cat, pr, reasons, primary = classify_sku(r, cfg, finance_status=finance_status)
         classified.append({
             "sku": _i(r.get("sku")),
             "category": cat,
@@ -237,6 +252,7 @@ def analyze_portfolio_strategy(
 
     return {
         "config": cfg,
+        "finance_status": str(finance_status),
         "summary": summary,
         "sku_strategies": sku_strategies_for_llm,
         # full list can be heavy; включай только если нужно

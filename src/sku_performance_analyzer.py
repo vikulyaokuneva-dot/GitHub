@@ -270,6 +270,7 @@ def analyze_sku_performance(
     stocks_raw: Any,
     ads_raw: Any,
     period_days: int = 1,
+    finance_status: str = "ok",
 ) -> Dict[str, Any]:
     sku_fin: Dict[int, Dict[str, Any]] = {}
     raw_sf = finance_summary.get("sku_financials") or {}
@@ -329,29 +330,50 @@ def analyze_sku_performance(
             "turnover_days": round(float(turnover_days or 0.0), 2),
         })
 
-    rows_sorted, abc_meta = _abc_by_profit(rows)
+    if str(finance_status) == "delayed":
+        rows_sorted = sorted(
+            rows,
+            key=lambda r: (
+                int(r.get("orders", 0) or 0),
+                int(r.get("buyouts", 0) or 0),
+                float(r.get("revenue", 0.0) or 0.0),
+            ),
+            reverse=True,
+        )
+        for r in rows_sorted:
+            r["abc"] = "N/A"
+        abc_meta = {
+            "method": "skipped_due_finance_delayed",
+            "reason": "profit-based ABC is disabled while WB finance rows are delayed",
+        }
+        abc_agg = {}
+        top_profit = []
+        worst_profit = []
+    else:
+        rows_sorted, abc_meta = _abc_by_profit(rows)
 
-    # summary by abc
-    abc_agg = {"A": {"sku_count": 0, "profit": 0.0, "revenue": 0.0},
-               "B": {"sku_count": 0, "profit": 0.0, "revenue": 0.0},
-               "C": {"sku_count": 0, "profit": 0.0, "revenue": 0.0}}
-    for r in rows_sorted:
-        c = r.get("abc") or "C"
-        if c not in abc_agg:
-            c = "C"
-        abc_agg[c]["sku_count"] += 1
-        abc_agg[c]["profit"] += float(r.get("profit", 0.0) or 0.0)
-        abc_agg[c]["revenue"] += float(r.get("revenue", 0.0) or 0.0)
+        # summary by abc
+        abc_agg = {"A": {"sku_count": 0, "profit": 0.0, "revenue": 0.0},
+                   "B": {"sku_count": 0, "profit": 0.0, "revenue": 0.0},
+                   "C": {"sku_count": 0, "profit": 0.0, "revenue": 0.0}}
+        for r in rows_sorted:
+            c = r.get("abc") or "C"
+            if c not in abc_agg:
+                c = "C"
+            abc_agg[c]["sku_count"] += 1
+            abc_agg[c]["profit"] += float(r.get("profit", 0.0) or 0.0)
+            abc_agg[c]["revenue"] += float(r.get("revenue", 0.0) or 0.0)
 
-    for c in abc_agg:
-        abc_agg[c]["profit"] = round(abc_agg[c]["profit"], 2)
-        abc_agg[c]["revenue"] = round(abc_agg[c]["revenue"], 2)
+        for c in abc_agg:
+            abc_agg[c]["profit"] = round(abc_agg[c]["profit"], 2)
+            abc_agg[c]["revenue"] = round(abc_agg[c]["revenue"], 2)
 
-    top_profit = rows_sorted[:15]
-    worst_profit = sorted(rows_sorted, key=lambda r: float(r.get("profit", 0.0) or 0.0))[:10]
+        top_profit = rows_sorted[:15]
+        worst_profit = sorted(rows_sorted, key=lambda r: float(r.get("profit", 0.0) or 0.0))[:10]
 
     return {
         "period_days": int(period_days or 1),
+        "finance_status": str(finance_status),
         "abc_meta": abc_meta,
         "abc_summary": abc_agg,
         "top_profit": top_profit,

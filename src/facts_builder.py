@@ -18,6 +18,7 @@ from src.metrics import (
 from src.decisions import build_decision_signals
 from src.sku_performance_analyzer import analyze_sku_performance
 from src.portfolio_strategy_engine import analyze_portfolio_strategy
+from src.report_metrics import derive_finance_status
 
 
 # WB отчёты в кабинетах обычно живут в МСК
@@ -95,6 +96,10 @@ def build_facts_json() -> Dict[str, Any]:
         tax_rate=tax_rate,
         max_lag_days=MAX_FINANCE_LAG_DAYS,
     )
+    finance_status, finance_message, _, financial_rows_count = derive_finance_status(
+        funnel.get("orders"),
+        finance.get("rows_count"),
+    )
 
     # 4.5) SKU performance + ABC (на основе finance.sku_financials + воронки/остатков/рекламы)
     # NB: привязка рекламы к SKU зависит от доступности nmId в API/ручных выгрузках.
@@ -105,17 +110,22 @@ def build_facts_json() -> Dict[str, Any]:
             stocks_raw=stocks_raw,
             ads_raw=ads_raw,
             period_days=1,
+            finance_status=finance_status,
         )
         sku_performance["meta"] = {
             "finance_date_used": finance_meta.get("finance_date_used"),
             "finance_lag_days": finance_meta.get("finance_lag_days"),
+            "finance_status": finance_status,
         }
     except Exception:
         sku_performance = {"error": "sku_performance_failed"}
 
     # 4.6) Portfolio strategy engine (AI директор ассортимента)
     try:
-        portfolio_strategy = analyze_portfolio_strategy(sku_performance=sku_performance)
+        portfolio_strategy = analyze_portfolio_strategy(
+            sku_performance=sku_performance,
+            finance_status=finance_status,
+        )
     except Exception:
         portfolio_strategy = {"error": "portfolio_strategy_failed"}
 
@@ -189,6 +199,9 @@ def build_facts_json() -> Dict[str, Any]:
         key=lambda x: float(x.get("stock_qty", 0) or 0),
         reverse=True
     )[:50]
+    if finance_status == "delayed":
+        # During finance lag we avoid dead-SKU-like conclusions based only on empty realization.
+        no_sales_with_stock = []
 
     # KPI по кабинету
     ctr = float(ads.get("ctr", 0) or 0)
@@ -199,14 +212,17 @@ def build_facts_json() -> Dict[str, Any]:
 
     alerts = []
 
-    if int(finance.get("rows_count", 0) or 0) == 0:
+    if finance_status == "delayed":
+        alerts.append({
+            "type": "finance_delayed",
+            "severity": "high",
+            "msg": finance_message,
+        })
+    elif finance_status == "missing":
         alerts.append({
             "type": "realization_empty",
-            "severity": "high",
-            "msg": (
-                "WB не вернул отчёт реализации за последние дни. "
-                "Финансовые цифры могут появиться с лагом 1–2 дня."
-            )
+            "severity": "medium",
+            "msg": finance_message,
         })
     elif int(finance_meta.get("finance_lag_days", 0) or 0) > 0:
         alerts.append({
@@ -310,9 +326,13 @@ def build_facts_json() -> Dict[str, Any]:
 
     return {
         "date": str(report_date),
+        "report_date": str(report_date),
         "report_type": "daily",
         "timezone": str(WB_TIMEZONE),
         "tax_rate": tax_rate,
+        "finance_status": finance_status,
+        "finance_message": finance_message,
+        "financial_rows_count": financial_rows_count,
 
         "financial_summary": finance,
 

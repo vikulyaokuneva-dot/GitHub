@@ -2,6 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
+FINANCE_DELAYED_MESSAGE = (
+    "Заказы уже есть, но WB ещё не отдал финансовые строки/выкупы за эту дату. "
+    "Данные по выкупам, логистике и прибыли могут обновиться позже."
+)
+
+FINANCE_MISSING_MESSAGE = (
+    "WB пока не отдал финансовые строки за дату отчёта. "
+    "Финансовые показатели могут появиться позже."
+)
+
+FINANCE_OK_MESSAGE = "Финансовые строки за дату отчёта доступны."
+
 
 def safe_float(value: Any) -> float | None:
     if value is None:
@@ -56,6 +68,16 @@ def _pick_float(candidates: list[tuple[str, Any]]) -> tuple[float | None, str | 
     return None, None
 
 
+def derive_finance_status(orders: Any, financial_rows_count: Any) -> tuple[str, str, int, int]:
+    orders_i = safe_int(orders) or 0
+    rows_i = safe_int(financial_rows_count) or 0
+    if rows_i > 0:
+        return "ok", FINANCE_OK_MESSAGE, orders_i, rows_i
+    if orders_i > 0:
+        return "delayed", FINANCE_DELAYED_MESSAGE, orders_i, rows_i
+    return "missing", FINANCE_MISSING_MESSAGE, orders_i, rows_i
+
+
 def compute_report_metrics(facts: dict) -> dict:
     account_summary = facts.get("account_summary") or {}
     funnel_summary = facts.get("funnel_summary") or {}
@@ -107,7 +129,8 @@ def compute_report_metrics(facts: dict) -> dict:
         roas = round(ad_attributed_revenue / ad_spend, 2)
         roas_source = "ad_attributed_revenue/ad_spend"
 
-    finance_available = rows_count is not None and rows_count > 0
+    finance_status, finance_message, _, rows_count_i = derive_finance_status(orders, rows_count)
+    finance_available = finance_status == "ok"
     ads_attribution_available = ad_attributed_revenue is not None
     ads_efficiency_limited = ad_spend is not None and ad_attributed_revenue is None
 
@@ -128,8 +151,10 @@ def compute_report_metrics(facts: dict) -> dict:
         "roas": roas,
         "stock_units": stock_units,
         "sku_count": sku_count,
-        "financial_rows_count": rows_count,
+        "financial_rows_count": rows_count_i,
         "finance_available": finance_available,
+        "finance_status": finance_status,
+        "finance_message": finance_message,
         "ads_attribution_available": ads_attribution_available,
         "ads_efficiency_limited": ads_efficiency_limited,
         "no_sales_with_stock_top5": no_sales_top5,

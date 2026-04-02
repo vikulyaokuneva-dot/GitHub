@@ -128,6 +128,9 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     sku_count = metrics.get("sku_count")
     rows_count = metrics.get("financial_rows_count")
     finance_available = bool(metrics.get("finance_available"))
+    finance_status = str(metrics.get("finance_status") or facts.get("finance_status") or "missing")
+    finance_message = str(metrics.get("finance_message") or facts.get("finance_message") or "")
+    report_date_effective = str(facts.get("report_date") or report_date)
     ads_efficiency_limited = bool(metrics.get("ads_efficiency_limited"))
     no_sales_top5 = metrics.get("no_sales_with_stock_top5") or []
     raw_values = metrics.get("raw_values") or {}
@@ -326,6 +329,8 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
                 "sku_count": sku_count,
                 "financial_rows_count": rows_count,
                 "finance_available": finance_available,
+                "finance_status": finance_status,
+                "finance_message": finance_message,
                 "ads_efficiency_limited": ads_efficiency_limited,
                 "cogs_total": cogs_total,
                 "wb_commission": wb_commission,
@@ -348,6 +353,11 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         actions.extend(existing_actions)
 
     if not finance_available:
+        finance_why = (
+            finance_message
+            if finance_message
+            else "financial_summary.rows_count = 0, финансовый отчёт за дату не получен"
+        )
         actions.append(
             {
                 "priority": "P0",
@@ -355,13 +365,16 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
                 "sku": "",
                 "campaign_id": "",
                 "action": "Check WB financial report export for the report date",
-                "why": 'financial_summary.rows_count = 0, финансовый отчёт за дату не получен',
+                "why": finance_why,
                 "expected_effect": "Financial conclusions become available after WB returns financial rows",
-                "numbers": {"financial_summary_rows_count": 0},
+                "numbers": {
+                    "financial_summary_rows_count": int(rows_count or 0),
+                    "finance_status": finance_status,
+                },
             }
         )
 
-    if no_sales_top5:
+    if no_sales_top5 and finance_status != "delayed":
         actions.append(
             {
                 "priority": "P2",
@@ -418,8 +431,14 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         f"- ROAS: {roas_text}",
     ]
 
-    if not finance_available:
-        markdown_lines.append("- Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
+    if finance_status == "delayed":
+        markdown_lines.append(
+            "- Заказы уже есть, но WB ещё не отдал финансовые строки/выкупы за эту дату. "
+            "Данные по выкупам, логистике и прибыли могут обновиться позже."
+        )
+        markdown_lines.append("- Статус финансов: delayed (предварительные данные, прибыль не окончательная).")
+    elif not finance_available:
+        markdown_lines.append(f"- {finance_message or 'Финансовые данные за дату недоступны.'}")
     else:
         markdown_lines.append(f"- Количество финансовых строк: {_fmt_int(rows_count)}")
 
@@ -427,7 +446,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         markdown_lines.append("- Оценка эффективности рекламы ограничена: есть расход, но нет атрибутированной выручки.")
 
     markdown_lines.extend(["", "## Сводка SKU"])
-    if no_sales_top5:
+    if no_sales_top5 and finance_status != "delayed":
         markdown_lines.append("- SKU без продаж, но с остатками (top-5):")
         for item in no_sales_top5:
             if isinstance(item, dict):
@@ -441,7 +460,10 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
             else:
                 markdown_lines.append(f"- {item}")
     else:
-        markdown_lines.append("- SKU без продаж, но с остатками: нет")
+        if finance_status == "delayed":
+            markdown_lines.append("- SKU без продаж, но с остатками: оценка отложена до прихода финансовых строк.")
+        else:
+            markdown_lines.append("- SKU без продаж, но с остатками: нет")
 
     email_lines = [
         f"WB отчёт за {report_date}",
@@ -473,8 +495,14 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         f"Атрибутированная выручка рекламы: {_fmt_money(ad_attributed_revenue)}",
         f"ROAS: {roas_text}",
     ]
-    if not finance_available:
-        email_lines.append("Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
+    if finance_status == "delayed":
+        email_lines.append(
+            "Заказы уже есть, но WB ещё не отдал финансовые строки/выкупы за эту дату. "
+            "Данные по выкупам, логистике и прибыли могут обновиться позже."
+        )
+        email_lines.append("Статус финансов: delayed (предварительные данные, прибыль не окончательная).")
+    elif not finance_available:
+        email_lines.append(finance_message or "Финансовые данные за дату недоступны.")
     else:
         email_lines.append(f"Количество финансовых строк: {_fmt_int(rows_count)}")
 
@@ -482,6 +510,10 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         email_lines.append("Оценка эффективности рекламы ограничена: есть расход, но нет атрибутированной выручки.")
 
     return {
+        "report_date": report_date_effective,
+        "finance_status": finance_status,
+        "finance_message": finance_message,
+        "financial_rows_count": int(rows_count or 0),
         "email_text": "\n".join(email_lines),
         "pdf_markdown": "\n".join(markdown_lines),
         "actions": actions,
