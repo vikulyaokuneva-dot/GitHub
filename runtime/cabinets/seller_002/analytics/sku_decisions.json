@@ -1,0 +1,13 @@
+{
+  "status": "ok",
+  "decision_status": "preliminary",
+  "items": [],
+  "generated_at": "2026-04-02T22:06:18.931742+00:00",
+  "source": "decision_module",
+  "message": "Решения основаны на предварительных данных",
+  "input": {
+    "abc_path": "runtime\\cabinets\\seller_002\\analytics\\abc_analysis.json",
+    "sku_profit_path": "runtime\\cabinets\\seller_002\\analytics\\sku_profit.json",
+    "search_insights_path": "runtime\\cabinets\\seller_002\\analytics\\search_insights.json"
+  }
+}
