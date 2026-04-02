@@ -1,0 +1,53 @@
+{
+  "status": "ok",
+  "abc_status": "preliminary",
+  "finance_status": "delayed",
+  "profit_status": "preliminary",
+  "total_skus": 2,
+  "total_profit": 350.0,
+  "A": [],
+  "B": [],
+  "C": [
+    {
+      "sku": "WB-001",
+      "profit": 400.0,
+      "revenue": 1000.0,
+      "profit_share": 1.142857,
+      "cumulative_share": 1.142857,
+      "category": "C"
+    },
+    {
+      "sku": "WB-002",
+      "profit": -50.0,
+      "revenue": 500.0,
+      "profit_share": -0.142857,
+      "cumulative_share": 1.0,
+      "category": "C"
+    }
+  ],
+  "loss_makers": [
+    {
+      "sku": "WB-002",
+      "profit": -50.0
+    }
+  ],
+  "low_margin": [
+    {
+      "sku": "WB-002",
+      "profit": -50.0,
+      "margin_pct": -10.0
+    }
+  ],
+  "excluded_items": [
+    {
+      "sku": "WB-003",
+      "reason": "no_cogs"
+    }
+  ],
+  "generated_at": "2026-04-02T21:49:09.181128+00:00",
+  "source": "abc_module",
+  "abc_message": "ABC рассчитан по предварительным данным (WB финансы не подтверждены)",
+  "input": {
+    "sku_profit_path": "runtime\\cabinets\\seller_001\\analytics\\sku_profit.json"
+  }
+}
