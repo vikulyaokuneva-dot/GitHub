@@ -1,0 +1,11 @@
+{
+  "seller": "seller_002",
+  "mode": "daily",
+  "report_date": "2026-04-01",
+  "finance_summary": {
+    "rows_count": 0,
+    "revenue": 0,
+    "tax_rate": 0.06,
+    "tax": 0.0
+  }
+}
