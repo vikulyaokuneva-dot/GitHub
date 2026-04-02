@@ -24,22 +24,26 @@ class DecisionsEngine:
         Returns:
             List of recommendations with priority
         """
-        # Basic implementation - convert facts to recommendations
-        # TODO: Full implementation with more sophisticated rules
-        
-        recommendations = []
-        
-        # Example: Create recommendation for each fact
+        recommendations: list[Recommendation] = []
+
         for fact in facts.facts:
-            rec = Recommendation(
-                id=f"rec_{fact.type.value}_{len(recommendations)}",
-                title=f"Action: {fact.title}",
-                description=fact.description,
-                priority=fact.severity,
-                recommendation_type=fact.type.value,
-                action="investigate",
-                impact_area=fact.impact_area
+            action_type = "investigate"
+            if fact.type.value == "opportunity":
+                action_type = "scale"
+            elif fact.type.value == "risk":
+                action_type = "mitigate"
+            elif fact.type.value == "anomaly":
+                action_type = "investigate"
+            elif fact.type.value == "trend":
+                action_type = "monitor"
+
+            recommendations.append(
+                Recommendation(
+                    title=f"Action: {fact.title}",
+                    description=fact.description,
+                    priority=max(1, min(10, int(fact.severity))),
+                    action_type=action_type,
+                )
             )
-            recommendations.append(rec)
-        
+
         return recommendations

@@ -1,4 +1,4 @@
-"""Financial aggregation helpers for WB finance rows.
+﻿"""Financial aggregation helpers for WB finance rows.
 
 This module keeps v5 architecture intact and restores v2-like financial logic:
 - parse and classify WB operations
@@ -9,14 +9,9 @@ This module keeps v5 architecture intact and restores v2-like financial logic:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from ..domain import RawMarginsData, RawOrdersData
-
-try:
-    from src.cogs import calc_cogs_for_rows as _legacy_calc_cogs_for_rows
-except Exception:  # pragma: no cover - fallback path
-    _legacy_calc_cogs_for_rows = None
 
 
 def _safe_float(value: Any) -> float:
@@ -45,24 +40,23 @@ def _safe_div(a: float, b: float) -> float:
     return float(a) / float(b) if abs(float(b or 0.0)) > 1e-12 else 0.0
 
 
+def _contains_any(text: str, needles: List[str]) -> bool:
+    return any(needle in text for needle in needles)
+
+
 def _classify_operation(operation_text: str) -> List[str]:
     text = _safe_str(operation_text).lower()
     classes: List[str] = []
 
-    is_sale = ("продаж" in text) and ("возврат" not in text)
-    is_return = ("возврат" in text) or ("return" in text)
-    is_logistics = (
-        ("логист" in text)
-        or ("доставк" in text)
-        or ("перевозк" in text)
-        or ("пвз" in text)
-    )
-    is_storage = "хран" in text
-    is_penalty = ("штраф" in text) or ("penalty" in text) or ("fine" in text)
-    is_deduction = ("удерж" in text) or ("deduction" in text) or ("withhold" in text)
-    is_loyalty = ("лояль" in text) or ("балл" in text) or ("софинанс" in text)
-    is_acquiring = ("эквайр" in text) or ("платеж" in text) or ("платёж" in text)
-    is_compensation = ("компенсац" in text) or ("возмещен" in text) or ("возмещение" in text)
+    is_return = _contains_any(text, ["возврат", "return", "refund"])
+    is_sale = _contains_any(text, ["продаж", "sale", "реализац"]) and not is_return
+    is_logistics = _contains_any(text, ["логист", "доставк", "перевозк", "delivery", "пвз", "pvz"])
+    is_storage = _contains_any(text, ["хран", "storage"])
+    is_penalty = _contains_any(text, ["штраф", "penalty", "fine"])
+    is_deduction = _contains_any(text, ["удерж", "deduction", "withhold"])
+    is_loyalty = _contains_any(text, ["лоял", "балл", "софинанс", "loyalty"])
+    is_acquiring = _contains_any(text, ["эквайр", "платеж", "платёж", "acquiring"])
+    is_compensation = _contains_any(text, ["компенсац", "возмещен", "compensat"])
 
     if is_sale:
         classes.append("sale")
@@ -86,7 +80,6 @@ def _classify_operation(operation_text: str) -> List[str]:
         classes.append("other")
     return classes
 
-
 def _component_available(value: float, source_rows: int) -> bool:
     return abs(float(value or 0.0)) > 1e-9 or int(source_rows or 0) > 0
 
@@ -96,9 +89,11 @@ def aggregate_financial_summary(
     margins: List[RawMarginsData] | None = None,
     tax_rate: float = 0.06,
     loader_debug: Dict[str, Any] | None = None,
+    cogs_by_sku_override: Dict[str, float] | None = None,
 ) -> Dict[str, Any]:
     margins = margins or []
     loader_debug = loader_debug or {}
+    cogs_by_sku_override = cogs_by_sku_override or {}
 
     rows_count = int(len(orders))
     rows_read = int(loader_debug.get("rows_total", rows_count) or rows_count)
@@ -316,6 +311,12 @@ def aggregate_financial_summary(
         if cp > 0:
             cost_by_sku[sku] = cp
 
+    for sku, cp in (cogs_by_sku_override or {}).items():
+        sku_norm = _safe_str(sku)
+        cp_val = _safe_float(cp)
+        if sku_norm and cp_val > 0:
+            cost_by_sku[sku_norm] = cp_val
+
     cogs_total = 0.0
     cogs_by_sku: Dict[str, float] = {}
     missing_cogs_sku: Dict[str, float] = {}
@@ -328,20 +329,6 @@ def aggregate_financial_summary(
             cogs_total += sku_cogs
         elif sales_qty_sku > 0:
             missing_cogs_sku[sku] = sales_qty_sku
-
-    if cogs_total <= 1e-9 and callable(_legacy_calc_cogs_for_rows):
-        qty_by_sku_numeric: Dict[int, int] = {}
-        for sku, payload in sku_map.items():
-            if not str(sku).isdigit():
-                continue
-            qty = int(round(_safe_float(payload.get("sales_qty", 0.0))))
-            if qty > 0:
-                qty_by_sku_numeric[int(sku)] = qty
-        if qty_by_sku_numeric:
-            legacy_total, legacy_by_sku, legacy_missing = _legacy_calc_cogs_for_rows(qty_by_sku_numeric)
-            cogs_total = _safe_float(legacy_total)
-            cogs_by_sku = {str(k): _safe_float(v) for k, v in dict(legacy_by_sku or {}).items()}
-            missing_cogs_sku = {str(k): _safe_float(v) for k, v in dict(legacy_missing or {}).items()}
 
     tax = gross_revenue * float(tax_rate or 0.0)
     profit = (
@@ -531,3 +518,4 @@ def aggregate_financial_summary(
         "debug": financial_debug,
         "diagnostics": diagnostics,
     }
+

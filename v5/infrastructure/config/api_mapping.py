@@ -133,7 +133,7 @@ WB_API_ENDPOINTS = {
                 "price": 2500.00,       # Unit price
                 "costPrice": 1500.00,   # Cost per unit
                 "status": "продажа",    # Or "возврат" (return)
-                "reasonReturn": null,   # Reason if return
+                "reasonReturn": None,   # Reason if return
             }
         ],
         "maps_to": [

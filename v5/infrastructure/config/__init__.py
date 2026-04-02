@@ -15,6 +15,10 @@ def create_cabinet_directories(cabinet_ctx: CabinetContext) -> None:
         cabinet_ctx.facts_dir,
         cabinet_ctx.reports_dir,
         cabinet_ctx.inputs_dir,
+        cabinet_ctx.artifacts_dir,
+        cabinet_ctx.outputs_dir,
+        cabinet_ctx.memory_dir,
+        cabinet_ctx.debug_artifacts_dir,
     ]
     
     for directory in directories:

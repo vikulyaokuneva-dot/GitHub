@@ -21,6 +21,7 @@ class MetricsEngine:
         normalized: NormalizedDataBundle,
         historical_metrics: dict | None = None,
         raw_bundle: RawDataBundle | None = None,
+        cogs_by_sku: dict[str, float] | None = None,
     ) -> MetricsBundle:
         """
         Calculate metrics from normalized data.
@@ -55,6 +56,7 @@ class MetricsEngine:
                 margins=raw_bundle.margins,
                 tax_rate=0.06,
                 loader_debug=loader_debug if isinstance(loader_debug, dict) else {},
+                cogs_by_sku_override=cogs_by_sku if isinstance(cogs_by_sku, dict) else {},
             )
         
         # Calculate portfolio metrics

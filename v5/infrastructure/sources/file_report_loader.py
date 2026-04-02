@@ -25,8 +25,9 @@ logger = logging.getLogger(__name__)
 class FileReportLoader(DataSource):
     """Р—Р°РіСЂСѓР¶Р°РµС‚ РґР°РЅРЅС‹Рµ РёР· Excel/CSV РѕС‚С‡С‘С‚РѕРІ Р’Р‘"""
 
-    def __init__(self):
-        self.input_dir = Path("v5/audit/input")
+    def __init__(self, shared_input_dir: str = "v5/audit/input"):
+        self.shared_input_dir = Path(shared_input_dir)
+        self.input_dir = self.shared_input_dir
         self._finance_loader_debug: Dict[str, Any] = {}
 
     async def load_data(
@@ -42,6 +43,7 @@ class FileReportLoader(DataSource):
         Returns:
             RawDataBundle СЃРѕ РІСЃРµРјРё РґР°РЅРЅС‹РјРё РёР· С„Р°Р№Р»РѕРІ
         """
+        self.input_dir = self._resolve_input_dir(cabinet_ctx)
         logger.info(
             f"[FileReportLoader] Loading data from {self.input_dir} for {cabinet_ctx.cabinet.id}"
         )
@@ -66,7 +68,10 @@ class FileReportLoader(DataSource):
             margins=margins,
             returns=returns,
             ratings=ratings,
-            debug={"finance_loader": dict(self._finance_loader_debug or {})},
+            debug={
+                "input_dir": str(self.input_dir),
+                "finance_loader": dict(self._finance_loader_debug or {}),
+            },
         )
 
         logger.info(
@@ -85,6 +90,17 @@ class FileReportLoader(DataSource):
             )
 
         return bundle
+
+    def _resolve_input_dir(self, cabinet_ctx: CabinetContext) -> Path:
+        """
+        Resolve audit input location with strict v5-first precedence:
+          1) cabinet-scoped v5 input: cabinets/<seller>/v5/input
+          2) shared v5 audit inbox: v5/audit/input
+        """
+        cabinet_input = cabinet_ctx.inputs_dir
+        if cabinet_input.exists() and any(cabinet_input.rglob("*")):
+            return cabinet_input
+        return self.shared_input_dir
 
     def _load_ads_data(self, target_date: Optional[date] = None) -> List[RawAdsData]:
         """Р—Р°РіСЂСѓР¶Р°РµС‚ РґР°РЅРЅС‹Рµ РѕР±СЉСЏРІР»РµРЅРёР№ РёР· РїР°РїРєРё ads/"""

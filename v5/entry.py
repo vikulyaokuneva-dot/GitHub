@@ -10,13 +10,13 @@ Usage:
 import argparse
 import asyncio
 from datetime import datetime, date
-from pathlib import Path
 
 from .orchestrator import Orchestrator
 from .config import get_config
+from .domain import ProcessingStatus
 
 
-async def main():
+async def main() -> int:
     """Main CLI entry point"""
     parser = argparse.ArgumentParser(
         description="WB Analytics v5 – Unified Data Platform"
@@ -41,7 +41,7 @@ async def main():
     
     if not args.command:
         parser.print_help()
-        return
+        return 0
     
     # Load config
     config = get_config()
@@ -51,13 +51,19 @@ async def main():
     
     # Execute command
     if args.command == "daily":
-        await orchestrator.run_daily(args.cabinet)
+        result = await orchestrator.run_daily(args.cabinet)
+        print(result.message)
+        return 0 if result.status != ProcessingStatus.FAILED else 1
     elif args.command == "audit":
         target_date = datetime.strptime(args.date, "%Y-%m-%d").date()
-        await orchestrator.run_audit(args.cabinet, target_date)
+        result = await orchestrator.run_audit(args.cabinet, target_date)
+        print(result.message)
+        return 0 if result.status != ProcessingStatus.FAILED else 1
     elif args.command == "analytics":
         await orchestrator.show_analytics(args.cabinet)
+        return 0
+    return 0
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    raise SystemExit(asyncio.run(main()))

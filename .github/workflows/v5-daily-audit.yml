@@ -117,9 +117,9 @@ jobs:
 
       - name: Prepare cabinet directories
         run: |
-          mkdir -p "cabinets/${V5_SELLER_ID}/artifacts"
-          mkdir -p "cabinets/${V5_SELLER_ID}/memory"
-          mkdir -p "cabinets/${V5_SELLER_ID}/outputs"
+          mkdir -p "cabinets/${V5_SELLER_ID}/v5/artifacts"
+          mkdir -p "cabinets/${V5_SELLER_ID}/v5/memory"
+          mkdir -p "cabinets/${V5_SELLER_ID}/v5/outputs"
 
       - name: Run V5 daily audit pipeline
         run: |
@@ -142,8 +142,8 @@ jobs:
         with:
           name: v5-audit-${{ env.V5_SELLER_ID }}-${{ github.run_number }}
           path: |
-            cabinets/${{ env.V5_SELLER_ID }}/artifacts/
-            cabinets/${{ env.V5_SELLER_ID }}/outputs/
+            cabinets/${{ env.V5_SELLER_ID }}/v5/artifacts/
+            cabinets/${{ env.V5_SELLER_ID }}/v5/outputs/
           retention-days: 30
           if-no-files-found: warn
 
@@ -154,9 +154,9 @@ jobs:
           echo "✅ V5 Audit Pipeline Completed"
           echo ""
           echo "📊 Results available:"
-          echo "  📁 Cabinet: cabinets/${V5_SELLER_ID}/"
-          echo "  📄 Outputs: cabinets/${V5_SELLER_ID}/outputs/"
-          echo "  🗂️ Artifacts: cabinets/${V5_SELLER_ID}/artifacts/"
+          echo "  📁 Cabinet: cabinets/${V5_SELLER_ID}/v5/"
+          echo "  📄 Outputs: cabinets/${V5_SELLER_ID}/v5/outputs/"
+          echo "  🗂️ Artifacts: cabinets/${V5_SELLER_ID}/v5/artifacts/"
           echo ""
           echo "📌 Next: Check GitHub Actions artifacts or local cabinet folder"
 

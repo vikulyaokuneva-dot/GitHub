@@ -19,7 +19,7 @@ class CabinetStorage:
     
     def __init__(self, cabinet_ctx: CabinetContext):
         self.cabinet_ctx = cabinet_ctx
-        self.data_dir = cabinet_ctx.cabinet_path / "data"
+        self.data_dir = cabinet_ctx.data_root
         self.data_dir.mkdir(parents=True, exist_ok=True)
     
     def _get_filename(self, bundle_type: str, target_date: date | None = None) -> Path:
@@ -34,7 +34,10 @@ class CabinetStorage:
         filename = self._get_filename("raw", bundle.period_date)
         try:
             data = asdict(bundle)
-            filename.write_text(json.dumps(data, indent=2, default=str))
+            filename.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False, default=str),
+                encoding="utf-8",
+            )
         except Exception as e:
             print(f"Error saving raw data: {e}")
     
@@ -43,7 +46,7 @@ class CabinetStorage:
         filename = self._get_filename("raw", target_date)
         try:
             if filename.exists():
-                data = json.loads(filename.read_text())
+                data = json.loads(filename.read_text(encoding="utf-8"))
                 # TODO: Deserialize properly to RawDataBundle
                 return None
         except Exception as e:
@@ -56,7 +59,10 @@ class CabinetStorage:
         filename = self._get_filename("normalized", bundle.period_date)
         try:
             data = asdict(bundle)
-            filename.write_text(json.dumps(data, indent=2, default=str))
+            filename.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False, default=str),
+                encoding="utf-8",
+            )
         except Exception as e:
             print(f"Error saving normalized data: {e}")
     
@@ -65,7 +71,7 @@ class CabinetStorage:
         filename = self._get_filename("normalized", target_date)
         try:
             if filename.exists():
-                data = json.loads(filename.read_text())
+                data = json.loads(filename.read_text(encoding="utf-8"))
                 # TODO: Deserialize properly to NormalizedDataBundle
                 return None
         except Exception as e:
@@ -78,7 +84,10 @@ class CabinetStorage:
         filename = self._get_filename("metrics", bundle.period_date)
         try:
             data = asdict(bundle)
-            filename.write_text(json.dumps(data, indent=2, default=str))
+            filename.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False, default=str),
+                encoding="utf-8",
+            )
         except Exception as e:
             print(f"Error saving metrics: {e}")
     
@@ -87,7 +96,7 @@ class CabinetStorage:
         filename = self._get_filename("metrics", target_date)
         try:
             if filename.exists():
-                data = json.loads(filename.read_text())
+                data = json.loads(filename.read_text(encoding="utf-8"))
                 # TODO: Deserialize properly to MetricsBundle
                 return None
         except Exception as e:
@@ -100,7 +109,10 @@ class CabinetStorage:
         filename = self._get_filename("facts", bundle.period_date)
         try:
             data = asdict(bundle)
-            filename.write_text(json.dumps(data, indent=2, default=str))
+            filename.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False, default=str),
+                encoding="utf-8",
+            )
         except Exception as e:
             print(f"Error saving facts: {e}")
     
@@ -109,7 +121,7 @@ class CabinetStorage:
         filename = self._get_filename("facts", target_date)
         try:
             if filename.exists():
-                data = json.loads(filename.read_text())
+                data = json.loads(filename.read_text(encoding="utf-8"))
                 # TODO: Deserialize properly to FactsBundle
                 return None
         except Exception as e:

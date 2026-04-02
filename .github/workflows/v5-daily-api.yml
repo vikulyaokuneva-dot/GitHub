@@ -58,9 +58,9 @@ jobs:
 
       - name: Prepare cabinet directories
         run: |
-          mkdir -p "cabinets/${V5_SELLER_ID}/artifacts"
-          mkdir -p "cabinets/${V5_SELLER_ID}/memory"
-          mkdir -p "cabinets/${V5_SELLER_ID}/outputs"
+          mkdir -p "cabinets/${V5_SELLER_ID}/v5/artifacts"
+          mkdir -p "cabinets/${V5_SELLER_ID}/v5/memory"
+          mkdir -p "cabinets/${V5_SELLER_ID}/v5/outputs"
 
       - name: Run V5 daily API pipeline
         run: |
@@ -72,20 +72,20 @@ jobs:
 
       - name: Print cabinet artifacts
         run: |
-          echo "[v5] Artifacts in ./cabinets/${V5_SELLER_ID}:"
-          find "cabinets/${V5_SELLER_ID}" -type f -name "*.json" -o -name "*.pdf" | sort || true
+          echo "[v5] Artifacts in ./cabinets/${V5_SELLER_ID}/v5:"
+          find "cabinets/${V5_SELLER_ID}/v5" -type f \( -name "*.json" -o -name "*.pdf" \) | sort || true
 
       - name: Upload V5 API artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: v5-daily-api-${{ env.V5_SELLER_ID }}
-          path: cabinets/${{ env.V5_SELLER_ID }}/artifacts/**
+          path: cabinets/${{ env.V5_SELLER_ID }}/v5/artifacts/**
 
       - name: Check for PDF reports
         if: always()
         run: |
-          REPORT=$(find "cabinets/${V5_SELLER_ID}/outputs" -name "*.pdf" -type f | head -1)
+          REPORT=$(find "cabinets/${V5_SELLER_ID}/v5/artifacts" -name "*.pdf" -type f | head -1)
           if [ -n "$REPORT" ]; then
             echo "[v5] PDF report generated: $REPORT"
           else
