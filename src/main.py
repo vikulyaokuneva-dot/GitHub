@@ -116,6 +116,10 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         revenue_buyouts = funnel_summary.get("revenue_buyouts")
     if revenue_buyouts is None:
         revenue_buyouts = account_summary.get("revenue_buyouts")
+    print("DEBUG BUYOUTS financial_summary:", json.dumps(financial_summary, ensure_ascii=False, sort_keys=True))
+    print("DEBUG BUYOUTS rows_count:", financial_summary.get("rows_count"))
+    print("DEBUG BUYOUTS gross_revenue:", financial_summary.get("gross_revenue"))
+    print("DEBUG BUYOUTS selected_revenue_buyouts:", revenue_buyouts)
 
     ad_spend = metrics.get("ad_spend")
     ad_attributed_revenue = metrics.get("ad_attributed_revenue")
@@ -639,6 +643,7 @@ def validate_llm_json(data: dict):
 
 
 def main():
+    print("DEBUG ENTRY FILE:", __file__)
     os.makedirs("out", exist_ok=True)
 
     # 1) Получаем факты за день
