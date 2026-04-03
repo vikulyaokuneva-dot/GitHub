@@ -14,6 +14,174 @@ from src.report_metrics import compute_report_metrics
 from src.trends import save_snapshot, compute_trends_7d
 
 
+def _canonical_key(name) -> str:
+    try:
+        text = str(name or "")
+    except Exception:
+        text = ""
+    text = text.strip().lower().replace("ё", "е").replace("-", "_")
+    text = re.sub(r"\s+", "_", text)
+    return text
+
+
+def _normalize_text(value) -> str:
+    try:
+        text = str(value or "")
+    except Exception:
+        text = ""
+    text = text.strip().lower().replace("ё", "е")
+    text = re.sub(r"\s+", " ", text)
+    return text.strip(" .,:;")
+
+
+def _to_non_negative_float(value):
+    try:
+        if value is None or value == "":
+            return None
+        if isinstance(value, str):
+            value = value.strip().replace(" ", "").replace(",", ".")
+        parsed = float(value)
+    except Exception:
+        return None
+    if parsed < 0:
+        return None
+    return parsed
+
+
+def _to_non_negative_int(value):
+    parsed = _to_non_negative_float(value)
+    if parsed is None:
+        return None
+    return int(round(parsed))
+
+
+def _lookup_row_value(row: dict, aliases: tuple[str, ...]):
+    if not isinstance(row, dict):
+        return None
+    normalized = {_canonical_key(k): v for k, v in row.items()}
+    for alias in aliases:
+        alias_key = _canonical_key(alias)
+        if alias_key in normalized:
+            return normalized.get(alias_key)
+    return None
+
+
+def _iter_nested_dict_rows(payload, max_nodes: int = 30000):
+    stack = [payload]
+    seen = set()
+    nodes = 0
+    while stack and nodes < max_nodes:
+        current = stack.pop()
+        nodes += 1
+
+        if isinstance(current, dict):
+            obj_id = id(current)
+            if obj_id in seen:
+                continue
+            seen.add(obj_id)
+            yield current
+
+            preferred = (
+                "rows",
+                "items",
+                "data",
+                "result",
+                "list",
+                "records",
+                "realization_raw",
+                "financial_rows",
+                "realization_rows",
+                "daily_report_rows",
+                "daily_detailed_report_rows",
+            )
+            for key in preferred:
+                nested = current.get(key)
+                if isinstance(nested, (list, dict)):
+                    stack.append(nested)
+            for nested in current.values():
+                if isinstance(nested, (list, dict)):
+                    stack.append(nested)
+
+        elif isinstance(current, list):
+            for item in current:
+                if isinstance(item, (list, dict)):
+                    stack.append(item)
+
+
+def _extract_buyouts_from_daily_detailed_payload(payload) -> tuple[int | None, int]:
+    doc_aliases = (
+        "Тип документа",
+        "тип_документа",
+        "document_type",
+        "doc_type_name",
+        "doc_type",
+        "doctype",
+    )
+    reason_aliases = (
+        "Обоснование для оплаты",
+        "обоснование_для_оплаты",
+        "Основание оплаты",
+        "payment_reason",
+        "supplier_oper_name",
+        "operationTypeName",
+        "operation basis",
+        "reason",
+    )
+    qty_aliases = (
+        "Кол-во",
+        "кол_во",
+        "Количество",
+        "количество",
+        "quantity",
+        "qty",
+        "count",
+    )
+
+    total_qty = 0.0
+    matched_rows = 0
+    for row in _iter_nested_dict_rows(payload):
+        doc_type = _normalize_text(_lookup_row_value(row, doc_aliases))
+        payment_reason = _normalize_text(_lookup_row_value(row, reason_aliases))
+        is_sale = doc_type in {"продажа", "sale"} or payment_reason in {"продажа", "sale"}
+        if not is_sale:
+            continue
+
+        qty = _to_non_negative_float(_lookup_row_value(row, qty_aliases))
+        if qty is None or qty <= 0:
+            continue
+        total_qty += qty
+        matched_rows += 1
+
+    if matched_rows == 0:
+        return None, 0
+    return int(round(total_qty)), matched_rows
+
+
+def _extract_buyouts_from_daily_detailed_facts(facts: dict) -> tuple[int | None, str | None]:
+    financial_summary = facts.get("financial_summary") or {}
+    candidates = [
+        ("facts.realization_raw", facts.get("realization_raw")),
+        ("facts.daily_detailed_report_rows", facts.get("daily_detailed_report_rows")),
+        ("facts.daily_report_rows", facts.get("daily_report_rows")),
+        ("facts.financial_rows", facts.get("financial_rows")),
+        ("facts.raw", facts.get("raw")),
+        ("facts.job", facts.get("job")),
+        ("facts.file_reports", facts.get("file_reports")),
+        ("facts.uploaded_reports", facts.get("uploaded_reports")),
+        ("financial_summary.rows", financial_summary.get("rows")),
+        ("financial_summary.raw_rows", financial_summary.get("raw_rows")),
+        ("financial_summary.items", financial_summary.get("items")),
+        ("financial_summary.realization_rows", financial_summary.get("realization_rows")),
+    ]
+    for source_name, payload in candidates:
+        if payload is None:
+            continue
+        buyouts, matched_rows = _extract_buyouts_from_daily_detailed_payload(payload)
+        if buyouts is not None and matched_rows > 0:
+            return buyouts, source_name
+    return None, None
+
+
 
 def _enforce_kpi_totals(pdf_markdown: str, facts: dict) -> str:
     """Hard-fix ключевых KPI в тексте отчёта по фактам, чтобы LLM не 'придумывал' цифры."""
@@ -43,6 +211,16 @@ def _enforce_kpi_totals(pdf_markdown: str, facts: dict) -> str:
                     continue
             if fin_buyouts_found:
                 buyouts = int(round(fin_buyouts_total))
+        finance_status = str(facts.get("finance_status") or "").strip().lower()
+        raw_rows_count = facts.get("financial_rows_count")
+        if raw_rows_count in (None, ""):
+            raw_rows_count = financial.get("rows_count")
+        rows_count = _to_non_negative_int(raw_rows_count)
+        use_detailed_buyouts_fallback = (rows_count == 0) or (finance_status == "delayed")
+        if buyouts is None and use_detailed_buyouts_fallback:
+            detailed_buyouts, _ = _extract_buyouts_from_daily_detailed_facts(facts)
+            if detailed_buyouts is not None:
+                buyouts = detailed_buyouts
         if buyouts is None:
             try:
                 candidate = acc.get("buyouts")
@@ -298,9 +476,18 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
 
     buyouts_source = None
     financial_buyouts, _ = _sum_buyouts_from_financial_summary()
+    use_detailed_buyouts_fallback = int(rows_count or 0) == 0 or str(finance_status).strip().lower() == "delayed"
+    detailed_buyouts = None
+    detailed_buyouts_source = None
+    if use_detailed_buyouts_fallback:
+        detailed_buyouts, detailed_buyouts_source = _extract_buyouts_from_daily_detailed_facts(facts)
+
     if financial_buyouts is not None:
         buyouts = financial_buyouts
         buyouts_source = "financial_summary.sku_financials.sales_qty"
+    elif detailed_buyouts is not None:
+        buyouts = detailed_buyouts
+        buyouts_source = f"{detailed_buyouts_source}.sale_qty" if detailed_buyouts_source else "daily_detailed.sale_qty"
     else:
         buyouts_account = _to_safe_buyouts_int(account_summary.get("buyouts"))
         if buyouts_account is not None:
