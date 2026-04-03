@@ -14,13 +14,185 @@ from src.report_metrics import compute_report_metrics
 from src.trends import save_snapshot, compute_trends_7d
 
 
+def _canonical_key(name) -> str:
+    try:
+        text = str(name or "")
+    except Exception:
+        text = ""
+    text = text.strip().lower().replace("ё", "е").replace("-", "_")
+    text = re.sub(r"\s+", "_", text)
+    return text
+
+
+def _normalize_text(value) -> str:
+    try:
+        text = str(value or "")
+    except Exception:
+        text = ""
+    text = text.strip().lower().replace("ё", "е")
+    text = re.sub(r"\s+", " ", text)
+    return text.strip(" .,:;")
+
+
+def _to_non_negative_float(value):
+    try:
+        if value is None or value == "":
+            return None
+        if isinstance(value, str):
+            value = value.strip().replace(" ", "").replace(",", ".")
+        parsed = float(value)
+    except Exception:
+        return None
+    if parsed < 0:
+        return None
+    return parsed
+
+
+def _to_non_negative_int(value):
+    parsed = _to_non_negative_float(value)
+    if parsed is None:
+        return None
+    return int(round(parsed))
+
+
+def _lookup_row_value(row: dict, aliases: tuple[str, ...]):
+    if not isinstance(row, dict):
+        return None
+    normalized = {_canonical_key(k): v for k, v in row.items()}
+    for alias in aliases:
+        alias_key = _canonical_key(alias)
+        if alias_key in normalized:
+            return normalized.get(alias_key)
+    return None
+
+
+def _iter_nested_dict_rows(payload, max_nodes: int = 30000):
+    stack = [payload]
+    seen = set()
+    nodes = 0
+    while stack and nodes < max_nodes:
+        current = stack.pop()
+        nodes += 1
+
+        if isinstance(current, dict):
+            obj_id = id(current)
+            if obj_id in seen:
+                continue
+            seen.add(obj_id)
+            yield current
+
+            preferred = (
+                "rows",
+                "items",
+                "data",
+                "result",
+                "list",
+                "records",
+                "realization_raw",
+                "financial_rows",
+                "realization_rows",
+                "daily_report_rows",
+                "daily_detailed_report_rows",
+            )
+            for key in preferred:
+                nested = current.get(key)
+                if isinstance(nested, (list, dict)):
+                    stack.append(nested)
+            for nested in current.values():
+                if isinstance(nested, (list, dict)):
+                    stack.append(nested)
+
+        elif isinstance(current, list):
+            for item in current:
+                if isinstance(item, (list, dict)):
+                    stack.append(item)
+
+
+def _extract_buyouts_from_daily_detailed_payload(payload) -> tuple[int | None, int]:
+    doc_aliases = (
+        "Тип документа",
+        "тип_документа",
+        "document_type",
+        "doc_type_name",
+        "doc_type",
+        "doctype",
+    )
+    reason_aliases = (
+        "Обоснование для оплаты",
+        "обоснование_для_оплаты",
+        "Основание оплаты",
+        "payment_reason",
+        "supplier_oper_name",
+        "operationTypeName",
+        "operation basis",
+        "reason",
+    )
+    qty_aliases = (
+        "Кол-во",
+        "кол_во",
+        "Количество",
+        "количество",
+        "quantity",
+        "qty",
+        "count",
+    )
+
+    total_qty = 0.0
+    matched_rows = 0
+    for row in _iter_nested_dict_rows(payload):
+        doc_type = _normalize_text(_lookup_row_value(row, doc_aliases))
+        payment_reason = _normalize_text(_lookup_row_value(row, reason_aliases))
+        is_sale = doc_type in {"продажа", "sale"} or payment_reason in {"продажа", "sale"}
+        if not is_sale:
+            continue
+
+        qty = _to_non_negative_float(_lookup_row_value(row, qty_aliases))
+        if qty is None or qty <= 0:
+            continue
+        total_qty += qty
+        matched_rows += 1
+
+    if matched_rows == 0:
+        return None, 0
+    return int(round(total_qty)), matched_rows
+
+
+def _extract_buyouts_from_daily_detailed_facts(facts: dict) -> tuple[int | None, str | None]:
+    financial_summary = facts.get("financial_summary") or {}
+    candidates = [
+        ("facts.realization_raw", facts.get("realization_raw")),
+        ("facts.daily_detailed_report_rows", facts.get("daily_detailed_report_rows")),
+        ("facts.daily_report_rows", facts.get("daily_report_rows")),
+        ("facts.financial_rows", facts.get("financial_rows")),
+        ("facts.raw", facts.get("raw")),
+        ("facts.job", facts.get("job")),
+        ("facts.file_reports", facts.get("file_reports")),
+        ("facts.uploaded_reports", facts.get("uploaded_reports")),
+        ("financial_summary.rows", financial_summary.get("rows")),
+        ("financial_summary.raw_rows", financial_summary.get("raw_rows")),
+        ("financial_summary.items", financial_summary.get("items")),
+        ("financial_summary.realization_rows", financial_summary.get("realization_rows")),
+    ]
+    for source_name, payload in candidates:
+        if payload is None:
+            continue
+        buyouts, matched_rows = _extract_buyouts_from_daily_detailed_payload(payload)
+        if buyouts is not None and matched_rows > 0:
+            return buyouts, source_name
+    return None, None
+
 
 def _enforce_kpi_totals(pdf_markdown: str, facts: dict) -> str:
     """Hard-fix ключевых KPI в тексте отчёта по фактам, чтобы LLM не 'придумывал' цифры."""
     try:
         acc = facts.get("account_summary") or {}
+        report_totals = facts.get("_report_totals")
+        has_report_buyouts = isinstance(report_totals, dict) and "buyouts" in report_totals
         orders = acc.get("orders")
-        buyouts = acc.get("buyouts")
+        if has_report_buyouts:
+            buyouts = _to_non_negative_int(report_totals.get("buyouts"))
+        else:
+            buyouts = acc.get("buyouts")
         returns_ = acc.get("returns")
         views = (facts.get("funnel_summary") or {}).get("views")
         add_to_cart = (facts.get("funnel_summary") or {}).get("add_to_cart")
@@ -119,7 +291,6 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     print("DEBUG BUYOUTS financial_summary:", json.dumps(financial_summary, ensure_ascii=False, sort_keys=True))
     print("DEBUG BUYOUTS rows_count:", financial_summary.get("rows_count"))
     print("DEBUG BUYOUTS gross_revenue:", financial_summary.get("gross_revenue"))
-    print("DEBUG BUYOUTS selected_revenue_buyouts:", revenue_buyouts)
 
     ad_spend = metrics.get("ad_spend")
     ad_attributed_revenue = metrics.get("ad_attributed_revenue")
@@ -128,8 +299,12 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     sku_count = metrics.get("sku_count")
     rows_count = metrics.get("financial_rows_count")
     finance_available = bool(metrics.get("finance_available"))
+    finance_status = str(metrics.get("finance_status") or facts.get("finance_status") or "missing")
+    finance_message = str(metrics.get("finance_message") or facts.get("finance_message") or "")
     ads_efficiency_limited = bool(metrics.get("ads_efficiency_limited"))
     no_sales_top5 = metrics.get("no_sales_with_stock_top5") or []
+    if finance_status == "delayed":
+        no_sales_top5 = []
     raw_values = metrics.get("raw_values") or {}
 
     ad_attr_candidates = [
@@ -169,6 +344,36 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
             return qty
         except Exception:
             return None
+
+    def _to_safe_buyouts_int(value):
+        qty = _to_safe_qty(value)
+        if qty is None:
+            return None
+        return int(round(qty))
+
+    def _sum_buyouts_from_financial_summary() -> tuple[int | None, str | None]:
+        direct_sales_qty = _to_safe_buyouts_int(financial_summary.get("sales_qty"))
+        if direct_sales_qty is not None:
+            return direct_sales_qty, "financial_summary.sales_qty"
+
+        sku_fin = financial_summary.get("sku_financials")
+        if not isinstance(sku_fin, dict):
+            return None, None
+
+        total = 0.0
+        has_values = False
+        for row in sku_fin.values():
+            if not isinstance(row, dict):
+                continue
+            qty_i = _to_safe_qty(row.get("sales_qty"))
+            if qty_i is None:
+                continue
+            total += qty_i
+            has_values = True
+
+        if not has_values:
+            return None, "financial_summary.sku_financials.sales_qty"
+        return int(round(total)), "financial_summary.sku_financials.sales_qty"
 
     def _extract_buyouts_from_financial_summary() -> tuple[dict[int, float], bool]:
         qty = {}
@@ -226,6 +431,77 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
             qty_source = "sku_performance.rows.buyouts/buys"
 
     qty_source_found = fin_qty_source_found or sku_qty_source_found
+
+    finance_status_norm = str(finance_status or "").strip().lower()
+    use_delayed_safeguards = int(rows_count or 0) == 0 or finance_status_norm == "delayed"
+
+    buyouts_source = None
+    financial_buyouts, financial_buyouts_source = _sum_buyouts_from_financial_summary()
+    if financial_buyouts is not None and not use_delayed_safeguards:
+        buyouts = financial_buyouts
+        buyouts_source = financial_buyouts_source
+    else:
+        detailed_buyouts = None
+        detailed_source = None
+        if use_delayed_safeguards:
+            detailed_buyouts, detailed_source = _extract_buyouts_from_daily_detailed_facts(facts)
+        if detailed_buyouts is not None:
+            buyouts = detailed_buyouts
+            buyouts_source = f"{detailed_source}.sale_qty" if detailed_source else "daily_detailed.sale_qty"
+        else:
+            buyouts_account = _to_safe_buyouts_int(account_summary.get("buyouts"))
+            if buyouts_account is not None:
+                buyouts = buyouts_account
+                buyouts_source = "account_summary.buyouts"
+            else:
+                buyouts_funnel = _to_safe_buyouts_int(funnel_summary.get("buys"))
+                if buyouts_funnel is not None:
+                    buyouts = buyouts_funnel
+                    buyouts_source = "funnel_summary.buys"
+                else:
+                    buyouts = None
+                    buyouts_source = "unavailable"
+
+    if use_delayed_safeguards and (_to_safe_int(orders) or 0) > 0:
+        buyouts_candidate = _to_safe_buyouts_int(buyouts)
+        if buyouts_candidate is None or buyouts_candidate == 0:
+            buyouts = None
+            buyouts_source = "delayed_unavailable"
+
+    if not use_delayed_safeguards:
+        revenue_buyouts = financial_summary.get("gross_revenue")
+        if revenue_buyouts is None:
+            revenue_buyouts = funnel_summary.get("revenue_buyouts")
+        if revenue_buyouts is None:
+            revenue_buyouts = account_summary.get("revenue_buyouts")
+    elif revenue_buyouts is None:
+        revenue_buyouts = funnel_summary.get("revenue_buyouts")
+        if revenue_buyouts is None:
+            revenue_buyouts = account_summary.get("revenue_buyouts")
+
+    if use_delayed_safeguards and (_to_safe_int(orders) or 0) > 0:
+        revenue_candidate = _to_safe_float(revenue_buyouts)
+        if revenue_candidate is None or revenue_candidate <= 0:
+            revenue_buyouts = None
+
+    buyouts = _to_safe_buyouts_int(buyouts)
+
+    report_totals = facts.get("_report_totals")
+    if not isinstance(report_totals, dict):
+        report_totals = {}
+        facts["_report_totals"] = report_totals
+    report_totals["buyouts"] = buyouts
+    report_totals["revenue_buyouts"] = revenue_buyouts
+
+    account_summary_for_enforce = facts.get("account_summary")
+    if not isinstance(account_summary_for_enforce, dict):
+        account_summary_for_enforce = {}
+        facts["account_summary"] = account_summary_for_enforce
+    account_summary_for_enforce["buyouts"] = buyouts
+    account_summary_for_enforce["revenue_buyouts"] = revenue_buyouts
+
+    print("DEBUG BUYOUTS selected_buyouts:", buyouts, "source:", buyouts_source)
+    print("DEBUG BUYOUTS selected_revenue_buyouts:", revenue_buyouts)
 
     buyouts_num = _to_safe_float(buyouts)
     revenue_buyouts_num = _to_safe_float(revenue_buyouts)
@@ -325,6 +601,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
                 "stock_units": stock_units,
                 "sku_count": sku_count,
                 "financial_rows_count": rows_count,
+                "finance_status": finance_status,
                 "finance_available": finance_available,
                 "ads_efficiency_limited": ads_efficiency_limited,
                 "cogs_total": cogs_total,
@@ -336,6 +613,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
                 "margin": margin,
                 "roi": roi,
                 "cogs_qty_source": qty_source,
+                "buyouts_source": buyouts_source,
             },
             ensure_ascii=False,
             sort_keys=True,
@@ -418,10 +696,12 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         f"- ROAS: {roas_text}",
     ]
 
-    if not finance_available:
-        markdown_lines.append("- Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
-    else:
+    if finance_status_norm == "ok":
         markdown_lines.append(f"- Количество финансовых строк: {_fmt_int(rows_count)}")
+    elif finance_message:
+        markdown_lines.append(f"- {finance_message}")
+    else:
+        markdown_lines.append("- Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
 
     if ads_efficiency_limited:
         markdown_lines.append("- Оценка эффективности рекламы ограничена: есть расход, но нет атрибутированной выручки.")
@@ -473,10 +753,12 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         f"Атрибутированная выручка рекламы: {_fmt_money(ad_attributed_revenue)}",
         f"ROAS: {roas_text}",
     ]
-    if not finance_available:
-        email_lines.append("Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
-    else:
+    if finance_status_norm == "ok":
         email_lines.append(f"Количество финансовых строк: {_fmt_int(rows_count)}")
+    elif finance_message:
+        email_lines.append(finance_message)
+    else:
+        email_lines.append("Финансовые данные за дату недоступны: WB не вернул реализацию / финансовые строки за этот день.")
 
     if ads_efficiency_limited:
         email_lines.append("Оценка эффективности рекламы ограничена: есть расход, но нет атрибутированной выручки.")
@@ -485,6 +767,9 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         "email_text": "\n".join(email_lines),
         "pdf_markdown": "\n".join(markdown_lines),
         "actions": actions,
+        "finance_status": finance_status,
+        "finance_message": finance_message,
+        "financial_rows_count": rows_count,
     }
 
 def build_fallback_json(report_date: str, facts_json: str) -> dict:
