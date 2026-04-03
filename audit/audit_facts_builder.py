@@ -512,6 +512,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
     return {
         "date": _iso(report_date),
         "report_type": "audit",
+        "source": "wb",
         "timezone": str(WB_TIMEZONE),
         "tax_rate": tax_rate,
         "period": {
@@ -538,4 +539,3 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             "Обязательные блоки: finance, funnel, stocks. Опциональные: ads, search, cogs.",
         ],
     }
-

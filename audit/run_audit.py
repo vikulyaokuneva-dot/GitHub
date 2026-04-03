@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 
 from audit.audit_facts_builder import build_audit_facts
 from audit.audit_report import build_audit_markdown
+from audit.ozon_facts_builder import build_ozon_audit_facts
+from audit.ozon_report import build_ozon_audit_markdown
 from src.pdf_report import markdown_to_simple_pdf
 
 try:
@@ -19,19 +21,28 @@ except Exception:  # pragma: no cover
     send_email_with_pdf = None
 
 
-def _build_email_text(facts: dict, actions: list[dict]) -> str:
+def _build_email_text(facts: dict, actions: list[dict], source: str) -> str:
     decision = facts.get("decision_layer") or {}
     kpi = decision.get("kpi") or {}
-    profit = kpi.get("profit")
-    margin = kpi.get("margin")
-    state = decision.get("profit_state")
+    source_norm = str(source or "wb").strip().lower()
+    if source_norm == "ozon":
+        profit = kpi.get("gross_profit_total_known")
+        margin = (facts.get("financial_summary") or {}).get("margin_from_products_with_cogs")
+    else:
+        profit = kpi.get("profit")
+        margin = kpi.get("margin")
+    state = decision.get("profit_state") or "unknown"
     missing_required = ((facts.get("inputs") or {}).get("missing_required") or [])
 
     lines = [
-        "WB аудит (file mode)",
+        f"{source_norm.upper()} аудит (file mode)",
         "",
         f"Финрезультат: {state}, profit={profit}, margin={margin}",
-        f"Причин в decision_layer: {len(decision.get('reasons_of_loss') or [])}",
+        (
+            f"Причин в decision_layer: {len(decision.get('reasons_of_loss') or [])}"
+            if source_norm == "wb"
+            else f"SKU-проблем в decision_layer: {len(decision.get('sku_problems') or [])}"
+        ),
     ]
     if missing_required:
         lines.append(f"Внимание: не хватает обязательных файлов: {', '.join(missing_required)}")
@@ -44,15 +55,26 @@ def run_audit_mode(
     *,
     input_dir: str = "audit/input",
     out_dir: str = "audit/output",
+    source: str = "wb",
     period: str = "",
     send_email: bool = False,
 ) -> dict:
     os.makedirs(out_dir, exist_ok=True)
+    source_norm = str(source or "wb").strip().lower()
+    if source_norm not in {"wb", "ozon"}:
+        raise ValueError(f"Unsupported audit source: {source}")
 
+    print(f"[audit] source={source_norm}")
     print(f"[audit] input_dir={input_dir}")
     print("[audit] scanning files...")
 
-    facts = build_audit_facts(input_dir=input_dir, period_label=period)
+    if source_norm == "ozon":
+        facts = build_ozon_audit_facts(input_dir=input_dir, period_label=period)
+        md = build_ozon_audit_markdown(facts)
+    else:
+        facts = build_audit_facts(input_dir=input_dir, period_label=period)
+        md = build_audit_markdown(facts)
+
     inputs = facts.get("inputs") or {}
 
     found_files = inputs.get("found_files") or []
@@ -74,7 +96,6 @@ def run_audit_mode(
     print(f"[audit] missing required: {missing_required}")
     print(f"[audit] missing optional: {missing_optional}")
 
-    md = build_audit_markdown(facts)
     actions = facts.get("actions") or []
 
     stamp = datetime.now(ZoneInfo("Europe/Moscow")).strftime("%Y-%m-%d")
@@ -92,11 +113,12 @@ def run_audit_mode(
     with open(actions_path, "w", encoding="utf-8") as f:
         json.dump(actions, f, ensure_ascii=False, indent=2)
 
-    markdown_to_simple_pdf(md, pdf_path, title=f"WB аудит за {file_date}")
+    title_prefix = "WB" if source_norm == "wb" else "Ozon"
+    markdown_to_simple_pdf(md, pdf_path, title=f"{title_prefix} аудит за {file_date}")
 
     if send_email and send_email_with_pdf:
-        subject = f"WB аудит за {file_date}"
-        body = _build_email_text(facts, actions)
+        subject = f"{title_prefix} аудит за {file_date}"
+        body = _build_email_text(facts, actions, source=source_norm)
         send_email_with_pdf(subject, body, pdf_path)
 
     print(f"[audit] saved facts: {facts_path}")
@@ -109,13 +131,15 @@ def run_audit_mode(
         "md_path": md_path,
         "pdf_path": pdf_path,
         "actions_path": actions_path,
+        "source": source_norm,
         "missing_required": missing_required,
         "missing_optional": missing_optional,
     }
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run WB offline audit from audit/input files.")
+    parser = argparse.ArgumentParser(description="Run offline audit from files.")
+    parser.add_argument("--source", default="wb", help="Audit source: wb | ozon")
     parser.add_argument("--period", default="", help="Optional period label, e.g. 2026-03-01_2026-03-31")
     parser.add_argument("--input_dir", default="audit/input")
     parser.add_argument("--out_dir", default="audit/output")
@@ -125,6 +149,7 @@ def main() -> int:
     run_audit_mode(
         input_dir=args.input_dir,
         out_dir=args.out_dir,
+        source=args.source,
         period=args.period,
         send_email=bool(args.send_email),
     )
@@ -133,4 +158,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

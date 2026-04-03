@@ -1,8 +1,11 @@
 # Audit mode (offline)
 
-Папка `audit/` добавляет отдельный режим аудита по файлам в `audit/input` без WB API.
+Папка `audit/` добавляет отдельный режим аудита по файлам без API.
+Поддерживаются источники:
+- `wb` (текущий режим Wildberries)
+- `ozon` (MVP: отчет по товарам + cogs)
 
-## Куда положить файлы
+## Куда положить файлы (WB)
 
 ```
 audit/input/finance/  - финансы (обязательный)
@@ -13,11 +16,22 @@ audit/input/search/   - поисковые запросы (опциональн�
 audit/input/cogs/     - себестоимость (опциональный)
 ```
 
+## Куда положить файлы (Ozon MVP)
+
+```
+audit/input/ozon/products/   - отчет Ozon по товарам (обязательный)
+audit/input/ozon/cogs/       - файл себестоимости (опциональный, но нужен для валовой прибыли)
+```
+
 ## Запуск локально
 
 ```bash
-PYTHONPATH=. python audit/run_audit.py --period 2026-02-23_2026-03-01
-PYTHONPATH=. python run.py --mode audit --period 2026-02-23_2026-03-01
+PYTHONPATH=. python run.py --mode audit --source wb --period 2026-02-23_2026-03-01
+PYTHONPATH=. python run.py --mode audit --source ozon --audit-input-dir audit/input/ozon --period 2026-02-23_2026-03-01
+
+# или напрямую
+PYTHONPATH=. python audit/run_audit.py --source wb --input_dir audit/input
+PYTHONPATH=. python audit/run_audit.py --source ozon --input_dir audit/input/ozon
 ```
 
 ## Выход
