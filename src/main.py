@@ -190,9 +190,10 @@ def _enforce_kpi_totals(pdf_markdown: str, facts: dict) -> str:
         funnel = facts.get("funnel_summary") or {}
         financial = facts.get("financial_summary") or {}
         orders = acc.get("orders")
-        buyouts = None
+        report_totals = facts.get("_report_totals") or {}
+        buyouts = _to_non_negative_int(report_totals.get("buyouts"))
         sku_fin = financial.get("sku_financials")
-        if isinstance(sku_fin, dict):
+        if buyouts is None and isinstance(sku_fin, dict):
             fin_buyouts_total = 0.0
             fin_buyouts_found = False
             for row in sku_fin.values():
@@ -501,6 +502,21 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
             else:
                 buyouts = None
                 buyouts_source = "unavailable"
+
+    report_totals = facts.get("_report_totals")
+    if not isinstance(report_totals, dict):
+        report_totals = {}
+        facts["_report_totals"] = report_totals
+    report_totals["buyouts"] = buyouts
+    report_totals["revenue_buyouts"] = revenue_buyouts
+
+    account_summary_for_enforce = facts.get("account_summary")
+    if not isinstance(account_summary_for_enforce, dict):
+        account_summary_for_enforce = {}
+        facts["account_summary"] = account_summary_for_enforce
+    account_summary_for_enforce["buyouts"] = buyouts
+    account_summary_for_enforce["revenue_buyouts"] = revenue_buyouts
+
     print("DEBUG BUYOUTS selected_buyouts:", buyouts, "source:", buyouts_source)
 
     buyouts_num = _to_safe_float(buyouts)
