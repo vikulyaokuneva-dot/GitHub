@@ -19,11 +19,51 @@ def _enforce_kpi_totals(pdf_markdown: str, facts: dict) -> str:
     """Hard-fix ключевых KPI в тексте отчёта по фактам, чтобы LLM не 'придумывал' цифры."""
     try:
         acc = facts.get("account_summary") or {}
+        funnel = facts.get("funnel_summary") or {}
+        financial = facts.get("financial_summary") or {}
         orders = acc.get("orders")
-        buyouts = acc.get("buyouts")
+        buyouts = None
+        sku_fin = financial.get("sku_financials")
+        if isinstance(sku_fin, dict):
+            fin_buyouts_total = 0.0
+            fin_buyouts_found = False
+            for row in sku_fin.values():
+                if not isinstance(row, dict):
+                    continue
+                try:
+                    qty_raw = row.get("sales_qty")
+                    if qty_raw is None or qty_raw == "":
+                        continue
+                    qty = float(qty_raw)
+                    if qty < 0:
+                        continue
+                    fin_buyouts_total += qty
+                    fin_buyouts_found = True
+                except Exception:
+                    continue
+            if fin_buyouts_found:
+                buyouts = int(round(fin_buyouts_total))
+        if buyouts is None:
+            try:
+                candidate = acc.get("buyouts")
+                if candidate is not None and candidate != "":
+                    parsed = float(candidate)
+                    if parsed >= 0:
+                        buyouts = int(round(parsed))
+            except Exception:
+                buyouts = None
+        if buyouts is None:
+            try:
+                candidate = funnel.get("buys")
+                if candidate is not None and candidate != "":
+                    parsed = float(candidate)
+                    if parsed >= 0:
+                        buyouts = int(round(parsed))
+            except Exception:
+                buyouts = None
         returns_ = acc.get("returns")
-        views = (facts.get("funnel_summary") or {}).get("views")
-        add_to_cart = (facts.get("funnel_summary") or {}).get("add_to_cart")
+        views = funnel.get("views")
+        add_to_cart = funnel.get("add_to_cart")
     except Exception:
         return pdf_markdown
 
@@ -173,6 +213,12 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         except Exception:
             return None
 
+    def _to_safe_buyouts_int(value):
+        qty = _to_safe_qty(value)
+        if qty is None:
+            return None
+        return int(round(qty))
+
     def _extract_buyouts_from_financial_summary() -> tuple[dict[int, float], bool]:
         qty = {}
         sku_fin = financial_summary.get("sku_financials")
@@ -187,6 +233,26 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
                 continue
             qty[sku_i] = qty.get(sku_i, 0.0) + qty_i
         return qty, True
+
+    def _sum_buyouts_from_financial_summary() -> tuple[int | None, bool]:
+        sku_fin = financial_summary.get("sku_financials")
+        if not isinstance(sku_fin, dict):
+            return None, False
+
+        total = 0.0
+        has_values = False
+        for row in sku_fin.values():
+            if not isinstance(row, dict):
+                continue
+            qty_i = _to_safe_qty(row.get("sales_qty"))
+            if qty_i is None:
+                continue
+            total += qty_i
+            has_values = True
+
+        if not has_values:
+            return None, True
+        return int(round(total)), True
 
     def _extract_buyouts_from_sku_rows() -> tuple[dict[int, float], bool]:
         qty = {}
@@ -229,6 +295,26 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
             qty_source = "sku_performance.rows.buyouts/buys"
 
     qty_source_found = fin_qty_source_found or sku_qty_source_found
+
+    buyouts_source = None
+    financial_buyouts, _ = _sum_buyouts_from_financial_summary()
+    if financial_buyouts is not None:
+        buyouts = financial_buyouts
+        buyouts_source = "financial_summary.sku_financials.sales_qty"
+    else:
+        buyouts_account = _to_safe_buyouts_int(account_summary.get("buyouts"))
+        if buyouts_account is not None:
+            buyouts = buyouts_account
+            buyouts_source = "account_summary.buyouts"
+        else:
+            buyouts_funnel = _to_safe_buyouts_int(funnel_summary.get("buys"))
+            if buyouts_funnel is not None:
+                buyouts = buyouts_funnel
+                buyouts_source = "funnel_summary.buys"
+            else:
+                buyouts = None
+                buyouts_source = "unavailable"
+    print("DEBUG BUYOUTS selected_buyouts:", buyouts, "source:", buyouts_source)
 
     buyouts_num = _to_safe_float(buyouts)
     revenue_buyouts_num = _to_safe_float(revenue_buyouts)
@@ -316,6 +402,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
             {
                 "orders": orders,
                 "buyouts": buyouts,
+                "buyouts_source": buyouts_source,
                 "views": views,
                 "add_to_cart": add_to_cart,
                 "cr_cart": cr_cart,
