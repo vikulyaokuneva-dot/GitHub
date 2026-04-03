@@ -1,29 +1,29 @@
 # Audit mode (offline)
 
-Папка `audit/` добавляет отдельный режим "быстрого аудита" без WB API и без LLM.
+Папка `audit/` добавляет отдельный режим аудита по файлам в `audit/input` без WB API.
 
 ## Куда положить файлы
 
 ```
-audit/input/finance/  - финансовый детализированный отчет (xlsx)
-audit/input/funnel/   - воронка продаж по товарам (xlsx, лист "Товары")
-audit/input/ads/      - реклама (xlsx, лист "Статистика")
-audit/input/stocks/   - остатки (xlsx)
+audit/input/finance/  - финансы (обязательный)
+audit/input/funnel/   - воронка (обязательный)
+audit/input/stocks/   - остатки (обязательный)
+audit/input/ads/      - реклама (опциональный)
+audit/input/search/   - поисковые запросы (опциональный)
+audit/input/cogs/     - себестоимость (опциональный)
 ```
 
 ## Запуск локально
 
 ```bash
 PYTHONPATH=. python audit/run_audit.py --period 2026-02-23_2026-03-01
+PYTHONPATH=. python run.py --mode audit --period 2026-02-23_2026-03-01
 ```
 
 ## Выход
 
-`audit/artifacts/`:
-- audit_<period>.pdf
-- audit_<period>.md
-- facts_audit_<period>.json
-- actions_audit_<period>.json
-
-## GitHub Actions
-Workflow: `.github/workflows/audit.yml` (ручной запуск workflow_dispatch).
+`audit/output/`:
+- `audit_<date>.pdf`
+- `audit_<date>.md`
+- `facts_audit_<date>.json`
+- `actions_audit_<date>.json`

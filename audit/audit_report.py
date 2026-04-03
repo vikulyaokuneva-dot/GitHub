@@ -1,15 +1,18 @@
-# audit/audit_report.py
-from typing import Any, Dict, List
+"""Markdown renderer for file-based audit mode."""
+
+from __future__ import annotations
+
+from typing import Any
 
 
 def _money(x: Any) -> str:
     try:
-        return f"{float(x or 0):,.2f} ₽".replace(",", " ")
+        return f"{float(x or 0):,.2f} RUB".replace(",", " ")
     except Exception:
-        return "0.00 ₽"
+        return "0.00 RUB"
 
 
-def _pct(x: Any) -> str:
+def _pct_ratio(x: Any) -> str:
     try:
         return f"{float(x or 0) * 100:.2f}%"
     except Exception:
@@ -18,197 +21,157 @@ def _pct(x: Any) -> str:
 
 def _int(x: Any) -> str:
     try:
-        return f"{int(float(x or 0))}"
+        return str(int(float(x or 0)))
     except Exception:
         return "0"
 
 
-def _table(headers: List[str], rows: List[List[str]]) -> str:
-    out = []
-    out.append("| " + " | ".join(headers) + " |")
-    out.append("|" + "|".join(["---"] * len(headers)) + "|")
-    for r in rows:
-        out.append("| " + " | ".join(r) + " |")
-    return "\n".join(out)
+def _kpi_state_text(decision_layer: dict[str, Any]) -> str:
+    kpi = decision_layer.get("kpi") or {}
+    profit = float(kpi.get("profit") or 0)
+    margin = float(kpi.get("margin") or 0)
+    if profit < 0:
+        return f"Убыток: {_money(profit)}, маржа: {_pct_ratio(margin)}."
+    if profit > 0:
+        return f"Прибыль: {_money(profit)}, маржа: {_pct_ratio(margin)}."
+    return f"Нулевая прибыль, маржа: {_pct_ratio(margin)}."
 
 
-def build_audit_markdown(facts: Dict[str, Any]) -> str:
-    period = (facts.get("period") or {}).get("label") or "период"
-    days = (facts.get("period") or {}).get("days") or ""
+def build_audit_markdown(facts: dict[str, Any]) -> str:
     finance = facts.get("financial_summary") or {}
     funnel = facts.get("funnel_summary") or {}
     ads = facts.get("ads_summary") or {}
     stock = facts.get("stock_summary") or {}
-    growth = facts.get("growth_engine") or {}
+    search = facts.get("search_insights") or {}
+    decision = facts.get("decision_layer") or {}
     inputs = facts.get("inputs") or {}
-
-    md: List[str] = []
-    md.append(f"# WB аудит за период: {period}")
-    if days:
-        md.append(f"Период: {period} ({days} дн.)\n")
-
-    md.append("## Источники (файлы)")
-    md.append(_table(
-        ["Блок", "Файл"],
-        [
-            ["Финансы", inputs.get("finance_file", "нет") or "нет"],
-            ["Воронка", inputs.get("funnel_file", "нет") or "нет"],
-            ["Реклама", inputs.get("ads_file", "нет") or "нет"],
-            ["Остатки", inputs.get("stocks_file", "нет") or "нет"],
-        ]
-    ))
-    md.append("")
-
-    md.append("## 1) Финансы за период")
-    md.append(_table(
-        ["Метрика", "Значение"],
-        [
-            ["Выручка (gross)", _money(finance.get("gross_revenue"))],
-            ["Комиссия", _money(finance.get("commission"))],
-            ["Логистика", _money(finance.get("logistics"))],
-            ["Хранение", _money(finance.get("storage"))],
-            ["Штрафы", _money(finance.get("penalties"))],
-            ["Себестоимость", _money(finance.get("cogs_total"))],
-            ["Налог", _money(finance.get("tax"))],
-            ["Прибыль", _money(finance.get("profit"))],
-            ["Маржа", _pct(finance.get("margin"))],
-            ["Выкупы (шт)", _int(finance.get("sales_qty"))],
-            ["Возвраты (шт)", _int(finance.get("returns_qty"))],
-            ["К перечислению", _money(finance.get("payout"))],
-        ]
-    ))
-    md.append("")
-
-    md.append("## 2) Воронка продаж (за период)")
-    md.append(_table(
-        ["Метрика", "Значение"],
-        [
-            ["Просмотры карточек", _int(funnel.get("views"))],
-            ["Добавили в корзину", _int(funnel.get("add_to_cart"))],
-            ["Заказы", _int(funnel.get("orders"))],
-            ["Выкупы", _int(funnel.get("buys"))],
-            ["CR в корзину", _pct(funnel.get("cr_cart"))],
-            ["CR в заказ", _pct(funnel.get("cr_order"))],
-            ["% выкупа", _pct(funnel.get("buyout_rate"))],
-            ["Заказы на сумму", _money(funnel.get("revenue_orders"))],
-            ["Выкупы на сумму", _money(funnel.get("revenue_buyouts"))],
-        ]
-    ))
-    md.append("")
-
-    md.append("## 3) Реклама (за период)")
-    md.append(_table(
-        ["Метрика", "Значение"],
-        [
-            ["Расход", _money(ads.get("spend"))],
-            ["Показы", _int(ads.get("impressions"))],
-            ["Клики", _int(ads.get("clicks"))],
-            ["CTR", _pct(ads.get("ctr"))],
-            ["CPC", _money(ads.get("cpc"))],
-            ["CPM", _money(ads.get("cpm"))],
-            ["Атриб. выручка (если есть)", _money(ads.get("revenue_attr"))],
-            ["ROAS", f"{ads.get('roas', 0)}"],
-            ["ДРР", (str(ads.get("drr")) if ads.get("drr") is not None else "нет данных (нет атрибуции)")],
-        ]
-    ))
-    md.append("")
-
-    md.append("## 4) Остатки и риск дефицита")
-    md.append(_table(
-        ["Метрика", "Значение"],
-        [
-            ["Остатки (шт)", _int(stock.get("stock_units"))],
-            ["SKU/позиций в наличии", _int(stock.get("sku_count"))],
-            ["Дни покрытия (оценка)", str(stock.get("days_of_cover", 0))],
-            ["Порог (lead+safety)", _int(stock.get("threshold_days"))],
-            ["Риск дефицита", "Да" if stock.get("risk_of_oos") else "Нет"],
-            ["Примечание", stock.get("note", "") or ""],
-        ]
-    ))
-    md.append("")
-
-    # ---------------------------
-    # Growth Engine (правильные поля: numbers.*)
-    # ---------------------------
-    md.append("## 5) Решения по ассортименту (Growth Engine)")
-    top_scale = growth.get("top_scale") or []
-    top_opt = growth.get("top_optimize") or []
-    top_liq = growth.get("top_liquidate") or []
-    top_contrib = growth.get("top_contribution") or []
-
-    def _n(it: Dict[str, Any], key: str, default: Any = 0) -> Any:
-        nums = it.get("numbers") or {}
-        return nums.get(key, default)
-
-    def sku_rows(items):
-        rows = []
-        for it in items[:5]:
-            rows.append([
-                str(it.get("sku", "")),
-                _money(_n(it, "revenue", 0.0)),      # может отсутствовать
-                _money(_n(it, "profit", 0.0)),
-                _pct(_n(it, "margin", 0.0)),
-                _int(_n(it, "buyouts", _n(it, "orders", ""))),
-            ])
-        return rows
-
-    if top_scale:
-        md.append("### SCALE (масштабировать)")
-        md.append(_table(["SKU", "Выручка", "Прибыль", "Маржа", "Выкупы/заказы"], sku_rows(top_scale)))
-        md.append("")
-    if top_opt:
-        md.append("### OPTIMIZE (оптимизировать)")
-        md.append(_table(["SKU", "Выручка", "Прибыль", "Маржа", "Выкупы/заказы"], sku_rows(top_opt)))
-        md.append("")
-    if top_liq:
-        md.append("### LIQUIDATE (ликвидировать)")
-        md.append(_table(["SKU", "Выручка", "Прибыль", "Маржа", "Выкупы/заказы"], sku_rows(top_liq)))
-        md.append("")
-
-    if top_contrib:
-        md.append("### TOP вклад в прибыль")
-        rows = []
-        for it in top_contrib[:5]:
-            rows.append([
-                str(it.get("sku", "")),
-                _money(_n(it, "profit", 0.0)),
-                f"{float(_n(it, 'contribution_share', 0.0) or 0.0) * 100:.2f}%",
-            ])
-        md.append(_table(["SKU", "Прибыль", "Доля вклада"], rows))
-        md.append("")
-
-    # ---------------------------
-    # План действий: поддержка текущего формата action_orchestrator.build_actions
-    # ---------------------------
-    md.append("## 6) План действий (P1/P2/P3)")
-
+    sku_profit = facts.get("sku_profit") or []
     actions = facts.get("actions") or []
-    if not actions:
-        md.append("- нет действий (оркестратор не сформировал список)\n")
-        return "\n".join(md).strip() + "\n"
 
-    pr_map = {"high": "P1", "medium": "P2", "low": "P3"}
-    shown = 0
-    for a in actions:
-        if shown >= 15:
-            break
-        pr = pr_map.get(str(a.get("priority") or "").lower(), "P2")
-        title = (a.get("title") or "").strip()
-        rec = (a.get("recommendation") or "").strip()
-        sku = ""
-        payload = a.get("payload") or {}
-        if isinstance(payload, dict):
-            sku = str(payload.get("sku") or "")
+    lines: list[str] = []
+    lines.append("# АУДИТ WB КАБИНЕТА")
+    lines.append("")
 
-        line = f"**{pr}**"
-        if sku:
-            line += f" SKU:{sku}"
-        if title:
-            line += f" — {title}"
-        md.append(line)
-        if rec:
-            md.append(f"- действие: {rec}")
-        shown += 1
-        md.append("")
+    lines.append("## 1. Итог")
+    lines.append(f"- {_kpi_state_text(decision)}")
+    lines.append(f"- Выручка: {_money(finance.get('gross_revenue'))}")
+    lines.append(f"- ROI/ROAS рекламы: {ads.get('roas', 'н/д')}")
+    lines.append("")
 
-    return "\n".join(md).strip() + "\n"
+    lines.append("## 2. Почему результат такой")
+    reasons = decision.get("reasons_of_loss") or []
+    if reasons:
+        for reason in reasons:
+            lines.append(f"- {reason.get('reason')}: {reason.get('numbers')}")
+    else:
+        lines.append("- Причины не определены: не хватает данных для причинно-следственного вывода.")
+    lines.append("")
+
+    lines.append("## 3. Финансы")
+    lines.append(f"- Выручка: {_money(finance.get('gross_revenue'))}")
+    lines.append(f"- Комиссия WB: {_money(finance.get('commission'))}")
+    lines.append(f"- Логистика: {_money(finance.get('logistics'))}")
+    lines.append(f"- Хранение: {_money(finance.get('storage'))}")
+    lines.append(f"- Себестоимость: {_money(finance.get('cogs_total'))}")
+    lines.append(f"- Налог: {_money(finance.get('tax'))}")
+    lines.append(f"- Прибыль: {_money(finance.get('profit'))}")
+    lines.append(f"- Маржа: {_pct_ratio(finance.get('margin'))}")
+    lines.append("")
+
+    lines.append("## 4. Реклама")
+    lines.append(f"- Расход: {_money(ads.get('spend'))}")
+    lines.append(f"- Атрибутированная выручка: {_money(ads.get('revenue_attr'))}")
+    lines.append(f"- ROAS: {ads.get('roas', 0)}")
+    leaks = decision.get("ads_leaks") or []
+    if leaks:
+        lines.append(f"- Слив бюджета: найдено {len(leaks)} проблемных сегментов.")
+    else:
+        lines.append("- Слив бюджета по доступным данным не подтвержден.")
+    lines.append("")
+
+    lines.append("## 5. Воронка")
+    lines.append(f"- Просмотры: {_int(funnel.get('views'))}")
+    lines.append(f"- В корзину: {_int(funnel.get('add_to_cart'))}")
+    lines.append(f"- Заказы: {_int(funnel.get('orders'))}")
+    lines.append(f"- Выкупы: {_int(funnel.get('buys'))}")
+    lines.append(f"- CR в корзину: {_pct_ratio(funnel.get('cr_cart'))}")
+    lines.append(f"- CR в заказ: {_pct_ratio(funnel.get('cr_order'))}")
+    lines.append(f"- % выкупа: {_pct_ratio(funnel.get('buyout_rate'))}")
+    lines.append("")
+
+    lines.append("## 6. Ассортимент (SKU)")
+    unprofitable_sku = decision.get("unprofitable_sku") or []
+    sku_without_sales = decision.get("sku_without_sales") or []
+    if unprofitable_sku:
+        lines.append("- Убыточные SKU (top-10):")
+        for item in unprofitable_sku[:10]:
+            lines.append(
+                f"- SKU {item.get('sku')}: прибыль {_money(item.get('profit'))}, маржа {_pct_ratio(item.get('margin'))}"
+            )
+    else:
+        lines.append("- Убыточные SKU не выявлены или данных недостаточно.")
+    if sku_without_sales:
+        lines.append("- SKU без продаж с остатком (top-10):")
+        for item in sku_without_sales[:10]:
+            lines.append(f"- SKU {item.get('sku')}: остаток {_int(item.get('stock_qty'))} шт, выкупы {_int(item.get('buyouts'))}")
+    else:
+        lines.append("- SKU без продаж с остатком не выявлены или данных недостаточно.")
+    lines.append("")
+
+    lines.append("## 7. Остатки")
+    lines.append(f"- Остаток: {_int(stock.get('stock_units'))} шт")
+    lines.append(f"- SKU/позиций: {_int(stock.get('sku_count'))}")
+    lines.append(f"- Дни покрытия: {stock.get('days_of_cover', 0)}")
+    dead_stock = decision.get("dead_stock") or []
+    if dead_stock:
+        lines.append(f"- Мертвые остатки: {len(dead_stock)} SKU/позиций без продаж.")
+    else:
+        lines.append("- Мертвые остатки по доступным данным не зафиксированы.")
+    lines.append("")
+
+    lines.append("## 8. Поисковые запросы (если есть)")
+    if (search.get("status") or "") == "ok":
+        lines.append(f"- Прибыльные: {len(search.get('profitable') or [])}")
+        lines.append(f"- Убыточные: {len(search.get('unprofitable') or [])}")
+        lines.append(f"- Потенциал: {len(search.get('potential') or [])}")
+    else:
+        lines.append("- Данные по поисковым запросам отсутствуют.")
+    lines.append("")
+
+    lines.append("## 9. Рекомендации")
+    if actions:
+        for action in actions:
+            lines.append(
+                f"- [{action.get('priority')}] ({action.get('area')}) {action.get('action')} "
+                f"— {action.get('why')}. Эффект: {action.get('expected_effect')}."
+            )
+    else:
+        lines.append("- Действия не сформированы: недостаточно данных.")
+    lines.append("")
+
+    missing_required = inputs.get("missing_required") or []
+    missing_optional = inputs.get("missing_optional") or []
+    lines.append("## Доступность данных")
+    lines.append(f"- Найдено файлов: {len(inputs.get('found_files') or [])}")
+    lines.append(f"- Собраны блоки: {', '.join(inputs.get('blocks_collected') or []) or 'нет'}")
+    lines.append(f"- Пропущены блоки: {', '.join(inputs.get('blocks_skipped') or []) or 'нет'}")
+    if missing_required:
+        lines.append(f"- Не хватает обязательных файлов: {', '.join(missing_required)}")
+    if missing_optional:
+        lines.append(f"- Не хватает опциональных файлов: {', '.join(missing_optional)}")
+    if not missing_required and not missing_optional:
+        lines.append("- Все ожидаемые файлы присутствуют.")
+    lines.append("")
+
+    # Keep compact SKU profit appendix.
+    if sku_profit:
+        lines.append("## Приложение: top SKU по прибыли")
+        for item in sku_profit[:10]:
+            lines.append(
+                f"- SKU {item.get('sku')}: прибыль {_money(item.get('profit'))}, "
+                f"выручка {_money(item.get('revenue'))}, остаток {_int(item.get('stock_qty'))}"
+            )
+        lines.append("")
+
+    return "\n".join(lines).strip() + "\n"
+
