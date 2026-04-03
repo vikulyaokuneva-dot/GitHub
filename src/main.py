@@ -99,9 +99,27 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     if revenue_orders is None:
         revenue_orders = account_summary.get("revenue_orders")
 
-    revenue_buyouts = funnel_summary.get("revenue_buyouts")
+    # Buyouts amount must come from realization-based finance first.
+    # Funnel buyout sum is used only as fallback when finance is unavailable.
+    revenue_buyouts = None
+    finance_rows_count = 0
+    try:
+        raw_rows = financial_summary.get("rows_count")
+        if raw_rows is not None and raw_rows != "":
+            finance_rows_count = int(float(raw_rows))
+    except Exception:
+        finance_rows_count = 0
+
+    if finance_rows_count > 0:
+        revenue_buyouts = financial_summary.get("gross_revenue")
+    if revenue_buyouts is None:
+        revenue_buyouts = funnel_summary.get("revenue_buyouts")
     if revenue_buyouts is None:
         revenue_buyouts = account_summary.get("revenue_buyouts")
+    print("DEBUG BUYOUTS financial_summary:", json.dumps(financial_summary, ensure_ascii=False, sort_keys=True))
+    print("DEBUG BUYOUTS rows_count:", financial_summary.get("rows_count"))
+    print("DEBUG BUYOUTS gross_revenue:", financial_summary.get("gross_revenue"))
+    print("DEBUG BUYOUTS selected_revenue_buyouts:", revenue_buyouts)
 
     ad_spend = metrics.get("ad_spend")
     ad_attributed_revenue = metrics.get("ad_attributed_revenue")
@@ -625,6 +643,7 @@ def validate_llm_json(data: dict):
 
 
 def main():
+    print("DEBUG ENTRY FILE:", __file__)
     os.makedirs("out", exist_ok=True)
 
     # 1) Получаем факты за день
