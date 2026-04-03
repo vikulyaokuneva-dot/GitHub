@@ -119,6 +119,10 @@ def _lookup(row: dict[str, Any], aliases: tuple[str, ...]) -> Any:
     return None
 
 
+def _has_any(row: dict[str, Any], aliases: tuple[str, ...]) -> bool:
+    return _lookup(row, aliases) not in (None, "", [])
+
+
 def _score_hints(values: list[str], hints: tuple[str, ...], per_hit: int, cap: int) -> int:
     score = 0
     joined = " | ".join(values)
@@ -355,54 +359,85 @@ def pick_first_file(dir_path: str) -> str | None:
 
 
 def parse_finance_file(path: str) -> list[dict[str, Any]]:
+    rows, _ = parse_finance_file_with_diagnostics(path)
+    return rows
+
+
+def parse_finance_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not path:
-        return []
+        return [], {"status": "file_not_provided", "path": ""}
     df = _read_typed_table(Path(path), "finance")
     if df.empty:
-        return []
+        return [], {"status": "empty_after_parse", "path": path}
     rows: list[dict[str, Any]] = []
+    skipped_rows = 0
     for _, r in df.iterrows():
         row = dict(r)
         doc_type = str(_lookup(row, ("Тип документа", "Обоснование для оплаты", "doc_type_name", "supplier_oper_name")) or "").strip()
-        rows.append(
-            {
-                "doc_type_name": doc_type,
-                "supplier_oper_name": doc_type,
-                "nm_id": _to_int(_lookup(row, ("Код номенклатуры", "Артикул WB", "nm_id", "nmId", "Номенклатура"))),
-                "quantity": _to_int(_lookup(row, ("Кол-во", "Количество", "quantity", "qty", "count"))),
-                "retail_amount": _to_float(
-                    _lookup(
-                        row,
-                        (
-                            "Вайлдберриз реализовал Товар (Пр)",
-                            "К перечислению Продавцу за реализованный Товар",
-                            "retail_amount",
-                        ),
-                    )
-                ),
-                "retail_price_withdisc_rub": _to_float(
-                    _lookup(row, ("Цена розничная с учетом согласованной скидки", "Цена розничная", "retail_price_withdisc_rub"))
-                ),
-                "ppvz_sales_commission": _to_float(_lookup(row, ("Вознаграждение Вайлдберриз (ВВ), без НДС", "ppvz_sales_commission"))),
-                "ppvz_for_pay": _to_float(_lookup(row, ("К перечислению Продавцу за реализованный Товар", "ppvz_for_pay"))),
-                "delivery_rub": _to_float(
-                    _lookup(
-                        row,
-                        (
-                            "Услуги по доставке товара покупателю",
-                            "Возмещение за выдачу и возврат товаров на ПВЗ",
-                            "delivery_rub",
-                            "logistics",
-                        ),
-                    )
-                ),
-                "storage_fee": _to_float(_lookup(row, ("Хранение", "storage_fee", "storage"))),
-                "penalty": _to_float(_lookup(row, ("Общая сумма штрафов", "penalty", "fine"))),
-                "_supplier_article": str(_lookup(row, ("Артикул поставщика", "Артикул продавца", "supplierArticle")) or ""),
-                "_name": str(_lookup(row, ("Название", "name")) or ""),
-            }
+        payload = {
+            "doc_type_name": doc_type,
+            "supplier_oper_name": doc_type,
+            "nm_id": _to_int(_lookup(row, ("Код номенклатуры", "Артикул WB", "nm_id", "nmId", "Номенклатура"))),
+            "quantity": _to_int(_lookup(row, ("Кол-во", "Количество", "quantity", "qty", "count"))),
+            "retail_amount": _to_float(
+                _lookup(
+                    row,
+                    (
+                        "Вайлдберриз реализовал Товар (Пр)",
+                        "К перечислению Продавцу за реализованный Товар",
+                        "retail_amount",
+                    ),
+                )
+            ),
+            "retail_price_withdisc_rub": _to_float(
+                _lookup(row, ("Цена розничная с учетом согласованной скидки", "Цена розничная", "retail_price_withdisc_rub"))
+            ),
+            "ppvz_sales_commission": _to_float(_lookup(row, ("Вознаграждение Вайлдберриз (ВВ), без НДС", "ppvz_sales_commission"))),
+            "ppvz_for_pay": _to_float(_lookup(row, ("К перечислению Продавцу за реализованный Товар", "ppvz_for_pay"))),
+            "delivery_rub": _to_float(
+                _lookup(
+                    row,
+                    (
+                        "Услуги по доставке товара покупателю",
+                        "Возмещение за выдачу и возврат товаров на ПВЗ",
+                        "delivery_rub",
+                        "logistics",
+                    ),
+                )
+            ),
+            "storage_fee": _to_float(_lookup(row, ("Хранение", "storage_fee", "storage"))),
+            "penalty": _to_float(_lookup(row, ("Общая сумма штрафов", "penalty", "fine"))),
+            "_supplier_article": str(_lookup(row, ("Артикул поставщика", "Артикул продавца", "supplierArticle")) or ""),
+            "_name": str(_lookup(row, ("Название", "name")) or ""),
+        }
+
+        marker = " ".join(
+            [
+                _norm(payload.get("_name")),
+                _norm(payload.get("supplier_oper_name")),
+                _norm(payload.get("_supplier_article")),
+            ]
         )
-    return rows
+        is_total = any(x in marker for x in ("итого", "всего", "total"))
+        looks_empty = (
+            payload["nm_id"] == 0
+            and payload["quantity"] == 0
+            and payload["retail_amount"] == 0.0
+            and payload["ppvz_for_pay"] == 0.0
+            and not payload["_name"]
+            and not payload["supplier_oper_name"]
+        )
+        if is_total or looks_empty:
+            skipped_rows += 1
+            continue
+        rows.append(payload)
+    return rows, {
+        "status": "ok" if rows else "empty_after_parse",
+        "path": path,
+        "rows_total": int(len(df)),
+        "rows_parsed": int(len(rows)),
+        "rows_skipped": int(skipped_rows),
+    }
 
 
 def parse_funnel_file(path: str) -> list[dict[str, Any]]:
@@ -441,76 +476,377 @@ def parse_funnel_file(path: str) -> list[dict[str, Any]]:
 
 
 def parse_stocks_file(path: str) -> list[dict[str, Any]]:
-    if not path:
-        return []
-    df = _read_typed_table(Path(path), "stocks")
-    if df.empty:
-        return []
-    rows: list[dict[str, Any]] = []
-    for _, r in df.iterrows():
-        row = dict(r)
-        rows.append(
-            {
-                "nmId": _to_int(_lookup(row, ("Артикул WB", "Код номенклатуры", "nmId"))),
-                "quantityFull": _to_int(_lookup(row, ("Всего находится на складах", "quantityFull", "quantity"))),
-                "inWayToClient": _to_int(_lookup(row, ("В пути до получателей", "inWayToClient"))),
-                "inWayFromClient": _to_int(_lookup(row, ("В пути возвраты на склад WB", "inWayFromClient"))),
-                "supplierArticle": str(
-                    _lookup(row, ("Артикул продавца", "Артикул поставщика", "supplierArticle", "vendorCode")) or ""
-                ),
-                "_name": str(_lookup(row, ("Название", "name")) or ""),
-            }
-        )
+    rows, _ = parse_stocks_file_with_diagnostics(path)
     return rows
 
+
+def _pick_stocks_sheet(path: Path) -> str | int:
+    sheets = _excel_sheet_names(path)
+    if not sheets:
+        return 0
+    for sheet in sheets:
+        sn = _norm(sheet)
+        if "деталь" in sn:
+            return sheet
+    for sheet in sheets:
+        sn = _norm(sheet)
+        if "остатк" in sn:
+            return sheet
+    return sheets[0]
+
+
+def _extract_date_stock_value(row: dict[str, Any]) -> tuple[int, str | None]:
+    # Choose latest date-like column value as current stock; fallback to max.
+    date_like_cols = []
+    for key in row.keys():
+        k = _norm(key)
+        if "." in k and any(ch.isdigit() for ch in k):
+            date_like_cols.append(key)
+    values = []
+    for col in date_like_cols:
+        values.append((col, _to_int(row.get(col))))
+    if not values:
+        return 0, None
+    # keep order from dataframe: last date is usually latest day in period
+    last_col, last_val = values[-1]
+    max_val = max(v for _, v in values)
+    return (last_val if last_val > 0 else max_val), str(last_col)
+
+
+def _value_by_index(row: dict[str, Any], idx: int) -> Any:
+    if idx < 0:
+        return None
+    values = list(row.values())
+    if idx >= len(values):
+        return None
+    return values[idx]
+
+
+def _parse_stocks_df_rows(df_local: pd.DataFrame) -> tuple[list[dict[str, Any]], int, int, str | None, int, int]:
+    rows_local: list[dict[str, Any]] = []
+    mapped_rows_local = 0
+    parsed_rows_local = 0
+    date_stock_column_local = None
+    id_mapped_rows_local = 0
+    qty_positive_rows_local = 0
+
+    for _, r in df_local.iterrows():
+        row = dict(r)
+        parsed_rows_local += 1
+
+        qty = _to_int(_lookup(row, ("quantityFull", "quantity", "qty", "stock")))
+        if qty <= 0:
+            qty = _to_int(_value_by_index(row, 16))
+        if qty <= 0:
+            qty_by_day, day_col = _extract_date_stock_value(row)
+            if qty_by_day > 0:
+                qty = qty_by_day
+                if day_col:
+                    date_stock_column_local = day_col
+
+        nmid = _to_int(_lookup(row, ("nmId", "nm_id", "sku")))
+        if nmid == 0:
+            nmid = _to_int(_value_by_index(row, 2))
+
+        supplier_article = str(_lookup(row, ("supplierArticle", "vendorCode", "seller_sku")) or "").strip()
+        if not supplier_article:
+            supplier_article = str(_value_by_index(row, 0) or "").strip()
+
+        name = str(_lookup(row, ("name", "title")) or "").strip()
+        if not name:
+            name = str(_value_by_index(row, 1) or "").strip()
+
+        in_way_to_client = _to_int(_lookup(row, ("inWayToClient",)))
+        if in_way_to_client == 0:
+            in_way_to_client = _to_int(_value_by_index(row, 21))
+
+        in_way_from_client = _to_int(_lookup(row, ("inWayFromClient",)))
+        if in_way_from_client == 0:
+            in_way_from_client = _to_int(_value_by_index(row, 22))
+
+        payload = {
+            "nmId": nmid,
+            "quantityFull": int(qty),
+            "inWayToClient": in_way_to_client,
+            "inWayFromClient": in_way_from_client,
+            "supplierArticle": supplier_article,
+            "_name": name,
+        }
+
+        marker = " ".join([_norm(payload.get("_name")), _norm(payload.get("supplierArticle"))])
+        if any(x in marker for x in ("?????", "?????", "total")):
+            continue
+
+        if payload["nmId"] > 0:
+            id_mapped_rows_local += 1
+        if payload["quantityFull"] > 0:
+            qty_positive_rows_local += 1
+
+        if payload["nmId"] or payload["supplierArticle"] or payload["quantityFull"] > 0:
+            mapped_rows_local += 1
+            rows_local.append(payload)
+
+    return (
+        rows_local,
+        parsed_rows_local,
+        mapped_rows_local,
+        date_stock_column_local,
+        id_mapped_rows_local,
+        qty_positive_rows_local,
+    )
+
+
+def parse_stocks_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if not path:
+        return [], {"status": "file_not_provided", "path": ""}
+
+    p = Path(path)
+    sheet = _pick_stocks_sheet(p)
+    header_guess = _find_header_row(p, "stocks", sheet_name=sheet)
+
+    header_candidates: list[int] = []
+    for candidate in [header_guess, header_guess + 1, 1, 0, 2, 3]:
+        if candidate >= 0 and candidate not in header_candidates:
+            header_candidates.append(candidate)
+
+    best_rows: list[dict[str, Any]] = []
+    best_parsed_rows = 0
+    best_mapped_rows = 0
+    best_id_mapped_rows = 0
+    best_qty_positive_rows = 0
+    best_date_col = None
+    best_header = header_guess
+    tried: list[dict[str, Any]] = []
+
+    for header in header_candidates:
+        df = _read_raw_table(p, header_row=header, sheet_name=sheet)
+        if df is None:
+            tried.append({"header_row": int(header), "status": "parse_failed"})
+            continue
+
+        df = df.dropna(axis=1, how="all").fillna("")
+        if df.empty:
+            tried.append({"header_row": int(header), "status": "empty_after_parse"})
+            continue
+
+        (
+            rows,
+            parsed_rows,
+            mapped_rows,
+            date_stock_column,
+            id_mapped_rows,
+            qty_positive_rows,
+        ) = _parse_stocks_df_rows(df)
+        tried.append(
+            {
+                "header_row": int(header),
+                "status": "ok" if rows else "empty_after_parse",
+                "parsed_rows": int(parsed_rows),
+                "mapped_rows": int(mapped_rows),
+                "id_mapped_rows": int(id_mapped_rows),
+                "qty_positive_rows": int(qty_positive_rows),
+            }
+        )
+
+        candidate_score = (
+            int(id_mapped_rows),
+            int(qty_positive_rows),
+            -abs(int(header) - 1),
+            int(mapped_rows),
+        )
+        best_score = (
+            int(best_id_mapped_rows),
+            int(best_qty_positive_rows),
+            -abs(int(best_header) - 1),
+            int(best_mapped_rows),
+        )
+        if candidate_score > best_score:
+            best_rows = rows
+            best_parsed_rows = parsed_rows
+            best_mapped_rows = mapped_rows
+            best_id_mapped_rows = id_mapped_rows
+            best_qty_positive_rows = qty_positive_rows
+            best_date_col = date_stock_column
+            best_header = header
+
+    rows = best_rows
+    parsed_rows = best_parsed_rows
+    mapped_rows = best_mapped_rows
+    date_stock_column = best_date_col
+
+    status = "ok" if rows else "empty_after_parse"
+    if parsed_rows > 0 and mapped_rows == 0:
+        status = "aggregation_unmapped"
+
+    return rows, {
+        "status": status,
+        "path": path,
+        "sheet": str(sheet),
+        "header_row": int(best_header),
+        "header_row_guess": int(header_guess),
+        "header_candidates_tried": tried,
+        "parsed_rows": int(parsed_rows),
+        "mapped_rows": int(mapped_rows),
+        "id_mapped_rows": int(best_id_mapped_rows),
+        "qty_positive_rows": int(best_qty_positive_rows),
+        "date_stock_column": date_stock_column,
+    }
 
 def parse_ads_file(path: str) -> list[dict[str, Any]]:
+    rows, _ = parse_ads_file_with_diagnostics(path)
+    return rows
+
+
+def parse_ads_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not path:
-        return []
+        return [], {"status": "file_not_provided", "path": ""}
     df = _read_typed_table(Path(path), "ads")
     if df.empty:
-        return []
+        return [], {"status": "empty_after_parse", "path": path}
     rows: list[dict[str, Any]] = []
+    skipped = 0
     for _, r in df.iterrows():
         row = dict(r)
-        rows.append(
-            {
-                "nmId": _to_int(_lookup(row, ("Номенклатура", "nmId", "Код номенклатуры"))),
-                "spend": _to_float(_lookup(row, ("Затраты, RUB", "Затраты", "Расход", "spend"))),
-                "impressions": _to_int(_lookup(row, ("Показы", "Показы, шт", "impressions", "views"))),
-                "clicks": _to_int(_lookup(row, ("Клики", "clicks"))),
-                "revenueAttr": _to_float(_lookup(row, ("Заказов на сумму, RUB", "Заказов на сумму", "revenueAttr", "orderSum"))),
-                "views": _to_int(_lookup(row, ("Показы", "Показы, шт", "impressions", "views"))),
-                "name": str(_lookup(row, ("Название", "name")) or ""),
-            }
-        )
-    return rows
+        name = str(_lookup(row, ("Название", "name")) or "")
+        if _norm(name).startswith("всего по кампании"):
+            skipped += 1
+            continue
+        payload = {
+            "nmId": _to_int(_lookup(row, ("Номенклатура", "nmId", "Код номенклатуры"))),
+            "spend": _to_float(_lookup(row, ("Затраты, RUB", "Затраты", "Расход", "spend"))),
+            "impressions": _to_int(_lookup(row, ("Показы", "Показы, шт", "impressions", "views"))),
+            "clicks": _to_int(_lookup(row, ("Клики", "clicks"))),
+            "revenueAttr": _to_float(_lookup(row, ("Заказов на сумму, RUB", "Заказов на сумму", "revenueAttr", "orderSum"))),
+            "views": _to_int(_lookup(row, ("Показы", "Показы, шт", "impressions", "views"))),
+            "name": name,
+        }
+        if payload["nmId"] == 0 and payload["spend"] == 0 and payload["impressions"] == 0 and payload["clicks"] == 0:
+            skipped += 1
+            continue
+        rows.append(payload)
+    return rows, {
+        "status": "ok" if rows else "empty_after_parse",
+        "path": path,
+        "rows_total": int(len(df)),
+        "rows_parsed": int(len(rows)),
+        "rows_skipped": int(skipped),
+    }
 
 
 def parse_search_file(path: str) -> list[dict[str, Any]]:
+    rows, _ = parse_search_file_with_diagnostics(path)
+    return rows
+
+
+def _pick_search_sheet(path: Path) -> str | int:
+    sheets = _excel_sheet_names(path)
+    if not sheets:
+        return 0
+    for sheet in sheets:
+        sn = _norm(sheet)
+        if "деталь" in sn:
+            return sheet
+    for sheet in sheets:
+        sn = _norm(sheet)
+        if "поиск" in sn or "query" in sn:
+            return sheet
+    return _find_best_sheet(path, "search")
+
+
+def parse_search_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not path:
-        return []
-    df = _read_typed_table(Path(path), "search")
+        return [], {"status": "file_not_provided", "path": ""}
+    p = Path(path)
+    sheet = _pick_search_sheet(p)
+    header = _find_header_row(p, "search", sheet_name=sheet)
+    df = _read_raw_table(p, header_row=header, sheet_name=sheet)
+    if df is None:
+        return [], {"status": "parse_failed", "path": path, "sheet": str(sheet), "header_row": int(header)}
+    df = df.dropna(axis=1, how="all").fillna("")
     if df.empty:
-        return []
+        return [], {"status": "empty_after_parse", "path": path, "sheet": str(sheet), "header_row": int(header)}
+
+    normalized_cols = [_norm(c) for c in list(df.columns)]
+    recognized = {
+        "query": _find_best_sheet,  # placeholder to keep structure assignment explicit below
+    }
+    query_aliases = ("Поисковый запрос", "Запрос", "Query", "search_query", "phrase")
+    impressions_aliases = ("Показы", "Количество запросов", "impressions")
+    clicks_aliases = ("Клики", "Переходы в карточку", "clicks")
+    add_to_cart_aliases = ("Положили в корзину", "Добавили в корзину", "add_to_cart")
+    orders_aliases = ("Заказали, шт", "Заказы", "orderCount", "orders")
+    revenue_aliases = ("Выкупили на сумму, ₽", "Заказали на сумму, ₽", "Выручка", "revenue", "orderSum")
+    sku_aliases = ("Артикул WB", "Код номенклатуры", "nmId")
+    seller_aliases = ("Артикул продавца", "Артикул поставщика", "supplierArticle")
+
+    def _resolve_col(aliases: tuple[str, ...]) -> str | None:
+        return _lookup({c: c for c in normalized_cols}, aliases)
+
+    query_col = _resolve_col(query_aliases)
+    impressions_col = _resolve_col(impressions_aliases)
+    clicks_col = _resolve_col(clicks_aliases)
+    add_to_cart_col = _resolve_col(add_to_cart_aliases)
+    orders_col = _resolve_col(orders_aliases)
+    revenue_col = _resolve_col(revenue_aliases)
+    sku_col = _resolve_col(sku_aliases)
+    seller_col = _resolve_col(seller_aliases)
+
+    missing_columns = []
+    if not query_col:
+        missing_columns.append("query")
+    if not impressions_col:
+        missing_columns.append("impressions")
+
     rows: list[dict[str, Any]] = []
+    parsed_rows = 0
+    skipped_rows = 0
     for _, r in df.iterrows():
+        parsed_rows += 1
         row = dict(r)
-        query = str(_lookup(row, ("Поисковый запрос", "Запрос", "Query", "search_query", "phrase")) or "").strip()
+        query = str(_lookup(row, query_aliases) or "").strip()
         if not query:
+            skipped_rows += 1
+            continue
+        if any(x in _norm(query) for x in ("итого", "всего", "total")):
+            skipped_rows += 1
             continue
         rows.append(
             {
                 "query": query,
-                "impressions": _to_int(_lookup(row, ("Показы", "impressions"))),
-                "clicks": _to_int(_lookup(row, ("Клики", "clicks"))),
-                "orders": _to_int(_lookup(row, ("Заказы", "orderCount", "orders"))),
+                "impressions": _to_int(_lookup(row, impressions_aliases)),
+                "clicks": _to_int(_lookup(row, clicks_aliases)),
+                "add_to_cart": _to_int(_lookup(row, add_to_cart_aliases)),
+                "orders": _to_int(_lookup(row, orders_aliases)),
                 "buyouts": _to_int(_lookup(row, ("Выкупы", "buyoutCount", "buyouts"))),
                 "spend": _to_float(_lookup(row, ("Расход", "Затраты", "spend"))),
-                "revenue": _to_float(_lookup(row, ("Выручка", "Заказов на сумму", "revenue", "orderSum"))),
+                "revenue": _to_float(_lookup(row, revenue_aliases)),
+                "nmId": _to_int(_lookup(row, sku_aliases)),
+                "seller_article": str(_lookup(row, seller_aliases) or ""),
             }
         )
-    return rows
+    status = "ok" if rows else "empty_after_parse"
+    if missing_columns and not rows:
+        status = "unsupported_format"
+    return rows, {
+        "status": status,
+        "path": path,
+        "sheet": str(sheet),
+        "header_row": int(header),
+        "parsed_rows": int(parsed_rows),
+        "rows_parsed": int(len(rows)),
+        "rows_skipped": int(skipped_rows),
+        "recognized_columns": {
+            "query": query_col,
+            "impressions": impressions_col,
+            "clicks": clicks_col,
+            "add_to_cart": add_to_cart_col,
+            "orders": orders_col,
+            "revenue": revenue_col,
+            "nmId": sku_col,
+            "seller_article": seller_col,
+        },
+        "missing_columns": missing_columns,
+    }
 
 
 def parse_cogs_file(path: str) -> list[dict[str, Any]]:
@@ -546,6 +882,17 @@ def select_best_detected_files(detected_files: list[DetectedFile]) -> dict[str, 
         if cur is None or item.score > cur.score:
             best[item.file_type] = item
     return best
+
+
+def group_detected_files(detected_files: list[DetectedFile]) -> dict[str, list[DetectedFile]]:
+    grouped: dict[str, list[DetectedFile]] = {k: [] for k in FILE_TYPES}
+    for item in detected_files:
+        if item.file_type not in FILE_TYPES:
+            continue
+        grouped[item.file_type].append(item)
+    for key in grouped:
+        grouped[key] = sorted(grouped[key], key=lambda x: (-int(x.score), str(x.path)))
+    return grouped
 
 
 # Compatibility wrappers used by previous audit mode.

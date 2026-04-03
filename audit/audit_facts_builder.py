@@ -1,4 +1,4 @@
-"""Build unified offline audit facts from audit/input files."""
+"""Build unified offline WB audit facts from audit/input files."""
 
 from __future__ import annotations
 
@@ -10,14 +10,14 @@ from typing import Any
 
 from audit.audit_loader import (
     FILE_TYPES,
-    parse_ads_file,
+    group_detected_files,
+    parse_ads_file_with_diagnostics,
     parse_cogs_file,
-    parse_finance_file,
+    parse_finance_file_with_diagnostics,
     parse_funnel_file,
-    parse_search_file,
-    parse_stocks_file,
+    parse_search_file_with_diagnostics,
+    parse_stocks_file_with_diagnostics,
     scan_input_files,
-    select_best_detected_files,
 )
 from src.metrics import calc_ads_metrics, calc_financial_metrics, calc_funnel_metrics
 from src.sku_performance_analyzer import analyze_sku_performance
@@ -50,55 +50,105 @@ def _to_int(value: Any) -> int:
         return 0
 
 
-def _audit_stock_summary(stocks_raw: list[dict[str, Any]], avg_daily_sales: float, lead_days: int = 14, safety_days: int = 7) -> dict[str, Any]:
+def _dedupe_rows(rows: list[dict[str, Any]], key_fields: tuple[str, ...]) -> tuple[list[dict[str, Any]], int]:
+    out: list[dict[str, Any]] = []
+    seen = set()
+    dup = 0
+    for row in rows:
+        key = tuple(str(row.get(f, "")) for f in key_fields)
+        if key in seen:
+            dup += 1
+            continue
+        seen.add(key)
+        out.append(row)
+    return out, dup
+
+
+def _audit_stock_summary(
+    *,
+    stocks_raw: list[dict[str, Any]],
+    stocks_parse_diag: dict[str, Any],
+    avg_daily_sales: float,
+    lead_days: int = 14,
+    safety_days: int = 7,
+) -> dict[str, Any]:
     total_units = 0
-    keys = set()
     by_key: dict[str, int] = defaultdict(int)
+    parsed_rows = int(stocks_parse_diag.get("parsed_rows") or 0)
+    mapped_rows = int(stocks_parse_diag.get("mapped_rows") or 0)
 
     for r in (stocks_raw or []):
         if not isinstance(r, dict):
             continue
         q = _to_int(r.get("quantityFull") or r.get("quantity") or r.get("qty") or r.get("stock"))
-        if q <= 0:
-            continue
-        total_units += q
         key = r.get("nmId") or r.get("nm_id") or r.get("supplierArticle") or r.get("vendorCode")
         if key:
-            skey = str(key)
-            keys.add(skey)
-            by_key[skey] += q
+            by_key[str(key)] += max(q, 0)
+        if q > 0:
+            total_units += q
 
+    sku_count = len(by_key)
     days_of_cover = (float(total_units) / float(avg_daily_sales)) if avg_daily_sales else 0.0
     threshold = int(lead_days + safety_days)
 
+    aggregation_status = stocks_parse_diag.get("status") or "unknown"
+    if aggregation_status == "ok" and parsed_rows > 0 and total_units == 0:
+        aggregation_status = "aggregation_zero_with_nonempty_input"
+    if aggregation_status == "ok" and parsed_rows > 0 and mapped_rows == 0:
+        aggregation_status = "aggregation_unmapped"
+
     return {
         "stock_units": int(total_units),
-        "sku_count": int(len(keys)),
+        "sku_count": int(sku_count),
         "days_of_cover": round(float(days_of_cover or 0.0), 2),
         "risk_of_oos": bool(days_of_cover != 0 and days_of_cover < threshold),
         "threshold_days": threshold,
         "items_count": int(len(stocks_raw or [])),
         "by_sku_or_article": by_key,
+        "parsed_rows": parsed_rows,
+        "mapped_rows": mapped_rows,
+        "aggregation_status": aggregation_status,
+        "parse_diagnostics": stocks_parse_diag,
         "note": (
-            "Остатки собраны из выгрузки файлов audit/input. "
-            "Если в файле нет Артикул WB, SKU-level анализ строится по артикулу продавца."
+            "Остатки собраны из выгрузки файлов. "
+            "Если нет Артикул WB, агрегирование идет по артикулу продавца."
         ),
     }
 
 
-def _build_search_insights(search_rows: list[dict[str, Any]]) -> dict[str, Any]:
-    if not search_rows:
+def _build_search_insights(
+    *,
+    selected_search_files: list[str],
+    search_rows: list[dict[str, Any]],
+    search_parse_diag: dict[str, Any],
+) -> dict[str, Any]:
+    if not selected_search_files:
         return {
             "status": "missing",
             "message": "search file not provided",
             "profitable": [],
             "unprofitable": [],
             "potential": [],
+            "base_rows": [],
+            "parse_diagnostics": search_parse_diag,
+        }
+
+    status = str(search_parse_diag.get("status") or "unknown")
+    if status != "ok" and not search_rows:
+        return {
+            "status": status,
+            "message": f"search file selected but parse status is {status}",
+            "profitable": [],
+            "unprofitable": [],
+            "potential": [],
+            "base_rows": [],
+            "parse_diagnostics": search_parse_diag,
         }
 
     profitable: list[dict[str, Any]] = []
     unprofitable: list[dict[str, Any]] = []
     potential: list[dict[str, Any]] = []
+    base_rows: list[dict[str, Any]] = []
 
     for row in search_rows:
         query = str(row.get("query") or "").strip()
@@ -106,41 +156,127 @@ def _build_search_insights(search_rows: list[dict[str, Any]]) -> dict[str, Any]:
             continue
         impressions = _to_int(row.get("impressions"))
         clicks = _to_int(row.get("clicks"))
+        add_to_cart = _to_int(row.get("add_to_cart"))
         orders = _to_int(row.get("orders"))
         buyouts = _to_int(row.get("buyouts"))
         spend = _to_float(row.get("spend"))
         revenue = _to_float(row.get("revenue"))
+        ctr = (clicks / impressions) if impressions > 0 else None
 
         payload = {
             "query": query,
             "impressions": impressions,
             "clicks": clicks,
+            "add_to_cart": add_to_cart,
             "orders": orders,
             "buyouts": buyouts,
             "spend": round(spend, 2),
             "revenue": round(revenue, 2),
+            "ctr": round(ctr, 4) if ctr is not None else None,
+            "nmId": _to_int(row.get("nmId")),
+            "seller_article": row.get("seller_article"),
             "roas": round((revenue / spend), 3) if spend > 0 else None,
         }
+        base_rows.append(payload)
 
-        if spend > 0 and (orders == 0 or revenue <= 0):
-            unprofitable.append(payload)
-        elif orders > 0 and (revenue > spend or spend == 0):
+        if (orders > 0 or buyouts > 0) and (revenue > 0 or spend == 0):
             profitable.append(payload)
+        elif (spend > 0 or clicks > 0) and orders == 0 and buyouts == 0:
+            unprofitable.append(payload)
         elif impressions > 0 and clicks == 0:
             potential.append(payload)
 
+    final_status = "ok" if base_rows else ("empty_after_parse" if status == "ok" else status)
     return {
-        "status": "ok",
-        "profitable": profitable[:50],
-        "unprofitable": unprofitable[:50],
-        "potential": potential[:50],
+        "status": final_status,
+        "message": (
+            "search parsed"
+            if final_status == "ok"
+            else f"search file selected but no usable rows (status={final_status})"
+        ),
+        "profitable": profitable[:200],
+        "unprofitable": unprofitable[:200],
+        "potential": potential[:200],
+        "base_rows": base_rows[:500],
         "summary": {
-            "rows_count": len(search_rows),
+            "rows_count": len(base_rows),
             "profitable_count": len(profitable),
             "unprofitable_count": len(unprofitable),
             "potential_count": len(potential),
         },
+        "parse_diagnostics": search_parse_diag,
     }
+
+
+def _build_source_consistency_warnings(finance: dict[str, Any], funnel: dict[str, Any]) -> list[dict[str, Any]]:
+    warnings: list[dict[str, Any]] = []
+    finance_qty = _to_int(finance.get("sales_qty"))
+    funnel_buyouts = _to_int(funnel.get("buys"))
+    finance_rev = _to_float(finance.get("gross_revenue"))
+    funnel_rev = _to_float(funnel.get("revenue_buyouts"))
+
+    def _rel_diff(a: float, b: float) -> float:
+        denom = max(abs(a), abs(b), 1.0)
+        return abs(a - b) / denom
+
+    if finance_qty > 0 and funnel_buyouts > 0:
+        diff = _rel_diff(float(finance_qty), float(funnel_buyouts))
+        if diff > 0.5:
+            warnings.append(
+                {
+                    "type": "quantity_mismatch",
+                    "severity": "high",
+                    "message": "Выкупы по funnel и finance сильно расходятся",
+                    "numbers": {
+                        "finance_sales_qty": finance_qty,
+                        "funnel_buyouts": funnel_buyouts,
+                        "relative_diff": round(diff, 4),
+                    },
+                }
+            )
+        elif diff > 0.3:
+            warnings.append(
+                {
+                    "type": "quantity_mismatch",
+                    "severity": "medium",
+                    "message": "Выкупы по funnel и finance заметно расходятся",
+                    "numbers": {
+                        "finance_sales_qty": finance_qty,
+                        "funnel_buyouts": funnel_buyouts,
+                        "relative_diff": round(diff, 4),
+                    },
+                }
+            )
+
+    if finance_rev > 0 and funnel_rev > 0:
+        diff = _rel_diff(finance_rev, funnel_rev)
+        if diff > 0.5:
+            warnings.append(
+                {
+                    "type": "revenue_mismatch",
+                    "severity": "high",
+                    "message": "Выручка по funnel и finance сильно расходится",
+                    "numbers": {
+                        "finance_gross_revenue": round(finance_rev, 2),
+                        "funnel_revenue_buyouts": round(funnel_rev, 2),
+                        "relative_diff": round(diff, 4),
+                    },
+                }
+            )
+        elif diff > 0.3:
+            warnings.append(
+                {
+                    "type": "revenue_mismatch",
+                    "severity": "medium",
+                    "message": "Выручка по funnel и finance заметно расходится",
+                    "numbers": {
+                        "finance_gross_revenue": round(finance_rev, 2),
+                        "funnel_revenue_buyouts": round(funnel_rev, 2),
+                        "relative_diff": round(diff, 4),
+                    },
+                }
+            )
+    return warnings
 
 
 def _build_decision_layer(
@@ -153,6 +289,8 @@ def _build_decision_layer(
     search_insights: dict[str, Any],
     missing_required: list[str],
     missing_optional: list[str],
+    source_consistency_warnings: list[dict[str, Any]],
+    profit_without_cogs: bool,
 ) -> dict[str, Any]:
     reasons: list[dict[str, Any]] = []
     growth_points: list[dict[str, Any]] = []
@@ -209,6 +347,38 @@ def _build_decision_layer(
             }
         )
 
+    if profit_without_cogs:
+        reasons.append(
+            {
+                "category": "finance",
+                "reason": "Прибыль рассчитана без COGS (себестоимость не загружена)",
+                "numbers": {"profit_without_cogs": True},
+            }
+        )
+
+    for warning in source_consistency_warnings:
+        reasons.append(
+            {
+                "category": "consistency",
+                "reason": warning.get("message"),
+                "numbers": warning.get("numbers"),
+            }
+        )
+
+    stock_aggregation_status = str(stock.get("aggregation_status") or "")
+    if stock_aggregation_status not in {"ok", ""}:
+        reasons.append(
+            {
+                "category": "stock",
+                "reason": "Проблема агрегации остатков: итоговые метрики могут быть неполными",
+                "numbers": {
+                    "aggregation_status": stock_aggregation_status,
+                    "parsed_rows": stock.get("parsed_rows"),
+                    "mapped_rows": stock.get("mapped_rows"),
+                },
+            }
+        )
+
     negative_margin_sku = finance.get("negative_margin_sku") or []
     unprofitable_sku = [
         {
@@ -216,7 +386,7 @@ def _build_decision_layer(
             "profit": round(_to_float(x.get("profit")), 2),
             "margin": round(_to_float(x.get("margin")), 4),
         }
-        for x in negative_margin_sku[:50]
+        for x in negative_margin_sku[:100]
         if int(x.get("sku") or 0) > 0
     ]
 
@@ -247,8 +417,7 @@ def _build_decision_layer(
                 "roas": round(roas, 3),
             }
         )
-
-    for row in (search_insights.get("unprofitable") or [])[:50]:
+    for row in (search_insights.get("unprofitable") or [])[:200]:
         ads_leaks.append(
             {
                 "level": "query",
@@ -269,7 +438,7 @@ def _build_decision_layer(
                 "margin": round(_to_float(item.get("margin")), 4),
             }
         )
-    for row in (search_insights.get("profitable") or [])[:20]:
+    for row in (search_insights.get("profitable") or [])[:50]:
         growth_points.append(
             {
                 "type": "search_query",
@@ -293,13 +462,15 @@ def _build_decision_layer(
             "profit": round(profit, 2),
             "margin": round(margin, 4),
             "roas": round(roas, 3) if ads_spend > 0 else None,
+            "profit_without_cogs": bool(profit_without_cogs),
         },
-        "reasons_of_loss": reasons[:10],
+        "reasons_of_loss": reasons[:40],
         "unprofitable_sku": unprofitable_sku,
-        "sku_without_sales": sku_without_sales[:100],
-        "ads_leaks": ads_leaks[:100],
-        "dead_stock": dead_stock[:100],
-        "growth_points": growth_points[:100],
+        "sku_without_sales": sku_without_sales[:200],
+        "ads_leaks": ads_leaks[:200],
+        "dead_stock": dead_stock[:200],
+        "growth_points": growth_points[:200],
+        "source_consistency_warnings": source_consistency_warnings,
         "missing_data": {
             "required": missing_required,
             "optional": missing_optional,
@@ -307,7 +478,7 @@ def _build_decision_layer(
     }
 
 
-def _build_actions(decision_layer: dict[str, Any]) -> list[dict[str, Any]]:
+def _build_actions(decision_layer: dict[str, Any], stock_summary: dict[str, Any]) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     profit_state = decision_layer.get("profit_state")
     kpi = decision_layer.get("kpi") or {}
@@ -320,10 +491,31 @@ def _build_actions(decision_layer: dict[str, Any]) -> list[dict[str, Any]]:
                 "action": "Снизить крупнейшие расходные статьи до выхода в положительную маржу",
                 "why": "Кабинет в убытке по финрезультату",
                 "expected_effect": "Сокращение операционного убытка",
-                "numbers": {
-                    "profit": kpi.get("profit"),
-                    "margin": kpi.get("margin"),
-                },
+                "numbers": {"profit": kpi.get("profit"), "margin": kpi.get("margin")},
+            }
+        )
+
+    if kpi.get("profit_without_cogs"):
+        actions.append(
+            {
+                "priority": "P0",
+                "area": "finance",
+                "action": "Загрузить COGS-файл и пересчитать прибыль с учетом себестоимости",
+                "why": "Текущая прибыль рассчитана без себестоимости",
+                "expected_effect": "Корректная оценка реальной прибыльности кабинета",
+                "numbers": {"profit_without_cogs": True},
+            }
+        )
+
+    if decision_layer.get("source_consistency_warnings"):
+        actions.append(
+            {
+                "priority": "P0",
+                "area": "finance",
+                "action": "Проверить период и полноту weekly finance-файлов относительно funnel",
+                "why": "Между funnel и finance есть сильные расхождения",
+                "expected_effect": "Согласованные показатели выручки и количества выкупов",
+                "numbers": {"warnings_count": len(decision_layer.get("source_consistency_warnings") or [])},
             }
         )
 
@@ -335,9 +527,7 @@ def _build_actions(decision_layer: dict[str, Any]) -> list[dict[str, Any]]:
                 "action": "Отключить кампании и запросы с расходом без заказов",
                 "why": "Реклама убыточная и сливает бюджет",
                 "expected_effect": "Снижение рекламного расхода без потери выручки",
-                "numbers": {
-                    "leaks_count": len(decision_layer.get("ads_leaks") or []),
-                },
+                "numbers": {"leaks_count": len(decision_layer.get("ads_leaks") or [])},
             }
         )
 
@@ -349,9 +539,7 @@ def _build_actions(decision_layer: dict[str, Any]) -> list[dict[str, Any]]:
                 "action": "Убрать из продвижения SKU с отрицательной маржей и пересчитать цену/себестоимость",
                 "why": "SKU тянут кабинет в минус",
                 "expected_effect": "Рост валовой маржи по ассортименту",
-                "numbers": {
-                    "unprofitable_sku_count": len(decision_layer.get("unprofitable_sku") or []),
-                },
+                "numbers": {"unprofitable_sku_count": len(decision_layer.get("unprofitable_sku") or [])},
             }
         )
 
@@ -363,8 +551,22 @@ def _build_actions(decision_layer: dict[str, Any]) -> list[dict[str, Any]]:
                 "action": "Сократить мертвые остатки: распродать или убрать закупку по SKU без продаж",
                 "why": "Деньги заморожены в остатках без движения",
                 "expected_effect": "Высвобождение оборотного капитала",
+                "numbers": {"dead_stock_count": len(decision_layer.get("dead_stock") or [])},
+            }
+        )
+
+    if str(stock_summary.get("aggregation_status") or "") not in {"ok", ""}:
+        actions.append(
+            {
+                "priority": "P1",
+                "area": "stock",
+                "action": "Перепроверить формат отчета остатков и маппинг колонок",
+                "why": "Агрегация остатков отработала с ошибкой/неполным маппингом",
+                "expected_effect": "Корректные метрики stock_units, sku_count и days_of_cover",
                 "numbers": {
-                    "dead_stock_count": len(decision_layer.get("dead_stock") or []),
+                    "aggregation_status": stock_summary.get("aggregation_status"),
+                    "parsed_rows": stock_summary.get("parsed_rows"),
+                    "mapped_rows": stock_summary.get("mapped_rows"),
                 },
             }
         )
@@ -377,21 +579,21 @@ def _build_actions(decision_layer: dict[str, Any]) -> list[dict[str, Any]]:
                 "action": "Зафиксировать текущую модель и масштабировать точки роста без увеличения убыточных расходов",
                 "why": "Критичных отклонений не обнаружено",
                 "expected_effect": "Контролируемый рост прибыли",
-                "numbers": {
-                    "profit": kpi.get("profit"),
-                    "margin": kpi.get("margin"),
-                },
+                "numbers": {"profit": kpi.get("profit"), "margin": kpi.get("margin")},
             }
         )
     return actions
 
 
 def _build_inputs_section(
+    *,
     input_dir: str,
     detected_files: list[Any],
-    selected_files: dict[str, Any],
+    grouped_files: dict[str, list[Any]],
+    selected_files: dict[str, list[str]],
     missing_required: list[str],
     missing_optional: list[str],
+    parse_diagnostics: dict[str, Any],
 ) -> dict[str, Any]:
     found = []
     for item in detected_files:
@@ -405,22 +607,78 @@ def _build_inputs_section(
                 "sample_columns": item.sample_columns,
             }
         )
-    selected = {}
-    for file_type in FILE_TYPES:
-        item = selected_files.get(file_type)
-        selected[file_type] = item.path if item else ""
 
-    blocks_collected = [k for k, v in selected.items() if v]
+    blocks_collected = [k for k in FILE_TYPES if selected_files.get(k)]
     blocks_skipped = [k for k in FILE_TYPES if k not in blocks_collected]
+
+    candidate_files = {}
+    for file_type in FILE_TYPES:
+        candidate_files[file_type] = [x.path for x in (grouped_files.get(file_type) or [])]
 
     return {
         "input_dir": input_dir,
         "found_files": found,
-        "selected_files": selected,
+        "candidate_files": candidate_files,
+        "selected_files": selected_files,
         "blocks_collected": blocks_collected,
         "blocks_skipped": blocks_skipped,
         "missing_required": missing_required,
         "missing_optional": missing_optional,
+        "parse_diagnostics": parse_diagnostics,
+    }
+
+
+def _parse_many_finance(files: list[str]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    rows_all: list[dict[str, Any]] = []
+    diagnostics = []
+    for path in files:
+        rows, diag = parse_finance_file_with_diagnostics(path)
+        rows_all.extend(rows)
+        diagnostics.append(diag)
+
+    deduped, dup_count = _dedupe_rows(
+        rows_all,
+        key_fields=(
+            "doc_type_name",
+            "nm_id",
+            "quantity",
+            "retail_amount",
+            "ppvz_sales_commission",
+            "ppvz_for_pay",
+            "delivery_rub",
+            "storage_fee",
+            "penalty",
+            "_supplier_article",
+            "_name",
+        ),
+    )
+    return deduped, {
+        "files_count": len(files),
+        "rows_raw_total": len(rows_all),
+        "rows_after_dedup": len(deduped),
+        "duplicates_removed": int(dup_count),
+        "files": diagnostics,
+    }
+
+
+def _parse_many_ads(files: list[str]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    rows_all: list[dict[str, Any]] = []
+    diagnostics = []
+    for path in files:
+        rows, diag = parse_ads_file_with_diagnostics(path)
+        rows_all.extend(rows)
+        diagnostics.append(diag)
+
+    deduped, dup_count = _dedupe_rows(
+        rows_all,
+        key_fields=("nmId", "name", "spend", "impressions", "clicks", "revenueAttr"),
+    )
+    return deduped, {
+        "files_count": len(files),
+        "rows_raw_total": len(rows_all),
+        "rows_after_dedup": len(deduped),
+        "duplicates_removed": int(dup_count),
+        "files": diagnostics,
     }
 
 
@@ -429,21 +687,38 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
     report_date = dt.datetime.now(WB_TIMEZONE).date()
 
     detected_files = scan_input_files(input_dir)
-    selected_files = select_best_detected_files(detected_files)
+    grouped_files = group_detected_files(detected_files)
 
-    missing_required = [file_type for file_type in REQUIRED_TYPES if file_type not in selected_files]
-    missing_optional = [file_type for file_type in OPTIONAL_TYPES if file_type not in selected_files]
+    missing_required = [file_type for file_type in REQUIRED_TYPES if not grouped_files.get(file_type)]
+    missing_optional = [file_type for file_type in OPTIONAL_TYPES if not grouped_files.get(file_type)]
 
-    finance_rows = parse_finance_file(selected_files["finance"].path) if "finance" in selected_files else []
-    funnel_rows = parse_funnel_file(selected_files["funnel"].path) if "funnel" in selected_files else []
-    stocks_rows = parse_stocks_file(selected_files["stocks"].path) if "stocks" in selected_files else []
-    ads_rows = parse_ads_file(selected_files["ads"].path) if "ads" in selected_files else []
-    search_rows = parse_search_file(selected_files["search"].path) if "search" in selected_files else []
-    cogs_rows = parse_cogs_file(selected_files["cogs"].path) if "cogs" in selected_files else []
+    selected_files: dict[str, list[str]] = {
+        "finance": [x.path for x in (grouped_files.get("finance") or [])],
+        "ads": [x.path for x in (grouped_files.get("ads") or [])],
+        "funnel": [grouped_files["funnel"][0].path] if grouped_files.get("funnel") else [],
+        "stocks": [grouped_files["stocks"][0].path] if grouped_files.get("stocks") else [],
+        "search": [grouped_files["search"][0].path] if grouped_files.get("search") else [],
+        "cogs": [grouped_files["cogs"][0].path] if grouped_files.get("cogs") else [],
+    }
+
+    finance_rows, finance_parse_diag = _parse_many_finance(selected_files["finance"])
+    ads_rows, ads_parse_diag = _parse_many_ads(selected_files["ads"])
+    funnel_rows = parse_funnel_file(selected_files["funnel"][0]) if selected_files["funnel"] else []
+    stocks_rows, stocks_parse_diag = (
+        parse_stocks_file_with_diagnostics(selected_files["stocks"][0]) if selected_files["stocks"] else ([], {"status": "file_not_provided"})
+    )
+    search_rows, search_parse_diag = (
+        parse_search_file_with_diagnostics(selected_files["search"][0]) if selected_files["search"] else ([], {"status": "file_not_provided"})
+    )
+    cogs_rows = parse_cogs_file(selected_files["cogs"][0]) if selected_files["cogs"] else []
 
     funnel_summary = calc_funnel_metrics(funnel_rows) if funnel_rows else {}
     financial_summary = calc_financial_metrics(finance_rows, tax_rate=tax_rate) if finance_rows else {"rows_count": 0}
     ads_summary = calc_ads_metrics(ads_rows) if ads_rows else {}
+    ads_summary["files_count"] = len(selected_files["ads"])
+    ads_summary["parse_diagnostics"] = ads_parse_diag
+    financial_summary["files_count"] = len(selected_files["finance"])
+    financial_summary["parse_diagnostics"] = finance_parse_diag
 
     period_days = 7
     if period_label and "_" in period_label:
@@ -456,8 +731,16 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             period_days = 7
 
     avg_daily_sales = _to_float((funnel_summary or {}).get("buys")) / float(period_days or 1)
-    stock_summary = _audit_stock_summary(stocks_rows, avg_daily_sales=avg_daily_sales)
-    search_insights = _build_search_insights(search_rows)
+    stock_summary = _audit_stock_summary(
+        stocks_raw=stocks_rows,
+        stocks_parse_diag=stocks_parse_diag,
+        avg_daily_sales=avg_daily_sales,
+    )
+    search_insights = _build_search_insights(
+        selected_search_files=selected_files["search"],
+        search_rows=search_rows,
+        search_parse_diag=search_parse_diag,
+    )
 
     finance_status = "ok" if _to_int(financial_summary.get("rows_count")) > 0 else "missing"
     try:
@@ -489,6 +772,14 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         reverse=True,
     )
 
+    profit_without_cogs = len(cogs_rows) == 0
+    financial_summary["profit_without_cogs"] = bool(profit_without_cogs)
+    financial_summary["profit_label"] = "Прибыль без учета себестоимости" if profit_without_cogs else "Прибыль"
+    if profit_without_cogs:
+        financial_summary["profit_note"] = "COGS-файл не загружен; показатель прибыли не учитывает себестоимость."
+
+    source_consistency_warnings = _build_source_consistency_warnings(financial_summary, funnel_summary)
+
     decision_layer = _build_decision_layer(
         finance=financial_summary,
         funnel=funnel_summary,
@@ -498,15 +789,26 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         search_insights=search_insights,
         missing_required=missing_required,
         missing_optional=missing_optional,
+        source_consistency_warnings=source_consistency_warnings,
+        profit_without_cogs=profit_without_cogs,
     )
-    actions = _build_actions(decision_layer)
+    actions = _build_actions(decision_layer, stock_summary)
+
+    parse_diagnostics = {
+        "finance": finance_parse_diag,
+        "ads": ads_parse_diag,
+        "stocks": stocks_parse_diag,
+        "search": search_parse_diag,
+    }
 
     inputs = _build_inputs_section(
         input_dir=input_dir,
         detected_files=detected_files,
+        grouped_files=grouped_files,
         selected_files=selected_files,
         missing_required=missing_required,
         missing_optional=missing_optional,
+        parse_diagnostics=parse_diagnostics,
     )
 
     return {
@@ -528,11 +830,13 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "cogs_input": {
             "rows_count": len(cogs_rows),
             "rows": cogs_rows[:200],
+            "loaded": bool(cogs_rows),
         },
         "sku_profit": sku_profit,
         "abc_analysis": (sku_performance.get("abc_summary") if isinstance(sku_performance, dict) else {}) or {},
         "decision_layer": decision_layer,
         "actions": actions,
+        "source_consistency_warnings": source_consistency_warnings,
         "notes": [
             "Аудит собран из файлов в audit/input без WB API.",
             "При отсутствии части файлов аудит строится по доступным данным и помечается как partial.",
