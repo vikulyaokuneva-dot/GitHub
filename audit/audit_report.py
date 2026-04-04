@@ -93,7 +93,9 @@ def _repair_text(text: str) -> str:
 
 
 def _text(value: Any) -> str:
-    return _repair_text(str(value or "")).strip()
+    if value is None:
+        return ""
+    return _repair_text(str(value)).strip()
 
 
 def _kpi_state_text(decision_layer: dict[str, Any], finance: dict[str, Any]) -> str:
@@ -252,14 +254,109 @@ def _search_rows_for_table(search: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted_rows[:10]
 
 
+def _file_name(path: Any) -> str:
+    text = _text(path)
+    if not text:
+        return ""
+    return text.replace("\\", "/").split("/")[-1]
+
+
+def _source_file_cell(files: Any) -> str:
+    if not isinstance(files, list) or not files:
+        return "нет"
+    names = [_file_name(item) for item in files if _file_name(item)]
+    if not names:
+        return "нет"
+    if len(names) == 1:
+        return names[0]
+    return f"{names[0]} (+{len(names) - 1})"
+
+
+def _period_text(value: Any) -> str:
+    if isinstance(value, dict):
+        label = _text(value.get("label"))
+        days = _to_int(value.get("days"))
+        if label and days > 0:
+            return f"{label} ({days} дн.)"
+        if label:
+            return label
+    return _text(value)
+
+
+def _append_markdown_table(
+    lines: list[str],
+    headers: list[str],
+    rows: list[list[Any]],
+    *,
+    align_right: set[int] | None = None,
+) -> None:
+    align_right = align_right or set()
+    lines.append("| " + " | ".join(_sanitize_table_cell(h) for h in headers) + " |")
+    sep_cells: list[str] = []
+    for idx in range(len(headers)):
+        sep_cells.append("---:" if idx in align_right else "---")
+    lines.append("| " + " | ".join(sep_cells) + " |")
+    for row in rows:
+        cells = [_sanitize_table_cell(cell) for cell in row]
+        while len(cells) < len(headers):
+            cells.append("")
+        lines.append("| " + " | ".join(cells[: len(headers)]) + " |")
+    lines.append("")
+
+
+def _page_break(lines: list[str]) -> None:
+    lines.append("---PAGEBREAK---")
+    lines.append("")
+
+
+def _search_rows_sorted(rows: list[dict[str, Any]], *, mode: str) -> list[dict[str, Any]]:
+    data = [row for row in rows if isinstance(row, dict)]
+    if mode == "orders":
+        data = [row for row in data if _to_int(row.get("orders")) > 0]
+        return sorted(
+            data,
+            key=lambda row: (
+                _to_int(row.get("orders")),
+                _to_int(row.get("clicks")),
+                _to_int(row.get("add_to_cart")),
+            ),
+            reverse=True,
+        )
+    if mode == "no_orders_clicks":
+        data = [row for row in data if _to_int(row.get("clicks")) > 0 and _to_int(row.get("orders")) == 0]
+        return sorted(
+            data,
+            key=lambda row: (
+                _to_int(row.get("clicks")),
+                _to_int(row.get("add_to_cart")),
+                _to_int(row.get("impressions")),
+            ),
+            reverse=True,
+        )
+    return sorted(
+        data,
+        key=lambda row: (
+            _to_int(row.get("clicks")),
+            _to_int(row.get("orders")),
+            _to_int(row.get("add_to_cart")),
+            _to_int(row.get("impressions")),
+        ),
+        reverse=True,
+    )
+
+
 def _local_orders_section_lines(local_orders_insights: dict[str, Any]) -> list[str]:
-    lines: list[str] = ["## 8. Локальные заказы и размещение товара"]
+    lines: list[str] = ["## 7. Локальные заказы и размещение товара"]
 
     available = bool(local_orders_insights.get("available"))
     if not available:
         message = _text(local_orders_insights.get("message") or "Данные по локальным заказам за период не найдены.")
         lines.append(f"- {message}")
-        diagnostics = local_orders_insights.get("diagnostics") if isinstance(local_orders_insights.get("diagnostics"), dict) else {}
+        diagnostics = (
+            local_orders_insights.get("diagnostics")
+            if isinstance(local_orders_insights.get("diagnostics"), dict)
+            else {}
+        )
         source_hint = _text(diagnostics.get("required_source_hint") or "")
         if source_hint:
             lines.append(f"- Для расчета региональных рекомендаций нужна отдельная выгрузка: {source_hint}")
@@ -267,49 +364,33 @@ def _local_orders_section_lines(local_orders_insights: dict[str, Any]) -> list[s
         return lines
 
     by_region = local_orders_insights.get("by_region") or []
-    by_sku = local_orders_insights.get("by_sku") or []
     recommendations = local_orders_insights.get("recommendations") or []
 
     lines.append("### Сводка по локальному спросу")
     if by_region:
-        for item in by_region[:10]:
-            region = _text(item.get("region") or "Не указан")
-            share_pct = float(item.get("share_pct") or 0.0)
-            orders = int(item.get("orders") or 0)
+        rows: list[list[Any]] = []
+        for item in by_region[:12]:
             stock_qty_raw = item.get("stock_qty")
-            if stock_qty_raw is None:
-                stock_text = "остаток: н/д"
-            else:
-                stock_qty = int(stock_qty_raw)
-                stock_text = "остаток 0" if stock_qty == 0 else f"остаток {stock_qty} шт."
-            lines.append(f"- {region}: {share_pct:.1f}% заказов ({orders} шт.), {stock_text}")
+            stock_text = "н/д" if stock_qty_raw is None else str(int(stock_qty_raw))
+            rows.append(
+                [
+                    _text(item.get("region") or "Не указан"),
+                    int(item.get("orders") or 0),
+                    _fmt_pct(_to_float(item.get("share_pct")), 1),
+                    stock_text,
+                ]
+            )
+        _append_markdown_table(lines, ["Регион/город", "Заказы, шт", "Доля", "Остаток, шт"], rows, align_right={1, 2, 3})
     else:
         lines.append("- Данные по регионам не обнаружены.")
+        lines.append("")
 
-    lines.append("")
-    lines.append("### Топ SKU по локальному спросу")
-    if by_sku:
-        for item in by_sku[:8]:
-            sku = int(item.get("sku") or 0)
-            total_orders = int(item.get("total_orders") or 0)
-            regions = item.get("regions") if isinstance(item.get("regions"), list) else []
-            if regions:
-                top = regions[:2]
-                top_text = "; ".join(f"{_text(x.get('region'))} ({float(x.get('share_pct') or 0.0):.1f}%)" for x in top)
-                lines.append(f"- SKU {sku}: {total_orders} заказов за период. Основной спрос: {top_text}.")
-            else:
-                lines.append(f"- SKU {sku}: {total_orders} заказов за период.")
-    else:
-        lines.append("- Недостаточно данных для выделения SKU по регионам.")
-
-    lines.append("")
-    lines.append("### Рекомендации по SKU")
+    lines.append("### Рекомендации по размещению")
     if recommendations:
-        for rec in recommendations[:12]:
+        for rec in recommendations[:10]:
             lines.append(f"- {_text(rec.get('message'))}")
     else:
         lines.append("- Спрос распределен равномерно, срочное перемещение не требуется.")
-
     lines.append("")
     return lines
 
@@ -356,195 +437,310 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     sku_profit = facts.get("sku_profit") or []
     actions = facts.get("actions") or []
 
+    source_label = _text(facts.get("source") or "wb").upper()
+    period_label = _period_text(facts.get("period") or facts.get("date") or "н/д")
+    report_date = _text(facts.get("date") or period_label)
+    selected_files = inputs.get("selected_files") if isinstance(inputs.get("selected_files"), dict) else {}
+
     lines: list[str] = []
-    lines.append("# АУДИТ WB КАБИНЕТА")
+    lines.append(f"# {source_label} аудит за период: {period_label}")
+    lines.append(f"Период отчета: {period_label}")
+    lines.append(f"Дата формирования: {report_date}")
+    lines.append(f"Источник: {source_label} (file-based audit)")
     lines.append("")
 
-    lines.append("## 1. KPI")
-    lines.append(f"- {_kpi_state_text(decision, finance)}")
-    lines.append(f"- Выручка: {_money(finance.get('gross_revenue'))}")
-    lines.append(f"- ROI/ROAS рекламы: {_sanitize_table_cell(ads.get('roas', '?/?'))}")
-    if finance.get("profit_note"):
-        lines.append(f"- Примечание: {_text(finance.get('profit_note'))}")
+    lines.append("## Источники (файлы)")
+    source_rows = [
+        ["Финансы", _source_file_cell(selected_files.get("finance"))],
+        ["Воронка", _source_file_cell(selected_files.get("funnel"))],
+        ["Реклама", _source_file_cell(selected_files.get("ads"))],
+        ["Остатки", _source_file_cell(selected_files.get("stocks"))],
+        ["Поиск", _source_file_cell(selected_files.get("search"))],
+        ["COGS", _source_file_cell(selected_files.get("cogs"))],
+    ]
+    _append_markdown_table(lines, ["Блок", "Файл"], source_rows)
+
+    lines.append("## 1. KPI и инсайты")
+    insights: list[str] = [
+        _kpi_state_text(decision, finance),
+        f"Выручка за период: {_money(finance.get('gross_revenue'))}.",
+        f"ROAS рекламы: {_sanitize_table_cell(ads.get('roas', 'н/д'))}.",
+    ]
+    for reason in _loss_reasons_human(decision, finance)[:2]:
+        insights.append(reason)
+    for insight in insights[:5]:
+        lines.append(f"- {insight}")
     lines.append("")
 
-    lines.append("## 2. Причины потери прибыли")
-    for reason_line in _loss_reasons_human(decision, finance):
-        lines.append(f"- {reason_line}")
-    lines.append("")
-
-    lines.append("## 3. Финансы")
-    lines.append(f"- Выручка: {_money(finance.get('gross_revenue'))}")
-    lines.append(f"- Комиссия WB: {_money(finance.get('commission'))}")
-    lines.append(f"- Логистика: {_money(finance.get('logistics'))}")
-    lines.append(f"- Хранение: {_money(finance.get('storage'))}")
-    lines.append(f"- Себестоимость: {_money(finance.get('cogs_total'))}")
-    lines.append(f"- Налог: {_money(finance.get('tax'))}")
+    lines.append("## 2. Финансы за период")
     profit_label = _text(finance.get("profit_label") or "Прибыль")
-    lines.append(f"- {profit_label}: {_money(finance.get('profit'))}")
-    lines.append(f"- Маржа: {_pct_ratio(finance.get('margin'))}")
-
     roi_main, roi_extra = _roi_line(finance, ads)
-    lines.append(f"- {roi_main}")
+    finance_rows = [
+        ["Выручка", _money(finance.get("gross_revenue"))],
+        ["Продажи (сумма заказов)", _money(funnel.get("revenue_orders"))],
+        ["Выкупы (сумма)", _money(finance.get("gross_revenue"))],
+        ["Выкупы (шт)", _to_int(funnel.get("buys"))],
+        ["Комиссия WB", _money(finance.get("commission"))],
+        ["Логистика", _money(finance.get("logistics"))],
+        ["Хранение", _money(finance.get("storage"))],
+        ["Себестоимость", _money(finance.get("cogs_total"))],
+        ["Налог", _money(finance.get("tax"))],
+        [profit_label, _money(finance.get("profit"))],
+        ["Маржа", _pct_ratio(finance.get("margin"))],
+        ["ROI", _text(roi_main.replace("ROI: ", ""))],
+        ["К перечислению", _money(finance.get("payout"))],
+    ]
+    _append_markdown_table(lines, ["Метрика", "Значение"], finance_rows, align_right={1})
     for extra in roi_extra:
         lines.append(f"- {extra}")
+    if finance.get("profit_note"):
+        lines.append(f"- {_text(finance.get('profit_note'))}")
+    lines.append("")
+
+    _page_break(lines)
+
+    lines.append("## 3. Воронка продаж")
+    impressions = _extract_funnel_impressions(facts, funnel)
+    funnel_rows: list[list[Any]] = []
+    if impressions is not None:
+        funnel_rows.append(["Показы", _to_int(impressions)])
+    funnel_rows.extend(
+        [
+            ["Переходы в карточку", _to_int(funnel.get("views"))],
+            ["В корзину", _to_int(funnel.get("add_to_cart"))],
+            ["Заказы", _to_int(funnel.get("orders"))],
+            ["Выкупы", _to_int(funnel.get("buys"))],
+            ["CR в корзину", _pct_ratio(funnel.get("cr_cart"))],
+            ["CR в заказ", _pct_ratio(funnel.get("cr_order"))],
+            ["% выкупа", _pct_ratio(funnel.get("buyout_rate"))],
+            ["Заказы на сумму", _money(funnel.get("revenue_orders"))],
+            ["Выкупы на сумму", _money(finance.get("gross_revenue"))],
+        ]
+    )
+    _append_markdown_table(lines, ["Показатель", "Значение"], funnel_rows, align_right={1})
+    lines.append(
+        "- Часть заказов не выкупается, поэтому оборот по заказам обычно выше фактической выручки из finance."
+    )
     lines.append("")
 
     lines.append("## 4. Реклама")
+    drr_value = _to_float(ads.get("drr"))
+    drr_text = _pct_ratio(drr_value) if drr_value is not None else "н/д"
+    ads_rows = [
+        ["Расход", _money(ads.get("spend"))],
+        ["Показы", _to_int(ads.get("impressions"))],
+        ["Клики", _to_int(ads.get("clicks"))],
+        ["CTR", _pct_ratio(ads.get("ctr"))],
+        ["CPC", _money(ads.get("cpc"))],
+        ["CPM", _money(ads.get("cpm"))],
+        ["Атрибутированная выручка", _money(ads.get("revenue_attr"))],
+        ["ROAS", _sanitize_table_cell(ads.get("roas", "н/д"))],
+        ["ДРР", drr_text],
+    ]
+    _append_markdown_table(lines, ["Метрика", "Значение"], ads_rows, align_right={1})
+
     attributed_revenue = _to_float(ads.get("revenue_attr"))
     factual_revenue = _to_float(finance.get("gross_revenue"))
-    lines.append(f"- Расход: {_money(ads.get('spend'))}")
-    lines.append(f"- Атрибутированная выручка: {_money(ads.get('revenue_attr'))}")
     lines.append(
-        "- Атрибутированная выручка - это выручка, которую Wildberries относит к рекламным касаниям. "
-        "Она не равна фактической выручке из финансового отчета."
+        "- Атрибутированная выручка показывает заказы, которые WB относит к рекламным касаниям, а не факт оплат из finance."
     )
     if attributed_revenue is not None and factual_revenue is not None and attributed_revenue > factual_revenue:
         lines.append(
-            "- Атрибутированная выручка включает заказы, которые могли не быть выкуплены. "
-            "Поэтому она может быть выше фактической выручки из финансового отчета."
+            "- Она может быть выше фактической выручки, потому что часть заказов не была выкуплена."
         )
-    lines.append(f"- ROAS: {_sanitize_table_cell(ads.get('roas', 0))}")
     leaks = decision.get("ads_leaks") or []
-    if leaks:
-        lines.append(f"- Найдено {len(leaks)} рекламных связок/запросов без заказов.")
-    else:
-        lines.append("- Рекламные связки/запросы без заказов не обнаружены.")
+    lines.append(f"- Найдено {len(leaks)} рекламных связок/запросов без заказов." if leaks else "- Связки без заказов не обнаружены.")
     lines.append("")
 
-    lines.append("## 5. Воронка")
-    impressions = _extract_funnel_impressions(facts, funnel)
-    if impressions is not None:
-        lines.append(f"- Показы: {_to_int(impressions)}")
-    lines.append(f"- Переходы в карточку: {_to_int(funnel.get('views'))}")
-    lines.append(f"- В корзину: {_to_int(funnel.get('add_to_cart'))}")
-    lines.append(f"- Заказы: {_to_int(funnel.get('orders'))}")
-    lines.append(f"- Выкупы: {_to_int(funnel.get('buys'))}")
-    lines.append(f"- CR в корзину: {_pct_ratio(funnel.get('cr_cart'))}")
-    lines.append(f"- CR в заказ: {_pct_ratio(funnel.get('cr_order'))}")
-    lines.append(f"- % выкупа: {_pct_ratio(funnel.get('buyout_rate'))}")
-    lines.append("")
-    lines.append("Продажи (заказы):")
-    lines.append(f"- Количество заказов: {_to_int(funnel.get('orders'))}")
-    lines.append(f"- Сумма заказов (оборот до выкупа): {_money(funnel.get('revenue_orders'))}")
-    lines.append("Выкупы (фактическая выручка):")
-    lines.append(f"- Количество выкупов: {_to_int(funnel.get('buys'))}")
-    lines.append(f"- Выручка (по finance): {_money(finance.get('gross_revenue'))}")
-    lines.append("- Часть заказов не выкупается, поэтому оборот по заказам выше фактической выручки.")
-    lines.append("")
-    lines.append("Разница между заказами и выкупами влияет на:")
-    lines.append("- фактическую выручку")
-    lines.append("- корректную оценку рекламы")
-    lines.append("- реальную прибыль")
-    lines.append("")
+    lines.append("## 5. Остатки и риск дефицита")
+    stock_rows = [
+        ["Остатки, шт", _to_int(stock.get("stock_units"))],
+        ["SKU/позиций", _to_int(stock.get("sku_count"))],
+        ["Дни покрытия", _sanitize_table_cell(stock.get("days_of_cover"))],
+        ["Порог, дней", _sanitize_table_cell(stock.get("threshold_days"))],
+        ["Риск дефицита", "да" if bool(stock.get("risk_of_oos")) else "нет"],
+    ]
+    _append_markdown_table(lines, ["Показатель", "Значение"], stock_rows, align_right={1})
 
-    lines.append("## 6. Ассортимент (SKU)")
-    unprofitable_sku = decision.get("unprofitable_sku") or []
-    sku_without_sales = decision.get("sku_without_sales") or []
-    if unprofitable_sku:
-        lines.append("- SKU со сниженной маржинальностью (top-10):")
-        for item in unprofitable_sku[:10]:
-            lines.append(
-                f"- SKU {item.get('sku')}: прибыль {_money(item.get('profit'))}, маржа {_pct_ratio(item.get('margin'))}"
-            )
-    else:
-        lines.append("- SKU со сниженной маржинальностью не выявлены для текущей диагностики.")
-    if sku_without_sales:
-        lines.append("- SKU без продаж и с остатками (top-10):")
-        for item in sku_without_sales[:10]:
-            lines.append(
-                f"- SKU {item.get('sku')}: остаток {_to_int(item.get('stock_qty'))} шт, заказы {_to_int(item.get('orders'))}"
-            )
-    else:
-        lines.append("- SKU без продаж и с остатками не выявлены для текущей диагностики.")
-    lines.append("")
-
-    lines.append("## 7. Остатки")
-    stock_agg_status = str(stock.get("aggregation_status") or "")
-    lines.append(f"- Остатки: {_to_int(stock.get('stock_units'))} шт")
-    lines.append(f"- SKU/размеры: {_to_int(stock.get('sku_count'))}")
-    lines.append(f"- Дни покрытия: {stock.get('days_of_cover', 0)}")
-    if stock_agg_status not in {"", "ok"}:
-        lines.append(
-            f"- Диагностика: частичный статус агрегации по остаткам `{stock_agg_status}` "
-            f"(parsed_rows={stock.get('parsed_rows')}, mapped_rows={stock.get('mapped_rows')})."
-        )
     dead_stock = decision.get("dead_stock") or []
     if dead_stock:
-        lines.append(f"- Мертвые остатки: {len(dead_stock)} SKU/размеров без продаж.")
+        dead_rows = [
+            [
+                item.get("sku"),
+                _to_int(item.get("stock_qty")),
+                _to_int(item.get("orders")),
+                _to_int(item.get("buyouts")),
+            ]
+            for item in dead_stock[:10]
+        ]
+        lines.append("SKU с зависшими остатками (top-10):")
+        _append_markdown_table(lines, ["SKU", "Остаток, шт", "Заказы", "Выкупы"], dead_rows, align_right={1, 2, 3})
     else:
-        lines.append("- Мертвые остатки не выявлены для текущей диагностики.")
-    lines.append("")
+        lines.append("- Зависшие остатки без продаж не обнаружены.")
+        lines.append("")
+
+    _page_break(lines)
+
+    lines.append("## 6. Ассортимент / SKU")
+    lines.append("### TOP вклад в прибыль")
+    if sku_profit:
+        sku_profit_label = "Прибыль без COGS" if finance.get("profit_without_cogs") else "Прибыль"
+        top_profit_rows = [
+            [
+                item.get("sku"),
+                _money(item.get("profit")),
+                _money(item.get("revenue")),
+                _to_int(item.get("stock_qty")),
+            ]
+            for item in sku_profit[:10]
+        ]
+        _append_markdown_table(
+            lines,
+            ["SKU", sku_profit_label, "Выручка", "Остаток, шт"],
+            top_profit_rows,
+            align_right={1, 2, 3},
+        )
+    else:
+        lines.append("- Недостаточно данных для расчета TOP SKU по прибыли.")
+        lines.append("")
+
+    lines.append("### SKU без продаж и с остатками")
+    sku_without_sales = decision.get("sku_without_sales") or []
+    if sku_without_sales:
+        rows_without_sales = [
+            [
+                item.get("sku"),
+                _to_int(item.get("stock_qty")),
+                _to_int(item.get("orders")),
+                _money(item.get("revenue")),
+            ]
+            for item in sku_without_sales[:10]
+        ]
+        _append_markdown_table(
+            lines,
+            ["SKU", "Остаток, шт", "Заказы", "Выручка"],
+            rows_without_sales,
+            align_right={1, 2, 3},
+        )
+    else:
+        lines.append("- SKU без продаж и с остатками не выявлены.")
+        lines.append("")
+
+    lines.append("### SKU с низкой маржинальностью")
+    unprofitable_sku = decision.get("unprofitable_sku") or []
+    if unprofitable_sku:
+        low_margin_rows = [
+            [
+                item.get("sku"),
+                _money(item.get("profit")),
+                _pct_ratio(item.get("margin")),
+            ]
+            for item in unprofitable_sku[:10]
+        ]
+        _append_markdown_table(lines, ["SKU", "Прибыль", "Маржа"], low_margin_rows, align_right={1, 2})
+    else:
+        lines.append("- SKU со сниженной маржинальностью не выявлены.")
+        lines.append("")
 
     lines.extend(_local_orders_section_lines(local_orders_insights))
 
-    lines.append("## 9. Поисковые запросы")
+    _page_break(lines)
+
+    lines.append("## 8. Поисковые запросы")
     search_status = str(search.get("status") or "")
     if search_status == "ok":
-        rows_with_orders = len(search.get("profitable") or [])
-        rows_without_orders = len(search.get("unprofitable") or [])
-        rows_with_potential = len(search.get("potential") or [])
+        base_rows = search.get("base_rows") if isinstance(search.get("base_rows"), list) else []
+        summary = search.get("summary") if isinstance(search.get("summary"), dict) else {}
+        rows_count = _to_int(summary.get("rows_count") or len(base_rows))
+        rows_with_orders = _to_int(summary.get("profitable_count") or len(search.get("profitable") or []))
+        rows_without_orders = _to_int(summary.get("unprofitable_count") or len(search.get("unprofitable") or []))
+        rows_with_potential = _to_int(summary.get("potential_count") or len(search.get("potential") or []))
 
-        lines.append(f"- Запросы с заказами: {rows_with_orders}")
-        lines.append(f"- Запросы без заказов: {rows_without_orders}")
-        lines.append(f"- Запросы с потенциалом: {rows_with_potential}")
-        lines.append("")
-        lines.append("ТОП-10 запросов по кликам:")
-        lines.append("| Запрос | Клики | В корзину | Заказы | Вывод |")
-        lines.append("| --- | ---: | ---: | ---: | --- |")
-        for row in _search_rows_for_table(search):
-            lines.append(
-                "| "
-                + f"{_sanitize_table_cell(row.get('query'))} | {_to_int(row.get('clicks'))} | "
-                + f"{_to_int(row.get('add_to_cart'))} | {_to_int(row.get('orders'))} | {_search_conclusion(row)} |"
+        summary_rows = [
+            ["Всего строк в search-отчете", rows_count],
+            ["Связки query+SKU с заказами", rows_with_orders],
+            ["Связки query+SKU без заказов", rows_without_orders],
+            ["Связки query+SKU с потенциалом", rows_with_potential],
+        ]
+        _append_markdown_table(lines, ["Показатель", "Значение"], summary_rows, align_right={1})
+
+        def _render_search_table(title: str, rows: list[dict[str, Any]]) -> None:
+            lines.append(title)
+            if not rows:
+                lines.append("- Данных для таблицы нет.")
+                lines.append("")
+                return
+            table_rows = [
+                [
+                    _text(item.get("query")),
+                    _to_int(item.get("nmId")),
+                    _to_int(item.get("clicks")),
+                    _to_int(item.get("add_to_cart")),
+                    _to_int(item.get("orders")),
+                    _search_conclusion(item),
+                ]
+                for item in rows[:10]
+            ]
+            _append_markdown_table(
+                lines,
+                ["Запрос", "SKU", "Клики", "В корзину", "Заказы", "Вывод"],
+                table_rows,
+                align_right={2, 3, 4},
             )
+
+        _render_search_table("TOP-10 запросов по кликам", _search_rows_sorted(base_rows, mode="clicks"))
+        _render_search_table("TOP-10 запросов с заказами", _search_rows_sorted(base_rows, mode="orders"))
+        _render_search_table(
+            "TOP-10 запросов без заказов, но с кликами",
+            _search_rows_sorted(base_rows, mode="no_orders_clicks"),
+        )
+        lines.append("- Search-отчет отражает связки «поисковый запрос + SKU», а не все заказы кабинета.")
+        lines.append("")
     elif search_status == "missing":
         lines.append("- Отчет поисковых запросов не предоставлен.")
+        lines.append("")
     else:
         parse_diag = search.get("parse_diagnostics") or {}
         lines.append(
-            f"- Файл search найден, но данные не были разобраны: status={search_status}, "
-            f"message={_text(search.get('message'))}."
+            f"- Файл search найден, но данные не разобраны: status={search_status}, message={_text(search.get('message'))}."
         )
         lines.append(
-            f"- Диагностика parse: sheet={parse_diag.get('sheet')}, header_row={parse_diag.get('header_row')}, "
-            f"rows_parsed={parse_diag.get('rows_parsed')}"
+            f"- Диагностика parse: sheet={parse_diag.get('sheet')}, header_row={parse_diag.get('header_row')}, rows_parsed={parse_diag.get('rows_parsed')}."
         )
-    lines.append("")
+        lines.append("")
 
-    lines.append("## 10. Рекомендации")
+    _page_break(lines)
+
+    lines.append("## 9. План действий / рекомендации")
     if actions:
-        for action in actions:
-            lines.append(
-                f"- [{action.get('priority')}] ({action.get('area')}) {_text(action.get('action'))} "
-                f"- {_text(action.get('why'))}. Эффект: {_text(action.get('expected_effect'))}."
-            )
+        action_rows = [
+            [
+                _text(action.get("priority") or ""),
+                _text(action.get("area") or ""),
+                _text(action.get("action") or ""),
+                _text(action.get("expected_effect") or ""),
+            ]
+            for action in actions
+        ]
+        _append_markdown_table(
+            lines,
+            ["Приоритет", "Блок", "Действие", "Ожидаемый эффект"],
+            action_rows,
+        )
     else:
         lines.append("- Рекомендации не сформированы: недостаточно данных.")
-    lines.append("")
+        lines.append("")
 
     missing_required = inputs.get("missing_required") or []
     missing_optional = inputs.get("missing_optional") or []
-    lines.append("## Диагностика входа")
-    lines.append(f"- Найдено файлов: {len(inputs.get('found_files') or [])}")
-    lines.append(f"- Собрано блоков: {_text(', '.join(inputs.get('blocks_collected') or []) or 'нет')}")
-    lines.append(f"- Пропущено блоков: {_text(', '.join(inputs.get('blocks_skipped') or []) or 'нет')}")
-    if missing_required:
-        lines.append(f"- Не хватает обязательных файлов: {_text(', '.join(missing_required))}")
-    if missing_optional:
-        lines.append(f"- Не хватает опциональных файлов: {_text(', '.join(missing_optional))}")
-    if not missing_required and not missing_optional:
-        lines.append("- Все ожидаемые файлы присутствуют.")
-    lines.append("")
-
-    if sku_profit:
-        lines.append("## Приложение: top SKU по прибыли")
-        sku_profit_label = "Прибыль без COGS" if finance.get("profit_without_cogs") else "Прибыль"
-        for item in sku_profit[:10]:
-            lines.append(
-                f"- SKU {item.get('sku')}: {sku_profit_label} {_money(item.get('profit'))}, "
-                f"выручка {_money(item.get('revenue'))}, остаток {_to_int(item.get('stock_qty'))}"
-            )
-        lines.append("")
+    lines.append("## Приложение: Диагностика входа")
+    input_rows = [
+        ["Найдено файлов", len(inputs.get("found_files") or [])],
+        ["Собрано блоков", _text(", ".join(inputs.get("blocks_collected") or []) or "нет")],
+        ["Пропущено блоков", _text(", ".join(inputs.get("blocks_skipped") or []) or "нет")],
+        ["Не хватает обязательных", _text(", ".join(missing_required) or "нет")],
+        ["Не хватает опциональных", _text(", ".join(missing_optional) or "нет")],
+    ]
+    _append_markdown_table(lines, ["Параметр", "Значение"], input_rows, align_right={1})
 
     return "\n".join(lines).strip() + "\n"

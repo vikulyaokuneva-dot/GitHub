@@ -304,6 +304,7 @@ def markdown_to_simple_pdf(markdown_text: str | bytes, pdf_path: str | os.PathLi
         leading=20,
         spaceBefore=6,
         spaceAfter=10,
+        keepWithNext=True,
     )
     h2 = ParagraphStyle(
         "H2",
@@ -313,6 +314,7 @@ def markdown_to_simple_pdf(markdown_text: str | bytes, pdf_path: str | os.PathLi
         leading=16,
         spaceBefore=10,
         spaceAfter=6,
+        keepWithNext=True,
     )
     h3 = ParagraphStyle(
         "H3",
@@ -322,6 +324,7 @@ def markdown_to_simple_pdf(markdown_text: str | bytes, pdf_path: str | os.PathLi
         leading=14,
         spaceBefore=8,
         spaceAfter=4,
+        keepWithNext=True,
     )
     body = ParagraphStyle(
         "Body",
@@ -346,7 +349,7 @@ def markdown_to_simple_pdf(markdown_text: str | bytes, pdf_path: str | os.PathLi
                 tbl_data = [[Paragraph(_esc(cell), body) for cell in row] for row in rows]
                 col_count = len(tbl_data[0])
                 col_width = (A4[0] - doc.leftMargin - doc.rightMargin) / col_count
-                table = Table(tbl_data, hAlign="LEFT", colWidths=[col_width] * col_count)
+                table = Table(tbl_data, hAlign="LEFT", colWidths=[col_width] * col_count, repeatRows=1)
 
                 table_style = TableStyle(
                     [
