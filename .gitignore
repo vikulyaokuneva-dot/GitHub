@@ -42,3 +42,61 @@ temp/
 .env
 secrets.json
 config.local.json
+
+# =========================================================
+# 🔒 CLIENT DATA PROTECTION (WB / OZON AUDIT)
+# =========================================================
+
+# --- Local audit (основная зона риска)
+local_audit/input/**
+local_audit/output/**
+local_audit/output_*/
+local_audit/**/*.xlsx
+local_audit/**/*.xls
+local_audit/**/*.csv
+local_audit/**/*.zip
+
+# --- Кабинеты (сырые данные и отчеты)
+cabinets/*/raw/**
+cabinets/*/reports/**
+cabinets/*/inputs/**
+cabinets/*/outputs/**
+
+# --- Любые клиентские выгрузки (глобально)
+*.xlsx
+*.xls
+*.csv
+*.zip
+
+# --- Временные Excel файлы
+~$*.xlsx
+~$*.xls
+
+# =========================================================
+# ✅ SAFE ALLOWLIST (разрешенные примеры/шаблоны)
+# =========================================================
+
+# Примеры
+!examples/**
+!examples/**/*.xlsx
+!examples/**/*.xls
+!examples/**/*.csv
+
+# Шаблоны
+!templates/**
+!templates/**/*.xlsx
+!templates/**/*.xls
+!templates/**/*.csv
+
+# Документация (если вдруг есть файлы)
+!docs/**
+!docs/**/*.xlsx
+!docs/**/*.csv
+
+# =========================================================
+# ⚙️ SYSTEM / TEMP (на всякий случай)
+# =========================================================
+
+.DS_Store
+Thumbs.db
+*.log
