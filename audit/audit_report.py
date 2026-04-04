@@ -473,6 +473,7 @@ def _build_abc_analysis(
                 "revenue": _to_float(item.get("revenue")),
                 "profit": _to_float(item.get("profit")),
                 "stock_qty": _to_int(item.get("stock_qty")),
+                "buyouts_qty": _to_int(item.get("buyouts")),
             }
         )
 
@@ -554,6 +555,7 @@ def _build_abc_analysis(
                 "profit": row.get("profit"),
                 "share_pct": share * 100.0,
                 "stock_qty": int(row.get("stock_qty") or 0),
+                "buyouts_qty": int(row.get("buyouts_qty") or 0),
             }
         )
 
@@ -593,6 +595,195 @@ def _build_abc_analysis(
     }
 
 
+def _build_abc_stock_ads_layer(
+    *,
+    abc_detail_rows: list[dict[str, Any]],
+    finance: dict[str, Any],
+    search: dict[str, Any],
+) -> dict[str, Any]:
+    sku_financials = finance.get("sku_financials") if isinstance(finance.get("sku_financials"), dict) else {}
+    search_rows = search.get("base_rows") if isinstance(search.get("base_rows"), list) else []
+
+    search_by_sku: dict[int, dict[str, Any]] = {}
+    for row in search_rows:
+        if not isinstance(row, dict):
+            continue
+        sku = _to_int(row.get("nmId"))
+        if sku <= 0:
+            continue
+        bucket = search_by_sku.setdefault(
+            sku,
+            {
+                "impressions": 0,
+                "clicks": 0,
+                "orders": 0,
+                "spend": 0.0,
+                "queries_no_orders": 0,
+                "queries_with_orders": 0,
+            },
+        )
+        impressions = _to_int(row.get("impressions"))
+        clicks = _to_int(row.get("clicks"))
+        orders = _to_int(row.get("orders"))
+        spend = _to_float(row.get("spend")) or 0.0
+        bucket["impressions"] += impressions
+        bucket["clicks"] += clicks
+        bucket["orders"] += orders
+        bucket["spend"] += spend
+        if clicks > 0 and orders == 0:
+            bucket["queries_no_orders"] += 1
+        if orders > 0:
+            bucket["queries_with_orders"] += 1
+
+    def _finance_sales_qty(sku: int) -> int:
+        data = sku_financials.get(sku)
+        if not isinstance(data, dict):
+            data = sku_financials.get(str(sku))
+        return _to_int((data or {}).get("sales_qty"))
+
+    critical_a_rows: list[list[Any]] = []
+    c_overstock_rows: list[list[Any]] = []
+    c_ads_rows: list[list[Any]] = []
+    ab_potential_rows: list[list[Any]] = []
+
+    for row in abc_detail_rows:
+        if not isinstance(row, dict):
+            continue
+        sku = _to_int(row.get("sku"))
+        if sku <= 0:
+            continue
+        category = _text(row.get("category") or "")
+        stock_qty = _to_int(row.get("stock_qty"))
+        buyouts_qty = _to_int(row.get("buyouts_qty"))
+        sales_qty = _finance_sales_qty(sku)
+        if sales_qty <= 0:
+            sales_qty = buyouts_qty
+        revenue = _to_float(row.get("revenue")) or 0.0
+
+        search_data = search_by_sku.get(sku, {})
+        search_impressions = _to_int(search_data.get("impressions"))
+        search_clicks = _to_int(search_data.get("clicks"))
+        search_orders = _to_int(search_data.get("orders"))
+        search_spend = _to_float(search_data.get("spend")) or 0.0
+        queries_no_orders = _to_int(search_data.get("queries_no_orders"))
+        queries_with_orders = _to_int(search_data.get("queries_with_orders"))
+
+        if category == "A" and sales_qty > 0:
+            high_risk_threshold = max(5, int(round(sales_qty * 0.5)))
+            medium_risk_threshold = max(10, sales_qty)
+            risk = ""
+            if stock_qty <= 0:
+                risk = "высокий (нет остатка)"
+            elif stock_qty <= high_risk_threshold:
+                risk = "высокий (низкий запас)"
+            elif stock_qty <= medium_risk_threshold:
+                risk = "средний (запас < 1 периода)"
+            if risk:
+                if search_clicks > 0 or search_orders > 0:
+                    action = "пополнить остаток, рекламу не отключать"
+                else:
+                    action = "пополнить остаток и проверить видимость"
+                critical_a_rows.append(
+                    [sku, category, stock_qty, f"{sales_qty}/{buyouts_qty}", risk, action]
+                )
+
+        if category == "C":
+            if stock_qty >= 50 and sales_qty <= 1:
+                if sales_qty == 0:
+                    rec = "распродать остаток и не пополнять"
+                else:
+                    rec = "снизить пополнение, проверить карточку"
+                c_overstock_rows.append([sku, category, stock_qty, sales_qty, _money(revenue), rec])
+
+            has_ads_signal = (
+                search_impressions > 0
+                or search_clicks > 0
+                or search_spend > 0
+                or queries_no_orders > 0
+            )
+            if has_ads_signal:
+                signal_parts: list[str] = []
+                if search_spend > 0:
+                    signal_parts.append(f"расход {_money(search_spend)}")
+                if search_clicks > 0:
+                    signal_parts.append(f"клики {search_clicks}")
+                if search_impressions > 0:
+                    signal_parts.append(f"показы {search_impressions}")
+                if queries_no_orders > 0:
+                    signal_parts.append(f"запросы без заказов {queries_no_orders}")
+                signal = ", ".join(signal_parts) if signal_parts else "есть активность"
+
+                if search_orders == 0 and sales_qty <= 1:
+                    conclusion = "сократить/отключить рекламу"
+                elif queries_no_orders > queries_with_orders:
+                    conclusion = "снизить ставки, оставить точечные запросы"
+                else:
+                    conclusion = "оставить только точечные и брендовые запросы"
+                c_ads_rows.append([sku, category, signal, f"{sales_qty}/{search_orders}", conclusion])
+
+        if category in {"A", "B"} and (sales_qty > 0 or search_orders > 0):
+            reasons: list[str] = []
+            if category == "A":
+                reasons.append("высокий вклад в ABC")
+            if sales_qty >= 2:
+                reasons.append("стабильные продажи")
+            if search_orders > 0:
+                reasons.append(f"заказы из поиска {search_orders}")
+            if search_clicks > 0 and search_orders > 0:
+                reasons.append("есть конверсия запросов")
+            basis = "; ".join(reasons[:3]) if reasons else "есть продажи"
+            recommendation = (
+                "усиливать рекламу и контролировать наличие"
+                if category == "A"
+                else "точечно усиливать рекламу по конверсионным запросам"
+            )
+            ab_potential_rows.append([sku, category, basis, recommendation])
+
+    critical_a_rows = sorted(critical_a_rows, key=lambda row: (_to_int(row[2]),), reverse=False)[:10]
+    c_overstock_rows = sorted(c_overstock_rows, key=lambda row: (_to_int(row[2]), _to_int(row[3])), reverse=True)[:10]
+    c_ads_rows = sorted(
+        c_ads_rows,
+        key=lambda row: (
+            _to_int(search_by_sku.get(_to_int(row[0]), {}).get("clicks")),
+            _to_int(search_by_sku.get(_to_int(row[0]), {}).get("impressions")),
+        ),
+        reverse=True,
+    )[:10]
+    ab_potential_rows = sorted(
+        ab_potential_rows,
+        key=lambda row: (0 if _text(row[1]) == "A" else 1, _to_int(_finance_sales_qty(_to_int(row[0])))),
+    )[:12]
+
+    insight_lines: list[str] = []
+    if critical_a_rows:
+        insight_lines.append(
+            f"Выявлены {len(critical_a_rows)} критичных SKU категории A с риском дефицита по текущему запасу."
+        )
+    if c_overstock_rows:
+        insight_lines.append(
+            f"{len(c_overstock_rows)} SKU категории C удерживают избыточные остатки при слабом движении."
+        )
+    if c_ads_rows:
+        insight_lines.append(
+            f"У {len(c_ads_rows)} SKU категории C есть рекламная активность, которую стоит пересмотреть."
+        )
+    if ab_potential_rows:
+        insight_lines.append(
+            "Рекламный фокус целесообразно концентрировать на SKU категорий A и сильных B."
+        )
+    insight_lines.append(
+        "Риск по A-SKU оценен эвристикой: остаток сравнивается с продажами за период (без прогноза по дням)."
+    )
+
+    return {
+        "critical_a_rows": critical_a_rows,
+        "c_overstock_rows": c_overstock_rows,
+        "c_ads_rows": c_ads_rows,
+        "ab_potential_rows": ab_potential_rows,
+        "insights": insight_lines[:6],
+    }
+
+
 def build_audit_markdown(facts: dict[str, Any]) -> str:
     finance = facts.get("financial_summary") or {}
     funnel = facts.get("funnel_summary") or {}
@@ -608,6 +799,11 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     abc = _build_abc_analysis(
         sku_profit=sku_profit,
         profit_without_cogs=bool(finance.get("profit_without_cogs")),
+    )
+    abc_layer = _build_abc_stock_ads_layer(
+        abc_detail_rows=abc.get("detail_rows") or [],
+        finance=finance,
+        search=search,
     )
 
     source_label = _text(facts.get("source") or "wb").upper()
@@ -836,6 +1032,58 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     else:
         lines.append("- Недостаточно данных для построения ABC-анализа.")
         lines.append("")
+
+    lines.append("### ABC + остатки + реклама")
+    lines.append("#### Критичные A-SKU")
+    if abc_layer.get("critical_a_rows"):
+        _append_markdown_table(
+            lines,
+            ["SKU", "Категория", "Остаток, шт", "Продажи/выкупы", "Риск", "Действие"],
+            abc_layer.get("critical_a_rows") or [],
+            align_right={2, 3},
+        )
+    else:
+        lines.append("- Критичные A-SKU по текущей эвристике не выявлены.")
+        lines.append("")
+
+    lines.append("#### C-SKU с избыточными остатками")
+    if abc_layer.get("c_overstock_rows"):
+        _append_markdown_table(
+            lines,
+            ["SKU", "Категория", "Остаток, шт", "Заказы", "Выручка", "Рекомендация"],
+            abc_layer.get("c_overstock_rows") or [],
+            align_right={2, 3, 4},
+        )
+    else:
+        lines.append("- C-SKU с избыточными остатками не выявлены.")
+        lines.append("")
+
+    lines.append("#### C-SKU с рекламной активностью")
+    if abc_layer.get("c_ads_rows"):
+        _append_markdown_table(
+            lines,
+            ["SKU", "Категория", "Рекламный сигнал", "Продажи/заказы", "Вывод"],
+            abc_layer.get("c_ads_rows") or [],
+            align_right={3},
+        )
+    else:
+        lines.append("- C-SKU с заметной рекламной активностью не выявлены.")
+        lines.append("")
+
+    lines.append("#### SKU, которые можно усиливать рекламой")
+    if abc_layer.get("ab_potential_rows"):
+        _append_markdown_table(
+            lines,
+            ["SKU", "Категория", "Основание", "Рекомендация"],
+            abc_layer.get("ab_potential_rows") or [],
+        )
+    else:
+        lines.append("- Явных SKU A/B для усиления рекламы по доступным сигналам не найдено.")
+        lines.append("")
+
+    for item in (abc_layer.get("insights") or []):
+        lines.append(f"- {item}")
+    lines.append("")
 
     lines.append("### SKU с остатками и слабым движением")
     sku_without_sales = decision.get("sku_without_sales") or []
