@@ -604,7 +604,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         lines.append("- Недостаточно данных для расчета TOP SKU по прибыли.")
         lines.append("")
 
-    lines.append("### SKU без продаж и с остатками")
+    lines.append("### SKU с остатками и слабым движением")
     sku_without_sales = decision.get("sku_without_sales") or []
     if sku_without_sales:
         rows_without_sales = [
@@ -623,7 +623,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             align_right={1, 2, 3},
         )
     else:
-        lines.append("- SKU без продаж и с остатками не выявлены.")
+        lines.append("- SKU с остатками и слабым движением не выявлены.")
         lines.append("")
 
     lines.append("### SKU с низкой маржинальностью")
