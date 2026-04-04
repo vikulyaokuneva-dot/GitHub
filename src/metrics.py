@@ -328,6 +328,7 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
         )
         row_storage = f(r.get("storage_fee") or r.get("storageFee") or r.get("storage") or 0)
         row_penalty = f(r.get("penalty") or r.get("penaltyAmount") or r.get("fine") or 0)
+        # payout берется напрямую из finance отчета WB ("К перечислению продавцу"), без перерасчета формулой.
         row_payout = f(r.get("ppvz_for_pay") or r.get("ppvzForPay") or r.get("to_pay") or r.get("toPay") or 0)
 
         is_sale = ("продаж" in oper) and ("возврат" not in oper)

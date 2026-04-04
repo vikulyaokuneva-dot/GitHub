@@ -541,6 +541,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     storage_value = _to_float(finance.get("storage"))
     if storage_value == 0.0 and _to_int(finance.get("rows_count")) > 0:
         lines.append("- По исходным строкам finance расход на хранение за период не обнаружен (0.00 RUB).")
+    lines.append("- К перечислению — значение из финансового отчета WB (без перерасчета).")
     lines.append("")
 
     _page_break(lines)
@@ -573,8 +574,12 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     drr_value = _to_float(ads.get("drr"))
     drr_text = _pct_ratio(drr_value) if drr_value is not None else "н/д"
     spend_value = _to_float(ads.get("spend"))
-    buyouts_revenue = _to_float(finance.get("gross_revenue"))
-    drr_cabinet = (spend_value / buyouts_revenue) if buyouts_revenue and buyouts_revenue > 0 else None
+    sales_revenue = _to_float(funnel.get("revenue_orders"))
+    if sales_revenue is None or sales_revenue <= 0:
+        sales_revenue = _to_float(funnel.get("revenue_buyouts"))
+    if sales_revenue is None or sales_revenue <= 0:
+        sales_revenue = _to_float(finance.get("gross_revenue"))
+    drr_cabinet = (spend_value / sales_revenue) if sales_revenue and sales_revenue > 0 else None
     drr_cabinet_text = _pct_ratio(drr_cabinet) if drr_cabinet is not None else "н/д"
     ads_rows = [
         ["Расход", _money(ads.get("spend"))],
