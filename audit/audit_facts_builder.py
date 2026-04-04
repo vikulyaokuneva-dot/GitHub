@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+from math import ceil
 from collections import defaultdict
 from zoneinfo import ZoneInfo
 from typing import Any
@@ -26,6 +27,7 @@ from src.sku_performance_analyzer import analyze_sku_performance
 WB_TIMEZONE = ZoneInfo(os.getenv("WB_TIMEZONE", "Europe/Moscow"))
 REQUIRED_TYPES = ("finance", "funnel", "stocks")
 OPTIONAL_TYPES = ("ads", "search", "cogs")
+LOCAL_MOVE_MIN_BATCH = int(os.getenv("WB_LOCAL_MOVE_MIN_BATCH", "5"))
 
 
 def _iso(d: dt.date) -> str:
@@ -48,6 +50,206 @@ def _to_int(value: Any) -> int:
         return int(float(value))
     except Exception:
         return 0
+
+
+def _geo_label(row: dict[str, Any]) -> str:
+    for key in ("region", "city", "warehouse", "cluster", "federal_district"):
+        value = str(row.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _build_local_orders_insights(
+    *,
+    funnel_rows: list[dict[str, Any]],
+    stocks_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    orders_by_sku_region: dict[tuple[int, str], int] = defaultdict(int)
+    total_orders_by_sku: dict[int, int] = defaultdict(int)
+    total_orders_by_region: dict[str, int] = defaultdict(int)
+    stock_by_sku_region: dict[tuple[int, str], int] = defaultdict(int)
+    stock_by_region: dict[str, int] = defaultdict(int)
+
+    orders_rows_scanned = 0
+    orders_rows_with_geo = 0
+    for row in funnel_rows or []:
+        if not isinstance(row, dict):
+            continue
+        orders_rows_scanned += 1
+        sku = _to_int(row.get("nmId") or row.get("nm_id") or row.get("sku"))
+        orders = _to_int(row.get("orderCount") or row.get("orders") or row.get("quantity"))
+        geo = _geo_label(row)
+        if sku <= 0 or orders <= 0:
+            continue
+        if not geo:
+            continue
+        orders_rows_with_geo += 1
+        orders_by_sku_region[(sku, geo)] += orders
+        total_orders_by_sku[sku] += orders
+        total_orders_by_region[geo] += orders
+
+    stock_rows_scanned = 0
+    stock_rows_with_geo = 0
+    for row in stocks_rows or []:
+        if not isinstance(row, dict):
+            continue
+        stock_rows_scanned += 1
+        sku = _to_int(row.get("nmId") or row.get("nm_id") or row.get("sku"))
+        geo = _geo_label(row)
+        qty = _to_int(row.get("quantityFull") or row.get("quantity") or row.get("qty") or row.get("stock"))
+        if sku <= 0 or not geo:
+            continue
+        stock_rows_with_geo += 1
+        qty = max(qty, 0)
+        stock_by_sku_region[(sku, geo)] += qty
+        stock_by_region[geo] += qty
+
+    total_orders = sum(total_orders_by_region.values())
+    if total_orders <= 0:
+        return {
+            "available": False,
+            "message": "Данные по локальным заказам за период не найдены.",
+            "by_region": [],
+            "by_sku": [],
+            "recommendations": [],
+            "diagnostics": {
+                "orders_rows_scanned": int(orders_rows_scanned),
+                "orders_rows_with_geo": int(orders_rows_with_geo),
+                "stock_rows_scanned": int(stock_rows_scanned),
+                "stock_rows_with_geo": int(stock_rows_with_geo),
+                "required_fields": [
+                    "SKU (nmId)",
+                    "region/city/warehouse for orders",
+                    "orders quantity",
+                ],
+                "required_source_hint": "WB выгрузка заказов с географией доставки (регион/город) по SKU за период.",
+            },
+        }
+
+    by_region = []
+    for region, region_orders in sorted(total_orders_by_region.items(), key=lambda x: x[1], reverse=True):
+        share = (float(region_orders) / float(total_orders)) * 100.0 if total_orders > 0 else 0.0
+        by_region.append(
+            {
+                "region": region,
+                "orders": int(region_orders),
+                "share_pct": round(share, 1),
+                "stock_qty": int(stock_by_region.get(region)) if stock_rows_with_geo > 0 else None,
+            }
+        )
+
+    by_sku = []
+    for sku, sku_orders in sorted(total_orders_by_sku.items(), key=lambda x: x[1], reverse=True):
+        regions = []
+        for (s, region), region_orders in orders_by_sku_region.items():
+            if s != sku:
+                continue
+            share = (float(region_orders) / float(sku_orders)) * 100.0 if sku_orders > 0 else 0.0
+            regions.append(
+                {
+                    "region": region,
+                    "orders": int(region_orders),
+                    "share_pct": round(share, 1),
+                    "stock_qty": int(stock_by_sku_region.get((sku, region))) if stock_rows_with_geo > 0 else None,
+                }
+            )
+        regions = sorted(regions, key=lambda x: x["orders"], reverse=True)
+        by_sku.append(
+            {
+                "sku": int(sku),
+                "total_orders": int(sku_orders),
+                "regions": regions[:10],
+            }
+        )
+
+    low_stock_threshold = max(1, LOCAL_MOVE_MIN_BATCH // 2)
+    recommendations: list[dict[str, Any]] = []
+    for item in by_sku:
+        sku = int(item["sku"])
+        sku_orders = int(item["total_orders"])
+        actionable = False
+        for region_item in item.get("regions", []):
+            share_pct = float(region_item.get("share_pct") or 0.0)
+            if share_pct < 10.0:
+                continue
+            region = str(region_item.get("region") or "")
+            region_orders = int(region_item.get("orders") or 0)
+            stock_qty_raw = region_item.get("stock_qty")
+            stock_qty = int(stock_qty_raw) if stock_qty_raw is not None else None
+            share = share_pct / 100.0
+            recommended_qty = max(int(ceil(float(sku_orders) * share)), int(LOCAL_MOVE_MIN_BATCH))
+            if stock_qty is None:
+                message = (
+                    f"SKU {sku}: за выбранный период {share_pct:.1f}% заказов ({region_orders} шт.) пришлись на {region}. "
+                    f"Рекомендуется проверить наличие товара в этом регионе и рассмотреть локальное размещение "
+                    f"на уровне {recommended_qty} шт."
+                )
+                recommendations.append(
+                    {
+                        "sku": sku,
+                        "region": region,
+                        "share_pct": round(share_pct, 1),
+                        "orders": region_orders,
+                        "stock_qty": None,
+                        "recommended_qty": int(recommended_qty),
+                        "message": message,
+                        "priority": "check_stock",
+                    }
+                )
+                actionable = True
+                continue
+
+            if stock_qty <= low_stock_threshold:
+                stock_text = "остаток 0" if stock_qty == 0 else f"остаток низкий ({stock_qty} шт.)"
+                message = (
+                    f"SKU {sku}: за выбранный период {share_pct:.1f}% заказов ({region_orders} шт.) пришлись на {region}. "
+                    f"В этом регионе {stock_text}. Рекомендуется поставить {recommended_qty} шт."
+                )
+                recommendations.append(
+                    {
+                        "sku": sku,
+                        "region": region,
+                        "share_pct": round(share_pct, 1),
+                        "orders": region_orders,
+                        "stock_qty": int(stock_qty),
+                        "recommended_qty": int(recommended_qty),
+                        "message": message,
+                        "priority": "move_stock",
+                    }
+                )
+                actionable = True
+        if not actionable and item.get("regions"):
+            top_region = item["regions"][0]
+            recommendations.append(
+                {
+                    "sku": sku,
+                    "region": top_region.get("region"),
+                    "share_pct": float(top_region.get("share_pct") or 0.0),
+                    "orders": int(top_region.get("orders") or 0),
+                    "stock_qty": top_region.get("stock_qty"),
+                    "recommended_qty": None,
+                    "message": f"SKU {sku}: спрос распределен без выраженного локального дефицита, срочное перемещение не требуется.",
+                    "priority": "observe",
+                }
+            )
+
+    return {
+        "available": True,
+        "message": "Локальный спрос рассчитан по данным с географией заказов.",
+        "by_region": by_region[:20],
+        "by_sku": by_sku[:50],
+        "recommendations": recommendations[:80],
+        "diagnostics": {
+            "orders_rows_scanned": int(orders_rows_scanned),
+            "orders_rows_with_geo": int(orders_rows_with_geo),
+            "stock_rows_scanned": int(stock_rows_scanned),
+            "stock_rows_with_geo": int(stock_rows_with_geo),
+            "minimal_batch": int(LOCAL_MOVE_MIN_BATCH),
+            "low_stock_threshold": int(low_stock_threshold),
+            "has_stock_by_region": bool(stock_rows_with_geo > 0),
+        },
+    }
 
 
 def _dedupe_rows(rows: list[dict[str, Any]], key_fields: tuple[str, ...]) -> tuple[list[dict[str, Any]], int]:
@@ -741,6 +943,10 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         search_rows=search_rows,
         search_parse_diag=search_parse_diag,
     )
+    local_orders_insights = _build_local_orders_insights(
+        funnel_rows=funnel_rows,
+        stocks_rows=stocks_rows,
+    )
 
     finance_status = "ok" if _to_int(financial_summary.get("rows_count")) > 0 else "missing"
     try:
@@ -827,6 +1033,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "ads_summary": ads_summary,
         "stock_summary": stock_summary,
         "search_insights": search_insights,
+        "local_orders_insights": local_orders_insights,
         "cogs_input": {
             "rows_count": len(cogs_rows),
             "rows": cogs_rows[:200],

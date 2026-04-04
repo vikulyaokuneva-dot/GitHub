@@ -409,6 +409,23 @@ def parse_finance_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]]
             "penalty": _to_float(_lookup(row, ("Общая сумма штрафов", "penalty", "fine"))),
             "_supplier_article": str(_lookup(row, ("Артикул поставщика", "Артикул продавца", "supplierArticle")) or ""),
             "_name": str(_lookup(row, ("Название", "name")) or ""),
+            "region": str(
+                _lookup(
+                    row,
+                    (
+                        "Регион",
+                        "Регион доставки",
+                        "Область",
+                        "Федеральный округ",
+                        "region",
+                        "delivery_region",
+                        "destinationRegion",
+                    ),
+                )
+                or ""
+            ).strip(),
+            "city": str(_lookup(row, ("Город", "Город доставки", "city", "delivery_city")) or "").strip(),
+            "warehouse": str(_lookup(row, ("Склад", "Склад WB", "warehouse", "warehouseName")) or "").strip(),
         }
 
         marker = " ".join(
@@ -458,6 +475,23 @@ def parse_funnel_file(path: str) -> list[dict[str, Any]]:
             "orderSum": _to_float(_lookup(row, ("Заказали на сумму, ₽", "Заказали на сумму", "orderSum"))),
             "buyoutSum": _to_float(_lookup(row, ("Выкупили на сумму, ₽", "Выкупили на сумму", "buyoutSum"))),
             "name": str(_lookup(row, ("Название", "name")) or ""),
+            "region": str(
+                _lookup(
+                    row,
+                    (
+                        "Регион",
+                        "Регион доставки",
+                        "Область",
+                        "Федеральный округ",
+                        "region",
+                        "delivery_region",
+                        "destinationRegion",
+                    ),
+                )
+                or ""
+            ).strip(),
+            "city": str(_lookup(row, ("Город", "Город доставки", "city", "delivery_city")) or "").strip(),
+            "warehouse": str(_lookup(row, ("Склад", "Склад WB", "warehouse", "warehouseName")) or "").strip(),
         }
         is_empty_row = (
             payload["nmId"] == 0
@@ -571,6 +605,34 @@ def _parse_stocks_df_rows(df_local: pd.DataFrame) -> tuple[list[dict[str, Any]],
             "inWayFromClient": in_way_from_client,
             "supplierArticle": supplier_article,
             "_name": name,
+            "region": str(
+                _lookup(
+                    row,
+                    (
+                        "Регион",
+                        "Регион склада",
+                        "Область",
+                        "Федеральный округ",
+                        "region",
+                        "warehouse_region",
+                    ),
+                )
+                or ""
+            ).strip(),
+            "city": str(_lookup(row, ("Город", "Город склада", "city", "warehouse_city")) or "").strip(),
+            "warehouse": str(
+                _lookup(
+                    row,
+                    (
+                        "Склад",
+                        "Склад WB",
+                        "Склад продавца",
+                        "warehouse",
+                        "warehouseName",
+                    ),
+                )
+                or ""
+            ).strip(),
         }
 
         marker = " ".join([_norm(payload.get("_name")), _norm(payload.get("supplierArticle"))])

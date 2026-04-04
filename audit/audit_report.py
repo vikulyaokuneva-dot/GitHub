@@ -252,6 +252,68 @@ def _search_rows_for_table(search: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted_rows[:10]
 
 
+def _local_orders_section_lines(local_orders_insights: dict[str, Any]) -> list[str]:
+    lines: list[str] = ["## 8. Локальные заказы и размещение товара"]
+
+    available = bool(local_orders_insights.get("available"))
+    if not available:
+        message = _text(local_orders_insights.get("message") or "Данные по локальным заказам за период не найдены.")
+        lines.append(f"- {message}")
+        diagnostics = local_orders_insights.get("diagnostics") if isinstance(local_orders_insights.get("diagnostics"), dict) else {}
+        source_hint = _text(diagnostics.get("required_source_hint") or "")
+        if source_hint:
+            lines.append(f"- Для расчета региональных рекомендаций нужна отдельная выгрузка: {source_hint}")
+        lines.append("")
+        return lines
+
+    by_region = local_orders_insights.get("by_region") or []
+    by_sku = local_orders_insights.get("by_sku") or []
+    recommendations = local_orders_insights.get("recommendations") or []
+
+    lines.append("### Сводка по локальному спросу")
+    if by_region:
+        for item in by_region[:10]:
+            region = _text(item.get("region") or "Не указан")
+            share_pct = float(item.get("share_pct") or 0.0)
+            orders = int(item.get("orders") or 0)
+            stock_qty_raw = item.get("stock_qty")
+            if stock_qty_raw is None:
+                stock_text = "остаток: н/д"
+            else:
+                stock_qty = int(stock_qty_raw)
+                stock_text = "остаток 0" if stock_qty == 0 else f"остаток {stock_qty} шт."
+            lines.append(f"- {region}: {share_pct:.1f}% заказов ({orders} шт.), {stock_text}")
+    else:
+        lines.append("- Данные по регионам не обнаружены.")
+
+    lines.append("")
+    lines.append("### Топ SKU по локальному спросу")
+    if by_sku:
+        for item in by_sku[:8]:
+            sku = int(item.get("sku") or 0)
+            total_orders = int(item.get("total_orders") or 0)
+            regions = item.get("regions") if isinstance(item.get("regions"), list) else []
+            if regions:
+                top = regions[:2]
+                top_text = "; ".join(f"{_text(x.get('region'))} ({float(x.get('share_pct') or 0.0):.1f}%)" for x in top)
+                lines.append(f"- SKU {sku}: {total_orders} заказов за период. Основной спрос: {top_text}.")
+            else:
+                lines.append(f"- SKU {sku}: {total_orders} заказов за период.")
+    else:
+        lines.append("- Недостаточно данных для выделения SKU по регионам.")
+
+    lines.append("")
+    lines.append("### Рекомендации по SKU")
+    if recommendations:
+        for rec in recommendations[:12]:
+            lines.append(f"- {_text(rec.get('message'))}")
+    else:
+        lines.append("- Спрос распределен равномерно, срочное перемещение не требуется.")
+
+    lines.append("")
+    return lines
+
+
 def _roi_line(finance: dict[str, Any], ads: dict[str, Any]) -> tuple[str, list[str]]:
     profit_without_cogs = bool(finance.get("profit_without_cogs"))
     cogs_total = _to_float(finance.get("cogs_total"))
@@ -288,6 +350,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     ads = facts.get("ads_summary") or {}
     stock = facts.get("stock_summary") or {}
     search = facts.get("search_insights") or {}
+    local_orders_insights = facts.get("local_orders_insights") or {}
     decision = facts.get("decision_layer") or {}
     inputs = facts.get("inputs") or {}
     sku_profit = facts.get("sku_profit") or []
@@ -413,7 +476,9 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         lines.append("- Мертвые остатки не выявлены для текущей диагностики.")
     lines.append("")
 
-    lines.append("## 8. Поисковые запросы")
+    lines.extend(_local_orders_section_lines(local_orders_insights))
+
+    lines.append("## 9. Поисковые запросы")
     search_status = str(search.get("status") or "")
     if search_status == "ok":
         rows_with_orders = len(search.get("profitable") or [])
@@ -447,7 +512,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         )
     lines.append("")
 
-    lines.append("## 9. Рекомендации")
+    lines.append("## 10. Рекомендации")
     if actions:
         for action in actions:
             lines.append(
