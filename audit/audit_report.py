@@ -252,6 +252,36 @@ def _search_rows_for_table(search: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted_rows[:10]
 
 
+def _roi_line(finance: dict[str, Any], ads: dict[str, Any]) -> tuple[str, list[str]]:
+    profit_without_cogs = bool(finance.get("profit_without_cogs"))
+    cogs_total = _to_float(finance.get("cogs_total"))
+    if profit_without_cogs or cogs_total is None or cogs_total <= 0:
+        return (
+            "ROI: не рассчитан (нет данных по себестоимости)",
+            [
+                "ROI будет доступен после загрузки себестоимости (COGS-файла).",
+                "Этот показатель покажет реальную окупаемость бизнеса с учетом всех затрат.",
+            ],
+        )
+
+    expense_fields = [
+        _to_float(finance.get("commission")) or 0.0,
+        _to_float(finance.get("logistics")) or 0.0,
+        _to_float(finance.get("storage")) or 0.0,
+        _to_float(finance.get("penalties")) or 0.0,
+        _to_float(finance.get("tax")) or 0.0,
+        cogs_total,
+        _to_float(ads.get("spend")) or 0.0,
+    ]
+    expenses = sum(x for x in expense_fields if x > 0)
+    profit = _to_float(finance.get("profit"))
+    if expenses <= 0 or profit is None:
+        return ("ROI: н/д", [])
+
+    roi = (profit / expenses) * 100.0
+    return (f"ROI: {_fmt_pct(roi, 1)}", [])
+
+
 def build_audit_markdown(facts: dict[str, Any]) -> str:
     finance = facts.get("financial_summary") or {}
     funnel = facts.get("funnel_summary") or {}
@@ -290,15 +320,27 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     profit_label = _text(finance.get("profit_label") or "Прибыль")
     lines.append(f"- {profit_label}: {_money(finance.get('profit'))}")
     lines.append(f"- Маржа: {_pct_ratio(finance.get('margin'))}")
+
+    roi_main, roi_extra = _roi_line(finance, ads)
+    lines.append(f"- {roi_main}")
+    for extra in roi_extra:
+        lines.append(f"- {extra}")
     lines.append("")
 
     lines.append("## 4. Реклама")
+    attributed_revenue = _to_float(ads.get("revenue_attr"))
+    factual_revenue = _to_float(finance.get("gross_revenue"))
     lines.append(f"- Расход: {_money(ads.get('spend'))}")
     lines.append(f"- Атрибутированная выручка: {_money(ads.get('revenue_attr'))}")
     lines.append(
         "- Атрибутированная выручка - это выручка, которую Wildberries относит к рекламным касаниям. "
         "Она не равна фактической выручке из финансового отчета."
     )
+    if attributed_revenue is not None and factual_revenue is not None and attributed_revenue > factual_revenue:
+        lines.append(
+            "- Атрибутированная выручка включает заказы, которые могли не быть выкуплены. "
+            "Поэтому она может быть выше фактической выручки из финансового отчета."
+        )
     lines.append(f"- ROAS: {_sanitize_table_cell(ads.get('roas', 0))}")
     leaks = decision.get("ads_leaks") or []
     if leaks:
@@ -318,6 +360,19 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append(f"- CR в корзину: {_pct_ratio(funnel.get('cr_cart'))}")
     lines.append(f"- CR в заказ: {_pct_ratio(funnel.get('cr_order'))}")
     lines.append(f"- % выкупа: {_pct_ratio(funnel.get('buyout_rate'))}")
+    lines.append("")
+    lines.append("Продажи (заказы):")
+    lines.append(f"- Количество заказов: {_to_int(funnel.get('orders'))}")
+    lines.append(f"- Сумма заказов (оборот до выкупа): {_money(funnel.get('revenue_orders'))}")
+    lines.append("Выкупы (фактическая выручка):")
+    lines.append(f"- Количество выкупов: {_to_int(funnel.get('buys'))}")
+    lines.append(f"- Выручка (по finance): {_money(finance.get('gross_revenue'))}")
+    lines.append("- Часть заказов не выкупается, поэтому оборот по заказам выше фактической выручки.")
+    lines.append("")
+    lines.append("Разница между заказами и выкупами влияет на:")
+    lines.append("- фактическую выручку")
+    lines.append("- корректную оценку рекламы")
+    lines.append("- реальную прибыль")
     lines.append("")
 
     lines.append("## 6. Ассортимент (SKU)")
