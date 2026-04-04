@@ -455,6 +455,144 @@ def _roi_line(finance: dict[str, Any], ads: dict[str, Any], *, clean_profit: flo
     return (f"ROI: {_fmt_pct(roi, 1)}", [])
 
 
+def _build_abc_analysis(
+    *,
+    sku_profit: list[dict[str, Any]],
+    profit_without_cogs: bool,
+) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    for item in sku_profit or []:
+        if not isinstance(item, dict):
+            continue
+        sku = _to_int(item.get("sku"))
+        if sku <= 0:
+            continue
+        rows.append(
+            {
+                "sku": sku,
+                "revenue": _to_float(item.get("revenue")),
+                "profit": _to_float(item.get("profit")),
+                "stock_qty": _to_int(item.get("stock_qty")),
+            }
+        )
+
+    if not rows:
+        return {
+            "available": False,
+            "basis_note": "Недостаточно данных для ABC-анализа.",
+            "summary_rows": [],
+            "detail_rows": [],
+            "insights": [],
+            "basis_metric": "unknown",
+            "counts": {"A": 0, "B": 0, "C": 0},
+        }
+
+    profit_non_null = sum(1 for row in rows if row["profit"] is not None)
+    revenue_non_null = sum(1 for row in rows if row["revenue"] is not None)
+    profit_total = sum(max(float(row["profit"] or 0.0), 0.0) for row in rows if row["profit"] is not None)
+    revenue_total = sum(max(float(row["revenue"] or 0.0), 0.0) for row in rows if row["revenue"] is not None)
+
+    metric_key = "profit"
+    metric_total = profit_total
+    basis_note = (
+        "ABC построен по прибыли без учета себестоимости."
+        if profit_without_cogs
+        else "ABC построен по прибыли."
+    )
+
+    profit_usable = profit_non_null >= max(1, int(len(rows) * 0.8)) and profit_total > 0
+    if not profit_usable:
+        metric_key = "revenue"
+        metric_total = revenue_total
+        basis_note = "ABC построен по выручке."
+
+    if metric_total <= 0:
+        metric_key = "revenue"
+        metric_total = float(len(rows))
+        basis_note = "ABC построен по выручке (вклад SKU оценен равномерно из-за неполных данных)."
+        for row in rows:
+            row["_metric_value"] = 1.0
+    else:
+        for row in rows:
+            metric_raw = row.get(metric_key)
+            row["_metric_value"] = max(float(metric_raw or 0.0), 0.0)
+
+    rows_sorted = sorted(
+        rows,
+        key=lambda row: (
+            float(row.get("_metric_value") or 0.0),
+            float(row.get("revenue") or 0.0),
+            float(row.get("profit") or 0.0),
+        ),
+        reverse=True,
+    )
+
+    by_cat: dict[str, dict[str, Any]] = {
+        "A": {"count": 0, "share": 0.0},
+        "B": {"count": 0, "share": 0.0},
+        "C": {"count": 0, "share": 0.0},
+    }
+    detail_rows: list[dict[str, Any]] = []
+    cumulative = 0.0
+    for row in rows_sorted:
+        share = (float(row["_metric_value"]) / float(metric_total)) if metric_total > 0 else 0.0
+        prev_cumulative = cumulative
+        cumulative += share
+        if prev_cumulative < 0.8:
+            category = "A"
+        elif prev_cumulative < 0.95:
+            category = "B"
+        else:
+            category = "C"
+        by_cat[category]["count"] += 1
+        by_cat[category]["share"] += share
+        detail_rows.append(
+            {
+                "sku": int(row["sku"]),
+                "category": category,
+                "revenue": row.get("revenue"),
+                "profit": row.get("profit"),
+                "share_pct": share * 100.0,
+                "stock_qty": int(row.get("stock_qty") or 0),
+            }
+        )
+
+    summary_rows = [
+        ["A", by_cat["A"]["count"], _fmt_pct(by_cat["A"]["share"] * 100.0, 1), "Основные драйверы"],
+        ["B", by_cat["B"]["count"], _fmt_pct(by_cat["B"]["share"] * 100.0, 1), "Поддерживающая группа"],
+        ["C", by_cat["C"]["count"], _fmt_pct(by_cat["C"]["share"] * 100.0, 1), "Слабый вклад"],
+    ]
+
+    a_count = int(by_cat["A"]["count"])
+    b_share = float(by_cat["B"]["share"] or 0.0)
+    c_share = float(by_cat["C"]["share"] or 0.0)
+    ab_share_pct = (float(by_cat["A"]["share"] or 0.0) + b_share) * 100.0
+
+    c_high_stock = [row for row in detail_rows if row["category"] == "C" and int(row.get("stock_qty") or 0) >= 50]
+    a_low_stock = [row for row in detail_rows if row["category"] == "A" and int(row.get("stock_qty") or 0) > 0 and int(row.get("stock_qty") or 0) <= 5]
+
+    insights = [
+        f"Категория A: {a_count} SKU, вклад {_fmt_pct(by_cat['A']['share'] * 100.0, 1)} в выбранную метрику.",
+        f"Группы A+B формируют {_fmt_pct(ab_share_pct, 1)} результата; группа C дает {_fmt_pct(c_share * 100.0, 1)}.",
+    ]
+    if c_high_stock:
+        sample = ", ".join(str(item["sku"]) for item in c_high_stock[:3])
+        insights.append(f"Есть SKU категории C с высокими остатками: {sample}.")
+    if a_low_stock:
+        sample = ", ".join(str(item["sku"]) for item in a_low_stock[:3])
+        insights.append(f"Есть риск дефицита по SKU категории A: {sample}.")
+
+    return {
+        "available": True,
+        "basis_note": basis_note,
+        "summary_rows": summary_rows,
+        "detail_rows": detail_rows,
+        "insights": insights[:4],
+        "basis_metric": metric_key,
+        "counts": {k: int(v["count"]) for k, v in by_cat.items()},
+    }
+
+
 def build_audit_markdown(facts: dict[str, Any]) -> str:
     finance = facts.get("financial_summary") or {}
     funnel = facts.get("funnel_summary") or {}
@@ -467,6 +605,10 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     sku_profit = facts.get("sku_profit") or []
     actions = facts.get("actions") or []
     profit_view = _profit_view(finance, ads)
+    abc = _build_abc_analysis(
+        sku_profit=sku_profit,
+        profit_without_cogs=bool(finance.get("profit_without_cogs")),
+    )
 
     source_label = _text(facts.get("source") or "wb").upper()
     period_label = _period_text(facts.get("period") or facts.get("date") or "н/д")
@@ -658,6 +800,41 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         )
     else:
         lines.append("- Недостаточно данных для расчета TOP SKU по прибыли.")
+        lines.append("")
+
+    lines.append("### ABC-анализ")
+    if abc.get("available"):
+        lines.append(f"- {_text(abc.get('basis_note'))}")
+        _append_markdown_table(
+            lines,
+            ["Категория", "SKU, шт", "Доля метрики", "Комментарий"],
+            abc.get("summary_rows") or [],
+            align_right={1, 2},
+        )
+
+        lines.append("### SKU по категориям ABC")
+        detail_rows = [
+            [
+                row.get("sku"),
+                row.get("category"),
+                _money(row.get("revenue")),
+                _money(row.get("profit")),
+                _fmt_pct(_to_float(row.get("share_pct")), 2),
+                _to_int(row.get("stock_qty")),
+            ]
+            for row in (abc.get("detail_rows") or [])
+        ]
+        _append_markdown_table(
+            lines,
+            ["SKU", "Категория", "Выручка", "Прибыль", "Доля", "Остаток, шт"],
+            detail_rows,
+            align_right={2, 3, 4, 5},
+        )
+        for insight in (abc.get("insights") or []):
+            lines.append(f"- {insight}")
+        lines.append("")
+    else:
+        lines.append("- Недостаточно данных для построения ABC-анализа.")
         lines.append("")
 
     lines.append("### SKU с остатками и слабым движением")
