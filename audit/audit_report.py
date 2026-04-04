@@ -98,24 +98,28 @@ def _text(value: Any) -> str:
     return _repair_text(str(value)).strip()
 
 
-def _kpi_state_text(decision_layer: dict[str, Any], finance: dict[str, Any]) -> str:
-    kpi = decision_layer.get("kpi") or {}
-    profit = _to_float(kpi.get("profit")) or 0.0
-    margin = _to_float(kpi.get("margin")) or 0.0
-    profit_without_cogs = bool(finance.get("profit_without_cogs"))
+def _kpi_state_text(*, profit: float, margin: float, profit_without_cogs: bool) -> str:
+    profit = float(profit or 0.0)
+    margin = float(margin or 0.0)
 
     if profit_without_cogs:
         if profit < 0:
-            return f"Предварительный убыток без COGS: {_money(profit)}, маржа: {_pct_ratio(margin)}."
+            return (
+                "Предварительный чистый убыток без COGS (с учетом рекламы): "
+                f"{_money(profit)}, маржа: {_pct_ratio(margin)}."
+            )
         if profit > 0:
-            return f"Предварительная прибыль без COGS: {_money(profit)}, маржа: {_pct_ratio(margin)}."
-        return f"Нулевая предварительная прибыль без COGS, маржа: {_pct_ratio(margin)}."
+            return (
+                "Предварительная чистая прибыль без COGS (с учетом рекламы): "
+                f"{_money(profit)}, маржа: {_pct_ratio(margin)}."
+            )
+        return f"Нулевая предварительная чистая прибыль без COGS (с учетом рекламы), маржа: {_pct_ratio(margin)}."
 
     if profit < 0:
-        return f"Убыток: {_money(profit)}, маржа: {_pct_ratio(margin)}."
+        return f"Чистый убыток: {_money(profit)}, маржа: {_pct_ratio(margin)}."
     if profit > 0:
-        return f"Прибыль: {_money(profit)}, маржа: {_pct_ratio(margin)}."
-    return f"Нулевая прибыль, маржа: {_pct_ratio(margin)}."
+        return f"Чистая прибыль: {_money(profit)}, маржа: {_pct_ratio(margin)}."
+    return f"Нулевая чистая прибыль, маржа: {_pct_ratio(margin)}."
 
 
 def _expense_component_label(component: str) -> str:
@@ -160,7 +164,9 @@ def _loss_reasons_human(decision: dict[str, Any], finance: dict[str, Any]) -> li
             continue
 
         if numbers.get("profit_without_cogs") or "без cogs" in reason_norm:
-            lines.append("Прибыль рассчитана без учета себестоимости - фактическая прибыль может быть ниже.")
+            lines.append(
+                "Показатель прибыли рассчитан без учета себестоимости - фактическая чистая прибыль может быть ниже."
+            )
             continue
 
         if "выручка по funnel и finance" in reason_norm:
@@ -395,7 +401,33 @@ def _local_orders_section_lines(local_orders_insights: dict[str, Any]) -> list[s
     return lines
 
 
-def _roi_line(finance: dict[str, Any], ads: dict[str, Any]) -> tuple[str, list[str]]:
+def _profit_view(finance: dict[str, Any], ads: dict[str, Any]) -> dict[str, Any]:
+    revenue = _to_float(finance.get("gross_revenue")) or 0.0
+    commission = _to_float(finance.get("commission")) or 0.0
+    logistics = _to_float(finance.get("logistics")) or 0.0
+    storage = _to_float(finance.get("storage")) or 0.0
+    tax = _to_float(finance.get("tax")) or 0.0
+    cogs_total = _to_float(finance.get("cogs_total")) or 0.0
+    ads_spend = _to_float(ads.get("spend")) or 0.0
+    profit_without_cogs = bool(finance.get("profit_without_cogs"))
+
+    clean_profit = revenue - commission - logistics - storage - tax - cogs_total - ads_spend
+    clean_margin = (clean_profit / revenue) if revenue > 0 else 0.0
+    clean_label = (
+        "Чистая прибыль без учета себестоимости (с учетом рекламы)"
+        if profit_without_cogs
+        else "Чистая прибыль"
+    )
+    return {
+        "clean_profit": float(clean_profit),
+        "clean_margin": float(clean_margin),
+        "clean_label": clean_label,
+        "profit_without_cogs": profit_without_cogs,
+        "ads_spend": float(ads_spend),
+    }
+
+
+def _roi_line(finance: dict[str, Any], ads: dict[str, Any], *, clean_profit: float) -> tuple[str, list[str]]:
     profit_without_cogs = bool(finance.get("profit_without_cogs"))
     cogs_total = _to_float(finance.get("cogs_total"))
     if profit_without_cogs or cogs_total is None or cogs_total <= 0:
@@ -411,17 +443,15 @@ def _roi_line(finance: dict[str, Any], ads: dict[str, Any]) -> tuple[str, list[s
         _to_float(finance.get("commission")) or 0.0,
         _to_float(finance.get("logistics")) or 0.0,
         _to_float(finance.get("storage")) or 0.0,
-        _to_float(finance.get("penalties")) or 0.0,
         _to_float(finance.get("tax")) or 0.0,
         cogs_total,
         _to_float(ads.get("spend")) or 0.0,
     ]
     expenses = sum(x for x in expense_fields if x > 0)
-    profit = _to_float(finance.get("profit"))
-    if expenses <= 0 or profit is None:
+    if expenses <= 0:
         return ("ROI: н/д", [])
 
-    roi = (profit / expenses) * 100.0
+    roi = (float(clean_profit) / expenses) * 100.0
     return (f"ROI: {_fmt_pct(roi, 1)}", [])
 
 
@@ -436,6 +466,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     inputs = facts.get("inputs") or {}
     sku_profit = facts.get("sku_profit") or []
     actions = facts.get("actions") or []
+    profit_view = _profit_view(finance, ads)
 
     source_label = _text(facts.get("source") or "wb").upper()
     period_label = _period_text(facts.get("period") or facts.get("date") or "н/д")
@@ -462,7 +493,11 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     lines.append("## 1. KPI и инсайты")
     insights: list[str] = [
-        _kpi_state_text(decision, finance),
+        _kpi_state_text(
+            profit=profit_view["clean_profit"],
+            margin=profit_view["clean_margin"],
+            profit_without_cogs=bool(profit_view["profit_without_cogs"]),
+        ),
         f"Выручка за период: {_money(finance.get('gross_revenue'))}.",
         f"ROAS рекламы: {_sanitize_table_cell(ads.get('roas', 'н/д'))}.",
     ]
@@ -473,28 +508,39 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append("")
 
     lines.append("## 2. Финансы за период")
-    profit_label = _text(finance.get("profit_label") or "Прибыль")
-    roi_main, roi_extra = _roi_line(finance, ads)
+    sales_units = _to_int(funnel.get("orders"))
+    if sales_units <= 0:
+        sales_units = _to_int(finance.get("sales_qty"))
+    buyouts_units = _to_int(funnel.get("buys"))
+    if buyouts_units <= 0:
+        buyouts_units = _to_int(finance.get("sales_qty"))
+
+    roi_main, roi_extra = _roi_line(finance, ads, clean_profit=float(profit_view["clean_profit"]))
     finance_rows = [
-        ["Выручка", _money(finance.get("gross_revenue"))],
+        ["Продажи (шт)", sales_units],
         ["Продажи (сумма заказов)", _money(funnel.get("revenue_orders"))],
+        ["Выкупы (шт)", buyouts_units],
         ["Выкупы (сумма)", _money(finance.get("gross_revenue"))],
-        ["Выкупы (шт)", _to_int(funnel.get("buys"))],
         ["Комиссия WB", _money(finance.get("commission"))],
         ["Логистика", _money(finance.get("logistics"))],
         ["Хранение", _money(finance.get("storage"))],
         ["Себестоимость", _money(finance.get("cogs_total"))],
+        ["Реклама", _money(ads.get("spend"))],
         ["Налог", _money(finance.get("tax"))],
-        [profit_label, _money(finance.get("profit"))],
-        ["Маржа", _pct_ratio(finance.get("margin"))],
+        [_text(profit_view["clean_label"]), _money(profit_view.get("clean_profit"))],
+        ["Маржа", _pct_ratio(profit_view.get("clean_margin"))],
         ["ROI", _text(roi_main.replace("ROI: ", ""))],
         ["К перечислению", _money(finance.get("payout"))],
     ]
     _append_markdown_table(lines, ["Метрика", "Значение"], finance_rows, align_right={1})
+    lines.append("- Чистая прибыль и маржа в этом разделе рассчитаны с учетом рекламных расходов.")
     for extra in roi_extra:
         lines.append(f"- {extra}")
     if finance.get("profit_note"):
         lines.append(f"- {_text(finance.get('profit_note'))}")
+    storage_value = _to_float(finance.get("storage"))
+    if storage_value == 0.0 and _to_int(finance.get("rows_count")) > 0:
+        lines.append("- По исходным строкам finance расход на хранение за период не обнаружен (0.00 RUB).")
     lines.append("")
 
     _page_break(lines)
@@ -526,6 +572,10 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append("## 4. Реклама")
     drr_value = _to_float(ads.get("drr"))
     drr_text = _pct_ratio(drr_value) if drr_value is not None else "н/д"
+    spend_value = _to_float(ads.get("spend"))
+    buyouts_revenue = _to_float(finance.get("gross_revenue"))
+    drr_cabinet = (spend_value / buyouts_revenue) if buyouts_revenue and buyouts_revenue > 0 else None
+    drr_cabinet_text = _pct_ratio(drr_cabinet) if drr_cabinet is not None else "н/д"
     ads_rows = [
         ["Расход", _money(ads.get("spend"))],
         ["Показы", _to_int(ads.get("impressions"))],
@@ -535,7 +585,8 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         ["CPM", _money(ads.get("cpm"))],
         ["Атрибутированная выручка", _money(ads.get("revenue_attr"))],
         ["ROAS", _sanitize_table_cell(ads.get("roas", "н/д"))],
-        ["ДРР", drr_text],
+        ["ДРР (по рекламной выручке)", drr_text],
+        ["ДРР по кабинету", drr_cabinet_text],
     ]
     _append_markdown_table(lines, ["Метрика", "Значение"], ads_rows, align_right={1})
 
