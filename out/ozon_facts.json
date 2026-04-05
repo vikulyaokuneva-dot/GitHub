@@ -1,0 +1,61 @@
+{
+  "summary": {
+    "total_orders": 30,
+    "total_revenue": 151800.0,
+    "sku_count": 4
+  },
+  "top_sku": [
+    {
+      "sku": "SKU-1",
+      "orders": 25,
+      "revenue": 125000.0,
+      "stock": 5.0
+    },
+    {
+      "sku": "SKU-3",
+      "orders": 4,
+      "revenue": 22000.0,
+      "stock": 2.0
+    },
+    {
+      "sku": "SKU-4",
+      "orders": 1,
+      "revenue": 4800.0,
+      "stock": 27.0
+    },
+    {
+      "sku": "SKU-2",
+      "orders": 0,
+      "revenue": 0.0,
+      "stock": 18.0
+    }
+  ],
+  "problem_sku": [
+    {
+      "sku": "SKU-2",
+      "orders": 0,
+      "revenue": 0.0,
+      "stock": 18.0,
+      "reason": "низкая оборачиваемость"
+    },
+    {
+      "sku": "SKU-4",
+      "orders": 1,
+      "revenue": 4800.0,
+      "stock": 27.0,
+      "reason": "низкая оборачиваемость"
+    }
+  ],
+  "detected_columns": {
+    "sku": "sku",
+    "orders": "orders",
+    "revenue": "revenue",
+    "stock": "stock"
+  },
+  "data_quality": {
+    "row_count": 4,
+    "has_orders": true,
+    "has_revenue": true,
+    "has_stock": true
+  }
+}

@@ -17,7 +17,25 @@ def main() -> int:
     parser.add_argument("--audit-input-dir", default="audit/input", help="Audit input dir (for --mode audit)")
     parser.add_argument("--audit-out-dir", default="audit/output", help="Audit output dir (for --mode audit)")
     parser.add_argument("--period", default="", help="Optional period label for audit mode")
+    parser.add_argument("--input", default="", help="Input file path for --mode audit_ozon")
+    parser.add_argument("--output-dir", default="out", help="Output dir for --mode audit_ozon")
     args = parser.parse_args()
+
+    if str(args.mode).strip().lower() == "audit_ozon":
+        if not str(args.input or "").strip():
+            print("Error: --input is required for --mode audit_ozon")
+            return 1
+        from audit.audit_ozon.runner import run_ozon_audit
+
+        result = run_ozon_audit(
+            input_path=str(args.input),
+            output_dir=str(args.output_dir or "out"),
+        )
+        if not bool(result.get("ok")):
+            print(f"Ozon audit completed with warnings: {result.get('error')}")
+        print(f"Ozon markdown: {result.get('md_path')}")
+        print(f"Ozon pdf: {result.get('pdf_path')}")
+        return 0
 
     if str(args.mode).strip().lower() == "audit":
         from audit.run_audit import run_audit_mode
