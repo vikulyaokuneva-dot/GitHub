@@ -1,52 +1,55 @@
-"""Facts builder for Ozon express audit MVP."""
+"""Facts builder for Ozon express audit."""
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from typing import Any
 
 
 COLUMN_HINTS: dict[str, tuple[str, ...]] = {
-    "sku": ("sku", "Р°СЂС‚РёРєСѓР»", "offer id", "ozon sku", "id С‚РѕРІР°СЂР°"),
-    "product_name": ("С‚РѕРІР°СЂ", "РЅР°РёРјРµРЅРѕРІР°РЅРёРµ", "name", "РЅР°Р·РІР°РЅРёРµ"),
-    "orders": ("Р·Р°РєР°Р·", "Р·Р°РєР°Р·Р°РЅРѕ", "orders", "sales", "РїСЂРѕРґР°Р¶Рё", "С‚РѕРІР°СЂРѕРІ Р·Р°РєР°Р·Р°РЅРѕ", "quantity ordered"),
-    "revenue": ("РІС‹СЂСѓС‡РєР°", "СЃСѓРјРјР°", "РЅР° СЃСѓРјРјСѓ", "revenue"),
-    "buyouts": ("РІС‹РєСѓРї", "РґРѕСЃС‚Р°РІР»РµРЅРѕ", "purchased"),
-    "cancellations": ("РѕС‚РјРµРЅ", "canceled", "РѕС‚РјРµРЅРµРЅРѕ"),
-    "impressions": ("РїРѕРєР°Р·С‹", "impressions"),
-    "visitors": ("РїРѕСЃРµС‚РёС‚РµР»", "visitors", "СѓРЅРёРєР°Р»СЊРЅС‹Рµ РїРѕСЃРµС‚РёС‚РµР»Рё"),
-    "card_views": ("РїРѕСЃРµС‰РµРЅРёСЏ РєР°СЂС‚РѕС‡РєРё", "РїСЂРѕСЃРјРѕС‚СЂС‹ РєР°СЂС‚РѕС‡РєРё", "card views"),
-    "add_to_cart": ("РІ РєРѕСЂР·РёРЅСѓ", "РґРѕР±Р°РІРёР»Рё РІ РєРѕСЂР·РёРЅСѓ", "add to cart"),
-    "stock": ("РѕСЃС‚Р°С‚РѕРє", "stock", "РЅР° СЃРєР»Р°РґРµ"),
-    "reviews": ("РѕС‚Р·С‹РІ", "reviews"),
-    "price_index": ("РёРЅРґРµРєСЃ С†РµРЅ", "price index"),
-    "drr": ("РґСЂСЂ",),
-    "promotion_days": ("РґРЅРµР№ РїСЂРѕРґРІРёР¶РµРЅРёСЏ", "РґРЅРё РїСЂРѕРґРІРёР¶РµРЅРёСЏ", "РїСЂРѕРґРІРёР¶"),
-    "promo_days": ("РґРЅРµР№ РІ Р°РєС†РёСЏС…", "РґРЅРё РІ Р°РєС†РёСЏС…", "Р°РєС†Рё"),
+    "sku": ("sku", "артикул", "offer id", "ozon sku", "id товара", "товар"),
+    "product_name": ("наименование", "название", "name", "товар"),
+    "orders": ("заказ", "заказано", "orders", "sales", "продажи", "товаров заказано", "quantity ordered"),
+    "revenue": ("выручка", "сумма", "на сумму", "revenue"),
+    "buyouts": ("выкуп", "доставлено", "purchased"),
+    "cancellations": ("отмен", "canceled", "отменено"),
+    "stock": ("остаток", "stock", "на складе"),
+    "reviews": ("отзыв", "reviews"),
+    "price_index": ("индекс цен", "price index"),
+    "drr": ("дрр",),
+    "spend": ("расход", "затраты", "спенд", "spend", "реклам", "promotion cost"),
+    "impressions": ("показы", "impressions"),
+    "visitors": ("посетител", "visitors", "уникальные посетители"),
+    "card_views": ("посещения карточки", "просмотры карточки", "card views"),
+    "add_to_cart": ("в корзину", "добавили в корзину", "add to cart"),
+    "promotion_days": ("дней продвижения", "дни продвижения", "продвиж"),
+    "promo_days": ("дней в акциях", "дни в акциях", "акци"),
 }
 
 
 def _norm(text: Any) -> str:
     value = str(text or "").lower().replace("\xa0", " ").strip()
     value = value.replace("\n", " ").replace("\r", " ")
-    value = re.sub(r"\s+", " ", value)
-    return value
+    return " ".join(value.split())
 
 
 def _text(value: Any) -> str:
-    if value is None:
-        return ""
-    return str(value).strip()
+    return str(value or "").strip()
 
 
 def _parse_float(value: Any) -> float | None:
-    if value is None or value == "":
+    if value is None:
         return None
-    try:
-        if isinstance(value, str):
-            cleaned = value.replace(" ", "").replace(",", ".")
+    if isinstance(value, str):
+        raw = value.replace("\xa0", " ").strip()
+        if raw in {"", "-", "—", "–", "nan", "None"}:
+            return None
+        cleaned = raw.replace("%", "").replace(" ", "").replace(",", ".")
+        try:
             return float(cleaned)
+        except Exception:
+            return None
+    try:
         return float(value)
     except Exception:
         return None
@@ -57,14 +60,16 @@ def _parse_int(value: Any) -> int | None:
     if parsed is None:
         return None
     try:
-        return int(parsed)
+        return int(round(parsed))
     except Exception:
         return None
 
 
-def _normalize_drr(value: Any) -> float | None:
+def _normalize_ratio(value: Any) -> float | None:
     parsed = _parse_float(value)
     if parsed is None:
+        return None
+    if parsed < 0:
         return None
     if parsed > 1.5:
         return parsed / 100.0
@@ -78,15 +83,15 @@ def _find_column(columns: list[str], hints: tuple[str, ...]) -> str | None:
         if not col_norm:
             continue
         score = 0
-        for token in hints:
-            tok = _norm(token)
-            if not tok:
+        for hint in hints:
+            token = _norm(hint)
+            if not token:
                 continue
-            if col_norm == tok:
+            if col_norm == token:
                 score += 120
-            elif col_norm.startswith(tok):
+            elif col_norm.startswith(token):
                 score += 25
-            elif tok in col_norm:
+            elif token in col_norm:
                 score += 12
         if score > 0:
             scored.append((score, col))
@@ -98,134 +103,192 @@ def _find_column(columns: list[str], hints: tuple[str, ...]) -> str | None:
 
 def _extract_columns(columns: list[str]) -> dict[str, str | None]:
     resolved = {name: _find_column(columns, hints) for name, hints in COLUMN_HINTS.items()}
-
-    name_col = resolved.get("product_name")
-    orders_col = resolved.get("orders")
-    if name_col and orders_col and name_col == orders_col:
+    if resolved.get("sku") and resolved.get("sku") == resolved.get("orders"):
+        resolved["sku"] = None
+    if resolved.get("product_name") and resolved.get("product_name") == resolved.get("orders"):
         resolved["product_name"] = None
-
-    sku_col = resolved.get("sku")
-    revenue_col = resolved.get("revenue")
-    if sku_col and orders_col and sku_col == orders_col:
-        sku_norm = _norm(sku_col)
-        if "Р·Р°РєР°Р·" in sku_norm or "order" in sku_norm or "РїСЂРѕРґР°Р¶" in sku_norm or "sales" in sku_norm:
-            resolved["sku"] = None
-    if sku_col and revenue_col and sku_col == revenue_col:
-        sku_norm = _norm(sku_col)
-        if "РІС‹СЂСѓС‡" in sku_norm or "revenue" in sku_norm or "СЃСѓРјРј" in sku_norm:
-            resolved["sku"] = None
-
     return resolved
-
-
-def _label_from_row(row: dict[str, Any], detected: dict[str, str | None]) -> tuple[str, str]:
-    sku_col = detected.get("sku")
-    name_col = detected.get("product_name")
-    sku = _text(row.get(sku_col)) if sku_col else ""
-    name = _text(row.get(name_col)) if name_col else ""
-    if sku:
-        return sku, name
-    if name:
-        return name, name
-    return "", ""
 
 
 def _price_index_bucket(value: Any) -> str | None:
     text = _norm(value)
     if text:
-        if "СЃСѓРїРµСЂ" in text and ("РІС‹РіРѕРґ" in text or "profit" in text):
+        if "супер" in text and ("выгод" in text or "profit" in text):
             return "super_profitable"
-        if "РІС‹РіРѕРґ" in text or "profitable" in text:
-            return "profitable"
-        if "neutral" in text or "РЅРµР№С‚СЂ" in text:
-            return "neutral"
-        if "РЅРµРІС‹РіРѕРґ" in text or "unprofit" in text:
+        if "невыгод" in text or "unprofit" in text:
             return "unprofitable"
-    number = _parse_float(value)
-    if number is None:
+        if "выгод" in text or "profitable" in text:
+            return "profitable"
+        if "neutral" in text or "нейтрал" in text:
+            return "neutral"
+
+    num = _parse_float(value)
+    if num is None:
         return None
-    if number < 0.9:
+    if num <= 0.95:
         return "super_profitable"
-    if number <= 1.05:
+    if num <= 1.05:
         return "profitable"
-    if number <= 1.2:
+    if num <= 1.2:
         return "neutral"
     return "unprofitable"
 
 
-def _sum_or_none(values: list[float | None]) -> float | None:
+def _safe_sum(values: list[float | None]) -> float | None:
     known = [x for x in values if x is not None]
     if not known:
         return None
     return float(sum(known))
 
 
-def _build_assortment_summary(aggregated: list[dict[str, Any]]) -> dict[str, Any]:
-    rows = [x for x in aggregated if (x.get("revenue") or 0) > 0]
-    if not rows:
-        return {
-            "top_5_revenue_share_pct": None,
-            "top_10_revenue_share_pct": None,
-            "sales_concentration_comment": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РїРѕ РІС‹СЂСѓС‡РєРµ.",
-        }
-    rows = sorted(rows, key=lambda x: float(x.get("revenue") or 0.0), reverse=True)
-    total = sum(float(x.get("revenue") or 0.0) for x in rows)
-    if total <= 0:
-        return {
-            "top_5_revenue_share_pct": None,
-            "top_10_revenue_share_pct": None,
-            "sales_concentration_comment": "РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… РїРѕ РІС‹СЂСѓС‡РєРµ.",
-        }
-    top5 = sum(float(x.get("revenue") or 0.0) for x in rows[:5]) / total
-    top10 = sum(float(x.get("revenue") or 0.0) for x in rows[:10]) / total
-    if top10 >= 0.85 or top5 >= 0.7:
-        comment = "РџСЂРѕРґР°Р¶Рё Р·Р°РјРµС‚РЅРѕ СЃРѕСЃСЂРµРґРѕС‚РѕС‡РµРЅС‹ РІ РѕРіСЂР°РЅРёС‡РµРЅРЅРѕРј С‡РёСЃР»Рµ SKU."
-    elif top10 >= 0.65:
-        comment = "РљРѕРЅС†РµРЅС‚СЂР°С†РёСЏ РїСЂРѕРґР°Р¶ СѓРјРµСЂРµРЅРЅР°СЏ."
-    else:
-        comment = "РџСЂРѕРґР°Р¶Рё СЂР°СЃРїСЂРµРґРµР»РµРЅС‹ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ СЂР°РІРЅРѕРјРµСЂРЅРѕ."
-    return {
-        "top_5_revenue_share_pct": round(top5 * 100.0, 2),
-        "top_10_revenue_share_pct": round(top10 * 100.0, 2),
-        "sales_concentration_comment": comment,
-    }
+def _build_abc_analysis(rows: list[dict[str, Any]], has_orders: bool) -> dict[str, Any]:
+    eligible = [x for x in rows if float(x.get("revenue") or 0.0) > 0 and x.get("label")]
+    if has_orders:
+        eligible = [x for x in eligible if float(x.get("orders") or 0.0) > 0]
 
+    eligible = sorted(eligible, key=lambda x: float(x.get("revenue") or 0.0), reverse=True)
+    total_revenue = sum(float(x.get("revenue") or 0.0) for x in eligible)
+    groups: dict[str, list[dict[str, Any]]] = {"A": [], "B": [], "C": []}
 
-def _build_abc_like_summary(aggregated: list[dict[str, Any]]) -> dict[str, Any]:
-    rows = [x for x in aggregated if (x.get("revenue") or 0) > 0 and x.get("label")]
-    rows = sorted(rows, key=lambda x: float(x.get("revenue") or 0.0), reverse=True)
-    total = sum(float(x.get("revenue") or 0.0) for x in rows)
-    if total <= 0:
+    if total_revenue <= 0:
         return {
             "available": False,
-            "counts": {"A": 0, "B": 0, "C": 0},
-            "top_a": [],
+            "A": [],
+            "B": [],
+            "C": [],
+            "summary": {
+                "a_revenue_share_pct": None,
+                "b_revenue_share_pct": None,
+                "c_revenue_share_pct": None,
+                "counts": {"A": 0, "B": 0, "C": 0},
+                "concentration_comment": "Недостаточно данных по выручке для ABC-анализа.",
+            },
         }
-    counts = {"A": 0, "B": 0, "C": 0}
-    top_a: list[str] = []
+
     cumulative = 0.0
-    for row in rows:
-        share = float(row.get("revenue") or 0.0) / total
-        cumulative += share
-        category = "A" if cumulative <= 0.80 else "B" if cumulative <= 0.95 else "C"
-        counts[category] += 1
-        if category == "A" and len(top_a) < 12:
-            top_a.append(str(row.get("label")))
+    for row in eligible:
+        revenue = float(row.get("revenue") or 0.0)
+        share = revenue / total_revenue
+        cumulative_after = cumulative + share
+        if cumulative_after <= 0.80 or not groups["A"]:
+            category = "A"
+        elif cumulative_after <= 0.95 or not groups["B"]:
+            category = "B"
+        else:
+            category = "C"
+        groups[category].append(
+            {
+                "label": row.get("label"),
+                "sku": row.get("sku"),
+                "orders": int(float(row.get("orders") or 0.0)),
+                "revenue": round(revenue, 2),
+                "share_pct": round(share * 100.0, 2),
+                "cum_share_pct": round(cumulative_after * 100.0, 2),
+            }
+        )
+        cumulative = cumulative_after
+
+    revenue_by_group = {
+        "A": sum(float(x.get("revenue") or 0.0) for x in groups["A"]),
+        "B": sum(float(x.get("revenue") or 0.0) for x in groups["B"]),
+        "C": sum(float(x.get("revenue") or 0.0) for x in groups["C"]),
+    }
+    shares = {
+        k: round((v / total_revenue) * 100.0, 2) if total_revenue > 0 else None for k, v in revenue_by_group.items()
+    }
+
+    a_count = len(groups["A"])
+    a_share = float(shares.get("A") or 0.0)
+    if a_count <= 5 and a_share >= 50:
+        concentration_comment = f"Выручка концентрирована: группа A включает {a_count} SKU и дает {a_share:.1f}% оборота."
+    elif a_count <= 10 and a_share >= 45:
+        concentration_comment = f"Концентрация выручки умеренно высокая: {a_count} SKU группы A дают {a_share:.1f}%."
+    else:
+        concentration_comment = f"Концентрация выручки умеренная: группа A дает {a_share:.1f}% при {a_count} SKU."
+
     return {
         "available": True,
-        "counts": counts,
-        "top_a": top_a,
+        "A": groups["A"],
+        "B": groups["B"],
+        "C": groups["C"],
+        "summary": {
+            "a_revenue_share_pct": shares["A"],
+            "b_revenue_share_pct": shares["B"],
+            "c_revenue_share_pct": shares["C"],
+            "counts": {"A": len(groups["A"]), "B": len(groups["B"]), "C": len(groups["C"])},
+            "concentration_comment": concentration_comment,
+        },
     }
+
+
+def _build_key_findings(
+    *,
+    sku_count: int,
+    sku_without_orders_count: int | None,
+    assortment_summary: dict[str, Any],
+    abc_summary: dict[str, Any],
+    price_index_summary: dict[str, Any],
+    promotion_summary: dict[str, Any],
+    suspicious_count: int,
+) -> list[str]:
+    findings: list[str] = []
+
+    top5_share = assortment_summary.get("top_5_revenue_share_pct")
+    if top5_share is not None:
+        findings.append(
+            f"5 SKU формируют {float(top5_share):.1f}% выручки -> зависимость оборота от ограниченного ядра ассортимента."
+        )
+
+    if sku_without_orders_count is not None and sku_count > 0:
+        share = (float(sku_without_orders_count) / float(sku_count)) * 100.0
+        findings.append(
+            f"SKU без заказов: {sku_without_orders_count} из {sku_count} ({share:.1f}%) -> значимая часть ассортимента не участвует в обороте."
+        )
+
+    a_share = abc_summary.get("a_revenue_share_pct")
+    a_count = (abc_summary.get("counts") or {}).get("A")
+    if a_share is not None and a_count is not None:
+        findings.append(
+            f"ABC: группа A ({int(a_count)} SKU) дает {float(a_share):.1f}% выручки -> приоритет управления должен быть на SKU ядра."
+        )
+
+    unprofitable = int(price_index_summary.get("unprofitable") or 0)
+    if unprofitable > 0:
+        findings.append(
+            f"{unprofitable} SKU имеют невыгодный индекс цены -> риск потери маржи на продающих позициях."
+        )
+
+    critical_drr = int(promotion_summary.get("critical_drr_count") or 0)
+    high_drr = int(promotion_summary.get("high_drr_count") or 0)
+    if critical_drr > 0:
+        findings.append(
+            f"{critical_drr} SKU тратят на рекламу более 30% выручки -> высокая вероятность убыточного продвижения."
+        )
+    elif high_drr > 0:
+        findings.append(
+            f"{high_drr} SKU имеют ДРР выше 25% -> рекламная модель требует пересчета ставок и целевой маржи."
+        )
+
+    if suspicious_count > 0:
+        findings.append(
+            f"Обнаружены {suspicious_count} SKU с выручкой без заказов -> выгрузка требует сверки перед финальными решениями."
+        )
+
+    return findings[:7]
 
 
 def build_ozon_facts(data: dict[str, Any]) -> dict[str, Any]:
     columns = [str(x) for x in (data.get("columns") or [])]
-    rows = data.get("rows") or []
-    if not isinstance(rows, list):
-        rows = []
-
+    rows = data.get("rows") if isinstance(data.get("rows"), list) else []
     diagnostics = data.get("diagnostics") if isinstance(data.get("diagnostics"), dict) else {}
+
     detected = _extract_columns(columns)
+    has_orders = bool(detected.get("orders"))
+    has_revenue = bool(detected.get("revenue"))
+    has_stock = bool(detected.get("stock"))
+    has_buyouts = bool(detected.get("buyouts"))
+    has_cancellations = bool(detected.get("cancellations"))
+    has_spend = bool(detected.get("spend"))
 
     parsed_rows: list[dict[str, Any]] = []
     aggregated_map: dict[str, dict[str, Any]] = {}
@@ -233,23 +296,39 @@ def build_ozon_facts(data: dict[str, Any]) -> dict[str, Any]:
     for row in rows:
         if not isinstance(row, dict):
             continue
-        label, product_name = _label_from_row(row, detected)
+
+        sku_col = detected.get("sku")
+        name_col = detected.get("product_name")
+        sku = _text(row.get(sku_col)) if sku_col else ""
+        product_name = _text(row.get(name_col)) if name_col else ""
+        label = sku or product_name
         if not label:
             continue
 
-        item = {
+        orders = _parse_int(row.get(detected.get("orders"))) if detected.get("orders") else None
+        revenue = _parse_float(row.get(detected.get("revenue"))) if detected.get("revenue") else None
+        buyouts = _parse_int(row.get(detected.get("buyouts"))) if detected.get("buyouts") else None
+        cancellations = _parse_int(row.get(detected.get("cancellations"))) if detected.get("cancellations") else None
+        stock = _parse_float(row.get(detected.get("stock"))) if detected.get("stock") else None
+        reviews = _parse_float(row.get(detected.get("reviews"))) if detected.get("reviews") else None
+        spend = _parse_float(row.get(detected.get("spend"))) if detected.get("spend") else None
+        drr_raw = _normalize_ratio(row.get(detected.get("drr"))) if detected.get("drr") else None
+        drr_active = drr_raw if spend is not None and spend > 0 else None
+
+        parsed = {
             "label": label,
-            "sku": _text(row.get(detected.get("sku"))) if detected.get("sku") else "",
+            "sku": sku or label,
             "name": product_name,
-            "orders": _parse_int(row.get(detected.get("orders"))) if detected.get("orders") else None,
-            "revenue": _parse_float(row.get(detected.get("revenue"))) if detected.get("revenue") else None,
-            "buyouts": _parse_int(row.get(detected.get("buyouts"))) if detected.get("buyouts") else None,
-            "cancellations": _parse_int(row.get(detected.get("cancellations"))) if detected.get("cancellations") else None,
-            "stock": _parse_float(row.get(detected.get("stock"))) if detected.get("stock") else None,
-            "reviews": _parse_float(row.get(detected.get("reviews"))) if detected.get("reviews") else None,
-            "price_index_raw": row.get(detected.get("price_index")) if detected.get("price_index") else None,
+            "orders": orders,
+            "revenue": revenue,
+            "buyouts": buyouts,
+            "cancellations": cancellations,
+            "stock": stock,
+            "reviews": reviews,
+            "spend": spend,
+            "drr_raw": drr_raw,
+            "drr_active": drr_active,
             "price_index_bucket": _price_index_bucket(row.get(detected.get("price_index"))) if detected.get("price_index") else None,
-            "drr": _normalize_drr(row.get(detected.get("drr"))) if detected.get("drr") else None,
             "impressions": _parse_float(row.get(detected.get("impressions"))) if detected.get("impressions") else None,
             "visitors": _parse_float(row.get(detected.get("visitors"))) if detected.get("visitors") else None,
             "card_views": _parse_float(row.get(detected.get("card_views"))) if detected.get("card_views") else None,
@@ -257,81 +336,156 @@ def build_ozon_facts(data: dict[str, Any]) -> dict[str, Any]:
             "promotion_days": _parse_float(row.get(detected.get("promotion_days"))) if detected.get("promotion_days") else None,
             "promo_days": _parse_float(row.get(detected.get("promo_days"))) if detected.get("promo_days") else None,
         }
-        parsed_rows.append(item)
+        parsed_rows.append(parsed)
 
         agg = aggregated_map.get(label)
         if agg is None:
             agg = {
                 "label": label,
-                "sku": item["sku"] or label,
-                "name": item["name"],
+                "sku": sku or label,
+                "name": product_name,
                 "orders": 0.0,
                 "revenue": 0.0,
                 "buyouts": 0.0,
                 "cancellations": 0.0,
                 "stock": 0.0,
                 "reviews": 0.0,
-                "price_index_bucket": None,
-                "drr_max": None,
+                "spend": 0.0,
+                "impressions": 0.0,
+                "visitors": 0.0,
+                "card_views": 0.0,
+                "add_to_cart": 0.0,
                 "promotion_days": 0.0,
                 "promo_days": 0.0,
+                "price_index_bucket": None,
+                "drr_active_values": [],
             }
             aggregated_map[label] = agg
 
-        if item["orders"] is not None:
-            agg["orders"] += float(item["orders"])
-        if item["revenue"] is not None:
-            agg["revenue"] += float(item["revenue"])
-        if item["buyouts"] is not None:
-            agg["buyouts"] += float(item["buyouts"])
-        if item["cancellations"] is not None:
-            agg["cancellations"] += float(item["cancellations"])
-        if item["stock"] is not None:
-            agg["stock"] += float(item["stock"])
-        if item["reviews"] is not None:
-            agg["reviews"] += float(item["reviews"])
-        if item["price_index_bucket"] == "unprofitable":
+        if orders is not None:
+            agg["orders"] += float(max(orders, 0))
+        if revenue is not None:
+            agg["revenue"] += float(max(revenue, 0.0))
+        if buyouts is not None:
+            agg["buyouts"] += float(max(buyouts, 0))
+        if cancellations is not None:
+            agg["cancellations"] += float(max(cancellations, 0))
+        if stock is not None:
+            agg["stock"] += float(max(stock, 0.0))
+        if reviews is not None:
+            agg["reviews"] += float(max(reviews, 0.0))
+        if spend is not None and spend > 0:
+            agg["spend"] += float(spend)
+        if parsed["impressions"] is not None:
+            agg["impressions"] += float(max(parsed["impressions"], 0.0))
+        if parsed["visitors"] is not None:
+            agg["visitors"] += float(max(parsed["visitors"], 0.0))
+        if parsed["card_views"] is not None:
+            agg["card_views"] += float(max(parsed["card_views"], 0.0))
+        if parsed["add_to_cart"] is not None:
+            agg["add_to_cart"] += float(max(parsed["add_to_cart"], 0.0))
+        if parsed["promotion_days"] is not None:
+            agg["promotion_days"] += float(max(parsed["promotion_days"], 0.0))
+        if parsed["promo_days"] is not None:
+            agg["promo_days"] += float(max(parsed["promo_days"], 0.0))
+
+        bucket = parsed["price_index_bucket"]
+        if bucket == "unprofitable":
             agg["price_index_bucket"] = "unprofitable"
-        elif agg["price_index_bucket"] is None and item["price_index_bucket"] is not None:
-            agg["price_index_bucket"] = item["price_index_bucket"]
-        if item["drr"] is not None:
-            if agg["drr_max"] is None or float(item["drr"]) > float(agg["drr_max"]):
-                agg["drr_max"] = float(item["drr"])
-        if item["promotion_days"] is not None:
-            agg["promotion_days"] += float(item["promotion_days"])
-        if item["promo_days"] is not None:
-            agg["promo_days"] += float(item["promo_days"])
+        elif agg["price_index_bucket"] is None and bucket is not None:
+            agg["price_index_bucket"] = bucket
+
+        if drr_active is not None:
+            casted = agg.get("drr_active_values")
+            if isinstance(casted, list):
+                casted.append(float(drr_active))
 
     aggregated = list(aggregated_map.values())
     sku_count = len(aggregated)
-    has_orders = bool(detected.get("orders"))
 
-    sku_with_orders_count = None
-    sku_without_orders_count = None
-    total_orders = None
-    if has_orders:
-        sku_with_orders_count = len([x for x in aggregated if float(x.get("orders") or 0.0) > 0])
-        sku_without_orders_count = len([x for x in aggregated if float(x.get("orders") or 0.0) <= 0])
-        total_orders = int(sum(float(x.get("orders") or 0.0) for x in aggregated))
+    for item in aggregated:
+        drr_values = item.get("drr_active_values") if isinstance(item.get("drr_active_values"), list) else []
+        item["drr"] = (sum(drr_values) / len(drr_values)) if drr_values else None
 
-    total_revenue = _sum_or_none([float(x.get("revenue")) for x in aggregated]) if detected.get("revenue") else None
-    total_buyouts = _sum_or_none([float(x.get("buyouts")) for x in aggregated]) if detected.get("buyouts") else None
-    total_cancellations = _sum_or_none([float(x.get("cancellations")) for x in aggregated]) if detected.get("cancellations") else None
-    total_stock = _sum_or_none([float(x.get("stock")) for x in aggregated]) if detected.get("stock") else None
-    total_reviews = _sum_or_none([float(x.get("reviews")) for x in aggregated]) if detected.get("reviews") else None
+    sku_with_orders_count = len([x for x in aggregated if float(x.get("orders") or 0.0) > 0]) if has_orders else None
+    sku_without_orders_count = len([x for x in aggregated if float(x.get("orders") or 0.0) <= 0]) if has_orders else None
+    total_orders = int(sum(float(x.get("orders") or 0.0) for x in aggregated)) if has_orders else None
+    total_revenue = _safe_sum([float(x.get("revenue")) for x in aggregated]) if has_revenue else None
+    total_buyouts = _safe_sum([float(x.get("buyouts")) for x in aggregated]) if has_buyouts else None
+    total_cancellations = _safe_sum([float(x.get("cancellations")) for x in aggregated]) if has_cancellations else None
+    total_stock = _safe_sum([float(x.get("stock")) for x in aggregated]) if has_stock else None
+    total_reviews = _safe_sum([float(x.get("reviews")) for x in aggregated]) if detected.get("reviews") else None
 
-    funnel_summary = {
-        "total_impressions": _sum_or_none([x.get("impressions") for x in parsed_rows]) if detected.get("impressions") else None,
-        "total_visitors": _sum_or_none([x.get("visitors") for x in parsed_rows]) if detected.get("visitors") else None,
-        "total_card_views": _sum_or_none([x.get("card_views") for x in parsed_rows]) if detected.get("card_views") else None,
-        "total_add_to_cart": _sum_or_none([x.get("add_to_cart") for x in parsed_rows]) if detected.get("add_to_cart") else None,
+    suspicious_revenue_without_orders: list[dict[str, Any]] = []
+    for item in aggregated:
+        if has_orders and has_revenue and float(item.get("orders") or 0.0) <= 0 and float(item.get("revenue") or 0.0) > 0:
+            suspicious_revenue_without_orders.append(
+                {
+                    "label": item.get("label"),
+                    "sku": item.get("sku"),
+                    "orders": int(float(item.get("orders") or 0.0)),
+                    "revenue": round(float(item.get("revenue") or 0.0), 2),
+                }
+            )
+
+    if has_revenue:
+        top_pool = [x for x in aggregated if float(x.get("revenue") or 0.0) > 0]
+        if has_orders:
+            top_pool = [x for x in top_pool if float(x.get("orders") or 0.0) > 0]
+        top_rows = sorted(top_pool, key=lambda x: float(x.get("revenue") or 0.0), reverse=True)
+    elif has_orders:
+        top_pool = [x for x in aggregated if float(x.get("orders") or 0.0) > 0]
+        top_rows = sorted(top_pool, key=lambda x: float(x.get("orders") or 0.0), reverse=True)
+    else:
+        top_rows = []
+
+    top_sku = [
+        {
+            "label": x.get("label"),
+            "sku": x.get("sku"),
+            "name": x.get("name"),
+            "orders": int(float(x.get("orders") or 0.0)) if has_orders else None,
+            "revenue": round(float(x.get("revenue") or 0.0), 2) if has_revenue else None,
+            "stock": round(float(x.get("stock") or 0.0), 2) if has_stock else None,
+            "ad_spend": round(float(x.get("spend") or 0.0), 2) if has_spend else None,
+            "drr": round(float(x.get("drr") or 0.0), 4) if x.get("drr") is not None else None,
+            "price_index_bucket": x.get("price_index_bucket"),
+        }
+        for x in top_rows[:10]
+        if x.get("label")
+    ]
+
+    abc_analysis = _build_abc_analysis(aggregated, has_orders=has_orders)
+    abc_summary = abc_analysis.get("summary") if isinstance(abc_analysis.get("summary"), dict) else {}
+
+    assortment_summary = {
+        "top_5_revenue_share_pct": None,
+        "top_10_revenue_share_pct": None,
+        "sales_concentration_comment": "Недостаточно данных по выручке.",
     }
-
-    assortment_summary = _build_assortment_summary(aggregated)
-    abc_like_summary = _build_abc_like_summary(aggregated)
+    revenue_rows = [x for x in aggregated if float(x.get("revenue") or 0.0) > 0]
+    if has_revenue and revenue_rows:
+        if has_orders:
+            revenue_rows = [x for x in revenue_rows if float(x.get("orders") or 0.0) > 0]
+        revenue_rows = sorted(revenue_rows, key=lambda x: float(x.get("revenue") or 0.0), reverse=True)
+        total_rev = sum(float(x.get("revenue") or 0.0) for x in revenue_rows)
+        if total_rev > 0:
+            top5_share = sum(float(x.get("revenue") or 0.0) for x in revenue_rows[:5]) / total_rev
+            top10_share = sum(float(x.get("revenue") or 0.0) for x in revenue_rows[:10]) / total_rev
+            if top10_share >= 0.85 or top5_share >= 0.70:
+                comment = f"Выручка концентрирована: top-10 SKU дают {top10_share * 100:.1f}% оборота."
+            elif top10_share >= 0.65:
+                comment = f"Концентрация выручки умеренная: top-10 SKU дают {top10_share * 100:.1f}%."
+            else:
+                comment = f"Выручка распределена относительно равномерно: top-10 SKU дают {top10_share * 100:.1f}%."
+            assortment_summary = {
+                "top_5_revenue_share_pct": round(top5_share * 100.0, 2),
+                "top_10_revenue_share_pct": round(top10_share * 100.0, 2),
+                "sales_concentration_comment": comment,
+            }
 
     price_counts = defaultdict(int)
-    for row in parsed_rows:
+    for row in aggregated:
         bucket = row.get("price_index_bucket")
         if bucket:
             price_counts[str(bucket)] += 1
@@ -342,48 +496,39 @@ def build_ozon_facts(data: dict[str, Any]) -> dict[str, Any]:
         "unprofitable": int(price_counts.get("unprofitable", 0)),
     }
 
-    drr_rows = [x for x in aggregated if x.get("drr_max") is not None]
-    drr_rows_sorted = sorted(drr_rows, key=lambda x: float(x.get("drr_max") or 0.0), reverse=True)
+    ad_active_rows = [x for x in aggregated if float(x.get("spend") or 0.0) > 0]
+    drr_active_rows = [x for x in ad_active_rows if x.get("drr") is not None]
+    drr_sorted = sorted(drr_active_rows, key=lambda x: float(x.get("drr") or 0.0), reverse=True)
+    revenue_with_ads = sum(float(x.get("revenue") or 0.0) for x in ad_active_rows)
+
     promotion_summary = {
-        "promoted_sku_count": len(
-            [
-                x
-                for x in aggregated
-                if float(x.get("promotion_days") or 0.0) > 0
-                or float(x.get("promo_days") or 0.0) > 0
-                or x.get("drr_max") is not None
-            ]
-        ),
-        "sku_with_drr_count": len(drr_rows),
-        "avg_drr": round(sum(float(x.get("drr_max") or 0.0) for x in drr_rows) / len(drr_rows), 4) if drr_rows else None,
-        "max_drr": round(float(drr_rows_sorted[0].get("drr_max")), 4) if drr_rows_sorted else None,
+        "sku_with_ads_count": len(ad_active_rows),
+        "sku_without_ads_count": max(sku_count - len(ad_active_rows), 0),
+        "ads_sku_share_pct": round((len(ad_active_rows) / sku_count) * 100.0, 2) if sku_count > 0 else None,
+        "revenue_with_ads_share_pct": round((revenue_with_ads / total_revenue) * 100.0, 2) if total_revenue and total_revenue > 0 else None,
+        "sku_with_drr_count": len(drr_active_rows),
+        "avg_drr_active": round(sum(float(x.get("drr") or 0.0) for x in drr_active_rows) / len(drr_active_rows), 4) if drr_active_rows else None,
+        "max_drr_active": round(float(drr_sorted[0].get("drr")), 4) if drr_sorted else None,
+        "high_drr_count": len([x for x in drr_active_rows if float(x.get("drr") or 0.0) > 0.25]),
+        "critical_drr_count": len([x for x in drr_active_rows if float(x.get("drr") or 0.0) > 0.30]),
         "top_drr_sku": [
             {
                 "label": x.get("label"),
                 "sku": x.get("sku"),
-                "name": x.get("name"),
-                "drr": round(float(x.get("drr_max") or 0.0), 4),
+                "drr_pct": round(float(x.get("drr") or 0.0) * 100.0, 2),
+                "ad_spend": round(float(x.get("spend") or 0.0), 2),
+                "revenue": round(float(x.get("revenue") or 0.0), 2),
             }
-            for x in drr_rows_sorted[:5]
+            for x in drr_sorted[:10]
         ],
     }
 
-    top_source = "revenue" if detected.get("revenue") else "orders"
-    top_rows = sorted(aggregated, key=lambda x: float(x.get(top_source) or 0.0), reverse=True)
-    top_sku = [
-        {
-            "label": x.get("label"),
-            "sku": x.get("sku"),
-            "name": x.get("name"),
-            "orders": int(float(x.get("orders") or 0.0)) if has_orders else None,
-            "revenue": round(float(x.get("revenue") or 0.0), 2) if detected.get("revenue") else None,
-            "stock": round(float(x.get("stock") or 0.0), 2) if detected.get("stock") else None,
-            "drr": round(float(x.get("drr_max") or 0.0), 4) if x.get("drr_max") is not None else None,
-            "price_index_bucket": x.get("price_index_bucket"),
-        }
-        for x in top_rows[:10]
-        if x.get("label")
-    ]
+    funnel_summary = {
+        "total_impressions": _safe_sum([x.get("impressions") for x in parsed_rows]) if detected.get("impressions") else None,
+        "total_visitors": _safe_sum([x.get("visitors") for x in parsed_rows]) if detected.get("visitors") else None,
+        "total_card_views": _safe_sum([x.get("card_views") for x in parsed_rows]) if detected.get("card_views") else None,
+        "total_add_to_cart": _safe_sum([x.get("add_to_cart") for x in parsed_rows]) if detected.get("add_to_cart") else None,
+    }
 
     problem_sku: list[dict[str, Any]] = []
     for row in aggregated:
@@ -392,50 +537,80 @@ def build_ozon_facts(data: dict[str, Any]) -> dict[str, Any]:
             continue
         orders = float(row.get("orders") or 0.0)
         stock = float(row.get("stock") or 0.0)
+        revenue = float(row.get("revenue") or 0.0)
         cancellations = float(row.get("cancellations") or 0.0)
         buyouts = float(row.get("buyouts") or 0.0)
-        drr = row.get("drr_max")
+        drr = row.get("drr")
+        spend = float(row.get("spend") or 0.0)
         price_bucket = row.get("price_index_bucket")
 
-        if has_orders and detected.get("stock") and orders <= 0 and stock > 0:
+        if has_orders and has_stock and orders <= 0 and stock > 0:
             problem_sku.append(
                 {
                     "type": "no_orders_with_stock",
                     "label": label,
                     "sku": row.get("sku"),
-                    "name": row.get("name"),
                     "orders": int(orders),
                     "stock": round(stock, 2),
-                    "reason": "Р±РµР· Р·Р°РєР°Р·РѕРІ, РЅРѕ СЃ РѕСЃС‚Р°С‚РєРѕРј",
+                    "reason": "Есть остаток при нулевых заказах -> деньги заморожены в неликвиде.",
+                }
+            )
+
+        if has_orders and has_revenue and orders <= 0 and revenue > 0:
+            problem_sku.append(
+                {
+                    "type": "suspicious_revenue_without_orders",
+                    "label": label,
+                    "sku": row.get("sku"),
+                    "orders": int(orders),
+                    "revenue": round(revenue, 2),
+                    "reason": "Выручка есть, а заказов нет -> требуется проверка выгрузки.",
                 }
             )
 
         denom = max(orders, buyouts)
         cancel_share = (cancellations / denom) if denom > 0 else None
-        if detected.get("cancellations") and cancel_share is not None and cancellations >= 3 and cancel_share >= 0.30:
+        if has_cancellations and cancel_share is not None and cancellations >= 3 and cancel_share >= 0.30:
             problem_sku.append(
                 {
                     "type": "high_cancellation_share",
                     "label": label,
                     "sku": row.get("sku"),
-                    "name": row.get("name"),
-                    "cancellations": int(cancellations),
                     "cancel_share_pct": round(cancel_share * 100.0, 2),
-                    "reason": "РІС‹СЃРѕРєР°СЏ РґРѕР»СЏ РѕС‚РјРµРЅ",
+                    "cancellations": int(cancellations),
+                    "reason": "Высокая доля отмен -> потеря оборота и ухудшение выкупа.",
                 }
             )
 
-        if drr is not None and float(drr) > 0.25:
+        if spend > 0 and drr is not None and float(drr) > 0.25:
+            severity = "critical" if float(drr) > 0.30 else "high"
             problem_sku.append(
                 {
                     "type": "high_drr",
+                    "severity": severity,
                     "label": label,
                     "sku": row.get("sku"),
-                    "name": row.get("name"),
                     "drr_pct": round(float(drr) * 100.0, 2),
-                    "reason": "РІС‹СЃРѕРєРёР№ Р”Р Р ",
+                    "ad_spend": round(spend, 2),
+                    "revenue": round(revenue, 2),
+                    "reason": "Высокий ДРР при реальном рекламном расходе -> риск убыточного продвижения.",
                 }
             )
+
+        if has_orders and has_buyouts and orders >= 5:
+            buyout_rate = (buyouts / orders) if orders > 0 else None
+            if buyout_rate is not None and buyout_rate < 0.60:
+                problem_sku.append(
+                    {
+                        "type": "low_buyout_rate",
+                        "label": label,
+                        "sku": row.get("sku"),
+                        "orders": int(orders),
+                        "buyouts": int(buyouts),
+                        "buyout_rate_pct": round(buyout_rate * 100.0, 2),
+                        "reason": "Низкий выкуп -> нужно проверить карточку, цену и ожидания клиента.",
+                    }
+                )
 
         if has_orders and orders > 0 and price_bucket == "unprofitable":
             problem_sku.append(
@@ -443,9 +618,8 @@ def build_ozon_facts(data: dict[str, Any]) -> dict[str, Any]:
                     "type": "bad_price_index_on_selling",
                     "label": label,
                     "sku": row.get("sku"),
-                    "name": row.get("name"),
                     "orders": int(orders),
-                    "reason": "РїСЂРѕРґР°РµС‚СЃСЏ, РЅРѕ РёРЅРґРµРєСЃ С†РµРЅС‹ РЅРµРІС‹РіРѕРґРЅС‹Р№",
+                    "reason": "SKU продается при невыгодном индексе цены -> давление на маржу.",
                 }
             )
 
@@ -462,32 +636,61 @@ def build_ozon_facts(data: dict[str, Any]) -> dict[str, Any]:
         "total_reviews": round(float(total_reviews), 2) if total_reviews is not None else None,
     }
 
+    key_findings = _build_key_findings(
+        sku_count=sku_count,
+        sku_without_orders_count=sku_without_orders_count,
+        assortment_summary=assortment_summary,
+        abc_summary=abc_summary,
+        price_index_summary=price_index_summary,
+        promotion_summary=promotion_summary,
+        suspicious_count=len(suspicious_revenue_without_orders),
+    )
+
+    data_quality = {
+        "has_orders": has_orders,
+        "has_revenue": has_revenue,
+        "has_stock": has_stock,
+        "has_drr": bool(detected.get("drr")),
+        "has_spend": has_spend,
+        "has_price_index": bool(detected.get("price_index")),
+        "has_cancellations": has_cancellations,
+        "has_buyouts": has_buyouts,
+        "has_impressions": bool(detected.get("impressions")),
+        "has_visitors": bool(detected.get("visitors")),
+        "has_add_to_cart": bool(detected.get("add_to_cart")),
+        "consistency_ok": len(suspicious_revenue_without_orders) == 0,
+        "suspicious_revenue_without_orders_count": len(suspicious_revenue_without_orders),
+        "top_sku_consistency_ok": all(float(x.get("orders") or 0.0) > 0 for x in top_sku) if has_orders else True,
+        "row_count": int(data.get("row_count") or 0),
+    }
+
+    period_hint = diagnostics.get("period_hint") if isinstance(diagnostics.get("period_hint"), dict) else {}
+
     return {
         "summary": summary,
         "funnel_summary": funnel_summary,
         "assortment_summary": assortment_summary,
         "price_index_summary": price_index_summary,
         "promotion_summary": promotion_summary,
-        "abc_like_summary": abc_like_summary,
+        "abc_analysis": abc_analysis,
         "top_sku": top_sku,
-        "problem_sku": problem_sku[:40],
+        "problem_sku": problem_sku[:100],
+        "consistency_checks": {
+            "suspicious_revenue_without_orders": suspicious_revenue_without_orders[:50],
+        },
+        "key_findings": key_findings,
         "detected_columns": detected,
         "chosen_sheet": diagnostics.get("chosen_sheet"),
         "chosen_header_row": diagnostics.get("chosen_header_row"),
         "row_count": int(data.get("row_count") or 0),
         "parse_candidates": diagnostics.get("parse_candidates") or [],
-        "data_quality": {
-            "has_orders": bool(detected.get("orders")),
-            "has_revenue": bool(detected.get("revenue")),
-            "has_stock": bool(detected.get("stock")),
-            "has_drr": bool(detected.get("drr")),
-            "has_price_index": bool(detected.get("price_index")),
-            "has_cancellations": bool(detected.get("cancellations")),
-            "has_buyouts": bool(detected.get("buyouts")),
-            "has_impressions": bool(detected.get("impressions")),
-            "has_visitors": bool(detected.get("visitors")),
-            "has_add_to_cart": bool(detected.get("add_to_cart")),
-            "row_count": int(data.get("row_count") or 0),
+        "data_quality": data_quality,
+        "period": {
+            "status": str(period_hint.get("status") or "unknown"),
+            "date_from": period_hint.get("date_from"),
+            "date_to": period_hint.get("date_to"),
+            "label_ru": period_hint.get("label_ru"),
+            "fallback_used": bool(period_hint.get("fallback_used")),
+            "message": period_hint.get("message"),
         },
-        "period_hint": diagnostics.get("period_hint") or {"status": "unknown", "label": "РїРµСЂРёРѕРґ РЅРµ СЂР°СЃРїРѕР·РЅР°РЅ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё"},
     }
