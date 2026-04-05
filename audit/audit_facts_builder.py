@@ -21,6 +21,7 @@ from audit.audit_loader import (
     parse_stocks_file_with_diagnostics,
     scan_input_files,
 )
+from audit.logistics_model import SUPPLY_TYPE_BOX, compute_wb_logistics_estimate
 from shared.logistics_reference import (
     HIGH_COEFFICIENT_ALERT,
     build_region_logistics_summary,
@@ -144,6 +145,267 @@ def _to_int(value: Any) -> int:
         return int(float(value))
     except Exception:
         return 0
+
+
+def _norm_text(value: Any) -> str:
+    text = str(value or "").replace("\xa0", " ").strip().lower()
+    return " ".join(text.split())
+
+
+def _to_float_relaxed(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        if isinstance(value, str):
+            cleaned = value.strip().replace(" ", "").replace(",", ".")
+            if cleaned == "":
+                return None
+            return float(cleaned)
+        return float(value)
+    except Exception:
+        return None
+
+
+def _extract_first_numeric_from_rows(
+    rows: list[dict[str, Any]] | None,
+    *,
+    key_hints: tuple[str, ...],
+    positive_only: bool = True,
+) -> float | None:
+    if not rows:
+        return None
+    normalized_hints = tuple(_norm_text(x) for x in key_hints if _norm_text(x))
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for key, raw_value in row.items():
+            key_norm = _norm_text(key)
+            if not key_norm:
+                continue
+            if not any(hint in key_norm for hint in normalized_hints):
+                continue
+            value = _to_float_relaxed(raw_value)
+            if value is None:
+                continue
+            if positive_only and value <= 0:
+                continue
+            return float(value)
+    return None
+
+
+def _estimate_item_price(
+    *,
+    funnel_summary: dict[str, Any],
+    financial_summary: dict[str, Any],
+    funnel_rows: list[dict[str, Any]],
+    finance_rows: list[dict[str, Any]],
+) -> float | None:
+    orders = _to_int((funnel_summary or {}).get("orders"))
+    revenue_orders = _to_float_or_none((funnel_summary or {}).get("revenue_orders"))
+    if orders > 0 and revenue_orders is not None and revenue_orders > 0:
+        return round(float(revenue_orders) / float(orders), 2)
+
+    buys = _to_int((funnel_summary or {}).get("buys"))
+    revenue_buyouts = _to_float_or_none((funnel_summary or {}).get("revenue_buyouts"))
+    if buys > 0 and revenue_buyouts is not None and revenue_buyouts > 0:
+        return round(float(revenue_buyouts) / float(buys), 2)
+
+    sales_qty = _to_int((financial_summary or {}).get("sales_qty"))
+    gross_revenue = _to_float_or_none((financial_summary or {}).get("gross_revenue"))
+    if sales_qty > 0 and gross_revenue is not None and gross_revenue > 0:
+        return round(float(gross_revenue) / float(sales_qty), 2)
+
+    row_value = _extract_first_numeric_from_rows(
+        funnel_rows,
+        key_hints=(
+            "price",
+            "item_price",
+            "retail_price",
+            "цена",
+            "средняя цена",
+        ),
+        positive_only=True,
+    )
+    if row_value is not None:
+        return round(float(row_value), 2)
+
+    row_value = _extract_first_numeric_from_rows(
+        finance_rows,
+        key_hints=(
+            "retail_price_withdisc_rub",
+            "retail_price",
+            "цена",
+            "price",
+        ),
+        positive_only=True,
+    )
+    if row_value is not None:
+        return round(float(row_value), 2)
+    return None
+
+
+def _estimate_volume_liters(
+    *,
+    funnel_rows: list[dict[str, Any]],
+    stocks_rows: list[dict[str, Any]],
+    finance_rows: list[dict[str, Any]],
+) -> float | None:
+    key_hints = (
+        "volume_liters",
+        "volume_liter",
+        "volume_l",
+        "volume",
+        "литраж",
+        "литр",
+        "объем",
+        "объём",
+    )
+    for rows in (funnel_rows, stocks_rows, finance_rows):
+        value = _extract_first_numeric_from_rows(rows, key_hints=key_hints, positive_only=True)
+        if value is not None:
+            return round(float(value), 4)
+    return None
+
+
+def _estimate_localization_share_pct(
+    *,
+    local_orders_insights: dict[str, Any],
+    funnel_rows: list[dict[str, Any]],
+    stocks_rows: list[dict[str, Any]],
+    finance_rows: list[dict[str, Any]],
+) -> float | None:
+    by_region = local_orders_insights.get("by_region")
+    if isinstance(by_region, list):
+        local_total = 0
+        non_local_total = 0
+        for row in by_region:
+            if not isinstance(row, dict):
+                continue
+            local_total += _to_int(row.get("local_orders") or row.get("orders_local"))
+            non_local_total += _to_int(row.get("non_local_orders") or row.get("orders_non_local"))
+        denom = local_total + non_local_total
+        if denom > 0:
+            return round((float(local_total) / float(denom)) * 100.0, 2)
+
+    key_hints = (
+        "localization_share_pct",
+        "localization_share",
+        "local_share_pct",
+        "доля локализации",
+        "локализация",
+    )
+    for rows in (funnel_rows, stocks_rows, finance_rows):
+        value = _extract_first_numeric_from_rows(rows, key_hints=key_hints, positive_only=False)
+        if value is None:
+            continue
+        bounded = min(max(float(value), 0.0), 100.0)
+        return round(bounded, 2)
+    return None
+
+
+def _estimate_warehouse_coef(
+    *,
+    local_orders_insights: dict[str, Any],
+    logistics_payload: dict[str, Any],
+    funnel_rows: list[dict[str, Any]],
+    stocks_rows: list[dict[str, Any]],
+    finance_rows: list[dict[str, Any]],
+) -> float:
+    weighted_sum = 0.0
+    weighted_orders = 0
+    signals = logistics_payload.get("locality_signals")
+    if isinstance(signals, list):
+        for item in signals:
+            if not isinstance(item, dict):
+                continue
+            avg_coef = _to_float_or_none(item.get("avg_coefficient"))
+            orders = _to_int(item.get("orders"))
+            if avg_coef is None or orders <= 0:
+                continue
+            weighted_sum += float(avg_coef) * float(orders)
+            weighted_orders += orders
+    if weighted_orders > 0:
+        return round(weighted_sum / float(weighted_orders), 2)
+
+    by_region = local_orders_insights.get("by_region")
+    if isinstance(by_region, list):
+        values: list[float] = []
+        for row in by_region:
+            if not isinstance(row, dict):
+                continue
+            coef = _to_float_or_none(row.get("logistics_avg_coefficient"))
+            if coef is not None and coef > 0:
+                values.append(float(coef))
+        if values:
+            return round(sum(values) / float(len(values)), 2)
+
+    key_hints = (
+        "warehouse_coef",
+        "warehouse_coefficient",
+        "коэффициент склада",
+        "коэф склада",
+        "коэффициент логистики",
+        "logistics_coefficient",
+    )
+    for rows in (funnel_rows, stocks_rows, finance_rows):
+        value = _extract_first_numeric_from_rows(rows, key_hints=key_hints, positive_only=True)
+        if value is not None:
+            return float(value)
+    return 1.0
+
+
+def _build_logistics_formula_model_payload(
+    *,
+    funnel_summary: dict[str, Any],
+    financial_summary: dict[str, Any],
+    local_orders_insights: dict[str, Any],
+    logistics_payload: dict[str, Any],
+    funnel_rows: list[dict[str, Any]],
+    stocks_rows: list[dict[str, Any]],
+    finance_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    volume_liters = _estimate_volume_liters(
+        funnel_rows=funnel_rows,
+        stocks_rows=stocks_rows,
+        finance_rows=finance_rows,
+    )
+    item_price = _estimate_item_price(
+        funnel_summary=funnel_summary,
+        financial_summary=financial_summary,
+        funnel_rows=funnel_rows,
+        finance_rows=finance_rows,
+    )
+    localization_share_pct = _estimate_localization_share_pct(
+        local_orders_insights=local_orders_insights,
+        funnel_rows=funnel_rows,
+        stocks_rows=stocks_rows,
+        finance_rows=finance_rows,
+    )
+    warehouse_coef = _estimate_warehouse_coef(
+        local_orders_insights=local_orders_insights,
+        logistics_payload=logistics_payload,
+        funnel_rows=funnel_rows,
+        stocks_rows=stocks_rows,
+        finance_rows=finance_rows,
+    )
+    estimate = compute_wb_logistics_estimate(
+        volume_liters=volume_liters,
+        item_price=item_price,
+        warehouse_coef=warehouse_coef,
+        localization_share_pct=localization_share_pct,
+        supply_type=SUPPLY_TYPE_BOX,
+        is_sgt=False,
+        is_courier_wb=False,
+    )
+    estimate["source"] = "wb_formula_model_v1"
+    estimate["model_version"] = "2026-04-05"
+    estimate["input_candidates"] = {
+        "volume_liters": volume_liters,
+        "item_price": item_price,
+        "warehouse_coef": warehouse_coef,
+        "localization_share_pct": localization_share_pct,
+    }
+    return estimate
 
 
 def _geo_label(row: dict[str, Any]) -> str:
@@ -1300,6 +1562,26 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         local_orders_insights=local_orders_insights,
         logistics_payload=logistics_payload,
     )
+    try:
+        logistics_formula_model = _build_logistics_formula_model_payload(
+            funnel_summary=funnel_summary,
+            financial_summary=financial_summary,
+            local_orders_insights=local_orders_insights,
+            logistics_payload=logistics_payload,
+            funnel_rows=funnel_rows,
+            stocks_rows=stocks_rows,
+            finance_rows=finance_rows,
+        )
+    except Exception as exc:
+        logistics_formula_model = {
+            "status": "error",
+            "missing_inputs": [],
+            "inputs_available": {},
+            "explanation": "Расчётная модель логистики не собрана из-за ошибки.",
+            "diagnostics": {
+                "error": f"logistics_formula_model_failed: {exc}",
+            },
+        }
 
     finance_status = "ok" if _to_int(financial_summary.get("rows_count")) > 0 else "missing"
     try:
@@ -1413,6 +1695,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "logistics_diagnostics": {
             "error": str(logistics_payload.get("error") or ""),
         },
+        "logistics_formula_model": logistics_formula_model,
         "cogs_input": {
             "rows_count": len(cogs_rows),
             "rows": cogs_rows[:200],
