@@ -390,6 +390,22 @@ def parse_finance_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]]
         payload = {
             "doc_type_name": doc_type,
             "supplier_oper_name": doc_type,
+            "date": str(
+                _lookup(
+                    row,
+                    (
+                        "\u0414\u0430\u0442\u0430",
+                        "\u0414\u0430\u0442\u0430 \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0438",
+                        "\u0414\u0430\u0442\u0430 \u043f\u0440\u043e\u0434\u0430\u0436\u0438",
+                        "\u0414\u0430\u0442\u0430 \u0437\u0430\u043a\u0430\u0437\u0430",
+                        "sale_dt",
+                        "rr_dt",
+                        "order_date",
+                        "date",
+                    ),
+                )
+                or ""
+            ).strip(),
             "nm_id": _to_int(_lookup(row, ("Код номенклатуры", "Артикул WB", "nm_id", "nmId", "Номенклатура"))),
             "quantity": _to_int(_lookup(row, ("Кол-во", "Количество", "quantity", "qty", "count"))),
             "retail_amount": _to_float(
@@ -480,6 +496,20 @@ def parse_funnel_file(path: str) -> list[dict[str, Any]]:
     for _, r in df.iterrows():
         row = dict(r)
         payload = {
+            "date": str(
+                _lookup(
+                    row,
+                    (
+                        "\u0414\u0430\u0442\u0430",
+                        "\u0414\u0430\u0442\u0430 \u0437\u0430\u043a\u0430\u0437\u0430",
+                        "\u041f\u0435\u0440\u0438\u043e\u0434",
+                        "period",
+                        "date",
+                        "order_date",
+                    ),
+                )
+                or ""
+            ).strip(),
             "nmId": _to_int(_lookup(row, ("Артикул WB", "Код номенклатуры", "Номенклатура", "nmId"))),
             "openCardCount": _to_int(_lookup(row, ("Переходы в карточку", "Просмотры", "Показы", "openCardCount"))),
             "addToCartCount": _to_int(_lookup(row, ("Положили в корзину", "Добавлений в корзину", "addToCartCount"))),

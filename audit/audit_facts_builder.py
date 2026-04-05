@@ -77,47 +77,158 @@ def _extract_dates_from_text(text: str) -> list[dt.date]:
     return _parse_date_ymd(text) + _parse_date_dmy(text)
 
 
+def _extract_dates_from_value(value: Any) -> list[dt.date]:
+    if value is None:
+        return []
+    if isinstance(value, dt.datetime):
+        return [value.date()]
+    if isinstance(value, dt.date):
+        return [value]
+    if isinstance(value, (int, float)):
+        # Excel serial date fallback.
+        num = float(value)
+        if 20000 <= num <= 80000:
+            try:
+                return [(dt.date(1899, 12, 30) + dt.timedelta(days=int(num)))]
+            except Exception:
+                return []
+        return []
+    text = str(value).strip()
+    if not text:
+        return []
+    dates = _extract_dates_from_text(text)
+    if dates:
+        return dates
+    iso_candidate = text[:10]
+    try:
+        return [dt.date.fromisoformat(iso_candidate)]
+    except Exception:
+        return []
+
+
+def _date_range_from_rows(
+    rows: list[dict[str, Any]] | None,
+    *,
+    key_hints: tuple[str, ...],
+) -> tuple[dt.date, dt.date] | None:
+    if not rows:
+        return None
+    hints = tuple(_norm_text(x) for x in key_hints if _norm_text(x))
+    dates: list[dt.date] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for key, raw_value in row.items():
+            key_norm = _norm_text(key)
+            if hints and not any(h in key_norm for h in hints):
+                continue
+            dates.extend(_extract_dates_from_value(raw_value))
+    if not dates:
+        return None
+    return min(dates), max(dates)
+
+
+def _range_days(date_from: dt.date, date_to: dt.date) -> int:
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+    return int((date_to - date_from).days) + 1
+
+
+def _audit_kind_label(days: int) -> str:
+    return "Недельный аудит" if int(days) <= 7 else "Периодический аудит"
+
+
 def _derive_audit_period(
     *,
     period_label: str,
     report_date: dt.date,
+    funnel_rows: list[dict[str, Any]] | None,
+    orders_rows: list[dict[str, Any]] | None,
+    finance_rows: list[dict[str, Any]] | None,
     selected_files: dict[str, list[str]],
     parse_diagnostics: dict[str, Any],
     period_days: int,
-) -> dict[str, str]:
-    candidates: list[dt.date] = []
+) -> dict[str, Any]:
+    source_ranges: list[tuple[str, dt.date, dt.date]] = []
+    priority = {"funnel": 0, "orders": 1, "finance": 2}
 
-    if period_label:
-        candidates.extend(_extract_dates_from_text(period_label))
+    funnel_range = _date_range_from_rows(
+        funnel_rows,
+        key_hints=("date", "дата", "period", "период", "dt"),
+    )
+    if funnel_range:
+        source_ranges.append(("funnel", funnel_range[0], funnel_range[1]))
 
-    for files in selected_files.values():
-        if not isinstance(files, list):
-            continue
-        for path in files:
-            txt = str(path or "")
-            candidates.extend(_extract_dates_from_text(txt))
+    orders_range = _date_range_from_rows(
+        orders_rows,
+        key_hints=("date", "дата", "order", "заказ", "period", "период", "dt"),
+    )
+    if orders_range:
+        source_ranges.append(("orders", orders_range[0], orders_range[1]))
 
-    for value in parse_diagnostics.values():
-        if isinstance(value, dict):
-            for inner in value.values():
-                if isinstance(inner, str):
-                    candidates.extend(_extract_dates_from_text(inner))
+    finance_range = _date_range_from_rows(
+        finance_rows,
+        key_hints=("date", "дата", "операц", "sale", "order", "rr", "dt"),
+    )
+    if finance_range:
+        source_ranges.append(("finance", finance_range[0], finance_range[1]))
 
-    if candidates:
-        date_from = min(candidates)
-        date_to = max(candidates)
+    date_from: dt.date
+    date_to: dt.date
+    source_used = "fallback"
+
+    if source_ranges:
+        chosen = min(
+            source_ranges,
+            key=lambda x: (priority.get(x[0], 99), x[1], x[2]),
+        )
+        same_ranges = all((r[1], r[2]) == (chosen[1], chosen[2]) for r in source_ranges)
+        if not same_ranges:
+            chosen = min(
+                source_ranges,
+                key=lambda x: (_range_days(x[1], x[2]), priority.get(x[0], 99)),
+            )
+        source_used = str(chosen[0])
+        date_from, date_to = chosen[1], chosen[2]
     else:
-        days = max(int(period_days or 1), 1)
-        date_to = report_date
-        date_from = report_date - dt.timedelta(days=days - 1)
+        candidates: list[dt.date] = []
+
+        if period_label:
+            candidates.extend(_extract_dates_from_text(period_label))
+
+        for files in selected_files.values():
+            if not isinstance(files, list):
+                continue
+            for path in files:
+                txt = str(path or "")
+                candidates.extend(_extract_dates_from_text(txt))
+
+        for value in parse_diagnostics.values():
+            if isinstance(value, dict):
+                for inner in value.values():
+                    if isinstance(inner, str):
+                        candidates.extend(_extract_dates_from_text(inner))
+
+        if candidates:
+            date_from = min(candidates)
+            date_to = max(candidates)
+        else:
+            days = max(int(period_days or 1), 1)
+            date_to = report_date
+            date_from = report_date - dt.timedelta(days=days - 1)
 
     if date_from > date_to:
         date_from, date_to = date_to, date_from
+    days = _range_days(date_from, date_to)
+    audit_kind = _audit_kind_label(days)
 
     return {
         "date_from": _iso(date_from),
         "date_to": _iso(date_to),
         "label_ru": f"\u0441 {_date_ru(date_from)} \u043f\u043e {_date_ru(date_to)}",
+        "days": int(days),
+        "audit_kind": audit_kind,
+        "source": source_used,
     }
 
 
@@ -2418,6 +2529,9 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
     audit_period = _derive_audit_period(
         period_label=period_label,
         report_date=report_date,
+        funnel_rows=funnel_rows,
+        orders_rows=None,
+        finance_rows=finance_rows,
         selected_files=selected_files,
         parse_diagnostics=parse_diagnostics,
         period_days=period_days,
@@ -2441,7 +2555,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "tax_rate": tax_rate,
         "period": {
             "label": period_label or _iso(report_date),
-            "days": int(period_days),
+            "days": int(_to_int((audit_period or {}).get("days")) or period_days),
         },
         "audit_period": audit_period,
         "inputs": inputs,

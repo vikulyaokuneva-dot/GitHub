@@ -307,27 +307,41 @@ def _date_ru(value: Any) -> str:
     return parsed.strftime("%d.%m.%Y")
 
 
-def _audit_period_view(facts: dict[str, Any]) -> dict[str, str]:
+def _audit_kind_for_period(date_from: dt.date | None, date_to: dt.date | None) -> str:
+    if not date_from or not date_to:
+        return "Недельный аудит"
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+    days = int((date_to - date_from).days) + 1
+    return "Недельный аудит" if days <= 7 else "Периодический аудит"
+
+
+def _audit_period_view(facts: dict[str, Any]) -> dict[str, Any]:
     period = facts.get("audit_period") if isinstance(facts.get("audit_period"), dict) else {}
     date_from = _text(period.get("date_from"))
     date_to = _text(period.get("date_to"))
     label_ru = _text(period.get("label_ru"))
-    if label_ru and date_from and date_to:
-        return {"date_from": date_from, "date_to": date_to, "label_ru": label_ru}
-
-    fallback_label = _period_text(facts.get("period") or facts.get("date") or "\u043d/\u0434")
+    audit_kind = _text(period.get("audit_kind"))
     parsed_from = _parse_iso_date(date_from) or _parse_iso_date(facts.get("date"))
     parsed_to = _parse_iso_date(date_to) or _parse_iso_date(facts.get("date"))
+    if not audit_kind:
+        audit_kind = _audit_kind_for_period(parsed_from, parsed_to)
+    if label_ru and date_from and date_to:
+        return {"date_from": date_from, "date_to": date_to, "label_ru": label_ru, "audit_kind": audit_kind}
+
+    fallback_label = _period_text(facts.get("period") or facts.get("date") or "\u043d/\u0434")
     if parsed_from and parsed_to:
         return {
             "date_from": parsed_from.isoformat(),
             "date_to": parsed_to.isoformat(),
             "label_ru": f"\u0441 {parsed_from.strftime('%d.%m.%Y')} \u043f\u043e {parsed_to.strftime('%d.%m.%Y')}",
+            "audit_kind": audit_kind,
         }
     return {
         "date_from": _text(facts.get("date")),
         "date_to": _text(facts.get("date")),
         "label_ru": fallback_label or "\u043d/\u0434",
+        "audit_kind": audit_kind,
     }
 
 
@@ -1482,6 +1496,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     source_label = _text(facts.get("source") or "wb").upper()
     audit_period = _audit_period_view(facts)
     period_label_ru = _text(audit_period.get("label_ru") or "н/д")
+    audit_kind = _text(audit_period.get("audit_kind") or "")
     report_date = _date_ru(facts.get("date") or "")
     selected_files = inputs.get("selected_files") if isinstance(inputs.get("selected_files"), dict) else {}
     report_title = f"Аудит кабинета {source_label} за период {period_label_ru}"
@@ -1489,6 +1504,8 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines: list[str] = []
     lines.append("# Аудит кабинета WB" if source_label == "WB" else f"# Аудит кабинета {source_label}")
     lines.append(f"## за период {period_label_ru}")
+    if audit_kind:
+        lines.append(audit_kind)
     lines.append("")
     lines.append(f"Дата формирования отчета: {report_date}")
     lines.append(f"Источник: {source_label} (file-based audit)")
@@ -1497,6 +1514,8 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     lines.append("## Оглавление")
     lines.append(f"Период отчета: {period_label_ru}")
+    if audit_kind:
+        lines.append(f"Тип аудита: {audit_kind}")
     lines.append("")
     lines.append("- 1. KPI и инсайты")
     lines.append("- 2. Финансы за период")
