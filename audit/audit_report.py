@@ -942,6 +942,21 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
         lines.append(f"Выкупов: {_to_int(item.get('buyouts'))}")
         lines.append(f"Средняя цена: {_money(item.get('price_avg'))}")
         lines.append(f"Прибыль на заказ: {_money(item.get('profit_per_order'))}")
+        margin_sku_pct = _to_float(item.get("margin_sku_pct"))
+        margin_label = _text(item.get("margin_label") or "Маржа")
+        margin_suffix = " (без COGS)" if "без cogs" in margin_label.lower() else ""
+        lines.append("Маржа:")
+        if margin_sku_pct is not None:
+            lines.append(f"- {float(margin_sku_pct):.2f}%{margin_suffix}")
+        else:
+            lines.append("- н/д")
+        roi_sku_pct = _to_float(item.get("roi_sku_pct"))
+        roi_available = bool(item.get("roi_available"))
+        lines.append("ROI:")
+        if roi_available and roi_sku_pct is not None:
+            lines.append(f"- {float(roi_sku_pct):.2f}%")
+        else:
+            lines.append("- н/д (нет себестоимости)")
 
         logistics_current = _to_float(item.get("logistics_new"))
         logistics_base = _to_float(item.get("logistics_base"))

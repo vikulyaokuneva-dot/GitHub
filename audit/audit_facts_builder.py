@@ -884,6 +884,11 @@ def _build_top5_sku_unit_economics_payload(
 
     default_localization_share = _to_float_or_none(wb_logistics_estimate.get("localization_share_pct"))
     warehouse_coef = _to_float_or_none(wb_logistics_estimate.get("warehouse_coef")) or 1.0
+    cogs_total = _to_float_or_none(financial_summary.get("cogs_total"))
+    profit_without_cogs = bool(financial_summary.get("profit_without_cogs"))
+    if "profit_without_cogs" not in financial_summary:
+        profit_without_cogs = bool(cogs_total is None or cogs_total <= 0)
+    margin_label_default = "Маржа без COGS" if profit_without_cogs else "Маржа"
 
     candidates: list[dict[str, Any]] = []
     all_skus = sorted(set(sku_by_id.keys()) | set(sku_financials.keys()))
@@ -918,6 +923,9 @@ def _build_top5_sku_unit_economics_payload(
                 "buyouts_count": int(buyouts_count),
                 "logistics_total": _to_float_or_none(fin.get("logistics")),
                 "ads_spend": _to_float_or_none(row.get("ad_spend")),
+                "cogs": _to_float_or_none(fin.get("cogs")),
+                "commission": _to_float_or_none(fin.get("commission")),
+                "tax": _to_float_or_none(fin.get("tax_alloc")),
             }
         )
 
@@ -954,6 +962,26 @@ def _build_top5_sku_unit_economics_payload(
         if ads_spend is not None and revenue_total > 0:
             drr_sku_pct = (float(ads_spend) / float(revenue_total)) * 100.0
         ads_load = _ads_load_by_drr(drr_sku_pct)
+        margin_sku_pct = (float(profit) / float(revenue_total) * 100.0) if revenue_total > 0 else None
+
+        cogs_sku = _to_float_or_none(item.get("cogs"))
+        commission_sku = _to_float_or_none(item.get("commission"))
+        tax_sku = _to_float_or_none(item.get("tax"))
+        has_cogs_for_roi = bool(not profit_without_cogs and cogs_sku is not None)
+        total_costs_sku = None
+        roi_sku_pct = None
+        roi_available = False
+        if has_cogs_for_roi:
+            total_costs_sku = (
+                float(cogs_sku or 0.0)
+                + float(commission_sku or 0.0)
+                + float(logistics_total or 0.0)
+                + float(ads_spend or 0.0)
+                + float(tax_sku or 0.0)
+            )
+            if total_costs_sku > 0:
+                roi_sku_pct = (float(profit) / float(total_costs_sku)) * 100.0
+                roi_available = True
 
         dim_entry = _sku_dimension_entry(sku_dimensions, sku)
         volume_liters = _to_float_or_none(dim_entry.get("volume_liters"))
@@ -995,6 +1023,28 @@ def _build_top5_sku_unit_economics_payload(
             ads_load=ads_load,
             profit_per_order=profit_per_order,
         )
+        if margin_sku_pct is not None:
+            if margin_sku_pct >= 25.0:
+                margin_comment = "Товар прибыльный, маржа комфортная."
+            elif margin_sku_pct < 10.0:
+                margin_comment = "Маржа ограничена, рост рекламы и логистики нужно контролировать."
+            else:
+                margin_comment = "Маржа рабочая, динамику логистики и рекламы нужно держать под контролем."
+            if margin_comment.lower() not in str(comment).lower():
+                comment = f"{comment} {margin_comment}".strip()
+
+        if roi_available and roi_sku_pct is not None:
+            if roi_sku_pct >= 30.0:
+                roi_comment = "SKU хорошо окупает вложения."
+            elif roi_sku_pct < 10.0:
+                roi_comment = "Окупаемость слабая, масштабировать товар нужно осторожно."
+                roi_recommendation = "Перед масштабированием проверить ROI по каналам рекламы и логистике SKU."
+                if roi_recommendation.lower() not in str(recommendation).lower():
+                    recommendation = f"{recommendation} {roi_recommendation}".strip()
+            else:
+                roi_comment = "Окупаемость умеренная, масштабирование требует контроля затрат."
+            if roi_comment.lower() not in str(comment).lower():
+                comment = f"{comment} {roi_comment}".strip()
 
         items.append(
             {
@@ -1015,6 +1065,10 @@ def _build_top5_sku_unit_economics_payload(
                 "ads_per_order": round(float(ads_per_order), 2) if ads_per_order is not None else None,
                 "drr_sku_pct": round(float(drr_sku_pct), 2) if drr_sku_pct is not None else None,
                 "ads_load": ads_load,
+                "margin_sku_pct": round(float(margin_sku_pct), 2) if margin_sku_pct is not None else None,
+                "margin_label": margin_label_default,
+                "roi_sku_pct": round(float(roi_sku_pct), 2) if roi_sku_pct is not None else None,
+                "roi_available": bool(roi_available),
                 "risk_level": risk_level,
                 "comment": comment,
                 "recommendation": recommendation,

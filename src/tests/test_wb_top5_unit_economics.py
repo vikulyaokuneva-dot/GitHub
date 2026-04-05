@@ -142,6 +142,10 @@ def test_top5_unit_economics_payload_filters_and_computes_risk() -> None:
     assert first.get("ads_per_order") is not None
     assert first.get("drr_sku_pct") is not None
     assert first.get("ads_load") in {"низкая", "умеренная", "высокая", "критичная"}
+    assert first.get("margin_sku_pct") is not None
+    assert first.get("margin_label") == "Маржа без COGS"
+    assert first.get("roi_available") is False
+    assert first.get("roi_sku_pct") is None
     assert "реклам" in str(first.get("comment", "")).lower() or "реклам" in str(first.get("recommendation", "")).lower()
 
 
@@ -159,6 +163,10 @@ def test_report_renders_top5_unit_economics_block() -> None:
                 "buyouts": 38,
                 "price_avg": 547.74,
                 "profit_per_order": 414.53,
+                "margin_sku_pct": 47.8,
+                "margin_label": "Маржа без COGS",
+                "roi_sku_pct": None,
+                "roi_available": False,
                 "logistics_per_order": 60,
                 "logistics_new": 62,
                 "logistics_base": 30,
@@ -178,9 +186,57 @@ def test_report_renders_top5_unit_economics_block() -> None:
 
     assert "## ТОП-5 SKU: где зарабатываете и где теряете" in md
     assert "### SKU: 405933491 (A)" in md
+    assert "Маржа:" in md
+    assert "- 47.80% (без COGS)" in md
+    assert "ROI:" in md
+    assert "- н/д (нет себестоимости)" in md
     assert "Реклама:" in md
     assert "- 15.00 RUB на заказ" in md
     assert "- ДРР SKU: 18.90%" in md
     assert "- Нагрузка рекламы: умеренная" in md
     assert "Риск: ВЫСОКИЙ" in md
     assert "Рекомендация: Перераспределить товар по складам для снижения ИЛ." in md
+
+
+def test_top5_unit_economics_payload_calculates_roi_when_cogs_available() -> None:
+    sku_rows = [
+        {
+            "sku": 111,
+            "abc": "A",
+            "orders": 20,
+            "buyouts": 20,
+            "profit": 2000,
+            "revenue": 10000,
+            "ad_spend": 1000,
+        }
+    ]
+    financial_summary = {
+        "profit_without_cogs": False,
+        "cogs_total": 4000,
+        "sku_financials": {
+            111: {
+                "profit": 2000,
+                "net_revenue": 10000,
+                "sales_qty": 20,
+                "logistics": 800,
+                "commission": 1200,
+                "tax_alloc": 600,
+                "cogs": 4000,
+            }
+        },
+    }
+    payload = _build_top5_sku_unit_economics_payload(
+        sku_rows=sku_rows,
+        financial_summary=financial_summary,
+        sku_dimensions={111: {"volume_liters": 1.0, "source": "stocks"}},
+        wb_logistics_estimate={"warehouse_coef": 1.0, "localization_share_pct": 75.0},
+        local_orders_insights={},
+        localization_loss={},
+    )
+
+    first = (payload.get("items") or [])[0]
+    assert first.get("margin_label") == "Маржа"
+    assert first.get("margin_sku_pct") is not None
+    assert first.get("roi_available") is True
+    assert first.get("roi_sku_pct") is not None
+    assert float(first.get("roi_sku_pct")) > 0
