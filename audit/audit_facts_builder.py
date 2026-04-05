@@ -719,6 +719,273 @@ def _build_localization_loss_payload(
     return payload
 
 
+def _as_sku_int_map(raw_map: dict[Any, Any] | None) -> dict[int, dict[str, Any]]:
+    out: dict[int, dict[str, Any]] = {}
+    if not isinstance(raw_map, dict):
+        return out
+    for key, value in raw_map.items():
+        if not isinstance(value, dict):
+            continue
+        sku = _to_int(key)
+        if sku <= 0:
+            continue
+        out[sku] = value
+    return out
+
+
+def _top5_risk_level(
+    *,
+    overpay_per_order: float | None,
+    logistics_new_per_order: float | None,
+    price_avg: float | None,
+) -> str:
+    if overpay_per_order is not None and overpay_per_order > 30.0:
+        return "high"
+    if (
+        logistics_new_per_order is not None
+        and price_avg is not None
+        and price_avg > 0
+        and (float(logistics_new_per_order) / float(price_avg)) > 0.20
+    ):
+        return "high"
+    if overpay_per_order is not None and overpay_per_order >= 10.0:
+        return "medium"
+    return "low"
+
+
+def _top5_comment_and_recommendation(
+    *,
+    risk_level: str,
+    overpay_per_order: float | None,
+    logistics_new_per_order: float | None,
+    price_avg: float | None,
+    localization_share_pct: float | None,
+    ads_per_order: float | None,
+    profit_per_order: float | None,
+) -> tuple[str, str]:
+    if risk_level == "high":
+        if overpay_per_order is not None:
+            comment = (
+                "Высокая логистика из-за слабой локализации. "
+                f"Переплата составляет +{round(float(overpay_per_order), 2)} ₽ на заказ."
+            )
+        else:
+            comment = "Логистика превышает 20% цены товара и давит на маржу."
+        recommendation = "Перераспределить товар по складам для снижения ИЛ/ИРП."
+        return comment, recommendation
+
+    if risk_level == "medium":
+        if overpay_per_order is not None:
+            comment = f"Есть заметное удорожание логистики: +{round(float(overpay_per_order), 2)} ₽ на заказ."
+        else:
+            comment = "Логистика на границе риска, нужен контроль локализации и стоимости доставки."
+        recommendation = "Проверить распределение остатков и снизить долю нелокальных заказов."
+        return comment, recommendation
+
+    if (
+        ads_per_order is not None
+        and price_avg is not None
+        and price_avg > 0
+        and (float(ads_per_order) / float(price_avg)) > 0.20
+    ):
+        comment = "Рекламная нагрузка заметна относительно цены товара."
+        recommendation = "Снизить рекламные расходы и оставить только эффективные кампании."
+        return comment, recommendation
+
+    if localization_share_pct is not None and localization_share_pct < 70.0:
+        comment = "Товар прибыльный, но есть потенциал снижения логистики через улучшение локализации."
+        recommendation = "Тестировать локальное размещение в регионах основного спроса."
+        return comment, recommendation
+
+    if profit_per_order is not None and profit_per_order > 0:
+        return "Товар прибыльный, логистика в норме.", "Увеличить оборот и усилить рекламу по эффективным запросам."
+    return "Недостаточно данных для полной оценки логистических потерь.", "Собрать недостающие данные по объему, цене и локализации."
+
+
+def _build_top5_sku_unit_economics_payload(
+    *,
+    sku_rows: list[dict[str, Any]],
+    financial_summary: dict[str, Any],
+    sku_dimensions: dict[Any, dict[str, Any]],
+    wb_logistics_estimate: dict[str, Any],
+    local_orders_insights: dict[str, Any],
+    localization_loss: dict[str, Any],
+) -> dict[str, Any]:
+    sku_financials = _as_sku_int_map(financial_summary.get("sku_financials"))
+    sku_by_id: dict[int, dict[str, Any]] = {}
+    for row in sku_rows or []:
+        if not isinstance(row, dict):
+            continue
+        sku = _to_int(row.get("sku"))
+        if sku <= 0:
+            continue
+        sku_by_id[sku] = row
+
+    localization_share_by_sku: dict[int, float] = {}
+    raw_localization = local_orders_insights.get("sku_localization")
+    if isinstance(raw_localization, list):
+        for item in raw_localization:
+            if not isinstance(item, dict):
+                continue
+            sku = _to_int(item.get("sku"))
+            share = _to_float_or_none(item.get("localization_share_pct"))
+            if sku > 0 and share is not None:
+                localization_share_by_sku[sku] = float(share)
+
+    top_loss_rows = localization_loss.get("top_loss_sku") if isinstance(localization_loss.get("top_loss_sku"), list) else []
+    for item in top_loss_rows:
+        if not isinstance(item, dict):
+            continue
+        sku = _to_int(item.get("sku"))
+        share = _to_float_or_none(item.get("localization_share_pct"))
+        if sku > 0 and share is not None and sku not in localization_share_by_sku:
+            localization_share_by_sku[sku] = float(share)
+
+    default_localization_share = _to_float_or_none(wb_logistics_estimate.get("localization_share_pct"))
+    warehouse_coef = _to_float_or_none(wb_logistics_estimate.get("warehouse_coef")) or 1.0
+
+    candidates: list[dict[str, Any]] = []
+    all_skus = sorted(set(sku_by_id.keys()) | set(sku_financials.keys()))
+    for sku in all_skus:
+        row = sku_by_id.get(sku) or {}
+        fin = sku_financials.get(sku) or {}
+        profit = _to_float_or_none(fin.get("profit"))
+        if profit is None:
+            profit = _to_float_or_none(row.get("profit"))
+        revenue = _to_float_or_none(fin.get("net_revenue"))
+        if revenue is None or revenue <= 0:
+            revenue = _to_float_or_none(fin.get("sales_revenue"))
+        if revenue is None or revenue <= 0:
+            revenue = _to_float_or_none(row.get("revenue"))
+        if (profit is None or profit <= 0) or (revenue is None or revenue <= 0):
+            continue
+
+        orders_count = _to_int(row.get("orders"))
+        if orders_count <= 0:
+            orders_count = _to_int(fin.get("sales_qty"))
+        buyouts_count = _to_int(row.get("buyouts"))
+        if buyouts_count <= 0:
+            buyouts_count = _to_int(fin.get("sales_qty"))
+
+        candidates.append(
+            {
+                "sku": int(sku),
+                "category": str(row.get("abc") or "N/A"),
+                "revenue_total": float(revenue),
+                "profit": float(profit),
+                "orders_count": int(orders_count),
+                "buyouts_count": int(buyouts_count),
+                "logistics_total": _to_float_or_none(fin.get("logistics")),
+                "ads_spend": _to_float_or_none(row.get("ad_spend")),
+            }
+        )
+
+    top_candidates = sorted(candidates, key=lambda x: float(x.get("profit") or 0.0), reverse=True)[:5]
+    if not top_candidates:
+        return {
+            "available": False,
+            "items": [],
+            "message": "Нет SKU с положительной прибылью и выручкой для блока ТОП-5.",
+        }
+
+    items: list[dict[str, Any]] = []
+    for item in top_candidates:
+        sku = _to_int(item.get("sku"))
+        revenue_total = float(item.get("revenue_total") or 0.0)
+        profit = float(item.get("profit") or 0.0)
+        orders_count = _to_int(item.get("orders_count"))
+        buyouts_count = _to_int(item.get("buyouts_count"))
+        orders = max(orders_count, 1)
+        buyouts_for_price = max(buyouts_count, 1)
+        price_avg = (revenue_total / float(buyouts_for_price)) if revenue_total > 0 else None
+        profit_per_order = (profit / float(orders)) if orders > 0 else None
+
+        logistics_total = _to_float_or_none(item.get("logistics_total"))
+        logistics_per_order = None
+        if logistics_total is not None:
+            logistics_per_order = float(logistics_total) / float(orders)
+
+        ads_spend = _to_float_or_none(item.get("ads_spend"))
+        ads_per_order = None
+        if ads_spend is not None:
+            ads_per_order = float(ads_spend) / float(orders)
+
+        dim_entry = _sku_dimension_entry(sku_dimensions, sku)
+        volume_liters = _to_float_or_none(dim_entry.get("volume_liters"))
+        localization_share = localization_share_by_sku.get(sku)
+        if localization_share is None:
+            localization_share = default_localization_share
+
+        wb_estimate = compute_wb_logistics_estimate(
+            volume_liters=volume_liters,
+            item_price=price_avg,
+            warehouse_coef=warehouse_coef,
+            localization_share_pct=localization_share,
+            supply_type=SUPPLY_TYPE_BOX,
+            is_sgt=False,
+            is_courier_wb=False,
+        )
+
+        logistics_new = _to_float_or_none(wb_estimate.get("estimated_delivery_cost"))
+        logistics_base = _to_float_or_none(wb_estimate.get("neutral_estimated_delivery_cost"))
+        overpay_per_order = None
+        total_overpay = None
+        if logistics_new is not None and logistics_base is not None:
+            overpay_per_order = float(logistics_new) - float(logistics_base)
+            total_overpay = overpay_per_order * float(orders)
+
+        risk_level = _top5_risk_level(
+            overpay_per_order=overpay_per_order,
+            logistics_new_per_order=logistics_new,
+            price_avg=price_avg,
+        )
+        comment, recommendation = _top5_comment_and_recommendation(
+            risk_level=risk_level,
+            overpay_per_order=overpay_per_order,
+            logistics_new_per_order=logistics_new,
+            price_avg=price_avg,
+            localization_share_pct=localization_share,
+            ads_per_order=ads_per_order,
+            profit_per_order=profit_per_order,
+        )
+
+        items.append(
+            {
+                "sku": sku,
+                "category": str(item.get("category") or "N/A"),
+                "revenue": round(revenue_total, 2),
+                "profit": round(profit, 2),
+                "orders": int(orders_count),
+                "buyouts": int(buyouts_count),
+                "price_avg": round(float(price_avg), 2) if price_avg is not None else None,
+                "profit_per_order": round(float(profit_per_order), 2) if profit_per_order is not None else None,
+                "logistics_per_order": round(float(logistics_per_order), 2) if logistics_per_order is not None else None,
+                "logistics_new": round(float(logistics_new), 2) if logistics_new is not None else None,
+                "logistics_base": round(float(logistics_base), 2) if logistics_base is not None else None,
+                "overpay_per_order": round(float(overpay_per_order), 2) if overpay_per_order is not None else None,
+                "total_overpay": round(float(total_overpay), 2) if total_overpay is not None else None,
+                "ads_per_order": round(float(ads_per_order), 2) if ads_per_order is not None else None,
+                "risk_level": risk_level,
+                "comment": comment,
+                "recommendation": recommendation,
+                "localization_share_pct": round(float(localization_share), 2) if localization_share is not None else None,
+                "localization_index": _to_float_or_none(wb_estimate.get("localization_index")),
+                "sales_distribution_index_pct": _to_float_or_none(wb_estimate.get("sales_distribution_index_pct")),
+                "volume_liters": round(float(volume_liters), 4) if volume_liters is not None else None,
+            }
+        )
+
+    return {
+        "available": bool(items),
+        "items": items,
+        "warehouse_coef": round(float(warehouse_coef), 4),
+        "default_localization_share_pct": round(float(default_localization_share), 2)
+        if default_localization_share is not None
+        else None,
+        "message": "Топ-5 SKU по прибыли рассчитан с учетом юнит-экономики и логистики WB.",
+    }
+
+
 def _geo_label(row: dict[str, Any]) -> str:
     for key in ("region", "city", "warehouse", "cluster", "federal_district"):
         value = str(row.get(key) or "").strip()
@@ -1955,8 +2222,11 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
                 "revenue": round(_to_float(row.get("revenue")), 2),
                 "profit": round(_to_float(row.get("profit")), 2),
                 "margin": round(_to_float(row.get("margin")), 4),
+                "orders": _to_int(row.get("orders")),
                 "stock_qty": _to_int(row.get("stock_qty")),
                 "buyouts": _to_int(row.get("buyouts")),
+                "ad_spend": round(_to_float(row.get("ad_spend")), 2),
+                "abc": str(row.get("abc") or "N/A"),
                 "volume_liters": _to_float_or_none(
                     _sku_dimension_entry(sku_dimensions, _to_int(row.get("sku"))).get("volume_liters")
                 ),
@@ -1990,6 +2260,22 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             "missing_inputs": [],
             "recommendations": [],
             "error": f"localization_loss_failed: {exc}",
+        }
+    try:
+        top5_sku_unit_economics = _build_top5_sku_unit_economics_payload(
+            sku_rows=sku_rows,
+            financial_summary=financial_summary,
+            sku_dimensions=sku_dimensions,
+            wb_logistics_estimate=logistics_formula_model if isinstance(logistics_formula_model, dict) else {},
+            local_orders_insights=local_orders_insights,
+            localization_loss=localization_loss if isinstance(localization_loss, dict) else {},
+        )
+    except Exception as exc:
+        top5_sku_unit_economics = {
+            "available": False,
+            "items": [],
+            "message": "Не удалось построить ТОП-5 SKU по юнит-экономике.",
+            "error": f"top5_unit_economics_failed: {exc}",
         }
 
     profit_without_cogs = len(cogs_rows) == 0
@@ -2082,13 +2368,16 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             "error": str(logistics_payload.get("error") or ""),
         },
         "logistics_formula_model": logistics_formula_model,
+        "wb_logistics_estimate": logistics_formula_model,
         "localization_loss": localization_loss,
         "cogs_input": {
             "rows_count": len(cogs_rows),
             "rows": cogs_rows[:200],
             "loaded": bool(cogs_rows),
         },
+        "sku_financials": (financial_summary.get("sku_financials") if isinstance(financial_summary.get("sku_financials"), dict) else {}),
         "sku_profit": sku_profit,
+        "top5_sku_unit_economics": top5_sku_unit_economics,
         "abc_analysis": (sku_performance.get("abc_summary") if isinstance(sku_performance, dict) else {}) or {},
         "decision_layer": decision_layer,
         "actions": actions,

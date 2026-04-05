@@ -903,6 +903,83 @@ def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _risk_label_ru(level: Any) -> str:
+    key = _text(level).lower()
+    mapping = {
+        "high": "ВЫСОКИЙ",
+        "medium": "СРЕДНИЙ",
+        "low": "НИЗКИЙ",
+    }
+    return mapping.get(key, "Н/Д")
+
+
+def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
+    lines: list[str] = ["## ТОП-5 SKU: где зарабатываете и где теряете"]
+    payload = facts.get("top5_sku_unit_economics") if isinstance(facts.get("top5_sku_unit_economics"), dict) else {}
+    rows = payload.get("items") if isinstance(payload.get("items"), list) else []
+
+    if not rows:
+        message = _text(payload.get("message") or "Недостаточно данных для расчета ТОП-5 SKU по юнит-экономике.")
+        lines.append(f"- {message}")
+        lines.append("- Блок строится при наличии SKU с положительной выручкой и прибылью.")
+        lines.append("")
+        return lines
+
+    lines.append(
+        "- Блок показывает топ SKU по прибыли и оценивает, где логистика WB (ИЛ/ИРП) снижает итоговую маржу."
+    )
+    lines.append("")
+
+    for item in rows[:5]:
+        if not isinstance(item, dict):
+            continue
+        sku = _text(item.get("sku") or "н/д")
+        category = _text(item.get("category") or "N/A")
+        lines.append(f"### SKU: {sku} ({category})")
+        lines.append(f"Выручка: {_money(item.get('revenue'))}")
+        lines.append(f"Прибыль: {_money(item.get('profit'))}")
+        lines.append(f"Заказов: {_to_int(item.get('orders'))}")
+        lines.append(f"Выкупов: {_to_int(item.get('buyouts'))}")
+        lines.append(f"Средняя цена: {_money(item.get('price_avg'))}")
+        lines.append(f"Прибыль на заказ: {_money(item.get('profit_per_order'))}")
+
+        logistics_current = _to_float(item.get("logistics_new"))
+        logistics_base = _to_float(item.get("logistics_base"))
+        logistics_old = _to_float(item.get("logistics_per_order"))
+        if logistics_current is not None or logistics_base is not None or logistics_old is not None:
+            lines.append("Логистика:")
+            if logistics_old is not None:
+                lines.append(f"- факт по finance: {_money(logistics_old)} на заказ")
+            if logistics_current is not None:
+                lines.append(f"- текущая расчетная: {_money(logistics_current)} на заказ")
+            if logistics_base is not None:
+                lines.append(f"- нормальная (ИЛ=1, ИРП=0): {_money(logistics_base)} на заказ")
+        else:
+            lines.append("Логистика: недостаточно данных для точной оценки.")
+
+        overpay_per_order = _to_float(item.get("overpay_per_order"))
+        total_overpay = _to_float(item.get("total_overpay"))
+        if overpay_per_order is not None:
+            lines.append(f"Переплата: {_money(overpay_per_order)} на заказ")
+        else:
+            lines.append("Переплата: н/д")
+        if total_overpay is not None:
+            lines.append(f"Потери: {_money(total_overpay)} за период")
+        else:
+            lines.append("Потери: н/д")
+
+        ads_per_order = _to_float(item.get("ads_per_order"))
+        if ads_per_order is not None:
+            lines.append(f"Реклама: {_money(ads_per_order)} на заказ")
+        risk_label = _risk_label_ru(item.get("risk_level"))
+        lines.append(f"Риск: {risk_label}")
+        lines.append(f"Вывод: {_text(item.get('comment'))}")
+        lines.append(f"Рекомендация: {_text(item.get('recommendation'))}")
+        lines.append("")
+
+    return lines
+
+
 def _profit_view(finance: dict[str, Any], ads: dict[str, Any]) -> dict[str, Any]:
     revenue = _to_float(finance.get("gross_revenue")) or 0.0
     commission = _to_float(finance.get("commission")) or 0.0
@@ -1407,6 +1484,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append("- 4. Реклама")
     lines.append("- 5. Остатки и риск дефицита")
     lines.append("- 6. Ассортимент / SKU")
+    lines.append("- ТОП-5 SKU: где зарабатываете и где теряете")
     lines.append("- 7. Локальные заказы и размещение товара")
     lines.append("- 8. Логистика по регионам и размещение")
     lines.append("- 9. Переплата за логистику")
@@ -1737,6 +1815,9 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     else:
         lines.append("- SKU со сниженной маржинальностью не выявлены.")
         lines.append("")
+
+    lines.extend(_top5_unit_economics_section_lines(facts))
+    lines.append("")
 
     _page_break(lines)
 
