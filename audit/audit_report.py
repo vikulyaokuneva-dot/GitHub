@@ -629,6 +629,186 @@ def _region_logistics_section_lines(facts: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _localization_risk_from_share(localization_share_pct: Any) -> str:
+    share = _to_float(localization_share_pct)
+    if share is None:
+        return "unknown"
+    if share >= 70.0:
+        return "low"
+    if share >= 40.0:
+        return "medium"
+    return "high"
+
+
+def _localization_risk_label(level: str) -> str:
+    mapping = {
+        "low": "low",
+        "medium": "medium",
+        "high": "high",
+        "unknown": "unknown",
+    }
+    return mapping.get(_text(level).lower(), "unknown")
+
+
+def _overpayment_conclusion(overpayment_pct: float | None) -> str:
+    if overpayment_pct is None:
+        return "Точная оценка переплаты в рублях недоступна."
+    if overpayment_pct <= 5.0:
+        return "Переплаты почти нет: влияние локализации на доставку ограничено."
+    if overpayment_pct <= 20.0:
+        return "Есть переплата за логистику: локализация увеличивает стоимость доставки."
+    return "Критичная переплата: локализация существенно удорожает доставку и давит на маржу."
+
+
+def _localization_human_message(
+    *,
+    localization_share_pct: float | None,
+    localization_index: float | None,
+    sales_distribution_index_pct: float | None,
+) -> list[str]:
+    lines: list[str] = []
+    share = localization_share_pct
+    il = localization_index
+    irp = sales_distribution_index_pct
+
+    if share is None:
+        lines.append("Локализация не распознана автоматически, поэтому влияние ИЛ/ИРП оценено ограниченно.")
+        return lines
+
+    if share >= 70.0:
+        lines.append("Локализация высокая: логистика получает скидку или нейтральные условия.")
+    elif share >= 40.0:
+        lines.append("Локализация нейтральная/средняя: значимого удорожания обычно нет, но нужен контроль динамики.")
+    else:
+        lines.append("Локализация слабая: логистика дорожает из-за повышенного ИЛ и ИРП.")
+
+    if il is not None and il > 1.0:
+        lines.append("ИЛ выше 1.0 повышает базовую логистическую часть тарифа.")
+    if irp is not None and irp > 0:
+        lines.append("Высокая цена товара усиливает влияние ИРП на итоговую стоимость доставки.")
+    return lines
+
+
+def _impact_label_from_row(row: dict[str, Any]) -> str:
+    impact = _text(row.get("impact")).lower()
+    if impact in {"низкое", "умеренное", "высокое", "критичное"}:
+        return impact
+    share = _to_float(row.get("localization_share_pct"))
+    if share is None:
+        return "н/д"
+    if share >= 70.0:
+        return "низкое"
+    if share >= 40.0:
+        return "умеренное"
+    if share >= 20.0:
+        return "высокое"
+    return "критичное"
+
+
+def _logistics_overpayment_section_lines(facts: dict[str, Any]) -> list[str]:
+    lines: list[str] = ["## 9. Переплата за логистику"]
+    model = facts.get("logistics_formula_model") if isinstance(facts.get("logistics_formula_model"), dict) else {}
+
+    missing_inputs = model.get("missing_inputs") if isinstance(model.get("missing_inputs"), list) else []
+    mode = _text(model.get("mode")).upper()
+    if mode not in {"A", "B", "C"}:
+        has_delivery = _to_float(model.get("estimated_delivery_cost")) is not None
+        has_loc = _to_float(model.get("localization_share_pct")) is not None
+        mode = "A" if has_delivery and has_loc else "B" if has_loc else "C"
+
+    localization_share_pct = _to_float(model.get("localization_share_pct"))
+    localization_index = _to_float(model.get("localization_index"))
+    sales_distribution_index_pct = _to_float(model.get("sales_distribution_index_pct"))
+    base_logistics = _to_float(model.get("base_logistics"))
+    delivery_cost = _to_float(model.get("estimated_delivery_cost"))
+    neutral_delivery_cost = _to_float(model.get("neutral_estimated_delivery_cost"))
+    overpayment_abs = _to_float(model.get("overpayment_absolute"))
+    overpayment_pct = _to_float(model.get("overpayment_pct_vs_neutral"))
+    item_price = _to_float(model.get("item_price"))
+    risk_level = _localization_risk_label(
+        model.get("risk_level") or _localization_risk_from_share(localization_share_pct)
+    )
+
+    lines.append("### Краткий вывод")
+    lines.append(f"- Риск влияния локализации: **{risk_level}**.")
+    for msg in _localization_human_message(
+        localization_share_pct=localization_share_pct,
+        localization_index=localization_index,
+        sales_distribution_index_pct=sales_distribution_index_pct,
+    )[:3]:
+        lines.append(f"- {msg}")
+    lines.append("")
+
+    if mode == "A":
+        lines.append("### Расчет (полные данные)")
+        rows = [
+            ["Доля локализации", _fmt_pct(localization_share_pct, 2)],
+            ["ИЛ", _sanitize_table_cell(localization_index)],
+            ["ИРП", _fmt_pct(sales_distribution_index_pct, 2)],
+            ["Базовая логистика", _money(base_logistics)],
+            ["Итоговая расчетная логистика", _money(delivery_cost)],
+            ["Нейтральный сценарий (ИЛ=1, ИРП=0)", _money(neutral_delivery_cost)],
+            ["Оценка переплаты", _money(overpayment_abs)],
+            ["Рост к нейтральному сценарию", _fmt_pct(overpayment_pct, 1)],
+        ]
+        _append_markdown_table(lines, ["Показатель", "Значение"], rows, align_right={1})
+        lines.append(f"- {_overpayment_conclusion(overpayment_pct)}")
+        lines.append("")
+    elif mode == "B":
+        lines.append("### Оценка (частичные данные)")
+        lines.append(
+            f"- Доля локализации: {_fmt_pct(localization_share_pct, 2)}; применяется ИЛ={_sanitize_table_cell(localization_index)} и ИРП={_fmt_pct(sales_distribution_index_pct, 2)}."
+        )
+        lines.append("- По этим параметрам логистика имеет риск удорожания, но точная сумма в рублях недоступна.")
+        lines.append("- Для расчета в рублях нужны объем товара, цена и коэффициент склада.")
+        lines.append("")
+    else:
+        lines.append("### Оценка недоступна")
+        lines.append("- Точный расчет переплаты за логистику недоступен по текущим данным.")
+        lines.append(
+            "- Для расчета нужны: объем товара, цена товара, коэффициент склада и доля локализации."
+        )
+        if missing_inputs:
+            lines.append("- Сейчас не хватает: " + ", ".join(_text(x) for x in missing_inputs if _text(x)) + ".")
+        lines.append("")
+
+    if item_price is not None and sales_distribution_index_pct is not None and sales_distribution_index_pct > 0:
+        lines.append("- Высокая цена товара усиливает влияние ИРП на итоговую стоимость доставки.")
+        lines.append("")
+
+    sku_risk_rows = model.get("sku_risk_rows") if isinstance(model.get("sku_risk_rows"), list) else []
+    lines.append("### SKU с риском удорожания")
+    if sku_risk_rows:
+        table_rows: list[list[Any]] = []
+        for row in sku_risk_rows[:5]:
+            if not isinstance(row, dict):
+                continue
+            table_rows.append(
+                [
+                    row.get("sku"),
+                    _fmt_pct(_to_float(row.get("localization_share_pct")), 2),
+                    _sanitize_table_cell(row.get("localization_index")),
+                    _fmt_pct(_to_float(row.get("sales_distribution_index_pct")), 2),
+                    _impact_label_from_row(row),
+                    _text(row.get("conclusion")),
+                ]
+            )
+        if table_rows:
+            _append_markdown_table(
+                lines,
+                ["SKU", "Доля локализации", "ИЛ", "ИРП", "Оценка влияния", "Вывод"],
+                table_rows,
+                align_right={1, 2, 3},
+            )
+        else:
+            lines.append("- SKU-level данные по локализации не распознаны автоматически.")
+            lines.append("")
+    else:
+        lines.append("- SKU-level данные по локализации не распознаны автоматически.")
+        lines.append("")
+    return lines
+
+
 def _profit_view(finance: dict[str, Any], ads: dict[str, Any]) -> dict[str, Any]:
     revenue = _to_float(finance.get("gross_revenue")) or 0.0
     commission = _to_float(finance.get("commission")) or 0.0
@@ -1135,8 +1315,9 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append("- 6. Ассортимент / SKU")
     lines.append("- 7. Локальные заказы и размещение товара")
     lines.append("- 8. Логистика по регионам и размещение")
-    lines.append("- 9. Поисковые запросы")
-    lines.append("- 10. План действий / рекомендации")
+    lines.append("- 9. Переплата за логистику")
+    lines.append("- 10. Поисковые запросы")
+    lines.append("- 11. План действий / рекомендации")
     lines.append("")
 
     lines.append("### Источники (файлы)")
@@ -1472,7 +1653,11 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     _page_break(lines)
 
-    lines.append("## 9. Поисковые запросы")
+    lines.extend(_logistics_overpayment_section_lines(facts))
+
+    _page_break(lines)
+
+    lines.append("## 10. Поисковые запросы")
     search_status = str(search.get("status") or "")
     if search_status == "ok":
         base_rows = search.get("base_rows") if isinstance(search.get("base_rows"), list) else []
@@ -1537,7 +1722,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     _page_break(lines)
 
-    lines.append("## 10. План действий / рекомендации")
+    lines.append("## 11. План действий / рекомендации")
     action_rows: list[list[str]] = []
 
     def _append_action_row(priority: str, area: str, action_text: str, expected_effect: str) -> None:

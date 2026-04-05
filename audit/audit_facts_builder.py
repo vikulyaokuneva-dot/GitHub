@@ -397,8 +397,75 @@ def _build_logistics_formula_model_payload(
         is_sgt=False,
         is_courier_wb=False,
     )
+    localization_share = _to_float_or_none(estimate.get("localization_share_pct"))
+    if localization_share is None:
+        risk_level = "unknown"
+    elif localization_share >= 70.0:
+        risk_level = "low"
+    elif localization_share >= 40.0:
+        risk_level = "medium"
+    else:
+        risk_level = "high"
+
+    mode = "C"
+    has_volume = bool(estimate.get("inputs_available", {}).get("volume_liters"))
+    has_price = bool(estimate.get("inputs_available", {}).get("item_price"))
+    has_localization = bool(estimate.get("inputs_available", {}).get("localization_share_pct"))
+    if has_volume and has_price and has_localization and estimate.get("estimated_delivery_cost") is not None:
+        mode = "A"
+    elif has_localization and estimate.get("localization_index") is not None:
+        mode = "B"
+
+    sku_risk_rows: list[dict[str, Any]] = []
+    raw_sku_localization = local_orders_insights.get("sku_localization")
+    if isinstance(raw_sku_localization, list):
+        for row in raw_sku_localization:
+            if not isinstance(row, dict):
+                continue
+            sku = _to_int(row.get("sku"))
+            share_pct = _to_float_or_none(row.get("localization_share_pct"))
+            if sku <= 0 or share_pct is None:
+                continue
+            if share_pct >= 70.0:
+                impact_label = "низкое"
+                conclusion = "локализация высокая, влияние на удорожание ограничено"
+            elif share_pct >= 40.0:
+                impact_label = "умеренное"
+                conclusion = "локализация средняя, стоит контролировать ИЛ/ИРП"
+            elif share_pct >= 20.0:
+                impact_label = "высокое"
+                conclusion = "локализация слабая, логистика может заметно дорожать"
+            else:
+                impact_label = "критичное"
+                conclusion = "локализация очень низкая, риск существенного давления на маржу"
+
+            sku_estimate = compute_wb_logistics_estimate(
+                volume_liters=None,
+                item_price=None,
+                warehouse_coef=1.0,
+                localization_share_pct=share_pct,
+            )
+            sku_risk_rows.append(
+                {
+                    "sku": sku,
+                    "localization_share_pct": round(float(share_pct), 2),
+                    "localization_index": _to_float_or_none(sku_estimate.get("localization_index")),
+                    "sales_distribution_index_pct": _to_float_or_none(sku_estimate.get("sales_distribution_index_pct")),
+                    "impact": impact_label,
+                    "conclusion": conclusion,
+                }
+            )
+
+    sku_risk_rows = sorted(
+        sku_risk_rows,
+        key=lambda x: float(x.get("localization_share_pct") or 100.0),
+    )[:5]
+
     estimate["source"] = "wb_formula_model_v1"
     estimate["model_version"] = "2026-04-05"
+    estimate["mode"] = mode
+    estimate["risk_level"] = risk_level
+    estimate["sku_risk_rows"] = sku_risk_rows
     estimate["input_candidates"] = {
         "volume_liters": volume_liters,
         "item_price": item_price,
@@ -1272,7 +1339,11 @@ def _build_decision_layer(
     }
 
 
-def _build_actions(decision_layer: dict[str, Any], stock_summary: dict[str, Any]) -> list[dict[str, Any]]:
+def _build_actions(
+    decision_layer: dict[str, Any],
+    stock_summary: dict[str, Any],
+    logistics_formula_model: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     profit_state = decision_layer.get("profit_state")
     kpi = decision_layer.get("kpi") or {}
@@ -1361,6 +1432,22 @@ def _build_actions(decision_layer: dict[str, Any], stock_summary: dict[str, Any]
                     "aggregation_status": stock_summary.get("aggregation_status"),
                     "parsed_rows": stock_summary.get("parsed_rows"),
                     "mapped_rows": stock_summary.get("mapped_rows"),
+                },
+            }
+        )
+
+    logistic_risk_level = str((logistics_formula_model or {}).get("risk_level") or "").lower()
+    if logistic_risk_level in {"medium", "high"}:
+        actions.append(
+            {
+                "priority": "P1",
+                "area": "logistics",
+                "action": "Пересмотреть распределение остатков по складам для снижения ИЛ/ИРП",
+                "why": "Низкая локализация повышает стоимость логистики",
+                "expected_effect": "Снижение логистических затрат и рост маржи",
+                "numbers": {
+                    "risk_level": logistic_risk_level,
+                    "localization_share_pct": (logistics_formula_model or {}).get("localization_share_pct"),
                 },
             }
         )
@@ -1633,7 +1720,11 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         source_consistency_warnings=source_consistency_warnings,
         profit_without_cogs=profit_without_cogs,
     )
-    actions = _build_actions(decision_layer, stock_summary)
+    actions = _build_actions(
+        decision_layer,
+        stock_summary,
+        logistics_formula_model=logistics_formula_model if isinstance(logistics_formula_model, dict) else None,
+    )
 
     parse_diagnostics = {
         "finance": finance_parse_diag,

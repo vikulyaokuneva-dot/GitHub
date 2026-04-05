@@ -215,6 +215,20 @@ def compute_wb_logistics_estimate(
     if base_logistics is not None and sales_distribution_component is not None:
         estimated_delivery_cost = float(base_logistics + sales_distribution_component)
 
+    neutral_base_logistics = calculate_base_logistics(
+        volume_liters=volume,
+        warehouse_coef=coef_multiplier,
+        localization_index=1.0,
+        tariff_per_liter=tariff,
+    )
+    neutral_estimated_delivery_cost = neutral_base_logistics
+    overpayment_absolute = None
+    overpayment_pct_vs_neutral = None
+    if estimated_delivery_cost is not None and neutral_estimated_delivery_cost is not None:
+        overpayment_absolute = float(estimated_delivery_cost - neutral_estimated_delivery_cost)
+        if neutral_estimated_delivery_cost > 0:
+            overpayment_pct_vs_neutral = float((overpayment_absolute / neutral_estimated_delivery_cost) * 100.0)
+
     reverse_logistics = calculate_reverse_logistics(volume)
     storage_daily = calculate_storage_daily(
         volume_liters=volume,
@@ -263,6 +277,9 @@ def compute_wb_logistics_estimate(
         "sales_distribution_index_pct": _round_or_none(sales_distribution_index_pct, 4),
         "sales_distribution_component": _round_or_none(sales_distribution_component, 2),
         "estimated_delivery_cost": _round_or_none(estimated_delivery_cost, 2),
+        "neutral_estimated_delivery_cost": _round_or_none(neutral_estimated_delivery_cost, 2),
+        "overpayment_absolute": _round_or_none(overpayment_absolute, 2),
+        "overpayment_pct_vs_neutral": _round_or_none(overpayment_pct_vs_neutral, 2),
         "estimated_reverse_logistics": _round_or_none(reverse_logistics, 2),
         "estimated_storage_daily": _round_or_none(storage_daily, 4),
         "diagnostics": {
