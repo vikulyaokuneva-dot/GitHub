@@ -93,3 +93,4 @@ def test_compute_wb_logistics_estimate_missing_volume():
     assert result["estimated_delivery_cost"] is None
     assert result["estimated_reverse_logistics"] is None
     assert result["estimated_storage_daily"] is None
+    assert result["diagnostics"]["flags"]["volume_missing"] is True

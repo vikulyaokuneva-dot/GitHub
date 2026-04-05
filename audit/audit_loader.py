@@ -101,6 +101,19 @@ def _to_float(x: Any) -> float:
         return 0.0
 
 
+def _to_float_or_none(x: Any) -> float | None:
+    try:
+        if x is None or x == "":
+            return None
+        if isinstance(x, str):
+            x = x.strip().replace(" ", "").replace(",", ".")
+            if x == "":
+                return None
+        return float(x)
+    except Exception:
+        return None
+
+
 def _to_int(x: Any) -> int:
     try:
         if x is None or x == "":
@@ -556,6 +569,45 @@ def _value_by_index(row: dict[str, Any], idx: int) -> Any:
     return values[idx]
 
 
+def _extract_volume_liters_from_stocks_row(row: dict[str, Any]) -> tuple[float | None, str]:
+    direct_volume = _to_float_or_none(
+        _lookup(
+            row,
+            (
+                "Объем, л",
+                "Объём, л",
+                "Объем л",
+                "Объём л",
+                "volume_liters",
+                "volume_l",
+                "volume",
+            ),
+        )
+    )
+    if direct_volume is not None and direct_volume > 0:
+        return float(direct_volume), "stocks"
+
+    length_cm = _to_float_or_none(
+        _lookup(row, ("Длина, см", "Длина см", "length_cm", "length"))
+    )
+    width_cm = _to_float_or_none(
+        _lookup(row, ("Ширина, см", "Ширина см", "width_cm", "width"))
+    )
+    height_cm = _to_float_or_none(
+        _lookup(row, ("Высота, см", "Высота см", "height_cm", "height"))
+    )
+    if (
+        length_cm is not None
+        and width_cm is not None
+        and height_cm is not None
+        and length_cm > 0
+        and width_cm > 0
+        and height_cm > 0
+    ):
+        return float((length_cm * width_cm * height_cm) / 1000.0), "calculated"
+    return None, "missing"
+
+
 def _parse_stocks_df_rows(df_local: pd.DataFrame) -> tuple[list[dict[str, Any]], int, int, str | None, int, int]:
     rows_local: list[dict[str, Any]] = []
     mapped_rows_local = 0
@@ -597,12 +649,15 @@ def _parse_stocks_df_rows(df_local: pd.DataFrame) -> tuple[list[dict[str, Any]],
         in_way_from_client = _to_int(_lookup(row, ("inWayFromClient",)))
         if in_way_from_client == 0:
             in_way_from_client = _to_int(_value_by_index(row, 22))
+        volume_liters, volume_source = _extract_volume_liters_from_stocks_row(row)
 
         payload = {
             "nmId": nmid,
             "quantityFull": int(qty),
             "inWayToClient": in_way_to_client,
             "inWayFromClient": in_way_from_client,
+            "volume_liters": round(float(volume_liters), 6) if volume_liters is not None and volume_liters > 0 else None,
+            "volume_source": str(volume_source or "missing"),
             "supplierArticle": supplier_article,
             "_name": name,
             "region": str(

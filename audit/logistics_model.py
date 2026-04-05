@@ -287,6 +287,7 @@ def compute_wb_logistics_estimate(
             "flags": {
                 "is_sgt": bool(is_sgt),
                 "is_courier_wb": bool(is_courier_wb),
+                "volume_missing": bool(volume is None or volume <= 0),
             },
         },
         "explanation": explanation,

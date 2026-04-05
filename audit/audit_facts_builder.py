@@ -245,12 +245,117 @@ def _estimate_item_price(
     return None
 
 
+def _build_sku_dimensions(stocks_rows: list[dict[str, Any]]) -> tuple[dict[int, dict[str, Any]], dict[str, int]]:
+    buckets: dict[int, dict[str, list[float] | bool]] = {}
+    for row in stocks_rows or []:
+        if not isinstance(row, dict):
+            continue
+        sku = _to_int(row.get("nmId") or row.get("nm_id") or row.get("sku"))
+        if sku <= 0:
+            continue
+        sku_key = int(sku)
+        bucket = buckets.setdefault(
+            sku_key,
+            {
+                "stocks": [],
+                "calculated": [],
+                "seen": True,
+            },
+        )
+        volume = _to_float_or_none(row.get("volume_liters"))
+        source = _norm_text(row.get("volume_source") or "")
+        if volume is None or volume <= 0:
+            continue
+        if source == "calculated":
+            casted = bucket.get("calculated")
+            if isinstance(casted, list):
+                casted.append(float(volume))
+        else:
+            casted = bucket.get("stocks")
+            if isinstance(casted, list):
+                casted.append(float(volume))
+
+    sku_dimensions: dict[int, dict[str, Any]] = {}
+    with_volume = 0
+    calculated = 0
+    missing = 0
+    for sku_key, bucket in buckets.items():
+        stocks_values = [float(x) for x in (bucket.get("stocks") or []) if float(x) > 0]
+        calc_values = [float(x) for x in (bucket.get("calculated") or []) if float(x) > 0]
+        if stocks_values:
+            volume_liters = round(sum(stocks_values) / float(len(stocks_values)), 6)
+            source = "stocks"
+            with_volume += 1
+        elif calc_values:
+            volume_liters = round(sum(calc_values) / float(len(calc_values)), 6)
+            source = "calculated"
+            with_volume += 1
+            calculated += 1
+        else:
+            volume_liters = None
+            source = "missing"
+            missing += 1
+        sku_dimensions[sku_key] = {
+            "volume_liters": volume_liters,
+            "source": source,
+        }
+
+    volume_coverage = {
+        "total_sku": int(len(sku_dimensions)),
+        "with_volume": int(with_volume),
+        "calculated": int(calculated),
+        "missing": int(missing),
+    }
+    return sku_dimensions, volume_coverage
+
+
+def _estimate_volume_liters_from_sku_dimensions(
+    sku_dimensions: dict[Any, dict[str, Any]] | None,
+) -> tuple[float | None, str]:
+    if not isinstance(sku_dimensions, dict) or not sku_dimensions:
+        return None, "missing"
+    values: list[float] = []
+    for item in sku_dimensions.values():
+        if not isinstance(item, dict):
+            continue
+        parsed = _to_float_or_none(item.get("volume_liters"))
+        if parsed is None or parsed <= 0:
+            continue
+        values.append(float(parsed))
+    if not values:
+        return None, "missing"
+    values = sorted(values)
+    middle = len(values) // 2
+    if len(values) % 2 == 0:
+        median = (values[middle - 1] + values[middle]) / 2.0
+    else:
+        median = values[middle]
+    return round(float(median), 4), "stocks"
+
+
+def _sku_dimension_entry(sku_dimensions: dict[Any, dict[str, Any]] | None, sku: int) -> dict[str, Any]:
+    if not isinstance(sku_dimensions, dict):
+        return {}
+    direct = sku_dimensions.get(sku)
+    if isinstance(direct, dict):
+        return direct
+    as_str = sku_dimensions.get(str(sku))
+    if isinstance(as_str, dict):
+        return as_str
+    return {}
+
+
 def _estimate_volume_liters(
     *,
+    sku_dimensions: dict[Any, dict[str, Any]] | None,
     funnel_rows: list[dict[str, Any]],
     stocks_rows: list[dict[str, Any]],
     finance_rows: list[dict[str, Any]],
 ) -> float | None:
+    volume_from_stocks, _ = _estimate_volume_liters_from_sku_dimensions(sku_dimensions)
+    if volume_from_stocks is not None and volume_from_stocks > 0:
+        return volume_from_stocks
+
     key_hints = (
         "volume_liters",
         "volume_liter",
@@ -361,11 +466,14 @@ def _build_logistics_formula_model_payload(
     financial_summary: dict[str, Any],
     local_orders_insights: dict[str, Any],
     logistics_payload: dict[str, Any],
+    sku_dimensions: dict[Any, dict[str, Any]],
     funnel_rows: list[dict[str, Any]],
     stocks_rows: list[dict[str, Any]],
     finance_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    representative_volume, representative_volume_source = _estimate_volume_liters_from_sku_dimensions(sku_dimensions)
     volume_liters = _estimate_volume_liters(
+        sku_dimensions=sku_dimensions,
         funnel_rows=funnel_rows,
         stocks_rows=stocks_rows,
         finance_rows=finance_rows,
@@ -469,6 +577,7 @@ def _build_logistics_formula_model_payload(
     estimate["sku_risk_rows"] = sku_risk_rows
     estimate["input_candidates"] = {
         "volume_liters": volume_liters,
+        "volume_source": representative_volume_source if volume_liters == representative_volume else "derived",
         "item_price": item_price,
         "warehouse_coef": warehouse_coef,
         "localization_share_pct": localization_share_pct,
@@ -1742,6 +1851,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
     stocks_rows, stocks_parse_diag = (
         parse_stocks_file_with_diagnostics(selected_files["stocks"][0]) if selected_files["stocks"] else ([], {"status": "file_not_provided"})
     )
+    sku_dimensions, volume_coverage = _build_sku_dimensions(stocks_rows)
     search_rows, search_parse_diag = (
         parse_search_file_with_diagnostics(selected_files["search"][0]) if selected_files["search"] else ([], {"status": "file_not_provided"})
     )
@@ -1809,6 +1919,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             financial_summary=financial_summary,
             local_orders_insights=local_orders_insights,
             logistics_payload=logistics_payload,
+            sku_dimensions=sku_dimensions,
             funnel_rows=funnel_rows,
             stocks_rows=stocks_rows,
             finance_rows=finance_rows,
@@ -1846,6 +1957,12 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
                 "margin": round(_to_float(row.get("margin")), 4),
                 "stock_qty": _to_int(row.get("stock_qty")),
                 "buyouts": _to_int(row.get("buyouts")),
+                "volume_liters": _to_float_or_none(
+                    _sku_dimension_entry(sku_dimensions, _to_int(row.get("sku"))).get("volume_liters")
+                ),
+                "volume_source": _norm_text(
+                    _sku_dimension_entry(sku_dimensions, _to_int(row.get("sku"))).get("source")
+                ),
             }
             for row in sku_rows
         ],
@@ -1942,6 +2059,8 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "funnel_summary": funnel_summary,
         "ads_summary": ads_summary,
         "stock_summary": stock_summary,
+        "sku_dimensions": sku_dimensions,
+        "volume_coverage": volume_coverage,
         "search_insights": search_insights,
         "local_orders_insights": local_orders_insights,
         "logistics_reference": {
