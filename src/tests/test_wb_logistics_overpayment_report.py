@@ -65,6 +65,7 @@ def test_report_contains_logistics_overpayment_section_in_mode_c():
     assert "## 9." in md
     assert "## 10." in md
     assert "## 11." in md
+    assert "## 12." in md
     assert "Точный расчет переплаты за логистику недоступен" in md
     assert "---PAGEBREAK---" in md
 

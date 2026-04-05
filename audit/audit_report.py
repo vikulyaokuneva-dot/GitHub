@@ -809,6 +809,100 @@ def _logistics_overpayment_section_lines(facts: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
+    lines: list[str] = ["## 10. Потери из-за плохой локализации"]
+    payload = facts.get("localization_loss") if isinstance(facts.get("localization_loss"), dict) else {}
+
+    status = _text(payload.get("status") or "insufficient_data")
+    estimation_mode = _text(payload.get("estimation_mode") or "insufficient_data")
+    total_loss = _to_float(payload.get("total_estimated_loss_rub"))
+    loss_share = _to_float(payload.get("loss_share_of_revenue"))
+    non_local_share = _to_float(payload.get("non_local_orders_share"))
+    affected = _to_int(payload.get("affected_sku_count"))
+    missing_inputs = payload.get("missing_inputs") if isinstance(payload.get("missing_inputs"), list) else []
+    top_rows = payload.get("top_loss_sku") if isinstance(payload.get("top_loss_sku"), list) else []
+    recommendations = payload.get("recommendations") if isinstance(payload.get("recommendations"), list) else []
+
+    lines.append("### Оценка за период")
+    lines.append(f"- Режим оценки: **{estimation_mode}**.")
+    if total_loss is not None:
+        lines.append(f"- Оценка потерь из-за локализации: **{_money(total_loss)}** за период.")
+    else:
+        lines.append("- Точная рублевая оценка пока недоступна, используется качественная оценка риска.")
+    if non_local_share is not None:
+        lines.append(f"- Доля нелокальных заказов: **{_fmt_pct(non_local_share * 100.0, 1)}**.")
+    if loss_share is not None:
+        lines.append(f"- Давление на выручку: **{_fmt_pct(loss_share * 100.0, 2)}**.")
+    lines.append(f"- SKU в зоне влияния: **{affected}**.")
+    if status == "insufficient_data" and missing_inputs:
+        lines.append("- Для точного расчета не хватает: " + ", ".join(_text(x) for x in missing_inputs if _text(x)) + ".")
+    lines.append("")
+
+    lines.append("### TOP SKU по потерям/риску")
+    if top_rows:
+        has_rub = any(_to_float((row or {}).get("total_loss_rub")) is not None for row in top_rows if isinstance(row, dict))
+        table_rows: list[list[Any]] = []
+        for row in top_rows[:10]:
+            if not isinstance(row, dict):
+                continue
+            if has_rub:
+                table_rows.append(
+                    [
+                        row.get("sku"),
+                        _to_int(row.get("orders")),
+                        _fmt_pct(_to_float(row.get("localization_share_pct")), 2),
+                        _sanitize_table_cell(row.get("localization_index")),
+                        _fmt_pct(_to_float(row.get("sales_distribution_index_pct")), 2),
+                        _money(row.get("total_loss_rub")),
+                        _text(row.get("conclusion")),
+                    ]
+                )
+            else:
+                table_rows.append(
+                    [
+                        row.get("sku"),
+                        _to_int(row.get("orders")),
+                        _fmt_pct(_to_float(row.get("localization_share_pct")), 2),
+                        _sanitize_table_cell(row.get("localization_index")),
+                        _fmt_pct(_to_float(row.get("sales_distribution_index_pct")), 2),
+                        _text(row.get("risk_level") or "н/д"),
+                        _text(row.get("conclusion")),
+                    ]
+                )
+        if has_rub:
+            _append_markdown_table(
+                lines,
+                ["SKU", "Заказы", "Доля локализации", "ИЛ", "ИРП", "Потери", "Вывод"],
+                table_rows,
+                align_right={1, 2, 3, 4, 5},
+            )
+        else:
+            _append_markdown_table(
+                lines,
+                ["SKU", "Заказы", "Доля локализации", "ИЛ", "ИРП", "Risk", "Вывод"],
+                table_rows,
+                align_right={1, 2, 3, 4},
+            )
+    else:
+        lines.append("- SKU-данные для оценки потерь не распознаны автоматически.")
+        lines.append("")
+
+    lines.append("### Рекомендации")
+    if recommendations:
+        for rec in recommendations[:5]:
+            if not isinstance(rec, dict):
+                continue
+            action = _text(rec.get("action"))
+            why = _text(rec.get("why"))
+            effect = _text(rec.get("expected_effect"))
+            if action:
+                lines.append(f"- {action}. Причина: {why}. Ожидаемый эффект: {effect}.")
+    else:
+        lines.append("- Дополнительные рекомендации появятся после уточнения данных по локализации и маршрутам заказов.")
+    lines.append("")
+    return lines
+
+
 def _profit_view(finance: dict[str, Any], ads: dict[str, Any]) -> dict[str, Any]:
     revenue = _to_float(finance.get("gross_revenue")) or 0.0
     commission = _to_float(finance.get("commission")) or 0.0
@@ -1316,8 +1410,9 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append("- 7. Локальные заказы и размещение товара")
     lines.append("- 8. Логистика по регионам и размещение")
     lines.append("- 9. Переплата за логистику")
-    lines.append("- 10. Поисковые запросы")
-    lines.append("- 11. План действий / рекомендации")
+    lines.append("- 10. Потери из-за плохой локализации")
+    lines.append("- 11. Поисковые запросы")
+    lines.append("- 12. План действий / рекомендации")
     lines.append("")
 
     lines.append("### Источники (файлы)")
@@ -1657,7 +1752,11 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     _page_break(lines)
 
-    lines.append("## 10. Поисковые запросы")
+    lines.extend(_localization_loss_section_lines(facts))
+
+    _page_break(lines)
+
+    lines.append("## 11. Поисковые запросы")
     search_status = str(search.get("status") or "")
     if search_status == "ok":
         base_rows = search.get("base_rows") if isinstance(search.get("base_rows"), list) else []
@@ -1722,7 +1821,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     _page_break(lines)
 
-    lines.append("## 11. План действий / рекомендации")
+    lines.append("## 12. План действий / рекомендации")
     action_rows: list[list[str]] = []
 
     def _append_action_row(priority: str, area: str, action_text: str, expected_effect: str) -> None:

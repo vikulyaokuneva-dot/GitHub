@@ -21,6 +21,7 @@ from audit.audit_loader import (
     parse_stocks_file_with_diagnostics,
     scan_input_files,
 )
+from audit.localization_loss import estimate_total_localization_loss
 from audit.logistics_model import SUPPLY_TYPE_BOX, compute_wb_logistics_estimate
 from shared.logistics_reference import (
     HIGH_COEFFICIENT_ALERT,
@@ -473,6 +474,140 @@ def _build_logistics_formula_model_payload(
         "localization_share_pct": localization_share_pct,
     }
     return estimate
+
+
+def _norm_geo_compare(value: Any) -> str:
+    text = _norm_text(value)
+    text = re.sub(r"[^a-zа-я0-9]+", " ", text, flags=re.IGNORECASE)
+    return " ".join(text.split())
+
+
+def _estimate_non_local_orders_share(
+    *,
+    funnel_rows: list[dict[str, Any]],
+    local_orders_insights: dict[str, Any],
+    localization_share_pct: float | None,
+) -> float | None:
+    by_region = local_orders_insights.get("by_region")
+    if isinstance(by_region, list):
+        local_orders = 0
+        non_local_orders = 0
+        for row in by_region:
+            if not isinstance(row, dict):
+                continue
+            local_orders += _to_int(row.get("local_orders") or row.get("orders_local"))
+            non_local_orders += _to_int(row.get("non_local_orders") or row.get("orders_non_local"))
+        total_orders = local_orders + non_local_orders
+        if total_orders > 0:
+            return round(float(non_local_orders) / float(total_orders), 4)
+
+    local_flag_aliases = ("is_local", "local_order", "isLocal", "local")
+    non_local_flag_aliases = ("is_non_local", "non_local", "isNonLocal", "nonLocal")
+    origin_aliases = (
+        "from_region",
+        "origin_region",
+        "source_region",
+        "shipment_region",
+        "warehouse_region",
+        "warehouse",
+    )
+    destination_aliases = (
+        "to_region",
+        "destination_region",
+        "delivery_region",
+        "region",
+        "city",
+    )
+    total_weight = 0
+    non_local_weight = 0
+    for row in funnel_rows or []:
+        if not isinstance(row, dict):
+            continue
+        orders = max(
+            _to_int(row.get("orderCount") or row.get("orders")),
+            _to_int(row.get("buyoutCount") or row.get("buyouts")),
+            1,
+        )
+        local_flag: bool | None = None
+        for key in local_flag_aliases:
+            if key in row:
+                raw = row.get(key)
+                if isinstance(raw, bool):
+                    local_flag = raw
+                elif _to_int(raw) in {0, 1}:
+                    local_flag = bool(_to_int(raw))
+                break
+        if local_flag is None:
+            for key in non_local_flag_aliases:
+                if key in row:
+                    raw = row.get(key)
+                    if isinstance(raw, bool):
+                        local_flag = not raw
+                    elif _to_int(raw) in {0, 1}:
+                        local_flag = not bool(_to_int(raw))
+                    break
+        if local_flag is None:
+            origin = ""
+            destination = ""
+            for key in origin_aliases:
+                value = _norm_geo_compare(row.get(key))
+                if value:
+                    origin = value
+                    break
+            for key in destination_aliases:
+                value = _norm_geo_compare(row.get(key))
+                if value:
+                    destination = value
+                    break
+            if origin and destination:
+                local_flag = origin == destination
+        if local_flag is None:
+            continue
+        total_weight += orders
+        if not local_flag:
+            non_local_weight += orders
+    if total_weight > 0:
+        return round(float(non_local_weight) / float(total_weight), 4)
+
+    share = _to_float_or_none(localization_share_pct)
+    if share is not None:
+        return round(max(0.0, min(1.0, 1.0 - (share / 100.0))), 4)
+    return None
+
+
+def _build_localization_loss_payload(
+    *,
+    sku_rows: list[dict[str, Any]],
+    financial_summary: dict[str, Any],
+    funnel_summary: dict[str, Any],
+    local_orders_insights: dict[str, Any],
+    funnel_rows: list[dict[str, Any]],
+    logistics_formula_model: dict[str, Any],
+) -> dict[str, Any]:
+    localization_share_pct = _to_float_or_none(logistics_formula_model.get("localization_share_pct"))
+    non_local_orders_share = _estimate_non_local_orders_share(
+        funnel_rows=funnel_rows,
+        local_orders_insights=local_orders_insights,
+        localization_share_pct=localization_share_pct,
+    )
+    if localization_share_pct is None and non_local_orders_share is not None:
+        localization_share_pct = round(max(0.0, 1.0 - non_local_orders_share) * 100.0, 2)
+
+    revenue_total = _to_float_or_none(financial_summary.get("gross_revenue"))
+    if revenue_total is None or revenue_total <= 0:
+        revenue_total = _to_float_or_none(funnel_summary.get("revenue_orders"))
+
+    payload = estimate_total_localization_loss(
+        sku_rows=sku_rows,
+        localization_share_pct=localization_share_pct,
+        non_local_orders_share=non_local_orders_share,
+        default_volume_liters=_to_float_or_none(logistics_formula_model.get("volume_liters")),
+        default_item_price=_to_float_or_none(logistics_formula_model.get("item_price")),
+        warehouse_coef=_to_float_or_none(logistics_formula_model.get("warehouse_coef")) or 1.0,
+        revenue_total=revenue_total,
+    )
+    payload["localization_share_pct"] = localization_share_pct
+    return payload
 
 
 def _geo_label(row: dict[str, Any]) -> str:
@@ -1343,6 +1478,7 @@ def _build_actions(
     decision_layer: dict[str, Any],
     stock_summary: dict[str, Any],
     logistics_formula_model: dict[str, Any] | None = None,
+    localization_loss: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     profit_state = decision_layer.get("profit_state")
@@ -1448,6 +1584,24 @@ def _build_actions(
                 "numbers": {
                     "risk_level": logistic_risk_level,
                     "localization_share_pct": (logistics_formula_model or {}).get("localization_share_pct"),
+                },
+            }
+        )
+
+    for rec in (localization_loss or {}).get("recommendations") or []:
+        if not isinstance(rec, dict):
+            continue
+        actions.append(
+            {
+                "priority": str(rec.get("priority") or "P1"),
+                "area": str(rec.get("area") or "logistics"),
+                "action": str(rec.get("action") or ""),
+                "why": str(rec.get("why") or ""),
+                "expected_effect": str(rec.get("expected_effect") or ""),
+                "numbers": {
+                    "estimation_mode": (localization_loss or {}).get("estimation_mode"),
+                    "total_estimated_loss_rub": (localization_loss or {}).get("total_estimated_loss_rub"),
+                    "non_local_orders_share": (localization_loss or {}).get("non_local_orders_share"),
                 },
             }
         )
@@ -1669,7 +1823,6 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
                 "error": f"logistics_formula_model_failed: {exc}",
             },
         }
-
     finance_status = "ok" if _to_int(financial_summary.get("rows_count")) > 0 else "missing"
     try:
         sku_performance = analyze_sku_performance(
@@ -1699,6 +1852,28 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         key=lambda x: x["profit"],
         reverse=True,
     )
+    try:
+        localization_loss = _build_localization_loss_payload(
+            sku_rows=sku_profit,
+            financial_summary=financial_summary,
+            funnel_summary=funnel_summary,
+            local_orders_insights=local_orders_insights,
+            funnel_rows=funnel_rows,
+            logistics_formula_model=logistics_formula_model if isinstance(logistics_formula_model, dict) else {},
+        )
+    except Exception as exc:
+        localization_loss = {
+            "status": "insufficient_data",
+            "estimation_mode": "insufficient_data",
+            "total_estimated_loss_rub": None,
+            "loss_share_of_revenue": None,
+            "non_local_orders_share": None,
+            "affected_sku_count": 0,
+            "top_loss_sku": [],
+            "missing_inputs": [],
+            "recommendations": [],
+            "error": f"localization_loss_failed: {exc}",
+        }
 
     profit_without_cogs = len(cogs_rows) == 0
     financial_summary["profit_without_cogs"] = bool(profit_without_cogs)
@@ -1724,6 +1899,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         decision_layer,
         stock_summary,
         logistics_formula_model=logistics_formula_model if isinstance(logistics_formula_model, dict) else None,
+        localization_loss=localization_loss if isinstance(localization_loss, dict) else None,
     )
 
     parse_diagnostics = {
@@ -1787,6 +1963,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             "error": str(logistics_payload.get("error") or ""),
         },
         "logistics_formula_model": logistics_formula_model,
+        "localization_loss": localization_loss,
         "cogs_input": {
             "rows_count": len(cogs_rows),
             "rows": cogs_rows[:200],
