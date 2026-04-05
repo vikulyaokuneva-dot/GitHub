@@ -65,7 +65,7 @@ def test_top5_unit_economics_payload_filters_and_computes_risk() -> None:
             "buyouts": 38,
             "profit": 15752,
             "revenue": 20814,
-            "ad_spend": 1800,
+            "ad_spend": 6000,
         },
         {
             "sku": 222,
@@ -138,6 +138,11 @@ def test_top5_unit_economics_payload_filters_and_computes_risk() -> None:
     assert first.get("logistics_new") is not None
     assert first.get("logistics_base") is not None
     assert first.get("overpay_per_order") is not None
+    assert first.get("ads_spend") is not None
+    assert first.get("ads_per_order") is not None
+    assert first.get("drr_sku_pct") is not None
+    assert first.get("ads_load") in {"низкая", "умеренная", "высокая", "критичная"}
+    assert "реклам" in str(first.get("comment", "")).lower() or "реклам" in str(first.get("recommendation", "")).lower()
 
 
 def test_report_renders_top5_unit_economics_block() -> None:
@@ -160,6 +165,8 @@ def test_report_renders_top5_unit_economics_block() -> None:
                 "overpay_per_order": 32,
                 "total_overpay": 1216,
                 "ads_per_order": 15,
+                "drr_sku_pct": 18.9,
+                "ads_load": "умеренная",
                 "risk_level": "high",
                 "comment": "Высокая логистика из-за слабой локализации.",
                 "recommendation": "Перераспределить товар по складам для снижения ИЛ.",
@@ -171,5 +178,9 @@ def test_report_renders_top5_unit_economics_block() -> None:
 
     assert "## ТОП-5 SKU: где зарабатываете и где теряете" in md
     assert "### SKU: 405933491 (A)" in md
+    assert "Реклама:" in md
+    assert "- 15.00 RUB на заказ" in md
+    assert "- ДРР SKU: 18.90%" in md
+    assert "- Нагрузка рекламы: умеренная" in md
     assert "Риск: ВЫСОКИЙ" in md
     assert "Рекомендация: Перераспределить товар по складам для снижения ИЛ." in md

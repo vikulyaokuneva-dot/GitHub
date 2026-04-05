@@ -753,6 +753,19 @@ def _top5_risk_level(
     return "low"
 
 
+def _ads_load_by_drr(drr_sku_pct: float | None) -> str | None:
+    if drr_sku_pct is None:
+        return None
+    value = float(drr_sku_pct)
+    if value < 10.0:
+        return "низкая"
+    if value < 20.0:
+        return "умеренная"
+    if value < 30.0:
+        return "высокая"
+    return "критичная"
+
+
 def _top5_comment_and_recommendation(
     *,
     risk_level: str,
@@ -761,8 +774,13 @@ def _top5_comment_and_recommendation(
     price_avg: float | None,
     localization_share_pct: float | None,
     ads_per_order: float | None,
+    drr_sku_pct: float | None,
+    ads_load: str | None,
     profit_per_order: float | None,
 ) -> tuple[str, str]:
+    drr_is_high = bool(drr_sku_pct is not None and float(drr_sku_pct) >= 20.0)
+    drr_is_critical = bool(drr_sku_pct is not None and float(drr_sku_pct) >= 30.0)
+
     if risk_level == "high":
         if overpay_per_order is not None:
             comment = (
@@ -772,6 +790,9 @@ def _top5_comment_and_recommendation(
         else:
             comment = "Логистика превышает 20% цены товара и давит на маржу."
         recommendation = "Перераспределить товар по складам для снижения ИЛ/ИРП."
+        if drr_is_high:
+            comment += " Реклама также оказывает заметное давление на маржу."
+            recommendation = "Перераспределить товар по складам и проверить эффективность рекламы, сократить невыгодные запросы."
         return comment, recommendation
 
     if risk_level == "medium":
@@ -780,7 +801,22 @@ def _top5_comment_and_recommendation(
         else:
             comment = "Логистика на границе риска, нужен контроль локализации и стоимости доставки."
         recommendation = "Проверить распределение остатков и снизить долю нелокальных заказов."
+        if drr_is_high:
+            comment += " Дополнительно реклама заметно давит на маржу."
+            recommendation = "Проверить эффективность рекламы и сократить невыгодные запросы."
         return comment, recommendation
+
+    if drr_is_critical:
+        return (
+            "Товар прибыльный, но ДРР уже критичный — реклама существенно давит на маржу.",
+            "Срочно проверить эффективность рекламы и сократить невыгодные запросы.",
+        )
+
+    if drr_is_high:
+        return (
+            "Товар прибыльный, но ДРР уже высокий — масштабировать рекламу нужно осторожно.",
+            "Проверить эффективность рекламы и сократить невыгодные запросы.",
+        )
 
     if (
         ads_per_order is not None
@@ -798,6 +834,11 @@ def _top5_comment_and_recommendation(
         return comment, recommendation
 
     if profit_per_order is not None and profit_per_order > 0:
+        if ads_load in {"низкая", "умеренная"}:
+            return (
+                f"Товар прибыльный, ДРР в норме ({ads_load}), рекламу можно усиливать по конверсионным запросам.",
+                "Увеличить оборот и усилить рекламу по эффективным запросам.",
+            )
         return "Товар прибыльный, логистика в норме.", "Увеличить оборот и усилить рекламу по эффективным запросам."
     return "Недостаточно данных для полной оценки логистических потерь.", "Собрать недостающие данные по объему, цене и локализации."
 
@@ -909,6 +950,10 @@ def _build_top5_sku_unit_economics_payload(
         ads_per_order = None
         if ads_spend is not None:
             ads_per_order = float(ads_spend) / float(orders)
+        drr_sku_pct = None
+        if ads_spend is not None and revenue_total > 0:
+            drr_sku_pct = (float(ads_spend) / float(revenue_total)) * 100.0
+        ads_load = _ads_load_by_drr(drr_sku_pct)
 
         dim_entry = _sku_dimension_entry(sku_dimensions, sku)
         volume_liters = _to_float_or_none(dim_entry.get("volume_liters"))
@@ -946,6 +991,8 @@ def _build_top5_sku_unit_economics_payload(
             price_avg=price_avg,
             localization_share_pct=localization_share,
             ads_per_order=ads_per_order,
+            drr_sku_pct=drr_sku_pct,
+            ads_load=ads_load,
             profit_per_order=profit_per_order,
         )
 
@@ -964,7 +1011,10 @@ def _build_top5_sku_unit_economics_payload(
                 "logistics_base": round(float(logistics_base), 2) if logistics_base is not None else None,
                 "overpay_per_order": round(float(overpay_per_order), 2) if overpay_per_order is not None else None,
                 "total_overpay": round(float(total_overpay), 2) if total_overpay is not None else None,
+                "ads_spend": round(float(ads_spend), 2) if ads_spend is not None else None,
                 "ads_per_order": round(float(ads_per_order), 2) if ads_per_order is not None else None,
+                "drr_sku_pct": round(float(drr_sku_pct), 2) if drr_sku_pct is not None else None,
+                "ads_load": ads_load,
                 "risk_level": risk_level,
                 "comment": comment,
                 "recommendation": recommendation,

@@ -969,8 +969,13 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
             lines.append("Потери: н/д")
 
         ads_per_order = _to_float(item.get("ads_per_order"))
-        if ads_per_order is not None:
-            lines.append(f"Реклама: {_money(ads_per_order)} на заказ")
+        drr_sku_pct = _to_float(item.get("drr_sku_pct"))
+        ads_load = _text(item.get("ads_load") or "")
+        lines.append("Реклама:")
+        lines.append(f"- {_money(ads_per_order)} на заказ" if ads_per_order is not None else "- н/д на заказ")
+        lines.append(f"- ДРР SKU: {float(drr_sku_pct):.2f}%" if drr_sku_pct is not None else "- ДРР SKU: н/д")
+        if ads_load:
+            lines.append(f"- Нагрузка рекламы: {ads_load}")
         risk_label = _risk_label_ru(item.get("risk_level"))
         lines.append(f"Риск: {risk_label}")
         lines.append(f"Вывод: {_text(item.get('comment'))}")
