@@ -594,169 +594,136 @@ def _coef_pct(value: Any) -> str:
 
 
 def _region_logistics_section_lines(facts: dict[str, Any]) -> list[str]:
-    lines: list[str] = ["## 8. \u041b\u043e\u0433\u0438\u0441\u0442\u0438\u043a\u0430 \u043f\u043e \u0440\u0435\u0433\u0438\u043e\u043d\u0430\u043c \u0438 \u0440\u0430\u0437\u043c\u0435\u0449\u0435\u043d\u0438\u0435"]
+    lines: list[str] = ["## 8. Логистика: где переплачиваете"]
 
-    region_summary = facts.get("region_logistics_summary")
-    top_expensive = facts.get("top_expensive_logistics_regions")
-    potential_risk = facts.get("logistics_potential_risk_regions")
-    regions_over_150 = facts.get("logistics_regions_over_150")
-    low_coverage_regions = facts.get("logistics_regions_low_coverage")
+    impact = facts.get("regional_logistics_impact") if isinstance(facts.get("regional_logistics_impact"), dict) else {}
+    region_summary = facts.get("region_logistics_summary") if isinstance(facts.get("region_logistics_summary"), dict) else {}
+    high_risk_regions = impact.get("high_risk_regions") if isinstance(impact.get("high_risk_regions"), list) else []
+    top_sku_rows = impact.get("top_sku_by_regional_risk") if isinstance(impact.get("top_sku_by_regional_risk"), list) else []
+    recommendations = impact.get("recommendations") if isinstance(impact.get("recommendations"), list) else []
+    missing_inputs = impact.get("missing_inputs") if isinstance(impact.get("missing_inputs"), list) else []
 
-    if not isinstance(region_summary, dict) or not region_summary:
-        lines.append("- \u0421\u043f\u0440\u0430\u0432\u043e\u0447\u043d\u0438\u043a \u043b\u043e\u0433\u0438\u0441\u0442\u0438\u043a\u0438 \u043d\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d, \u0440\u0430\u0437\u0434\u0435\u043b \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u043e\u043d\u043d\u044b\u0439.")
+    mode = _text(impact.get("mode") or "insufficient_data")
+    total_overpay = _to_float(impact.get("total_estimated_overpay_rub"))
+    weighted_coef = _to_float(impact.get("weighted_region_coef_pct"))
+    routes_available = bool(impact.get("routes_available"))
+    non_local_share = _to_float((facts.get("localization_loss") or {}).get("non_local_orders_share"))
+
+    if not impact and not region_summary:
+        lines.append("- Данные по региональной логистике не загружены; денежная оценка недоступна.")
         lines.append("")
         return lines
 
-    top_expensive = top_expensive if isinstance(top_expensive, list) else []
-    potential_risk = potential_risk if isinstance(potential_risk, list) else []
-    regions_over_150 = regions_over_150 if isinstance(regions_over_150, list) else []
-    low_coverage_regions = low_coverage_regions if isinstance(low_coverage_regions, list) else []
+    lines.append("### Краткий вывод")
+    if mode == "full_rub" and total_overpay is not None:
+        lines.append(f"- Оценочная переплата на логистике за период: **{_money(total_overpay)}**.")
+        if weighted_coef is not None:
+            lines.append(f"- Средневзвешенный региональный коэффициент: **{_fmt_pct(weighted_coef, 1)}**.")
+        if high_risk_regions:
+            lines.append(f"- Наибольший риск дают направления: **{', '.join(_text(x) for x in high_risk_regions[:3])}**.")
+    elif mode == "risk_only":
+        lines.append("- Точная рублевая оценка ограничена, но карта коэффициентов уже учтена в модели регионального риска.")
+        if not routes_available:
+            lines.append("- Маршруты заказов не загружены: выводы по направлениям носят эвристический характер.")
+        if high_risk_regions:
+            lines.append(f"- Регионы с повышенным риском удорожания: **{', '.join(_text(x) for x in high_risk_regions[:5])}**.")
+    else:
+        lines.append("- Данных недостаточно для денежной оценки влияния региональных направлений на логистику.")
 
-    total_regions = len(region_summary)
-    known_regions = 0
-    expensive_regions_count = 0
-    unknown_regions_count = 0
-    for row in region_summary.values():
-        if not isinstance(row, dict):
-            continue
-        if _to_int(row.get("known_count")) > 0:
-            known_regions += 1
-        cls = _text(row.get("class")).lower()
-        if cls == "expensive":
-            expensive_regions_count += 1
-        elif cls == "unknown":
-            unknown_regions_count += 1
-
-    lines.append("### \u041a\u0440\u0430\u0442\u043a\u0438\u0439 \u0432\u044b\u0432\u043e\u0434")
-    lines.append(
-        f"- \u0412 \u0441\u043f\u0440\u0430\u0432\u043e\u0447\u043d\u0438\u043a\u0435: {total_regions} \u0440\u0435\u0433\u0438\u043e\u043d\u043e\u0432; \u0441 \u0438\u0437\u0432\u0435\u0441\u0442\u043d\u044b\u043c\u0438 \u043a\u043e\u044d\u0444\u0444\u0438\u0446\u0438\u0435\u043d\u0442\u0430\u043c\u0438: {known_regions}; \u0441 \u043d\u0435\u043f\u043e\u043b\u043d\u044b\u043c\u0438/\u043f\u0443\u0441\u0442\u044b\u043c\u0438 \u0434\u0430\u043d\u043d\u044b\u043c\u0438: {unknown_regions_count}."
-    )
-    lines.append(
-        f"- \u0414\u043e\u0440\u043e\u0433\u0438\u0445 \u0440\u0435\u0433\u0438\u043e\u043d\u043e\u0432 \u043f\u043e \u0441\u0440\u0435\u0434\u043d\u0435\u043c\u0443 \u043a\u043e\u044d\u0444\u0444\u0438\u0446\u0438\u0435\u043d\u0442\u0443: {expensive_regions_count}; \u0440\u0435\u0433\u0438\u043e\u043d\u043e\u0432 \u0441\u043e \u0441\u0440\u0435\u0434\u043d\u0438\u043c >150%: {len(regions_over_150)}."
-    )
-
-    if top_expensive:
-        top_tokens: list[str] = []
-        for item in top_expensive[:3]:
-            if not isinstance(item, dict):
-                continue
-            name = _text(item.get("region"))
-            avg = _coef_pct(item.get("avg_coefficient"))
-            if name:
-                top_tokens.append(f"{name} ({avg})")
-        if top_tokens:
-            lines.append("- TOP \u0434\u043e\u0440\u043e\u0433\u0438\u0445 \u0440\u0435\u0433\u0438\u043e\u043d\u043e\u0432: " + ", ".join(top_tokens) + ".")
-
-    if potential_risk:
-        risky_labels = []
-        for item in potential_risk[:3]:
-            if not isinstance(item, dict):
-                continue
-            geo = _text(item.get("geo_region"))
-            if geo:
-                risky_labels.append(geo)
-        if risky_labels:
-            lines.append(
-                "- \u0412 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u0438 \u0437\u0430\u043a\u0430\u0437\u043e\u0432 \u0432\u044b\u044f\u0432\u043b\u0435\u043d\u044b \u0437\u043e\u043d\u044b \u0440\u0438\u0441\u043a\u0430: " + ", ".join(risky_labels) + "."
-            )
-    elif low_coverage_regions:
-        lines.append(
-            "- \u0414\u043b\u044f \u0447\u0430\u0441\u0442\u0438 \u0440\u0435\u0433\u0438\u043e\u043d\u043e\u0432 \u043a\u043e\u044d\u0444\u0444\u0438\u0446\u0438\u0435\u043d\u0442\u044b \u043d\u0435\u043f\u043e\u043b\u043d\u044b\u0435, \u043f\u043e\u044d\u0442\u043e\u043c\u0443 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438 \u0434\u0430\u044e\u0442\u0441\u044f \u0432 \u043c\u044f\u0433\u043a\u043e\u043c \u0444\u043e\u0440\u043c\u0430\u0442\u0435."
-        )
+    if non_local_share is not None:
+        lines.append(f"- Доля нелокальных заказов: **{_fmt_pct(non_local_share * 100.0, 1)}**.")
+    ads_spend = _to_float((facts.get("ads_summary") or {}).get("spend"))
+    if total_overpay is not None and ads_spend is not None and ads_spend > 0:
+        if total_overpay > ads_spend:
+            lines.append("- В текущем срезе **география и размещение** влияют на потери сильнее рекламных расходов.")
+        else:
+            lines.append("- В текущем срезе **реклама и география** сопоставимо давят на маржу; контролировать нужно оба фактора.")
+    elif non_local_share is not None and non_local_share > 0.4:
+        lines.append("- Ключевой драйвер риска: **нелокальные заказы + дорогие направления**.")
     lines.append("")
 
-    lines.append("### \u0420\u0435\u0433\u0438\u043e\u043d\u044b \u0441 \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043e\u043c \u0430\u043d\u0430\u043b\u0438\u0437\u0430")
-    risk_by_region: dict[str, dict[str, Any]] = {}
-    for item in potential_risk:
-        if not isinstance(item, dict):
-            continue
-        region = _text(item.get("logistics_region") or "")
-        if not region:
-            continue
-        risk_by_region[region] = item
-
-    ordered_regions: list[str] = []
-    for region in risk_by_region:
-        if region not in ordered_regions:
-            ordered_regions.append(region)
-    for item in top_expensive:
-        if not isinstance(item, dict):
-            continue
-        region = _text(item.get("region"))
-        if region and region not in ordered_regions:
-            ordered_regions.append(region)
-    for region in region_summary:
-        if region not in ordered_regions:
-            ordered_regions.append(region)
-
-    table_rows: list[list[Any]] = []
-    for region in ordered_regions[:7]:
-        summary = region_summary.get(region) if isinstance(region_summary.get(region), dict) else {}
-        cls = _text(summary.get("class") or "unknown").lower()
-        signal = risk_by_region.get(region) or {}
-        non_local_orders = _to_int(signal.get("non_local_orders"))
-        comment = ""
-        if cls == "expensive" and non_local_orders > 0:
-            comment = "\u0415\u0441\u0442\u044c \u043d\u0435 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0435 \u0437\u0430\u043a\u0430\u0437\u044b \u043f\u0440\u0438 \u0434\u043e\u0440\u043e\u0433\u043e\u0439 \u043b\u043e\u0433\u0438\u0441\u0442\u0438\u043a\u0435."
-        elif cls == "unknown":
-            comment = "\u041a\u043e\u044d\u0444\u0444\u0438\u0446\u0438\u0435\u043d\u0442\u044b \u0438\u0437\u0432\u0435\u0441\u0442\u043d\u044b \u0447\u0430\u0441\u0442\u0438\u0447\u043d\u043e."
-        elif cls == "expensive":
-            comment = "\u041b\u043e\u0433\u0438\u0441\u0442\u0438\u043a\u0430 \u0432\u044b\u0448\u0435 \u0431\u0430\u0437\u043e\u0432\u043e\u0439, \u043d\u0443\u0436\u043d\u043e \u0442\u0435\u0441\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043f\u043e\u0441\u0442\u0430\u0432\u043a\u0438."
+    lines.append("### SKU в зоне регионального риска")
+    if top_sku_rows:
+        has_rub = any(_to_float((row or {}).get("overpay_rub")) is not None for row in top_sku_rows if isinstance(row, dict))
+        table_rows: list[list[Any]] = []
+        for row in top_sku_rows[:5]:
+            if not isinstance(row, dict):
+                continue
+            sku_cell = f"{_to_int(row.get('sku'))} ({_text(row.get('abc') or 'N/A')})"
+            if has_rub:
+                table_rows.append(
+                    [
+                        sku_cell,
+                        _to_int(row.get("orders")),
+                        _money(row.get("logistics_per_order")),
+                        _text(row.get("region_risk") or "н/д"),
+                        _money(row.get("overpay_rub")),
+                        _text(row.get("conclusion")),
+                    ]
+                )
+            else:
+                table_rows.append(
+                    [
+                        sku_cell,
+                        _to_int(row.get("orders")),
+                        _text(row.get("region_risk") or "н/д"),
+                        _text(row.get("sensitivity") or "н/д"),
+                        _text(row.get("conclusion")),
+                    ]
+                )
+        if has_rub:
+            _append_markdown_table(
+                lines,
+                ["SKU", "Заказы", "Логистика/заказ", "Риск региона", "Переплата", "Вывод"],
+                table_rows,
+                align_right={1, 2, 4},
+            )
         else:
-            comment = "\u041b\u043e\u0433\u0438\u0441\u0442\u0438\u043a\u0430 \u0431\u043b\u0438\u0436\u0435 \u043a \u0431\u0430\u0437\u043e\u0432\u043e\u0439, \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0439 \u043c\u043e\u0436\u043d\u043e \u0441\u043c\u044f\u0433\u0447\u0430\u0442\u044c."
-
-        table_rows.append(
-            [
-                region,
-                _coef_pct(summary.get("min_coefficient")),
-                _coef_pct(summary.get("max_coefficient")),
-                _coef_pct(summary.get("avg_coefficient")),
-                _logistics_class_label(cls),
-                comment,
-            ]
-        )
-
-    if table_rows:
-        _append_markdown_table(
-            lines,
-            [
-                "\u0420\u0435\u0433\u0438\u043e\u043d",
-                "\u041c\u0438\u043d %",
-                "\u041c\u0430\u043a\u0441 %",
-                "\u0421\u0440\u0435\u0434\u043d\u0438\u0439 %",
-                "\u041a\u043b\u0430\u0441\u0441",
-                "\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439",
-            ],
-            table_rows,
-            align_right={1, 2, 3},
-        )
+            _append_markdown_table(
+                lines,
+                ["SKU", "Заказы", "Риск региона", "Чувствительность", "Вывод"],
+                table_rows,
+                align_right={1},
+            )
     else:
-        lines.append("- \u0414\u0430\u043d\u043d\u044b\u0445 \u0434\u043b\u044f \u0442\u0430\u0431\u043b\u0438\u0446\u044b \u043f\u043e \u0440\u0435\u0433\u0438\u043e\u043d\u0430\u043c \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.")
+        lines.append("- SKU-level оценка пока ограничена: не хватает данных по объему/маршрутам/заказам.")
         lines.append("")
 
-    lines.append("### \u041c\u044f\u0433\u043a\u0438\u0435 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438")
-    if potential_risk:
-        for item in potential_risk[:3]:
-            if not isinstance(item, dict):
-                continue
-            geo_region = _text(item.get("geo_region") or "\u0440\u0435\u0433\u0438\u043e\u043d")
+    lines.append("### Что делать practically")
+    def _sentence(text: str) -> str:
+        value = _text(text)
+        if not value:
+            return ""
+        return value if value.endswith((".", "!", "?")) else f"{value}."
+
+    rec_lines = 0
+    for rec in recommendations[:4]:
+        if not isinstance(rec, dict):
+            continue
+        action = _text(rec.get("action"))
+        why = _sentence(_text(rec.get("why")))
+        effect = _sentence(_text(rec.get("expected_effect")))
+        if not action:
+            continue
+        lines.append(f"- **{_sentence(action)}** Причина: {why} Эффект: {effect}")
+        rec_lines += 1
+
+    if rec_lines == 0:
+        if high_risk_regions:
             lines.append(
-                f"- \u0414\u043b\u044f \u0440\u0435\u0433\u0438\u043e\u043d\u0430 {geo_region} \u0435\u0441\u0442\u044c \u0441\u043f\u0440\u043e\u0441 \u0438 \u043d\u0435 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0435 \u0437\u0430\u043a\u0430\u0437\u044b; \u0441\u0442\u043e\u0438\u0442 \u0442\u0435\u0441\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0440\u0430\u0437\u043c\u0435\u0449\u0435\u043d\u0438\u0435 \u0431\u043b\u0438\u0436\u0435 \u043a \u0441\u043f\u0440\u043e\u0441\u0443 \u043c\u0430\u043b\u044b\u043c\u0438 \u043f\u0430\u0440\u0442\u0438\u044f\u043c\u0438."
+                "- **Сначала перераспределять A-SKU и сильные B-SKU** в направления с высоким спросом и меньшим коэффициентом."
             )
-    if regions_over_150:
-        preview = ", ".join(_text(x) for x in regions_over_150[:5] if _text(x))
-        if preview:
+        if not routes_available:
             lines.append(
-                f"- \u041f\u043e \u0440\u0435\u0433\u0438\u043e\u043d\u0430\u043c \u0441\u043e \u0441\u0440\u0435\u0434\u043d\u0438\u043c \u043a\u043e\u044d\u0444\u0444\u0438\u0446\u0438\u0435\u043d\u0442\u043e\u043c >150% ({preview}) \u043b\u0443\u0447\u0448\u0435 \u0441\u043d\u0430\u0447\u0430\u043b\u0430 \u043f\u0440\u043e\u0432\u043e\u0434\u0438\u0442\u044c \u0442\u0435\u0441\u0442 \u043f\u043e\u0441\u0442\u0430\u0432\u043e\u043a \u043d\u0430 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u043d\u043e\u043c \u043e\u0431\u044a\u0435\u043c\u0435."
+                "- **Загрузить географию заказов**: это переведет блок из risk-map в точную рублевую оценку по направлениям."
             )
-    if low_coverage_regions:
-        preview = ", ".join(_text(x) for x in low_coverage_regions[:5] if _text(x))
-        if preview:
-            lines.append(
-                f"- \u041f\u043e \u0440\u0435\u0433\u0438\u043e\u043d\u0430\u043c \u0441 \u043d\u0435\u043f\u043e\u043b\u043d\u044b\u043c\u0438 \u0434\u0430\u043d\u043d\u044b\u043c\u0438 ({preview}) \u043d\u0443\u0436\u043d\u043e \u0443\u0442\u043e\u0447\u043d\u044f\u0442\u044c \u0444\u0430\u043a\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0443\u0441\u043b\u043e\u0432\u0438\u044f \u0441\u043a\u043b\u0430\u0434\u043e\u0432 \u0434\u043e \u0436\u0435\u0441\u0442\u043a\u0438\u0445 \u0440\u0435\u0448\u0435\u043d\u0438\u0439 \u043f\u043e \u0440\u0430\u0441\u043f\u0440\u0435\u0434\u0435\u043b\u0435\u043d\u0438\u044e."
-            )
-    if not potential_risk and not regions_over_150 and not low_coverage_regions:
-        lines.append("- \u042f\u0432\u043d\u044b\u0445 \u0437\u043e\u043d \u043b\u043e\u0433\u0438\u0441\u0442\u0438\u0447\u0435\u0441\u043a\u043e\u0433\u043e \u0440\u0438\u0441\u043a\u0430 \u043f\u043e \u0442\u0435\u043a\u0443\u0449\u0435\u0439 \u044d\u0432\u0440\u0438\u0441\u0442\u0438\u043a\u0435 \u043d\u0435 \u0432\u044b\u044f\u0432\u043b\u0435\u043d\u043e.")
+        if not high_risk_regions and mode == "insufficient_data":
+            lines.append("- Дополнительные прикладные рекомендации появятся после загрузки данных по маршрутам заказов.")
+
+    if missing_inputs and mode != "full_rub":
+        missing_preview = ", ".join(_text(x) for x in missing_inputs[:5] if _text(x))
+        if missing_preview:
+            lines.append(f"- Ограничения расчета: {missing_preview}.")
     lines.append("")
     return lines
 
@@ -1743,7 +1710,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append("- 6. Ассортимент / SKU")
     lines.append("- ТОП-5 SKU: где зарабатываете и где теряете")
     lines.append("- 7. Локальные заказы и размещение товара")
-    lines.append("- 8. Логистика по регионам и размещение")
+    lines.append("- 8. Логистика: где переплачиваете")
     lines.append("- 9. Переплата за логистику")
     lines.append("- 10. Потери из-за плохой локализации")
     lines.append("- 11. Поисковые запросы")

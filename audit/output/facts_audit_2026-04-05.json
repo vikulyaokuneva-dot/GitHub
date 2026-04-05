@@ -5621,10 +5621,190 @@
         "coefficient": 160.0
       }
     ],
+    "region_coefficients": {
+      "Армения": {
+        "known_count": 2,
+        "unknown_count": 0,
+        "min_pct": 155.0,
+        "max_pct": 155.0,
+        "avg_pct": 155.0,
+        "class": "expensive"
+      },
+      "Беларусь": {
+        "known_count": 0,
+        "unknown_count": 3,
+        "min_pct": null,
+        "max_pct": null,
+        "avg_pct": null,
+        "class": "unknown"
+      },
+      "Грузия": {
+        "known_count": 1,
+        "unknown_count": 0,
+        "min_pct": 130.0,
+        "max_pct": 130.0,
+        "avg_pct": 130.0,
+        "class": "normal"
+      },
+      "Дальневосточный + Сибирский": {
+        "known_count": 2,
+        "unknown_count": 6,
+        "min_pct": 220.0,
+        "max_pct": 445.0,
+        "avg_pct": 332.5,
+        "class": "expensive"
+      },
+      "Казахстан": {
+        "known_count": 3,
+        "unknown_count": 1,
+        "min_pct": 135.0,
+        "max_pct": 145.0,
+        "avg_pct": 141.7,
+        "class": "expensive"
+      },
+      "Приволжский": {
+        "known_count": 9,
+        "unknown_count": 4,
+        "min_pct": 100.0,
+        "max_pct": 220.0,
+        "avg_pct": 166.7,
+        "class": "expensive"
+      },
+      "Северо-Западный": {
+        "known_count": 4,
+        "unknown_count": 3,
+        "min_pct": 105.0,
+        "max_pct": 270.0,
+        "avg_pct": 203.8,
+        "class": "expensive"
+      },
+      "Узбекистан": {
+        "known_count": 2,
+        "unknown_count": 0,
+        "min_pct": 100.0,
+        "max_pct": 100.0,
+        "avg_pct": 100.0,
+        "class": "normal"
+      },
+      "Уральский": {
+        "known_count": 4,
+        "unknown_count": 2,
+        "min_pct": 100.0,
+        "max_pct": 225.0,
+        "avg_pct": 192.5,
+        "class": "expensive"
+      },
+      "Центральный": {
+        "known_count": 25,
+        "unknown_count": 22,
+        "min_pct": 75.0,
+        "max_pct": 280.0,
+        "avg_pct": 152.4,
+        "class": "expensive"
+      },
+      "Южный + Северо-Кавказский": {
+        "known_count": 5,
+        "unknown_count": 2,
+        "min_pct": 110.0,
+        "max_pct": 160.0,
+        "avg_pct": 134.0,
+        "class": "expensive"
+      }
+    },
     "regions_count": 11,
     "warehouses_count": 100,
     "source": "static_json",
     "source_path": "shared/data/warehouse_logistics_coefficients.json"
+  },
+  "wb_region_coefficients": {
+    "Армения": {
+      "known_count": 2,
+      "unknown_count": 0,
+      "min_pct": 155.0,
+      "max_pct": 155.0,
+      "avg_pct": 155.0,
+      "class": "expensive"
+    },
+    "Беларусь": {
+      "known_count": 0,
+      "unknown_count": 3,
+      "min_pct": null,
+      "max_pct": null,
+      "avg_pct": null,
+      "class": "unknown"
+    },
+    "Грузия": {
+      "known_count": 1,
+      "unknown_count": 0,
+      "min_pct": 130.0,
+      "max_pct": 130.0,
+      "avg_pct": 130.0,
+      "class": "normal"
+    },
+    "Дальневосточный + Сибирский": {
+      "known_count": 2,
+      "unknown_count": 6,
+      "min_pct": 220.0,
+      "max_pct": 445.0,
+      "avg_pct": 332.5,
+      "class": "expensive"
+    },
+    "Казахстан": {
+      "known_count": 3,
+      "unknown_count": 1,
+      "min_pct": 135.0,
+      "max_pct": 145.0,
+      "avg_pct": 141.7,
+      "class": "expensive"
+    },
+    "Приволжский": {
+      "known_count": 9,
+      "unknown_count": 4,
+      "min_pct": 100.0,
+      "max_pct": 220.0,
+      "avg_pct": 166.7,
+      "class": "expensive"
+    },
+    "Северо-Западный": {
+      "known_count": 4,
+      "unknown_count": 3,
+      "min_pct": 105.0,
+      "max_pct": 270.0,
+      "avg_pct": 203.8,
+      "class": "expensive"
+    },
+    "Узбекистан": {
+      "known_count": 2,
+      "unknown_count": 0,
+      "min_pct": 100.0,
+      "max_pct": 100.0,
+      "avg_pct": 100.0,
+      "class": "normal"
+    },
+    "Уральский": {
+      "known_count": 4,
+      "unknown_count": 2,
+      "min_pct": 100.0,
+      "max_pct": 225.0,
+      "avg_pct": 192.5,
+      "class": "expensive"
+    },
+    "Центральный": {
+      "known_count": 25,
+      "unknown_count": 22,
+      "min_pct": 75.0,
+      "max_pct": 280.0,
+      "avg_pct": 152.4,
+      "class": "expensive"
+    },
+    "Южный + Северо-Кавказский": {
+      "known_count": 5,
+      "unknown_count": 2,
+      "min_pct": 110.0,
+      "max_pct": 160.0,
+      "avg_pct": 134.0,
+      "class": "expensive"
+    }
   },
   "region_logistics_summary": {
     "Армения": {
@@ -6057,6 +6237,95 @@
     ],
     "recommendations": [],
     "localization_share_pct": null
+  },
+  "regional_logistics_impact": {
+    "status": "partial",
+    "mode": "risk_only",
+    "high_risk_regions": [
+      "Армения",
+      "Дальневосточный + Сибирский",
+      "Приволжский",
+      "Северо-Западный",
+      "Уральский",
+      "Центральный"
+    ],
+    "top_sku_by_regional_risk": [
+      {
+        "sku": 405933491,
+        "abc": "A",
+        "orders": 59,
+        "logistics_per_order": null,
+        "region_risk": "высокий",
+        "sensitivity": "умеренная",
+        "overpay_rub": null,
+        "conclusion": "Существенных признаков критичной региональной переплаты не выявлено."
+      },
+      {
+        "sku": 407012817,
+        "abc": "A",
+        "orders": 27,
+        "logistics_per_order": null,
+        "region_risk": "высокий",
+        "sensitivity": "умеренная",
+        "overpay_rub": null,
+        "conclusion": "Существенных признаков критичной региональной переплаты не выявлено."
+      },
+      {
+        "sku": 407017750,
+        "abc": "B",
+        "orders": 13,
+        "logistics_per_order": null,
+        "region_risk": "высокий",
+        "sensitivity": "умеренная",
+        "overpay_rub": null,
+        "conclusion": "Существенных признаков критичной региональной переплаты не выявлено."
+      },
+      {
+        "sku": 789285969,
+        "abc": "B",
+        "orders": 13,
+        "logistics_per_order": null,
+        "region_risk": "высокий",
+        "sensitivity": "умеренная",
+        "overpay_rub": null,
+        "conclusion": "Существенных признаков критичной региональной переплаты не выявлено."
+      },
+      {
+        "sku": 449454972,
+        "abc": "A",
+        "orders": 7,
+        "logistics_per_order": null,
+        "region_risk": "высокий",
+        "sensitivity": "низкая",
+        "overpay_rub": null,
+        "conclusion": "Существенных признаков критичной региональной переплаты не выявлено."
+      }
+    ],
+    "total_estimated_overpay_rub": null,
+    "missing_inputs": [
+      "order_geography",
+      "volume_liters",
+      "localization_share_pct"
+    ],
+    "routes_available": false,
+    "weighted_region_coef_pct": null,
+    "representative_volume_liters": null,
+    "representative_price": 834.25,
+    "recommendations": [
+      {
+        "priority": "P1",
+        "action": "При ограниченном бюджете в первую очередь перераспределять A-SKU и сильные B-SKU.",
+        "why": "Высокий риск удорожания по направлениям: Армения, Дальневосточный + Сибирский, Приволжский.",
+        "expected_effect": "Быстрый эффект на маржу при минимальном объеме перемещений."
+      },
+      {
+        "priority": "P2",
+        "action": "Загрузить маршруты/географию заказов для точного SKU→регион расчета потерь.",
+        "why": "Без маршрутных данных региональная оценка выполняется в эвристическом режиме.",
+        "expected_effect": "Переход от risk-map к точной рублевой оценке по направлениям."
+      }
+    ],
+    "region_cost_rows": []
   },
   "cogs_input": {
     "rows_count": 0,

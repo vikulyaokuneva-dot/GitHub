@@ -5,7 +5,10 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from audit.audit_facts_builder import _build_actions
+from audit.audit_facts_builder import (
+    _build_actions,
+    _build_regional_logistics_impact_payload,
+)
 from audit.audit_report import build_audit_markdown
 
 
@@ -84,3 +87,76 @@ def test_actions_add_logistics_recommendation_only_for_medium_high():
 
     assert any(a.get("area") == "logistics" for a in medium_actions)
     assert not any(a.get("area") == "logistics" for a in low_actions)
+
+
+def test_regional_logistics_impact_payload_full_rub_mode():
+    payload = _build_regional_logistics_impact_payload(
+        logistics_payload={
+            "region_coefficients": {
+                "Северо-Западный": {"avg_pct": 203.8, "class": "expensive"},
+                "Центральный": {"avg_pct": 149.3, "class": "expensive"},
+            },
+            "regions_over_150": ["Северо-Западный"],
+            "locality_signals": [
+                {"logistics_region": "Северо-Западный", "orders": 40, "avg_coefficient": 203.8},
+                {"logistics_region": "Центральный", "orders": 25, "avg_coefficient": 149.3},
+            ],
+        },
+        logistics_formula_model={
+            "volume_liters": 0.9,
+            "item_price": 1200.0,
+            "localization_share_pct": 55.0,
+        },
+        sku_rows=[
+            {"sku": 405933491, "abc": "A", "orders": 35, "buyouts": 30, "revenue": 42000.0, "margin": 0.22},
+            {"sku": 810239842, "abc": "B", "orders": 18, "buyouts": 16, "revenue": 18000.0, "margin": 0.14},
+        ],
+        sku_dimensions={
+            405933491: {"volume_liters": 1.2, "source": "stocks"},
+            810239842: {"volume_liters": 0.8, "source": "stocks"},
+        },
+        local_orders_insights={"available": True, "by_region": [{"region": "СЗ", "orders": 65}]},
+        localization_loss={"non_local_orders_share": 0.46},
+        top5_sku_unit_economics={"items": [{"sku": 405933491, "risk_level": "high"}]},
+    )
+
+    assert payload.get("mode") == "full_rub"
+    assert payload.get("total_estimated_overpay_rub") is not None
+    assert payload.get("high_risk_regions")
+    assert payload.get("top_sku_by_regional_risk")
+
+
+def test_report_renders_regional_logistics_decision_block():
+    facts = _base_facts()
+    facts["regional_logistics_impact"] = {
+        "mode": "risk_only",
+        "status": "partial",
+        "routes_available": False,
+        "high_risk_regions": ["Северо-Западный", "Уральский"],
+        "top_sku_by_regional_risk": [
+            {
+                "sku": 405933491,
+                "abc": "A",
+                "orders": 35,
+                "region_risk": "высокий",
+                "sensitivity": "высокая",
+                "conclusion": "SKU чувствителен к дорогим направлениям; важно контролировать размещение.",
+            }
+        ],
+        "recommendations": [
+            {
+                "action": "SKU 405933491 тестово разместить ближе к региону спроса.",
+                "why": "Дорогие направления могут съедать маржу.",
+                "expected_effect": "Снижение удельной логистики по SKU.",
+            }
+        ],
+        "missing_inputs": ["order_geography"],
+    }
+    facts["localization_loss"] = {"non_local_orders_share": 0.52}
+
+    md = build_audit_markdown(facts)
+
+    assert "## 8. Логистика: где переплачиваете" in md
+    assert "### SKU в зоне регионального риска" in md
+    assert "### Что делать practically" in md
+    assert "order_geography" in md

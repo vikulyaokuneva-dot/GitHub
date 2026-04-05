@@ -29,6 +29,10 @@ from shared.logistics_reference import (
     flatten_warehouse_logistics_reference,
     load_warehouse_logistics_reference,
 )
+from shared.wb_logistics_regions import (
+    high_risk_regions_by_avg,
+    normalize_region_coefficients,
+)
 from src.metrics import calc_ads_metrics, calc_financial_metrics, calc_funnel_metrics
 from src.sku_performance_analyzer import analyze_sku_performance
 
@@ -1201,6 +1205,371 @@ def _build_top5_sku_unit_economics_payload(
     }
 
 
+def _coef_pct_to_multiplier(value: Any) -> float | None:
+    parsed = _to_float_or_none(value)
+    if parsed is None or parsed <= 0:
+        return None
+    if parsed > 10.0:
+        return float(parsed / 100.0)
+    return float(parsed)
+
+
+def _region_risk_label(avg_pct: float | None) -> str:
+    if avg_pct is None:
+        return "не определен"
+    if avg_pct > 150.0:
+        return "высокий"
+    if avg_pct > 130.0:
+        return "средний"
+    return "низкий"
+
+
+def _regional_sensitivity_label(score: int) -> str:
+    if score >= 6:
+        return "критичная"
+    if score >= 4:
+        return "высокая"
+    if score >= 2:
+        return "умеренная"
+    return "низкая"
+
+
+def _estimate_representative_price_from_sku_rows(sku_rows: list[dict[str, Any]]) -> float | None:
+    prices: list[float] = []
+    for row in sku_rows or []:
+        if not isinstance(row, dict):
+            continue
+        revenue = _to_float_or_none(row.get("revenue"))
+        orders = _to_int(row.get("buyouts") or row.get("orders"))
+        if revenue is None or revenue <= 0 or orders <= 0:
+            continue
+        prices.append(float(revenue) / float(orders))
+    if not prices:
+        return None
+    prices = sorted(prices)
+    mid = len(prices) // 2
+    if len(prices) % 2 == 0:
+        return round((prices[mid - 1] + prices[mid]) / 2.0, 2)
+    return round(prices[mid], 2)
+
+
+def _build_regional_logistics_impact_payload(
+    *,
+    logistics_payload: dict[str, Any],
+    logistics_formula_model: dict[str, Any],
+    sku_rows: list[dict[str, Any]],
+    sku_dimensions: dict[Any, dict[str, Any]],
+    local_orders_insights: dict[str, Any],
+    localization_loss: dict[str, Any],
+    top5_sku_unit_economics: dict[str, Any],
+) -> dict[str, Any]:
+    region_coefficients = (
+        logistics_payload.get("region_coefficients")
+        if isinstance(logistics_payload.get("region_coefficients"), dict)
+        else {}
+    )
+    if not region_coefficients:
+        region_coefficients = normalize_region_coefficients(
+            logistics_payload.get("region_summary") if isinstance(logistics_payload.get("region_summary"), dict) else {}
+        )
+
+    high_risk_regions = (
+        logistics_payload.get("regions_over_150")
+        if isinstance(logistics_payload.get("regions_over_150"), list)
+        else []
+    )
+    if not high_risk_regions:
+        high_risk_regions = high_risk_regions_by_avg(region_coefficients)
+
+    locality_signals = (
+        logistics_payload.get("locality_signals")
+        if isinstance(logistics_payload.get("locality_signals"), list)
+        else []
+    )
+    known_signals: list[dict[str, Any]] = []
+    for row in locality_signals:
+        if not isinstance(row, dict):
+            continue
+        orders = _to_int(row.get("orders"))
+        avg_coef = _to_float_or_none(row.get("avg_coefficient"))
+        if orders <= 0 or avg_coef is None:
+            continue
+        known_signals.append(row)
+
+    representative_volume = _to_float_or_none(logistics_formula_model.get("volume_liters"))
+    if representative_volume is None:
+        representative_volume, _ = _estimate_volume_liters_from_sku_dimensions(sku_dimensions)
+    representative_price = _to_float_or_none(logistics_formula_model.get("item_price"))
+    if representative_price is None:
+        representative_price = _estimate_representative_price_from_sku_rows(sku_rows)
+    default_localization_share = _to_float_or_none(logistics_formula_model.get("localization_share_pct"))
+
+    total_estimated_overpay_rub = None
+    region_cost_rows: list[dict[str, Any]] = []
+    routes_available = bool(local_orders_insights.get("available")) and bool(local_orders_insights.get("by_region"))
+
+    if representative_volume is not None and representative_price is not None and known_signals:
+        total_overpay = 0.0
+        for signal in known_signals:
+            orders = _to_int(signal.get("orders"))
+            avg_pct = _to_float_or_none(signal.get("avg_coefficient"))
+            region_name = str(signal.get("logistics_region") or signal.get("geo_region") or "").strip()
+            coef_multiplier = _coef_pct_to_multiplier(avg_pct)
+            if orders <= 0 or coef_multiplier is None:
+                continue
+
+            estimated = compute_wb_logistics_estimate(
+                volume_liters=representative_volume,
+                item_price=representative_price,
+                warehouse_coef=coef_multiplier,
+                localization_share_pct=default_localization_share,
+                supply_type=SUPPLY_TYPE_BOX,
+            )
+            baseline = compute_wb_logistics_estimate(
+                volume_liters=representative_volume,
+                item_price=representative_price,
+                warehouse_coef=1.0,
+                localization_share_pct=default_localization_share,
+                supply_type=SUPPLY_TYPE_BOX,
+            )
+            estimated_cost = _to_float_or_none(estimated.get("estimated_delivery_cost"))
+            baseline_cost = _to_float_or_none(baseline.get("estimated_delivery_cost"))
+            if estimated_cost is None or baseline_cost is None:
+                continue
+            overpay_per_order = max(0.0, float(estimated_cost) - float(baseline_cost))
+            total_overpay_region = overpay_per_order * float(orders)
+            total_overpay += total_overpay_region
+            region_cost_rows.append(
+                {
+                    "region": region_name,
+                    "orders": orders,
+                    "avg_pct": avg_pct,
+                    "overpay_per_order": round(overpay_per_order, 2),
+                    "total_overpay_rub": round(total_overpay_region, 2),
+                }
+            )
+        if region_cost_rows:
+            total_estimated_overpay_rub = round(total_overpay, 2)
+
+    top5_rows = top5_sku_unit_economics.get("items") if isinstance(top5_sku_unit_economics.get("items"), list) else []
+    top5_high_risk_skus = {
+        _to_int(item.get("sku"))
+        for item in top5_rows
+        if isinstance(item, dict) and str(item.get("risk_level") or "").lower() in {"high", "medium"}
+    }
+
+    weighted_coef_pct = None
+    if known_signals:
+        weighted_sum = 0.0
+        weighted_orders = 0
+        for row in known_signals:
+            orders = _to_int(row.get("orders"))
+            avg = _to_float_or_none(row.get("avg_coefficient"))
+            if orders > 0 and avg is not None:
+                weighted_sum += float(avg) * float(orders)
+                weighted_orders += orders
+        if weighted_orders > 0:
+            weighted_coef_pct = round(weighted_sum / float(weighted_orders), 2)
+
+    sku_localization_map: dict[int, float] = {}
+    raw_sku_localization = local_orders_insights.get("sku_localization")
+    if isinstance(raw_sku_localization, list):
+        for row in raw_sku_localization:
+            if not isinstance(row, dict):
+                continue
+            sku = _to_int(row.get("sku"))
+            share = _to_float_or_none(row.get("localization_share_pct"))
+            if sku > 0 and share is not None:
+                sku_localization_map[sku] = float(share)
+
+    sku_risk_rows: list[dict[str, Any]] = []
+    for row in sku_rows or []:
+        if not isinstance(row, dict):
+            continue
+        sku = _to_int(row.get("sku"))
+        orders = _to_int(row.get("orders"))
+        buyouts = _to_int(row.get("buyouts"))
+        revenue = _to_float_or_none(row.get("revenue"))
+        margin_ratio = _to_float_or_none(row.get("margin"))
+        abc = str(row.get("abc") or "N/A")
+        if sku <= 0 or orders <= 0 or revenue is None or revenue <= 0:
+            continue
+
+        dim_entry = _sku_dimension_entry(sku_dimensions, sku)
+        volume = _to_float_or_none(dim_entry.get("volume_liters"))
+        if volume is None:
+            volume = _to_float_or_none(row.get("volume_liters"))
+        price_avg = float(revenue) / float(max(buyouts, 1))
+        localization_share = sku_localization_map.get(sku, default_localization_share)
+
+        score = 0
+        if volume is not None and volume >= 1.0:
+            score += 2
+        elif volume is not None and volume >= 0.5:
+            score += 1
+        if orders >= 30:
+            score += 2
+        elif orders >= 10:
+            score += 1
+        if margin_ratio is not None:
+            if margin_ratio < 0.15:
+                score += 2
+            elif margin_ratio < 0.30:
+                score += 1
+        if abc in {"A", "B"}:
+            score += 1
+        if sku in top5_high_risk_skus:
+            score += 1
+        sensitivity = _regional_sensitivity_label(score)
+
+        overpay_per_order = None
+        total_overpay = None
+        logistics_per_order = None
+        if weighted_coef_pct is not None and volume is not None and price_avg > 0:
+            regional = compute_wb_logistics_estimate(
+                volume_liters=volume,
+                item_price=price_avg,
+                warehouse_coef=_coef_pct_to_multiplier(weighted_coef_pct) or 1.0,
+                localization_share_pct=localization_share,
+                supply_type=SUPPLY_TYPE_BOX,
+            )
+            baseline = compute_wb_logistics_estimate(
+                volume_liters=volume,
+                item_price=price_avg,
+                warehouse_coef=1.0,
+                localization_share_pct=localization_share,
+                supply_type=SUPPLY_TYPE_BOX,
+            )
+            logistics_per_order = _to_float_or_none(regional.get("estimated_delivery_cost"))
+            regional_base = _to_float_or_none(baseline.get("estimated_delivery_cost"))
+            if logistics_per_order is not None and regional_base is not None:
+                overpay_per_order = max(0.0, float(logistics_per_order) - float(regional_base))
+                total_overpay = overpay_per_order * float(orders)
+
+        region_risk = _region_risk_label(weighted_coef_pct)
+        if region_risk == "не определен":
+            region_risk = "высокий" if high_risk_regions else "средний"
+        if overpay_per_order is not None and overpay_per_order > 30.0:
+            conclusion = "Высокая переплата на логистике при текущей региональной нагрузке."
+        elif sensitivity in {"критичная", "высокая"}:
+            conclusion = "SKU чувствителен к дорогим направлениям; важно контролировать размещение."
+        else:
+            conclusion = "Существенных признаков критичной региональной переплаты не выявлено."
+
+        sku_risk_rows.append(
+            {
+                "sku": sku,
+                "abc": abc,
+                "orders": orders,
+                "logistics_per_order": round(float(logistics_per_order), 2) if logistics_per_order is not None else None,
+                "region_risk": region_risk,
+                "sensitivity": sensitivity,
+                "overpay_rub": round(float(total_overpay), 2) if total_overpay is not None else None,
+                "conclusion": conclusion,
+            }
+        )
+
+    if total_estimated_overpay_rub is not None:
+        sku_risk_rows = sorted(
+            sku_risk_rows,
+            key=lambda x: float(x.get("overpay_rub") or 0.0),
+            reverse=True,
+        )
+    else:
+        sensitivity_order = {"критичная": 3, "высокая": 2, "умеренная": 1, "низкая": 0}
+        sku_risk_rows = sorted(
+            sku_risk_rows,
+            key=lambda x: (sensitivity_order.get(str(x.get("sensitivity")), 0), _to_int(x.get("orders"))),
+            reverse=True,
+        )
+    top_sku_by_regional_risk = sku_risk_rows[:5]
+
+    recommendations: list[dict[str, Any]] = []
+    top_sku_preview = [str(_to_int(item.get("sku"))) for item in top_sku_by_regional_risk[:3] if _to_int(item.get("sku")) > 0]
+    if total_estimated_overpay_rub is not None and total_estimated_overpay_rub > 0:
+        sku_text = ", ".join(top_sku_preview) if top_sku_preview else "A/B SKU"
+        recommendations.append(
+            {
+                "priority": "P0",
+                "action": f"Тестово перераспределить SKU {sku_text} ближе к регионам спроса.",
+                "why": f"По оценке региональных коэффициентов переплата за период составляет ~{round(float(total_estimated_overpay_rub), 2)} RUB.",
+                "expected_effect": "Снижение удельной логистики и защита маржи на оборотных позициях.",
+            }
+        )
+
+    non_local_share = _to_float_or_none(localization_loss.get("non_local_orders_share"))
+    if non_local_share is not None and non_local_share > 0.4:
+        recommendations.append(
+            {
+                "priority": "P1",
+                "action": "Пересмотреть карту распределения остатков по регионам с высоким нелокальным спросом.",
+                "why": f"Доля нелокальных заказов: {round(float(non_local_share) * 100.0, 1)}%.",
+                "expected_effect": "Снижение доли дорогих маршрутов и стабильнее экономика доставки.",
+            }
+        )
+
+    if high_risk_regions:
+        recommendations.append(
+            {
+                "priority": "P1",
+                "action": "При ограниченном бюджете в первую очередь перераспределять A-SKU и сильные B-SKU.",
+                "why": f"Высокий риск удорожания по направлениям: {', '.join(str(x) for x in high_risk_regions[:3])}.",
+                "expected_effect": "Быстрый эффект на маржу при минимальном объеме перемещений.",
+            }
+        )
+
+    if not routes_available:
+        recommendations.append(
+            {
+                "priority": "P2",
+                "action": "Загрузить маршруты/географию заказов для точного SKU→регион расчета потерь.",
+                "why": "Без маршрутных данных региональная оценка выполняется в эвристическом режиме.",
+                "expected_effect": "Переход от risk-map к точной рублевой оценке по направлениям.",
+            }
+        )
+
+    missing_inputs: list[str] = []
+    if not region_coefficients:
+        missing_inputs.append("region_coefficients")
+    if not known_signals:
+        missing_inputs.append("order_geography")
+    if representative_volume is None:
+        missing_inputs.append("volume_liters")
+    if representative_price is None:
+        missing_inputs.append("item_price")
+    if default_localization_share is None:
+        missing_inputs.append("localization_share_pct")
+
+    if total_estimated_overpay_rub is not None:
+        mode = "full_rub"
+        status = "ok" if not missing_inputs else "partial"
+    elif region_coefficients or high_risk_regions:
+        mode = "risk_only"
+        status = "partial"
+    else:
+        mode = "insufficient_data"
+        status = "insufficient_data"
+
+    return {
+        "status": status,
+        "mode": mode,
+        "high_risk_regions": high_risk_regions,
+        "top_sku_by_regional_risk": top_sku_by_regional_risk,
+        "total_estimated_overpay_rub": total_estimated_overpay_rub,
+        "missing_inputs": missing_inputs,
+        "routes_available": routes_available,
+        "weighted_region_coef_pct": weighted_coef_pct,
+        "representative_volume_liters": representative_volume,
+        "representative_price": representative_price,
+        "recommendations": recommendations[:4],
+        "region_cost_rows": sorted(
+            region_cost_rows,
+            key=lambda x: float(x.get("total_overpay_rub") or 0.0),
+            reverse=True,
+        )[:10],
+    }
+
+
 def _geo_label(row: dict[str, Any]) -> str:
     for key in ("region", "city", "warehouse", "cluster", "federal_district"):
         value = str(row.get(key) or "").strip()
@@ -1461,6 +1830,7 @@ def _build_logistics_reference_payload(
     reference = load_warehouse_logistics_reference()
     flat_reference = flatten_warehouse_logistics_reference(reference)
     region_summary = build_region_logistics_summary(reference)
+    region_coefficients = normalize_region_coefficients(region_summary)
 
     sortable = []
     regions_over_150: list[str] = []
@@ -1488,6 +1858,8 @@ def _build_logistics_reference_payload(
         }
         for region, avg in sorted(sortable, key=lambda x: x[1], reverse=True)[:5]
     ]
+    if region_coefficients:
+        regions_over_150 = high_risk_regions_by_avg(region_coefficients)
 
     region_exact, warehouse_exact, alias_pairs = _build_geo_to_logistics_index(flat_reference)
     locality_signals: list[dict[str, Any]] = []
@@ -1563,6 +1935,7 @@ def _build_logistics_reference_payload(
         "reference": reference,
         "flat_reference": flat_reference,
         "region_summary": region_summary,
+        "region_coefficients": region_coefficients,
         "top_expensive_regions": top_expensive_regions,
         "regions_over_150": regions_over_150,
         "low_coverage_regions": low_coverage_regions,
@@ -2492,6 +2865,27 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             "message": "Не удалось построить ТОП-5 SKU по юнит-экономике.",
             "error": f"top5_unit_economics_failed: {exc}",
         }
+    try:
+        regional_logistics_impact = _build_regional_logistics_impact_payload(
+            logistics_payload=logistics_payload if isinstance(logistics_payload, dict) else {},
+            logistics_formula_model=logistics_formula_model if isinstance(logistics_formula_model, dict) else {},
+            sku_rows=sku_rows,
+            sku_dimensions=sku_dimensions,
+            local_orders_insights=local_orders_insights,
+            localization_loss=localization_loss if isinstance(localization_loss, dict) else {},
+            top5_sku_unit_economics=top5_sku_unit_economics if isinstance(top5_sku_unit_economics, dict) else {},
+        )
+    except Exception as exc:
+        regional_logistics_impact = {
+            "status": "insufficient_data",
+            "mode": "insufficient_data",
+            "high_risk_regions": [],
+            "top_sku_by_regional_risk": [],
+            "total_estimated_overpay_rub": None,
+            "missing_inputs": [],
+            "recommendations": [],
+            "error": f"regional_logistics_impact_failed: {exc}",
+        }
 
     profit_without_cogs = len(cogs_rows) == 0
     financial_summary["profit_without_cogs"] = bool(profit_without_cogs)
@@ -2570,11 +2964,13 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "logistics_reference": {
             "regions": logistics_payload.get("reference") or {},
             "rows": logistics_payload.get("flat_reference") or [],
+            "region_coefficients": logistics_payload.get("region_coefficients") or {},
             "regions_count": len(logistics_payload.get("reference") or {}),
             "warehouses_count": len(logistics_payload.get("flat_reference") or []),
             "source": "static_json",
             "source_path": "shared/data/warehouse_logistics_coefficients.json",
         },
+        "wb_region_coefficients": logistics_payload.get("region_coefficients") or {},
         "region_logistics_summary": logistics_payload.get("region_summary") or {},
         "top_expensive_logistics_regions": logistics_payload.get("top_expensive_regions") or [],
         "logistics_regions_over_150": logistics_payload.get("regions_over_150") or [],
@@ -2588,6 +2984,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "logistics_formula_model": logistics_formula_model,
         "wb_logistics_estimate": logistics_formula_model,
         "localization_loss": localization_loss,
+        "regional_logistics_impact": regional_logistics_impact,
         "cogs_input": {
             "rows_count": len(cogs_rows),
             "rows": cogs_rows[:200],
