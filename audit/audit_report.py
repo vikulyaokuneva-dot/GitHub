@@ -486,6 +486,37 @@ def _build_abc_analysis(
             "insights": [],
             "basis_metric": "unknown",
             "counts": {"A": 0, "B": 0, "C": 0},
+            "filtered_dead_sku_count": 0,
+            "filtered_dead_skus": [],
+            "input_sku_count": 0,
+            "active_sku_count": 0,
+        }
+
+    dead_skus: list[int] = []
+    live_rows: list[dict[str, Any]] = []
+    for row in rows:
+        revenue = _to_float(row.get("revenue"))
+        profit = _to_float(row.get("profit"))
+        stock_qty = _to_int(row.get("stock_qty"))
+        if float(revenue or 0.0) <= 0 and float(profit or 0.0) <= 0 and stock_qty <= 0:
+            dead_skus.append(_to_int(row.get("sku")))
+            continue
+        live_rows.append(row)
+    rows = live_rows
+
+    if not rows:
+        return {
+            "available": False,
+            "basis_note": "\u041f\u043e\u0441\u043b\u0435 \u0438\u0441\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f \u043d\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u044b\u0445 SKU \u043d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0434\u043b\u044f ABC-\u0430\u043d\u0430\u043b\u0438\u0437\u0430.",
+            "summary_rows": [],
+            "detail_rows": [],
+            "insights": [],
+            "basis_metric": "unknown",
+            "counts": {"A": 0, "B": 0, "C": 0},
+            "filtered_dead_sku_count": len(dead_skus),
+            "filtered_dead_skus": dead_skus,
+            "input_sku_count": len(dead_skus),
+            "active_sku_count": 0,
         }
 
     profit_non_null = sum(1 for row in rows if row["profit"] is not None)
@@ -592,6 +623,10 @@ def _build_abc_analysis(
         "insights": insights[:4],
         "basis_metric": metric_key,
         "counts": {k: int(v["count"]) for k, v in by_cat.items()},
+        "filtered_dead_sku_count": len(dead_skus),
+        "filtered_dead_skus": dead_skus,
+        "input_sku_count": len(rows) + len(dead_skus),
+        "active_sku_count": len(rows),
     }
 
 
@@ -781,7 +816,46 @@ def _build_abc_stock_ads_layer(
         "c_ads_rows": c_ads_rows,
         "ab_potential_rows": ab_potential_rows,
         "insights": insight_lines[:6],
+        "processed_sku": sorted(
+            {
+                sku
+                for sku in (
+                    _to_int(row[0])
+                    for row in (critical_a_rows + c_overstock_rows + c_ads_rows)
+                    if isinstance(row, list) and row
+                )
+                if sku > 0
+            }
+        ),
     }
+
+
+def _top_skus_from_rows(rows: list[list[Any]], *, limit: int = 5) -> list[int]:
+    skus: list[int] = []
+    seen: set[int] = set()
+    for row in rows:
+        if not isinstance(row, list) or not row:
+            continue
+        sku = _to_int(row[0])
+        if sku <= 0 or sku in seen:
+            continue
+        skus.append(sku)
+        seen.add(sku)
+        if len(skus) >= limit:
+            break
+    return skus
+
+
+def _sku_csv(skus: list[int]) -> str:
+    return ", ".join(str(sku) for sku in skus if _to_int(sku) > 0)
+
+
+def _is_finance_funnel_action(action: dict[str, Any]) -> bool:
+    blob = " ".join(
+        _text(action.get(key) or "")
+        for key in ("priority", "area", "action", "why", "expected_effect")
+    ).lower()
+    return ("finance" in blob and "funnel" in blob) or ("финанс" in blob and "воронк" in blob)
 
 
 def build_audit_markdown(facts: dict[str, Any]) -> str:
@@ -1028,6 +1102,8 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         )
         for insight in (abc.get("insights") or []):
             lines.append(f"- {insight}")
+        if _to_int(abc.get("filtered_dead_sku_count")) > 0:
+            lines.append("- Из ABC-анализа исключены SKU без продаж, прибыли и остатков (неактивные позиции).")
         lines.append("")
     else:
         lines.append("- Недостаточно данных для построения ABC-анализа.")
@@ -1087,7 +1163,13 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     lines.append("### SKU с остатками и слабым движением")
     sku_without_sales = decision.get("sku_without_sales") or []
-    if sku_without_sales:
+    processed_sku = {_to_int(sku) for sku in (abc_layer.get("processed_sku") or []) if _to_int(sku) > 0}
+    filtered_sku_without_sales = [
+        item
+        for item in sku_without_sales
+        if isinstance(item, dict) and _to_int(item.get("sku")) not in processed_sku
+    ]
+    if filtered_sku_without_sales:
         rows_without_sales = [
             [
                 item.get("sku"),
@@ -1095,7 +1177,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
                 _to_int(item.get("orders")),
                 _money(item.get("revenue")),
             ]
-            for item in sku_without_sales[:10]
+            for item in filtered_sku_without_sales[:10]
         ]
         _append_markdown_table(
             lines,
@@ -1104,7 +1186,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             align_right={1, 2, 3},
         )
     else:
-        lines.append("- SKU с остатками и слабым движением не выявлены.")
+        lines.append("- Дополнительные SKU со слабым движением не выявлены (основные случаи отражены выше).")
         lines.append("")
 
     lines.append("### SKU с низкой маржинальностью")
@@ -1193,20 +1275,95 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     _page_break(lines)
 
     lines.append("## 9. План действий / рекомендации")
-    if actions:
-        action_rows = [
+    action_rows: list[list[str]] = []
+
+    def _append_action_row(priority: str, area: str, action_text: str, expected_effect: str) -> None:
+        normalized_action = _text(action_text)
+        if not normalized_action:
+            return
+        action_rows.append(
             [
-                _text(action.get("priority") or ""),
-                _text(action.get("area") or ""),
-                _text(action.get("action") or ""),
-                _text(action.get("expected_effect") or ""),
+                _text(priority),
+                _text(area),
+                normalized_action,
+                _text(expected_effect),
             ]
-            for action in actions
-        ]
+        )
+
+    c_overstock_skus = _top_skus_from_rows(abc_layer.get("c_overstock_rows") or [], limit=5)
+    c_ads_skus = _top_skus_from_rows(abc_layer.get("c_ads_rows") or [], limit=5)
+    ab_potential_skus = _top_skus_from_rows(abc_layer.get("ab_potential_rows") or [], limit=5)
+    critical_a_skus = _top_skus_from_rows(abc_layer.get("critical_a_rows") or [], limit=5)
+
+    if c_overstock_skus:
+        _append_action_row(
+            "P0",
+            "stock",
+            f"Распределить или распродать остатки по SKU: {_sku_csv(c_overstock_skus)}",
+            "Снижение замороженных остатков и ускорение оборачиваемости.",
+        )
+    if c_ads_skus:
+        _append_action_row(
+            "P0",
+            "ads",
+            f"Отключить или снизить рекламу по SKU: {_sku_csv(c_ads_skus)}",
+            "Сокращение рекламных расходов без заказов.",
+        )
+
+    for action in actions:
+        if not isinstance(action, dict) or not _is_finance_funnel_action(action):
+            continue
+        _append_action_row(
+            _text(action.get("priority") or ""),
+            _text(action.get("area") or ""),
+            _text(action.get("action") or ""),
+            _text(action.get("expected_effect") or ""),
+        )
+
+    if ab_potential_skus:
+        _append_action_row(
+            "P1",
+            "ads",
+            f"Усилить рекламу по SKU: {_sku_csv(ab_potential_skus)}",
+            "Рост заказов за счет SKU с подтвержденным потенциалом.",
+        )
+    if critical_a_skus:
+        _append_action_row(
+            "P1",
+            "stock",
+            f"Контролировать остатки и пополнение по SKU: {_sku_csv(critical_a_skus)}",
+            "Снижение риска дефицита по ключевым SKU категории A.",
+        )
+
+    for action in actions:
+        if not isinstance(action, dict):
+            continue
+        area = _text(action.get("area") or "").lower()
+        if area in {"ads", "stock"}:
+            continue
+        if _is_finance_funnel_action(action):
+            continue
+        _append_action_row(
+            _text(action.get("priority") or ""),
+            _text(action.get("area") or ""),
+            _text(action.get("action") or ""),
+            _text(action.get("expected_effect") or ""),
+        )
+
+    unique_action_rows: list[list[str]] = []
+    seen_actions: set[str] = set()
+    for row in action_rows:
+        action_key = _text(row[2]).lower()
+        if not action_key or action_key in seen_actions:
+            continue
+        seen_actions.add(action_key)
+        unique_action_rows.append(row)
+
+    if unique_action_rows:
         _append_markdown_table(
             lines,
             ["Приоритет", "Блок", "Действие", "Ожидаемый эффект"],
-            action_rows,
+            unique_action_rows,
         )
     else:
         lines.append("- Рекомендации не сформированы: недостаточно данных.")
