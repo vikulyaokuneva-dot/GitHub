@@ -338,9 +338,16 @@ def markdown_to_simple_pdf(markdown_text: str | bytes, pdf_path: str | os.PathLi
 
     story: list[Any] = []
 
+    def _append_page_break() -> None:
+        if not story:
+            return
+        if isinstance(story[-1], PageBreak):
+            return
+        story.append(PageBreak())
+
     for block in _split_blocks(md):
         if block.strip() == "---PAGEBREAK---":
-            story.append(PageBreak())
+            _append_page_break()
             continue
 
         if block.splitlines() and block.splitlines()[0].strip().startswith("|"):
@@ -377,6 +384,9 @@ def markdown_to_simple_pdf(markdown_text: str | bytes, pdf_path: str | os.PathLi
 
         for raw_line in block.splitlines():
             line = raw_line.rstrip()
+            if line.strip() == "---PAGEBREAK---":
+                _append_page_break()
+                continue
             if not line.strip():
                 story.append(Spacer(1, 6))
                 continue

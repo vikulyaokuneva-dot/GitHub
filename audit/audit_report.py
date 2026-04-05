@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from typing import Any
 
@@ -289,6 +290,47 @@ def _period_text(value: Any) -> str:
     return _text(value)
 
 
+def _parse_iso_date(value: Any) -> dt.date | None:
+    text = _text(value)
+    if not text:
+        return None
+    try:
+        return dt.date.fromisoformat(text)
+    except Exception:
+        return None
+
+
+def _date_ru(value: Any) -> str:
+    parsed = _parse_iso_date(value)
+    if parsed is None:
+        return _text(value)
+    return parsed.strftime("%d.%m.%Y")
+
+
+def _audit_period_view(facts: dict[str, Any]) -> dict[str, str]:
+    period = facts.get("audit_period") if isinstance(facts.get("audit_period"), dict) else {}
+    date_from = _text(period.get("date_from"))
+    date_to = _text(period.get("date_to"))
+    label_ru = _text(period.get("label_ru"))
+    if label_ru and date_from and date_to:
+        return {"date_from": date_from, "date_to": date_to, "label_ru": label_ru}
+
+    fallback_label = _period_text(facts.get("period") or facts.get("date") or "\u043d/\u0434")
+    parsed_from = _parse_iso_date(date_from) or _parse_iso_date(facts.get("date"))
+    parsed_to = _parse_iso_date(date_to) or _parse_iso_date(facts.get("date"))
+    if parsed_from and parsed_to:
+        return {
+            "date_from": parsed_from.isoformat(),
+            "date_to": parsed_to.isoformat(),
+            "label_ru": f"\u0441 {parsed_from.strftime('%d.%m.%Y')} \u043f\u043e {parsed_to.strftime('%d.%m.%Y')}",
+        }
+    return {
+        "date_from": _text(facts.get("date")),
+        "date_to": _text(facts.get("date")),
+        "label_ru": fallback_label or "\u043d/\u0434",
+    }
+
+
 def _append_markdown_table(
     lines: list[str],
     headers: list[str],
@@ -397,6 +439,192 @@ def _local_orders_section_lines(local_orders_insights: dict[str, Any]) -> list[s
             lines.append(f"- {_text(rec.get('message'))}")
     else:
         lines.append("- Спрос распределен равномерно, срочное перемещение не требуется.")
+    lines.append("")
+    return lines
+
+
+def _logistics_class_label(value: Any) -> str:
+    key = _text(value).lower()
+    mapping = {
+        "cheap": "\u0432\u044b\u0433\u043e\u0434\u043d\u0430\u044f",
+        "normal": "\u0443\u043c\u0435\u0440\u0435\u043d\u043d\u0430\u044f",
+        "expensive": "\u0434\u043e\u0440\u043e\u0433\u0430\u044f",
+        "unknown": "\u043d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445",
+    }
+    return mapping.get(key, key or "\u043d/\u0434")
+
+
+def _coef_pct(value: Any) -> str:
+    parsed = _to_float(value)
+    if parsed is None:
+        return "\u043d/\u0434"
+    return _fmt_pct(parsed, 1)
+
+
+def _region_logistics_section_lines(facts: dict[str, Any]) -> list[str]:
+    lines: list[str] = ["## 8. \u041b\u043e\u0433\u0438\u0441\u0442\u0438\u043a\u0430 \u043f\u043e \u0440\u0435\u0433\u0438\u043e\u043d\u0430\u043c \u0438 \u0440\u0430\u0437\u043c\u0435\u0449\u0435\u043d\u0438\u0435"]
+
+    region_summary = facts.get("region_logistics_summary")
+    top_expensive = facts.get("top_expensive_logistics_regions")
+    potential_risk = facts.get("logistics_potential_risk_regions")
+    regions_over_150 = facts.get("logistics_regions_over_150")
+    low_coverage_regions = facts.get("logistics_regions_low_coverage")
+
+    if not isinstance(region_summary, dict) or not region_summary:
+        lines.append("- \u0421\u043f\u0440\u0430\u0432\u043e\u0447\u043d\u0438\u043a \u043b\u043e\u0433\u0438\u0441\u0442\u0438\u043a\u0438 \u043d\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d, \u0440\u0430\u0437\u0434\u0435\u043b \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u043e\u043d\u043d\u044b\u0439.")
+        lines.append("")
+        return lines
+
+    top_expensive = top_expensive if isinstance(top_expensive, list) else []
+    potential_risk = potential_risk if isinstance(potential_risk, list) else []
+    regions_over_150 = regions_over_150 if isinstance(regions_over_150, list) else []
+    low_coverage_regions = low_coverage_regions if isinstance(low_coverage_regions, list) else []
+
+    total_regions = len(region_summary)
+    known_regions = 0
+    expensive_regions_count = 0
+    unknown_regions_count = 0
+    for row in region_summary.values():
+        if not isinstance(row, dict):
+            continue
+        if _to_int(row.get("known_count")) > 0:
+            known_regions += 1
+        cls = _text(row.get("class")).lower()
+        if cls == "expensive":
+            expensive_regions_count += 1
+        elif cls == "unknown":
+            unknown_regions_count += 1
+
+    lines.append("### \u041a\u0440\u0430\u0442\u043a\u0438\u0439 \u0432\u044b\u0432\u043e\u0434")
+    lines.append(
+        f"- \u0412 \u0441\u043f\u0440\u0430\u0432\u043e\u0447\u043d\u0438\u043a\u0435: {total_regions} \u0440\u0435\u0433\u0438\u043e\u043d\u043e\u0432; \u0441 \u0438\u0437\u0432\u0435\u0441\u0442\u043d\u044b\u043c\u0438 \u043a\u043e\u044d\u0444\u0444\u0438\u0446\u0438\u0435\u043d\u0442\u0430\u043c\u0438: {known_regions}; \u0441 \u043d\u0435\u043f\u043e\u043b\u043d\u044b\u043c\u0438/\u043f\u0443\u0441\u0442\u044b\u043c\u0438 \u0434\u0430\u043d\u043d\u044b\u043c\u0438: {unknown_regions_count}."
+    )
+    lines.append(
+        f"- \u0414\u043e\u0440\u043e\u0433\u0438\u0445 \u0440\u0435\u0433\u0438\u043e\u043d\u043e\u0432 \u043f\u043e \u0441\u0440\u0435\u0434\u043d\u0435\u043c\u0443 \u043a\u043e\u044d\u0444\u0444\u0438\u0446\u0438\u0435\u043d\u0442\u0443: {expensive_regions_count}; \u0440\u0435\u0433\u0438\u043e\u043d\u043e\u0432 \u0441\u043e \u0441\u0440\u0435\u0434\u043d\u0438\u043c >150%: {len(regions_over_150)}."
+    )
+
+    if top_expensive:
+        top_tokens: list[str] = []
+        for item in top_expensive[:3]:
+            if not isinstance(item, dict):
+                continue
+            name = _text(item.get("region"))
+            avg = _coef_pct(item.get("avg_coefficient"))
+            if name:
+                top_tokens.append(f"{name} ({avg})")
+        if top_tokens:
+            lines.append("- TOP \u0434\u043e\u0440\u043e\u0433\u0438\u0445 \u0440\u0435\u0433\u0438\u043e\u043d\u043e\u0432: " + ", ".join(top_tokens) + ".")
+
+    if potential_risk:
+        risky_labels = []
+        for item in potential_risk[:3]:
+            if not isinstance(item, dict):
+                continue
+            geo = _text(item.get("geo_region"))
+            if geo:
+                risky_labels.append(geo)
+        if risky_labels:
+            lines.append(
+                "- \u0412 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u0438 \u0437\u0430\u043a\u0430\u0437\u043e\u0432 \u0432\u044b\u044f\u0432\u043b\u0435\u043d\u044b \u0437\u043e\u043d\u044b \u0440\u0438\u0441\u043a\u0430: " + ", ".join(risky_labels) + "."
+            )
+    elif low_coverage_regions:
+        lines.append(
+            "- \u0414\u043b\u044f \u0447\u0430\u0441\u0442\u0438 \u0440\u0435\u0433\u0438\u043e\u043d\u043e\u0432 \u043a\u043e\u044d\u0444\u0444\u0438\u0446\u0438\u0435\u043d\u0442\u044b \u043d\u0435\u043f\u043e\u043b\u043d\u044b\u0435, \u043f\u043e\u044d\u0442\u043e\u043c\u0443 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438 \u0434\u0430\u044e\u0442\u0441\u044f \u0432 \u043c\u044f\u0433\u043a\u043e\u043c \u0444\u043e\u0440\u043c\u0430\u0442\u0435."
+        )
+    lines.append("")
+
+    lines.append("### \u0420\u0435\u0433\u0438\u043e\u043d\u044b \u0441 \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043e\u043c \u0430\u043d\u0430\u043b\u0438\u0437\u0430")
+    risk_by_region: dict[str, dict[str, Any]] = {}
+    for item in potential_risk:
+        if not isinstance(item, dict):
+            continue
+        region = _text(item.get("logistics_region") or "")
+        if not region:
+            continue
+        risk_by_region[region] = item
+
+    ordered_regions: list[str] = []
+    for region in risk_by_region:
+        if region not in ordered_regions:
+            ordered_regions.append(region)
+    for item in top_expensive:
+        if not isinstance(item, dict):
+            continue
+        region = _text(item.get("region"))
+        if region and region not in ordered_regions:
+            ordered_regions.append(region)
+    for region in region_summary:
+        if region not in ordered_regions:
+            ordered_regions.append(region)
+
+    table_rows: list[list[Any]] = []
+    for region in ordered_regions[:7]:
+        summary = region_summary.get(region) if isinstance(region_summary.get(region), dict) else {}
+        cls = _text(summary.get("class") or "unknown").lower()
+        signal = risk_by_region.get(region) or {}
+        non_local_orders = _to_int(signal.get("non_local_orders"))
+        comment = ""
+        if cls == "expensive" and non_local_orders > 0:
+            comment = "\u0415\u0441\u0442\u044c \u043d\u0435 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0435 \u0437\u0430\u043a\u0430\u0437\u044b \u043f\u0440\u0438 \u0434\u043e\u0440\u043e\u0433\u043e\u0439 \u043b\u043e\u0433\u0438\u0441\u0442\u0438\u043a\u0435."
+        elif cls == "unknown":
+            comment = "\u041a\u043e\u044d\u0444\u0444\u0438\u0446\u0438\u0435\u043d\u0442\u044b \u0438\u0437\u0432\u0435\u0441\u0442\u043d\u044b \u0447\u0430\u0441\u0442\u0438\u0447\u043d\u043e."
+        elif cls == "expensive":
+            comment = "\u041b\u043e\u0433\u0438\u0441\u0442\u0438\u043a\u0430 \u0432\u044b\u0448\u0435 \u0431\u0430\u0437\u043e\u0432\u043e\u0439, \u043d\u0443\u0436\u043d\u043e \u0442\u0435\u0441\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043f\u043e\u0441\u0442\u0430\u0432\u043a\u0438."
+        else:
+            comment = "\u041b\u043e\u0433\u0438\u0441\u0442\u0438\u043a\u0430 \u0431\u043b\u0438\u0436\u0435 \u043a \u0431\u0430\u0437\u043e\u0432\u043e\u0439, \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u0439 \u043c\u043e\u0436\u043d\u043e \u0441\u043c\u044f\u0433\u0447\u0430\u0442\u044c."
+
+        table_rows.append(
+            [
+                region,
+                _coef_pct(summary.get("min_coefficient")),
+                _coef_pct(summary.get("max_coefficient")),
+                _coef_pct(summary.get("avg_coefficient")),
+                _logistics_class_label(cls),
+                comment,
+            ]
+        )
+
+    if table_rows:
+        _append_markdown_table(
+            lines,
+            [
+                "\u0420\u0435\u0433\u0438\u043e\u043d",
+                "\u041c\u0438\u043d %",
+                "\u041c\u0430\u043a\u0441 %",
+                "\u0421\u0440\u0435\u0434\u043d\u0438\u0439 %",
+                "\u041a\u043b\u0430\u0441\u0441",
+                "\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439",
+            ],
+            table_rows,
+            align_right={1, 2, 3},
+        )
+    else:
+        lines.append("- \u0414\u0430\u043d\u043d\u044b\u0445 \u0434\u043b\u044f \u0442\u0430\u0431\u043b\u0438\u0446\u044b \u043f\u043e \u0440\u0435\u0433\u0438\u043e\u043d\u0430\u043c \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.")
+        lines.append("")
+
+    lines.append("### \u041c\u044f\u0433\u043a\u0438\u0435 \u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438")
+    if potential_risk:
+        for item in potential_risk[:3]:
+            if not isinstance(item, dict):
+                continue
+            geo_region = _text(item.get("geo_region") or "\u0440\u0435\u0433\u0438\u043e\u043d")
+            lines.append(
+                f"- \u0414\u043b\u044f \u0440\u0435\u0433\u0438\u043e\u043d\u0430 {geo_region} \u0435\u0441\u0442\u044c \u0441\u043f\u0440\u043e\u0441 \u0438 \u043d\u0435 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0435 \u0437\u0430\u043a\u0430\u0437\u044b; \u0441\u0442\u043e\u0438\u0442 \u0442\u0435\u0441\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0440\u0430\u0437\u043c\u0435\u0449\u0435\u043d\u0438\u0435 \u0431\u043b\u0438\u0436\u0435 \u043a \u0441\u043f\u0440\u043e\u0441\u0443 \u043c\u0430\u043b\u044b\u043c\u0438 \u043f\u0430\u0440\u0442\u0438\u044f\u043c\u0438."
+            )
+    if regions_over_150:
+        preview = ", ".join(_text(x) for x in regions_over_150[:5] if _text(x))
+        if preview:
+            lines.append(
+                f"- \u041f\u043e \u0440\u0435\u0433\u0438\u043e\u043d\u0430\u043c \u0441\u043e \u0441\u0440\u0435\u0434\u043d\u0438\u043c \u043a\u043e\u044d\u0444\u0444\u0438\u0446\u0438\u0435\u043d\u0442\u043e\u043c >150% ({preview}) \u043b\u0443\u0447\u0448\u0435 \u0441\u043d\u0430\u0447\u0430\u043b\u0430 \u043f\u0440\u043e\u0432\u043e\u0434\u0438\u0442\u044c \u0442\u0435\u0441\u0442 \u043f\u043e\u0441\u0442\u0430\u0432\u043e\u043a \u043d\u0430 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u043d\u043e\u043c \u043e\u0431\u044a\u0435\u043c\u0435."
+            )
+    if low_coverage_regions:
+        preview = ", ".join(_text(x) for x in low_coverage_regions[:5] if _text(x))
+        if preview:
+            lines.append(
+                f"- \u041f\u043e \u0440\u0435\u0433\u0438\u043e\u043d\u0430\u043c \u0441 \u043d\u0435\u043f\u043e\u043b\u043d\u044b\u043c\u0438 \u0434\u0430\u043d\u043d\u044b\u043c\u0438 ({preview}) \u043d\u0443\u0436\u043d\u043e \u0443\u0442\u043e\u0447\u043d\u044f\u0442\u044c \u0444\u0430\u043a\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0443\u0441\u043b\u043e\u0432\u0438\u044f \u0441\u043a\u043b\u0430\u0434\u043e\u0432 \u0434\u043e \u0436\u0435\u0441\u0442\u043a\u0438\u0445 \u0440\u0435\u0448\u0435\u043d\u0438\u0439 \u043f\u043e \u0440\u0430\u0441\u043f\u0440\u0435\u0434\u0435\u043b\u0435\u043d\u0438\u044e."
+            )
+    if not potential_risk and not regions_over_150 and not low_coverage_regions:
+        lines.append("- \u042f\u0432\u043d\u044b\u0445 \u0437\u043e\u043d \u043b\u043e\u0433\u0438\u0441\u0442\u0438\u0447\u0435\u0441\u043a\u043e\u0433\u043e \u0440\u0438\u0441\u043a\u0430 \u043f\u043e \u0442\u0435\u043a\u0443\u0449\u0435\u0439 \u044d\u0432\u0440\u0438\u0441\u0442\u0438\u043a\u0435 \u043d\u0435 \u0432\u044b\u044f\u0432\u043b\u0435\u043d\u043e.")
     lines.append("")
     return lines
 
@@ -881,18 +1109,37 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     )
 
     source_label = _text(facts.get("source") or "wb").upper()
-    period_label = _period_text(facts.get("period") or facts.get("date") or "н/д")
-    report_date = _text(facts.get("date") or period_label)
+    audit_period = _audit_period_view(facts)
+    period_label_ru = _text(audit_period.get("label_ru") or "н/д")
+    report_date = _date_ru(facts.get("date") or "")
     selected_files = inputs.get("selected_files") if isinstance(inputs.get("selected_files"), dict) else {}
+    report_title = f"Аудит кабинета {source_label} за период {period_label_ru}"
 
     lines: list[str] = []
-    lines.append(f"# {source_label} аудит за период: {period_label}")
-    lines.append(f"Период отчета: {period_label}")
-    lines.append(f"Дата формирования: {report_date}")
+    lines.append("# Аудит кабинета WB" if source_label == "WB" else f"# Аудит кабинета {source_label}")
+    lines.append(f"## за период {period_label_ru}")
+    lines.append("")
+    lines.append(f"Дата формирования отчета: {report_date}")
     lines.append(f"Источник: {source_label} (file-based audit)")
     lines.append("")
+    _page_break(lines)
 
-    lines.append("## Источники (файлы)")
+    lines.append("## Оглавление")
+    lines.append(f"Период отчета: {period_label_ru}")
+    lines.append("")
+    lines.append("- 1. KPI и инсайты")
+    lines.append("- 2. Финансы за период")
+    lines.append("- 3. Воронка продаж")
+    lines.append("- 4. Реклама")
+    lines.append("- 5. Остатки и риск дефицита")
+    lines.append("- 6. Ассортимент / SKU")
+    lines.append("- 7. Локальные заказы и размещение товара")
+    lines.append("- 8. Логистика по регионам и размещение")
+    lines.append("- 9. Поисковые запросы")
+    lines.append("- 10. План действий / рекомендации")
+    lines.append("")
+
+    lines.append("### Источники (файлы)")
     source_rows = [
         ["Финансы", _source_file_cell(selected_files.get("finance"))],
         ["Воронка", _source_file_cell(selected_files.get("funnel"))],
@@ -903,6 +1150,10 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     ]
     _append_markdown_table(lines, ["Блок", "Файл"], source_rows)
 
+    _page_break(lines)
+
+    lines.append(f"# {report_title}")
+    lines.append("")
     lines.append("## 1. KPI и инсайты")
     insights: list[str] = [
         _kpi_state_text(
@@ -918,6 +1169,8 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     for insight in insights[:5]:
         lines.append(f"- {insight}")
     lines.append("")
+
+    _page_break(lines)
 
     lines.append("## 2. Финансы за период")
     sales_units = _to_int(funnel.get("orders"))
@@ -982,6 +1235,8 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     )
     lines.append("")
 
+    _page_break(lines)
+
     lines.append("## 4. Реклама")
     drr_value = _to_float(ads.get("drr"))
     drr_text = _pct_ratio(drr_value) if drr_value is not None else "н/д"
@@ -1019,6 +1274,8 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     leaks = decision.get("ads_leaks") or []
     lines.append(f"- Найдено {len(leaks)} рекламных связок/запросов без заказов." if leaks else "- Связки без заказов не обнаружены.")
     lines.append("")
+
+    _page_break(lines)
 
     lines.append("## 5. Остатки и риск дефицита")
     stock_rows = [
@@ -1205,11 +1462,17 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         lines.append("- SKU со сниженной маржинальностью не выявлены.")
         lines.append("")
 
+    _page_break(lines)
+
     lines.extend(_local_orders_section_lines(local_orders_insights))
 
     _page_break(lines)
 
-    lines.append("## 8. Поисковые запросы")
+    lines.extend(_region_logistics_section_lines(facts))
+
+    _page_break(lines)
+
+    lines.append("## 9. Поисковые запросы")
     search_status = str(search.get("status") or "")
     if search_status == "ok":
         base_rows = search.get("base_rows") if isinstance(search.get("base_rows"), list) else []
@@ -1274,7 +1537,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     _page_break(lines)
 
-    lines.append("## 9. План действий / рекомендации")
+    lines.append("## 10. План действий / рекомендации")
     action_rows: list[list[str]] = []
 
     def _append_action_row(priority: str, area: str, action_text: str, expected_effect: str) -> None:

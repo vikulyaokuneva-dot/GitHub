@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -49,6 +50,13 @@ def _build_email_text(facts: dict, actions: list[dict], source: str) -> str:
     if actions:
         lines.append(f"Приоритетное действие: {actions[0].get('action')}")
     return "\n".join(lines).strip()
+
+
+def _safe_date_fragment(value: str) -> str:
+    text = str(value or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return ""
+    return text
 
 
 def run_audit_mode(
@@ -97,13 +105,20 @@ def run_audit_mode(
     print(f"[audit] missing optional: {missing_optional}")
 
     actions = facts.get("actions") or []
+    audit_period = facts.get("audit_period") if isinstance(facts.get("audit_period"), dict) else {}
+    period_from = _safe_date_fragment(str(audit_period.get("date_from") or ""))
+    period_to = _safe_date_fragment(str(audit_period.get("date_to") or ""))
+    period_label_ru = str(audit_period.get("label_ru") or "").strip()
 
     stamp = datetime.now(ZoneInfo("Europe/Moscow")).strftime("%Y-%m-%d")
     file_date = stamp
 
     facts_path = os.path.join(out_dir, f"facts_audit_{file_date}.json")
     md_path = os.path.join(out_dir, f"audit_{file_date}.md")
-    pdf_path = os.path.join(out_dir, f"audit_{file_date}.pdf")
+    if source_norm == "wb" and period_from and period_to:
+        pdf_path = os.path.join(out_dir, f"audit_wb_{period_from}_{period_to}.pdf")
+    else:
+        pdf_path = os.path.join(out_dir, f"audit_{file_date}.pdf")
     actions_path = os.path.join(out_dir, f"actions_audit_{file_date}.json")
 
     with open(facts_path, "w", encoding="utf-8") as f:
@@ -114,10 +129,14 @@ def run_audit_mode(
         json.dump(actions, f, ensure_ascii=False, indent=2)
 
     title_prefix = "WB" if source_norm == "wb" else "Ozon"
-    markdown_to_simple_pdf(md, pdf_path, title=f"{title_prefix} аудит за {file_date}")
+    if source_norm == "wb" and period_label_ru:
+        pdf_title = f"Аудит кабинета WB за период {period_label_ru}"
+    else:
+        pdf_title = f"{title_prefix} аудит за {file_date}"
+    markdown_to_simple_pdf(md, pdf_path, title=pdf_title)
 
     if send_email and send_email_with_pdf:
-        subject = f"{title_prefix} аудит за {file_date}"
+        subject = pdf_title
         body = _build_email_text(facts, actions, source=source_norm)
         send_email_with_pdf(subject, body, pdf_path)
 

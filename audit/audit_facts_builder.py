@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import re
 from math import ceil
 from collections import defaultdict
 from zoneinfo import ZoneInfo
@@ -20,6 +21,12 @@ from audit.audit_loader import (
     parse_stocks_file_with_diagnostics,
     scan_input_files,
 )
+from shared.logistics_reference import (
+    HIGH_COEFFICIENT_ALERT,
+    build_region_logistics_summary,
+    flatten_warehouse_logistics_reference,
+    load_warehouse_logistics_reference,
+)
 from src.metrics import calc_ads_metrics, calc_financial_metrics, calc_funnel_metrics
 from src.sku_performance_analyzer import analyze_sku_performance
 
@@ -34,6 +41,84 @@ def _iso(d: dt.date) -> str:
     return d.isoformat()
 
 
+def _date_ru(d: dt.date) -> str:
+    return d.strftime("%d.%m.%Y")
+
+
+def _parse_date_ymd(text: str) -> list[dt.date]:
+    out: list[dt.date] = []
+    if not text:
+        return out
+    for m in re.finditer(r"(?<!\d)(20\d{2})[-_.](\d{1,2})[-_.](\d{1,2})(?!\d)", text):
+        try:
+            out.append(dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+        except Exception:
+            continue
+    return out
+
+
+def _parse_date_dmy(text: str) -> list[dt.date]:
+    out: list[dt.date] = []
+    if not text:
+        return out
+    for m in re.finditer(r"(?<!\d)(\d{1,2})[.](\d{1,2})[.](20\d{2})(?!\d)", text):
+        try:
+            out.append(dt.date(int(m.group(3)), int(m.group(2)), int(m.group(1))))
+        except Exception:
+            continue
+    return out
+
+
+def _extract_dates_from_text(text: str) -> list[dt.date]:
+    if not text:
+        return []
+    return _parse_date_ymd(text) + _parse_date_dmy(text)
+
+
+def _derive_audit_period(
+    *,
+    period_label: str,
+    report_date: dt.date,
+    selected_files: dict[str, list[str]],
+    parse_diagnostics: dict[str, Any],
+    period_days: int,
+) -> dict[str, str]:
+    candidates: list[dt.date] = []
+
+    if period_label:
+        candidates.extend(_extract_dates_from_text(period_label))
+
+    for files in selected_files.values():
+        if not isinstance(files, list):
+            continue
+        for path in files:
+            txt = str(path or "")
+            candidates.extend(_extract_dates_from_text(txt))
+
+    for value in parse_diagnostics.values():
+        if isinstance(value, dict):
+            for inner in value.values():
+                if isinstance(inner, str):
+                    candidates.extend(_extract_dates_from_text(inner))
+
+    if candidates:
+        date_from = min(candidates)
+        date_to = max(candidates)
+    else:
+        days = max(int(period_days or 1), 1)
+        date_to = report_date
+        date_from = report_date - dt.timedelta(days=days - 1)
+
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+
+    return {
+        "date_from": _iso(date_from),
+        "date_to": _iso(date_to),
+        "label_ru": f"\u0441 {_date_ru(date_from)} \u043f\u043e {_date_ru(date_to)}",
+    }
+
+
 def _to_float(value: Any) -> float:
     try:
         if value is None or value == "":
@@ -41,6 +126,15 @@ def _to_float(value: Any) -> float:
         return float(value)
     except Exception:
         return 0.0
+
+
+def _to_float_or_none(value: Any) -> float | None:
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except Exception:
+        return None
 
 
 def _to_int(value: Any) -> int:
@@ -250,6 +344,242 @@ def _build_local_orders_insights(
             "has_stock_by_region": bool(stock_rows_with_geo > 0),
         },
     }
+
+
+def _norm_geo_key(value: Any) -> str:
+    text = str(value or "").lower().replace("\xa0", " ").strip()
+    text = re.sub(r"[^a-zа-я0-9]+", " ", text, flags=re.IGNORECASE)
+    return " ".join(text.split())
+
+
+def _build_geo_to_logistics_index(
+    flat_reference: list[dict[str, Any]],
+) -> tuple[dict[str, str], dict[str, str], list[tuple[str, str]]]:
+    region_exact: dict[str, str] = {}
+    warehouse_exact: dict[str, str] = {}
+    alias_pairs: list[tuple[str, str]] = []
+
+    for row in flat_reference:
+        region = str(row.get("region") or "").strip()
+        warehouse = str(row.get("warehouse") or "").strip()
+        if not region:
+            continue
+        region_key = _norm_geo_key(region)
+        if region_key and region_key not in region_exact:
+            region_exact[region_key] = region
+            alias_pairs.append((region_key, region))
+        warehouse_key = _norm_geo_key(warehouse)
+        if warehouse_key:
+            warehouse_exact[warehouse_key] = region
+            alias_pairs.append((warehouse_key, region))
+
+    alias_pairs = sorted(alias_pairs, key=lambda x: len(x[0]), reverse=True)
+    return region_exact, warehouse_exact, alias_pairs
+
+
+def _match_logistics_region(
+    geo_label: str,
+    *,
+    region_exact: dict[str, str],
+    warehouse_exact: dict[str, str],
+    alias_pairs: list[tuple[str, str]],
+) -> tuple[str | None, str]:
+    geo_key = _norm_geo_key(geo_label)
+    if not geo_key:
+        return None, "none"
+    if geo_key in region_exact:
+        return region_exact[geo_key], "region_exact"
+    if geo_key in warehouse_exact:
+        return warehouse_exact[geo_key], "warehouse_exact"
+    for alias, region in alias_pairs:
+        if len(alias) < 5:
+            continue
+        if alias in geo_key or geo_key in alias:
+            return region, "alias_match"
+    return None, "unmatched"
+
+
+def _build_logistics_reference_payload(
+    *,
+    local_orders_insights: dict[str, Any],
+) -> dict[str, Any]:
+    reference = load_warehouse_logistics_reference()
+    flat_reference = flatten_warehouse_logistics_reference(reference)
+    region_summary = build_region_logistics_summary(reference)
+
+    sortable = []
+    regions_over_150: list[str] = []
+    low_coverage_regions: list[str] = []
+    unknown_regions: list[str] = []
+
+    for region, item in region_summary.items():
+        avg = _to_float_or_none(item.get("avg_coefficient"))
+        known = _to_int(item.get("known_count"))
+        unknown = _to_int(item.get("unknown_count"))
+        if avg is not None:
+            sortable.append((region, float(avg)))
+            if float(avg) > float(HIGH_COEFFICIENT_ALERT):
+                regions_over_150.append(region)
+        else:
+            unknown_regions.append(region)
+        if known == 0 or (known > 0 and unknown > known):
+            low_coverage_regions.append(region)
+
+    top_expensive_regions = [
+        {
+            "region": region,
+            "avg_coefficient": avg,
+            "class": str((region_summary.get(region) or {}).get("class") or "unknown"),
+        }
+        for region, avg in sorted(sortable, key=lambda x: x[1], reverse=True)[:5]
+    ]
+
+    region_exact, warehouse_exact, alias_pairs = _build_geo_to_logistics_index(flat_reference)
+    locality_signals: list[dict[str, Any]] = []
+    by_region = (
+        local_orders_insights.get("by_region")
+        if isinstance(local_orders_insights.get("by_region"), list)
+        else []
+    )
+    for item in by_region:
+        if not isinstance(item, dict):
+            continue
+        geo_region = str(item.get("region") or "").strip()
+        if not geo_region:
+            continue
+        mapped_region, match_type = _match_logistics_region(
+            geo_region,
+            region_exact=region_exact,
+            warehouse_exact=warehouse_exact,
+            alias_pairs=alias_pairs,
+        )
+        summary = (region_summary.get(mapped_region) or {}) if mapped_region else {}
+        avg = _to_float_or_none(summary.get("avg_coefficient"))
+        cls = str(summary.get("class") or "unknown")
+        non_local_orders = _to_int(
+            item.get("non_local_orders")
+            or item.get("orders_non_local")
+            or item.get("not_local_orders")
+        )
+        local_orders = _to_int(item.get("local_orders") or item.get("orders_local"))
+        comment = ""
+        risk_level = "low"
+        if cls == "expensive" and non_local_orders > 0:
+            comment = (
+                "В регионе есть не локальные заказы; при повышенной логистике по сети складов "
+                "стоит приоритизировать тест локального размещения малыми партиями."
+            )
+            risk_level = "high"
+        elif cls == "expensive":
+            comment = (
+                "Регион относится к дорогим по логистике; рекомендации по размещению стоит применять осторожно."
+            )
+            risk_level = "medium"
+        elif cls == "unknown":
+            comment = (
+                "Для региона коэффициенты логистики по части складов отсутствуют, выводы ограничены."
+            )
+        else:
+            comment = (
+                "Логистика региона не выглядит завышенной; можно использовать мягкий сценарий расширения размещения."
+            )
+        locality_signals.append(
+            {
+                "geo_region": geo_region,
+                "logistics_region": mapped_region,
+                "match_type": match_type,
+                "orders": _to_int(item.get("orders")),
+                "local_orders": local_orders,
+                "non_local_orders": non_local_orders,
+                "avg_coefficient": avg,
+                "logistics_class": cls,
+                "risk_level": risk_level,
+                "comment": comment,
+            }
+        )
+
+    potential_risk_regions = [
+        row
+        for row in locality_signals
+        if str(row.get("risk_level")) == "high"
+    ][:10]
+
+    return {
+        "reference": reference,
+        "flat_reference": flat_reference,
+        "region_summary": region_summary,
+        "top_expensive_regions": top_expensive_regions,
+        "regions_over_150": regions_over_150,
+        "low_coverage_regions": low_coverage_regions,
+        "unknown_regions": unknown_regions,
+        "locality_signals": locality_signals,
+        "potential_risk_regions": potential_risk_regions,
+    }
+
+
+def _enhance_local_orders_with_logistics(
+    *,
+    local_orders_insights: dict[str, Any],
+    logistics_payload: dict[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(local_orders_insights, dict):
+        return {"available": False, "message": "local orders payload is invalid"}
+
+    enhanced = dict(local_orders_insights)
+    signals = logistics_payload.get("locality_signals") or []
+    if not isinstance(signals, list):
+        return enhanced
+
+    signal_by_geo = {
+        _norm_geo_key(item.get("geo_region")): item
+        for item in signals
+        if isinstance(item, dict) and _norm_geo_key(item.get("geo_region"))
+    }
+
+    by_region = enhanced.get("by_region")
+    if isinstance(by_region, list):
+        enriched_regions: list[dict[str, Any]] = []
+        for row in by_region:
+            if not isinstance(row, dict):
+                continue
+            key = _norm_geo_key(row.get("region"))
+            signal = signal_by_geo.get(key)
+            merged = dict(row)
+            if isinstance(signal, dict):
+                merged["logistics_region"] = signal.get("logistics_region")
+                merged["logistics_class"] = signal.get("logistics_class")
+                merged["logistics_avg_coefficient"] = signal.get("avg_coefficient")
+                merged["logistics_comment"] = signal.get("comment")
+            enriched_regions.append(merged)
+        enhanced["by_region"] = enriched_regions
+
+    recommendations = enhanced.get("recommendations")
+    if isinstance(recommendations, list):
+        enriched_recommendations: list[dict[str, Any]] = []
+        for rec in recommendations:
+            if not isinstance(rec, dict):
+                continue
+            out = dict(rec)
+            key = _norm_geo_key(rec.get("region"))
+            signal = signal_by_geo.get(key)
+            if isinstance(signal, dict):
+                cls = str(signal.get("logistics_class") or "unknown")
+                non_local = _to_int(signal.get("non_local_orders"))
+                logistic_note = str(signal.get("comment") or "").strip()
+                base_message = str(out.get("message") or "").strip()
+                if cls == "expensive" and non_local > 0:
+                    out["priority"] = "move_stock_high"
+                if logistic_note:
+                    if base_message:
+                        out["message"] = f"{base_message} {logistic_note}"
+                    else:
+                        out["message"] = logistic_note
+                out["logistics_class"] = cls
+                out["logistics_avg_coefficient"] = signal.get("avg_coefficient")
+            enriched_recommendations.append(out)
+        enhanced["recommendations"] = enriched_recommendations
+
+    return enhanced
 
 
 def _dedupe_rows(rows: list[dict[str, Any]], key_fields: tuple[str, ...]) -> tuple[list[dict[str, Any]], int]:
@@ -947,6 +1277,29 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         funnel_rows=funnel_rows,
         stocks_rows=stocks_rows,
     )
+    logistics_payload: dict[str, Any]
+    try:
+        logistics_payload = _build_logistics_reference_payload(
+            local_orders_insights=local_orders_insights,
+        )
+    except Exception as exc:
+        logistics_payload = {
+            "reference": {},
+            "flat_reference": [],
+            "region_summary": {},
+            "top_expensive_regions": [],
+            "regions_over_150": [],
+            "low_coverage_regions": [],
+            "unknown_regions": [],
+            "locality_signals": [],
+            "potential_risk_regions": [],
+            "error": f"logistics_payload_failed: {exc}",
+        }
+
+    local_orders_insights = _enhance_local_orders_with_logistics(
+        local_orders_insights=local_orders_insights,
+        logistics_payload=logistics_payload,
+    )
 
     finance_status = "ok" if _to_int(financial_summary.get("rows_count")) > 0 else "missing"
     try:
@@ -1006,6 +1359,13 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "stocks": stocks_parse_diag,
         "search": search_parse_diag,
     }
+    audit_period = _derive_audit_period(
+        period_label=period_label,
+        report_date=report_date,
+        selected_files=selected_files,
+        parse_diagnostics=parse_diagnostics,
+        period_days=period_days,
+    )
 
     inputs = _build_inputs_section(
         input_dir=input_dir,
@@ -1027,6 +1387,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             "label": period_label or _iso(report_date),
             "days": int(period_days),
         },
+        "audit_period": audit_period,
         "inputs": inputs,
         "financial_summary": financial_summary,
         "funnel_summary": funnel_summary,
@@ -1034,6 +1395,24 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "stock_summary": stock_summary,
         "search_insights": search_insights,
         "local_orders_insights": local_orders_insights,
+        "logistics_reference": {
+            "regions": logistics_payload.get("reference") or {},
+            "rows": logistics_payload.get("flat_reference") or [],
+            "regions_count": len(logistics_payload.get("reference") or {}),
+            "warehouses_count": len(logistics_payload.get("flat_reference") or []),
+            "source": "static_json",
+            "source_path": "shared/data/warehouse_logistics_coefficients.json",
+        },
+        "region_logistics_summary": logistics_payload.get("region_summary") or {},
+        "top_expensive_logistics_regions": logistics_payload.get("top_expensive_regions") or [],
+        "logistics_regions_over_150": logistics_payload.get("regions_over_150") or [],
+        "logistics_regions_low_coverage": logistics_payload.get("low_coverage_regions") or [],
+        "logistics_regions_unknown": logistics_payload.get("unknown_regions") or [],
+        "logistics_locality_signals": logistics_payload.get("locality_signals") or [],
+        "logistics_potential_risk_regions": logistics_payload.get("potential_risk_regions") or [],
+        "logistics_diagnostics": {
+            "error": str(logistics_payload.get("error") or ""),
+        },
         "cogs_input": {
             "rows_count": len(cogs_rows),
             "rows": cogs_rows[:200],
