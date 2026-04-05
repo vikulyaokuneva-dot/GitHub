@@ -46,12 +46,122 @@ def _fmt_pct(value: float | None, digits: int = 1) -> str:
     return f"{token}%"
 
 
+
+def _icon_green() -> str:
+    return "\U0001F7E2"
+
+
+def _icon_yellow() -> str:
+    return "\U0001F7E1"
+
+
+def _icon_red() -> str:
+    return "\U0001F534"
+
+
+def _icon_warn() -> str:
+    return "\u26A0\ufe0f"
+
+
+def _icon_point() -> str:
+    return "\U0001F449"
+
+
+def _status_icon(level: str) -> str:
+    key = _text(level).lower()
+    if key == "green":
+        return _icon_green()
+    if key == "yellow":
+        return _icon_yellow()
+    if key == "red":
+        return _icon_red()
+    return _icon_warn()
+
+
+def _profit_status_level(profit: Any) -> str:
+    value = _to_float(profit)
+    if value is None:
+        return "yellow"
+    if value < 0:
+        return "red"
+    if value > 0:
+        return "green"
+    return "yellow"
+
+
+def _margin_status_level_by_pct(margin_pct: Any) -> str:
+    value = _to_float(margin_pct)
+    if value is None:
+        return "yellow"
+    if value > 40.0:
+        return "green"
+    if value >= 20.0:
+        return "yellow"
+    return "red"
+
+
+def _drr_status_level_by_pct(drr_pct: Any) -> str:
+    value = _to_float(drr_pct)
+    if value is None:
+        return "yellow"
+    if value < 15.0:
+        return "green"
+    if value > 25.0:
+        return "red"
+    return "yellow"
+
+
+def _risk_status_level(value: Any) -> str:
+    key = _text(value).lower()
+    if key == "high":
+        return "red"
+    if key == "medium":
+        return "yellow"
+    if key == "low":
+        return "green"
+    return "yellow"
+
+
+def _chunked_list(items: list[Any], size: int) -> list[list[Any]]:
+    out: list[list[Any]] = []
+    if size <= 0:
+        return out
+    for i in range(0, len(items), size):
+        out.append(items[i : i + size])
+    return out
+
+
+def _append_kpi_cards(
+    lines: list[str],
+    cards: list[dict[str, Any]],
+    *,
+    columns: int = 4,
+) -> None:
+    normalized = [c for c in cards if isinstance(c, dict) and _text(c.get("title")) and _text(c.get("value"))]
+    if not normalized:
+        return
+    for chunk in _chunked_list(normalized, columns):
+        headers = [f"[ {_text(card.get('title'))} ]" for card in chunk]
+        values = [
+            f"**{_text(card.get('value'))}** {str(card.get('icon') or '').strip()}".strip()
+            for card in chunk
+        ]
+        _append_markdown_table(lines, headers, [values], align_right=set(range(len(values))))
+
 def _contains_cyrillic(text: str) -> bool:
     return bool(re.search(r"[А-Яа-яЁё]", text))
 
 
 def _bad_marker_count(text: str) -> int:
-    markers = ("Гђ", "Г‘", "Г‚", "Гѓ", "Гў", "пїЅ", "Р В ")
+    markers = (
+        "РџС",
+        "РЎ",
+        "Р ",
+        "СЃ",
+        "вЂ",
+        "Ð",
+        "Ñ",
+    )
     return sum(text.count(marker) for marker in markers)
 
 
@@ -59,17 +169,25 @@ def _looks_like_mojibake(text: str) -> bool:
     if not text:
         return False
     if _bad_marker_count(text) > 0:
-        return True
-    cyrillic_letters = len(re.findall(r"[Р-Яа-яЁё]", text))
-    if cyrillic_letters < 6:
-        return False
-    upper_rs = text.count("Р") + text.count("С")
-    return upper_rs >= 4 and (upper_rs / max(cyrillic_letters, 1)) >= 0.22
+        cyrillic_letters = re.findall(r"[А-Яа-яЁё]", text)
+        if not cyrillic_letters:
+            return True
+        rs_letters = sum(1 for ch in cyrillic_letters if ch.lower() in {"р", "с"})
+        diversity = len({ch.lower() for ch in cyrillic_letters})
+        return diversity <= 8 or (rs_letters / max(len(cyrillic_letters), 1)) >= 0.45
+    return False
 
 
 def _repair_text(text: str) -> str:
     if not text or text.isascii():
         return text
+    # Keep valid Cyrillic text untouched.
+    cyr = re.findall(r"[А-Яа-яЁё]", text)
+    if cyr:
+        diversity = len({ch.lower() for ch in cyr})
+        rs_letters = sum(1 for ch in cyr if ch.lower() in {"р", "с"})
+        if diversity >= 10 and (rs_letters / max(len(cyr), 1)) < 0.35:
+            return text
     if not _looks_like_mojibake(text):
         return text
 
@@ -917,6 +1035,63 @@ def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
     return lines
 
 
+
+
+def _where_money_lost_section_lines(
+    *,
+    decision: dict[str, Any],
+    abc_layer: dict[str, Any],
+    facts: dict[str, Any],
+) -> list[str]:
+    lines: list[str] = ["### 🚨 Где теряются деньги"]
+
+    ads_leaks = decision.get("ads_leaks") if isinstance(decision.get("ads_leaks"), list) else []
+    dead_stock = decision.get("dead_stock") if isinstance(decision.get("dead_stock"), list) else []
+    regions_over_150 = facts.get("logistics_regions_over_150") if isinstance(facts.get("logistics_regions_over_150"), list) else []
+    c_overstock_rows = abc_layer.get("c_overstock_rows") if isinstance(abc_layer.get("c_overstock_rows"), list) else []
+    c_ads_rows = abc_layer.get("c_ads_rows") if isinstance(abc_layer.get("c_ads_rows"), list) else []
+
+    def _row_sku(value: Any) -> int:
+        if isinstance(value, dict):
+            return _to_int(value.get("sku"))
+        if isinstance(value, (list, tuple)) and value:
+            return _to_int(value[0])
+        return 0
+
+    top_dead_sku = []
+    for item in dead_stock[:5]:
+        sku = _row_sku(item)
+        if sku > 0:
+            top_dead_sku.append(str(sku))
+
+    top_c_problem = []
+    for row in (c_overstock_rows + c_ads_rows):
+        sku = _row_sku(row)
+        if sku > 0 and str(sku) not in top_c_problem:
+            top_c_problem.append(str(sku))
+        if len(top_c_problem) >= 5:
+            break
+
+    lines.append(f"1. **Реклама без заказов:** {len(ads_leaks)} связок {_icon_warn()}")
+    if ads_leaks:
+        lines.append("- Нужна чистка неэффективных запросов и связок, которые расходуют бюджет без выкупа.")
+
+    lines.append(f"2. **Залежавшиеся остатки:** {len(dead_stock)} SKU {_icon_warn()}")
+    if top_dead_sku:
+        lines.append(f"- Кандидаты на разбор: **{', '.join(top_dead_sku)}**.")
+
+    lines.append(f"3. **Дорогая логистика:** {len(regions_over_150)} регионов с коэффициентом >150% {_icon_red()}")
+    if regions_over_150:
+        lines.append(f"- Регионы риска: **{', '.join(str(x) for x in regions_over_150[:5])}**.")
+
+    c_problem_count = len(c_overstock_rows) + len(c_ads_rows)
+    lines.append(f"4. **Проблемные C-SKU:** {c_problem_count} кейсов {_icon_red() if c_problem_count > 0 else _icon_green()}")
+    if top_c_problem:
+        lines.append(f"- SKU категории C с риском: **{', '.join(top_c_problem)}**.")
+
+    lines.append("")
+    return lines
+
 def _risk_label_ru(level: Any) -> str:
     key = _text(level).lower()
     mapping = {
@@ -940,38 +1115,48 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
         return lines
 
     lines.append(
-        "- Блок показывает топ SKU по прибыли и оценивает, где логистика WB (ИЛ/ИРП) снижает итоговую маржу."
+        "- Блок показывает топ SKU по прибыли и оценивает, где логистика WB (ИЛ/ИРП) и реклама снижают итоговую маржу."
     )
     lines.append("")
 
-    for item in rows[:5]:
+    for index, item in enumerate(rows[:5]):
         if not isinstance(item, dict):
             continue
+        if index > 0:
+            lines.append("---")
+            lines.append("")
+
         sku = _text(item.get("sku") or "н/д")
         category = _text(item.get("category") or "N/A")
         lines.append(f"### SKU: {sku} ({category})")
-        lines.append(f"Выручка: {_money(item.get('revenue'))}")
-        lines.append(f"Прибыль: {_money(item.get('profit'))}")
+
+        profit_icon = _status_icon(_profit_status_level(item.get("profit")))
+        lines.append(f"**Выручка:** {_money(item.get('revenue'))}")
+        lines.append(f"**Прибыль:** {_money(item.get('profit'))} {profit_icon}")
+        lines.append("")
+
         lines.append(f"Заказов: {_to_int(item.get('orders'))}")
         lines.append(f"Выкупов: {_to_int(item.get('buyouts'))}")
         lines.append(f"Средняя цена: {_money(item.get('price_avg'))}")
         lines.append(f"Прибыль на заказ: {_money(item.get('profit_per_order'))}")
+
         margin_sku_pct = _to_float(item.get("margin_sku_pct"))
         margin_label = _text(item.get("margin_label") or "Маржа")
         margin_suffix = " (без COGS)" if "без cogs" in margin_label.lower() else ""
-        lines.append("Маржа:")
+        margin_icon = _status_icon(_margin_status_level_by_pct(margin_sku_pct))
         if margin_sku_pct is not None:
-            lines.append(f"- {float(margin_sku_pct):.2f}%{margin_suffix}")
+            lines.append(f"**Маржа:** {float(margin_sku_pct):.2f}%{margin_suffix} {margin_icon}")
         else:
-            lines.append("- н/д")
+            lines.append(f"**Маржа:** н/д {margin_icon}")
+
         roi_sku_pct = _to_float(item.get("roi_sku_pct"))
         roi_available = bool(item.get("roi_available"))
-        lines.append("ROI:")
         if roi_available and roi_sku_pct is not None:
-            lines.append(f"- {float(roi_sku_pct):.2f}%")
+            lines.append(f"**ROI:** {float(roi_sku_pct):.2f}%")
         else:
-            lines.append("- н/д (нет себестоимости)")
+            lines.append("**ROI:** н/д (нет себестоимости)")
 
+        lines.append("")
         logistics_current = _to_float(item.get("logistics_new"))
         logistics_base = _to_float(item.get("logistics_base"))
         logistics_old = _to_float(item.get("logistics_per_order"))
@@ -1000,19 +1185,24 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
         ads_per_order = _to_float(item.get("ads_per_order"))
         drr_sku_pct = _to_float(item.get("drr_sku_pct"))
         ads_load = _text(item.get("ads_load") or "")
+        drr_icon = _status_icon(_drr_status_level_by_pct(drr_sku_pct))
+        lines.append("")
         lines.append("Реклама:")
         lines.append(f"- {_money(ads_per_order)} на заказ" if ads_per_order is not None else "- н/д на заказ")
-        lines.append(f"- ДРР SKU: {float(drr_sku_pct):.2f}%" if drr_sku_pct is not None else "- ДРР SKU: н/д")
+        lines.append(
+            f"- ДРР SKU: {float(drr_sku_pct):.2f}% {drr_icon}" if drr_sku_pct is not None else f"- ДРР SKU: н/д {drr_icon}"
+        )
         if ads_load:
             lines.append(f"- Нагрузка рекламы: {ads_load}")
+
         risk_label = _risk_label_ru(item.get("risk_level"))
-        lines.append(f"Риск: {risk_label}")
-        lines.append(f"Вывод: {_text(item.get('comment'))}")
-        lines.append(f"Рекомендация: {_text(item.get('recommendation'))}")
+        risk_icon = _status_icon(_risk_status_level(item.get("risk_level")))
+        lines.append(f"Риск: {risk_label} {risk_icon}")
+        lines.append(f"{_icon_warn()} **Вывод:** {_text(item.get('comment'))}")
+        lines.append(f"{_icon_point()} **Рекомендация:** {_text(item.get('recommendation'))}")
         lines.append("")
 
     return lines
-
 
 def _profit_view(finance: dict[str, Any], ads: dict[str, Any]) -> dict[str, Any]:
     revenue = _to_float(finance.get("gross_revenue")) or 0.0
@@ -1518,10 +1708,10 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         lines.append(f"Тип аудита: {audit_kind}")
     lines.append("")
     lines.append("- 1. KPI и инсайты")
-    lines.append("- 2. Финансы за период")
-    lines.append("- 3. Воронка продаж")
-    lines.append("- 4. Реклама")
-    lines.append("- 5. Остатки и риск дефицита")
+    lines.append("- 2. 💰 Финансы: сколько реально зарабатываете")
+    lines.append("- 3. 📊 Воронка продаж: путь до выкупа")
+    lines.append("- 4. 📢 Реклама: платите - но не всегда за результат")
+    lines.append("- 5. 📦 Остатки: деньги заморожены в складе")
     lines.append("- 6. Ассортимент / SKU")
     lines.append("- ТОП-5 SKU: где зарабатываете и где теряете")
     lines.append("- 7. Локальные заказы и размещение товара")
@@ -1548,6 +1738,28 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append(f"# {report_title}")
     lines.append("")
     lines.append("## 1. KPI и инсайты")
+    revenue_kpi = _to_float(finance.get("gross_revenue"))
+    clean_profit_kpi = _to_float(profit_view.get("clean_profit"))
+    clean_margin_ratio_kpi = _to_float(profit_view.get("clean_margin"))
+    roas_kpi = _to_float(ads.get("roas"))
+    spend_kpi = _to_float(ads.get("spend"))
+    sales_revenue_kpi = _to_float(funnel.get("revenue_orders"))
+    if sales_revenue_kpi is None or sales_revenue_kpi <= 0:
+        sales_revenue_kpi = _to_float(funnel.get("revenue_buyouts"))
+    if sales_revenue_kpi is None or sales_revenue_kpi <= 0:
+        sales_revenue_kpi = _to_float(finance.get("gross_revenue"))
+    drr_cabinet_kpi = (spend_kpi / sales_revenue_kpi) if spend_kpi is not None and sales_revenue_kpi and sales_revenue_kpi > 0 else None
+    drr_cabinet_kpi_pct = (float(drr_cabinet_kpi) * 100.0) if drr_cabinet_kpi is not None else None
+    roas_level = "green" if roas_kpi is not None and roas_kpi >= 4 else ("yellow" if roas_kpi is not None and roas_kpi >= 2 else ("red" if roas_kpi is not None else "yellow"))
+    kpi_cards = [
+        {"title": "Выручка", "value": _money(revenue_kpi), "icon": _status_icon("green" if (revenue_kpi or 0) > 0 else "yellow")},
+        {"title": "Прибыль", "value": _money(clean_profit_kpi), "icon": _status_icon(_profit_status_level(clean_profit_kpi))},
+        {"title": "Маржа", "value": _pct_ratio(clean_margin_ratio_kpi), "icon": _status_icon(_margin_status_level_by_pct((clean_margin_ratio_kpi * 100.0) if clean_margin_ratio_kpi is not None else None))},
+        {"title": "ROAS", "value": _sanitize_table_cell(ads.get("roas", "н/д")), "icon": _status_icon(roas_level)},
+        {"title": "ДРР кабинета", "value": _fmt_pct(drr_cabinet_kpi_pct, 1), "icon": _status_icon(_drr_status_level_by_pct(drr_cabinet_kpi_pct))},
+    ]
+    _append_kpi_cards(lines, kpi_cards, columns=4)
+    lines.append("### Ключевые выводы")
     insights: list[str] = [
         _kpi_state_text(
             profit=profit_view["clean_profit"],
@@ -1556,16 +1768,18 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         ),
         f"Выручка за период: {_money(finance.get('gross_revenue'))}.",
         f"ROAS рекламы: {_sanitize_table_cell(ads.get('roas', 'н/д'))}.",
+        f"ДРР по кабинету: {_fmt_pct(drr_cabinet_kpi_pct, 1)}.",
     ]
     for reason in _loss_reasons_human(decision, finance)[:2]:
         insights.append(reason)
     for insight in insights[:5]:
-        lines.append(f"- {insight}")
+        lines.append(f"- **{insight}**")
     lines.append("")
+    lines.extend(_where_money_lost_section_lines(decision=decision, abc_layer=abc_layer, facts=facts))
 
     _page_break(lines)
 
-    lines.append("## 2. Финансы за период")
+    lines.append("## 2. 💰 Финансы: сколько реально зарабатываете")
     sales_units = _to_int(funnel.get("orders"))
     if sales_units <= 0:
         sales_units = _to_int(finance.get("sales_qty"))
@@ -1604,17 +1818,29 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     _page_break(lines)
 
-    lines.append("## 3. Воронка продаж")
+    lines.append("## 3. 📊 Воронка продаж: путь до выкупа")
     impressions = _extract_funnel_impressions(facts, funnel)
+    views_count = _to_int(funnel.get("views"))
+    add_to_cart_count = _to_int(funnel.get("add_to_cart"))
+    orders_count = _to_int(funnel.get("orders"))
+    buyouts_count = _to_int(funnel.get("buys"))
+    cr_to_card = (float(views_count) / float(impressions)) if impressions is not None and impressions > 0 else None
+    lines.append("### Визуальная воронка")
+    lines.append(f"**{_to_int(impressions) if impressions is not None else 'н/д'}** показов")
+    lines.append(f"↓ в карточку: **{views_count}** (CR: **{_pct_ratio(cr_to_card)}**)")
+    lines.append(f"↓ в корзину: **{add_to_cart_count}** (CR: **{_pct_ratio(funnel.get('cr_cart'))}**)")
+    lines.append(f"↓ заказов: **{orders_count}** (CR: **{_pct_ratio(funnel.get('cr_order'))}**)")
+    lines.append(f"↓ выкупов: **{buyouts_count}** (% выкупа: **{_pct_ratio(funnel.get('buyout_rate'))}**)")
+    lines.append("")
     funnel_rows: list[list[Any]] = []
     if impressions is not None:
         funnel_rows.append(["Показы", _to_int(impressions)])
     funnel_rows.extend(
         [
-            ["Переходы в карточку", _to_int(funnel.get("views"))],
-            ["В корзину", _to_int(funnel.get("add_to_cart"))],
-            ["Заказы", _to_int(funnel.get("orders"))],
-            ["Выкупы", _to_int(funnel.get("buys"))],
+            ["Переходы в карточку", views_count],
+            ["В корзину", add_to_cart_count],
+            ["Заказы", orders_count],
+            ["Выкупы", buyouts_count],
             ["CR в корзину", _pct_ratio(funnel.get("cr_cart"))],
             ["CR в заказ", _pct_ratio(funnel.get("cr_order"))],
             ["% выкупа", _pct_ratio(funnel.get("buyout_rate"))],
@@ -1624,13 +1850,13 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     )
     _append_markdown_table(lines, ["Показатель", "Значение"], funnel_rows, align_right={1})
     lines.append(
-        "- Часть заказов не выкупается, поэтому оборот по заказам обычно выше фактической выручки из finance."
+        "- **Часть заказов не выкупается**: оборот по заказам обычно выше фактической выручки из finance."
     )
     lines.append("")
 
     _page_break(lines)
 
-    lines.append("## 4. Реклама")
+    lines.append("## 4. 📢 Реклама: платите - но не всегда за результат")
     drr_value = _to_float(ads.get("drr"))
     drr_text = _pct_ratio(drr_value) if drr_value is not None else "н/д"
     spend_value = _to_float(ads.get("spend"))
@@ -1654,6 +1880,9 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         ["ДРР по кабинету", drr_cabinet_text],
     ]
     _append_markdown_table(lines, ["Метрика", "Значение"], ads_rows, align_right={1})
+    drr_cabinet_pct = (float(drr_cabinet) * 100.0) if drr_cabinet is not None else None
+    drr_signal = _status_icon(_drr_status_level_by_pct(drr_cabinet_pct))
+    lines.append(f"- **ДРР по кабинету: {drr_cabinet_text} {drr_signal}**.")
 
     attributed_revenue = _to_float(ads.get("revenue_attr"))
     factual_revenue = _to_float(finance.get("gross_revenue"))
@@ -1665,12 +1894,16 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             "- Она может быть выше фактической выручки, потому что часть заказов не была выкуплена."
         )
     leaks = decision.get("ads_leaks") or []
-    lines.append(f"- Найдено {len(leaks)} рекламных связок/запросов без заказов." if leaks else "- Связки без заказов не обнаружены.")
+    lines.append(
+        f"- **Найдено {len(leaks)} рекламных связок/запросов без заказов**."
+        if leaks
+        else "- Связки без заказов не обнаружены."
+    )
     lines.append("")
 
     _page_break(lines)
 
-    lines.append("## 5. Остатки и риск дефицита")
+    lines.append("## 5. 📦 Остатки: деньги заморожены в складе")
     stock_rows = [
         ["Остатки, шт", _to_int(stock.get("stock_units"))],
         ["SKU/позиций", _to_int(stock.get("sku_count"))],
@@ -1679,6 +1912,8 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         ["Риск дефицита", "да" if bool(stock.get("risk_of_oos")) else "нет"],
     ]
     _append_markdown_table(lines, ["Показатель", "Значение"], stock_rows, align_right={1})
+    stock_risk_icon = _icon_red() if bool(stock.get("risk_of_oos")) else _icon_green()
+    lines.append(f"- **Риск дефицита: {'да' if bool(stock.get('risk_of_oos')) else 'нет'} {stock_risk_icon}**.")
 
     dead_stock = decision.get("dead_stock") or []
     if dead_stock:

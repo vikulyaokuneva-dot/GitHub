@@ -274,6 +274,8 @@ def _parse_md_table(block: str) -> List[List[str]]:
 def _esc(text: str) -> str:
     value = _coerce_text(text)
     value = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # Minimal inline markdown support for emphasis in generated reports.
+    value = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", value)
     value = value.replace("\n", "<br/>")
     return value
 

@@ -186,16 +186,14 @@ def test_report_renders_top5_unit_economics_block() -> None:
 
     assert "## ТОП-5 SKU: где зарабатываете и где теряете" in md
     assert "### SKU: 405933491 (A)" in md
-    assert "Маржа:" in md
-    assert "- 47.80% (без COGS)" in md
-    assert "ROI:" in md
-    assert "- н/д (нет себестоимости)" in md
+    assert "**Маржа:** 47.80% (без COGS)" in md
+    assert "**ROI:** н/д (нет себестоимости)" in md
     assert "Реклама:" in md
     assert "- 15.00 RUB на заказ" in md
     assert "- ДРР SKU: 18.90%" in md
     assert "- Нагрузка рекламы: умеренная" in md
     assert "Риск: ВЫСОКИЙ" in md
-    assert "Рекомендация: Перераспределить товар по складам для снижения ИЛ." in md
+    assert "Рекомендация:** Перераспределить товар по складам для снижения ИЛ." in md
 
 
 def test_top5_unit_economics_payload_calculates_roi_when_cogs_available() -> None:
