@@ -93,9 +93,9 @@ def _margin_status_level_by_pct(margin_pct: Any) -> str:
     value = _to_float(margin_pct)
     if value is None:
         return "yellow"
-    if value > 40.0:
+    if value > 50.0:
         return "green"
-    if value >= 20.0:
+    if value >= 30.0:
         return "yellow"
     return "red"
 
@@ -1072,20 +1072,22 @@ def _where_money_lost_section_lines(
         if len(top_c_problem) >= 5:
             break
 
-    lines.append(f"1. **Реклама без заказов:** {len(ads_leaks)} связок {_icon_warn()}")
+    lines.append(f"- 🚨 **Реклама без заказов:** {len(ads_leaks)} связок")
     if ads_leaks:
         lines.append("- Нужна чистка неэффективных запросов и связок, которые расходуют бюджет без выкупа.")
 
-    lines.append(f"2. **Залежавшиеся остатки:** {len(dead_stock)} SKU {_icon_warn()}")
+    lines.append(f"- ⚠️ **Залежавшиеся остатки:** {len(dead_stock)} SKU")
     if top_dead_sku:
         lines.append(f"- Кандидаты на разбор: **{', '.join(top_dead_sku)}**.")
 
-    lines.append(f"3. **Дорогая логистика:** {len(regions_over_150)} регионов с коэффициентом >150% {_icon_red()}")
+    lines.append(f"- 💸 **Дорогая логистика:** {len(regions_over_150)} регионов с коэффициентом >150%")
     if regions_over_150:
         lines.append(f"- Регионы риска: **{', '.join(str(x) for x in regions_over_150[:5])}**.")
 
     c_problem_count = len(c_overstock_rows) + len(c_ads_rows)
-    lines.append(f"4. **Проблемные C-SKU:** {c_problem_count} кейсов {_icon_red() if c_problem_count > 0 else _icon_green()}")
+    lines.append(
+        f"- {_icon_red() if c_problem_count > 0 else _icon_green()} **Проблемные C-SKU:** {c_problem_count} кейсов"
+    )
     if top_c_problem:
         lines.append(f"- SKU категории C с риском: **{', '.join(top_c_problem)}**.")
 
@@ -1100,6 +1102,30 @@ def _risk_label_ru(level: Any) -> str:
         "low": "НИЗКИЙ",
     }
     return mapping.get(key, "Н/Д")
+
+
+def _top5_comment_with_drr_signal(item: dict[str, Any]) -> str:
+    base_comment = _text(item.get("comment"))
+    drr_sku_pct = _to_float(item.get("drr_sku_pct"))
+    if drr_sku_pct is None:
+        return base_comment or "н/д"
+
+    def _comment_tail_without_ads(text: str) -> str:
+        parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", text or "") if p and p.strip()]
+        filtered = [p for p in parts if ("дрр" not in p.lower() and "реклам" not in p.lower())]
+        return " ".join(filtered).strip()
+
+    if drr_sku_pct > 25.0:
+        signal = f"⚠️ **ДРР высокий ({drr_sku_pct:.2f}%)** — реклама начинает съедать прибыль."
+        tail = _comment_tail_without_ads(base_comment)
+        return f"{signal} {tail}".strip() if tail else signal
+
+    if drr_sku_pct >= 15.0:
+        signal = f"⚠️ **ДРР повышенный ({drr_sku_pct:.2f}%)** — масштабировать рекламу нужно осторожно."
+        tail = _comment_tail_without_ads(base_comment)
+        return f"{signal} {tail}".strip() if tail else signal
+
+    return base_comment or "н/д"
 
 
 def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
@@ -1123,7 +1149,7 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
         if not isinstance(item, dict):
             continue
         if index > 0:
-            lines.append("---")
+            lines.append("----------------------------------------")
             lines.append("")
 
         sku = _text(item.get("sku") or "н/д")
@@ -1190,7 +1216,9 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
         lines.append("Реклама:")
         lines.append(f"- {_money(ads_per_order)} на заказ" if ads_per_order is not None else "- н/д на заказ")
         lines.append(
-            f"- ДРР SKU: {float(drr_sku_pct):.2f}% {drr_icon}" if drr_sku_pct is not None else f"- ДРР SKU: н/д {drr_icon}"
+            f"- **ДРР SKU:** {float(drr_sku_pct):.2f}% {drr_icon}"
+            if drr_sku_pct is not None
+            else f"- **ДРР SKU:** н/д {drr_icon}"
         )
         if ads_load:
             lines.append(f"- Нагрузка рекламы: {ads_load}")
@@ -1198,7 +1226,7 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
         risk_label = _risk_label_ru(item.get("risk_level"))
         risk_icon = _status_icon(_risk_status_level(item.get("risk_level")))
         lines.append(f"Риск: {risk_label} {risk_icon}")
-        lines.append(f"{_icon_warn()} **Вывод:** {_text(item.get('comment'))}")
+        lines.append(f"**Вывод:** {_top5_comment_with_drr_signal(item)}")
         lines.append(f"{_icon_point()} **Рекомендация:** {_text(item.get('recommendation'))}")
         lines.append("")
 

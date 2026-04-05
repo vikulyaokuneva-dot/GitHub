@@ -190,7 +190,7 @@ def test_report_renders_top5_unit_economics_block() -> None:
     assert "**ROI:** н/д (нет себестоимости)" in md
     assert "Реклама:" in md
     assert "- 15.00 RUB на заказ" in md
-    assert "- ДРР SKU: 18.90%" in md
+    assert "- **ДРР SKU:** 18.90%" in md
     assert "- Нагрузка рекламы: умеренная" in md
     assert "Риск: ВЫСОКИЙ" in md
     assert "Рекомендация:** Перераспределить товар по складам для снижения ИЛ." in md
