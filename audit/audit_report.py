@@ -104,11 +104,57 @@ def _drr_status_level_by_pct(drr_pct: Any) -> str:
     value = _to_float(drr_pct)
     if value is None:
         return "yellow"
-    if value < 15.0:
+    if value < 10.0:
         return "green"
-    if value > 25.0:
+    if value > 20.0:
         return "red"
     return "yellow"
+
+
+def _roas_status_level(value: Any) -> str:
+    roas = _to_float(value)
+    if roas is None:
+        return "yellow"
+    if roas > 5.0:
+        return "green"
+    if roas < 3.0:
+        return "red"
+    return "yellow"
+
+
+def _ctr_benchmark_text(ctr_ratio: Any) -> str:
+    ctr = _to_float(ctr_ratio)
+    if ctr is None:
+        return "CTR: н/д (норма: 1.5–3%)."
+    ctr_pct = float(ctr) * 100.0
+    if ctr_pct < 1.5:
+        return f"CTR: {ctr_pct:.2f}% (ниже нормы: <1.5% — низкий уровень)."
+    if ctr_pct <= 3.0:
+        return f"CTR: {ctr_pct:.2f}% (норма 1.5–3% — средний уровень)."
+    return f"CTR: {ctr_pct:.2f}% (>3% — хороший уровень)."
+
+
+def _drr_benchmark_text(drr_ratio: Any) -> str:
+    drr = _to_float(drr_ratio)
+    if drr is None:
+        return "ДРР: н/д (ориентир: <10% отлично, 10–20% нормально, >20% риск)."
+    drr_pct = float(drr) * 100.0
+    if drr_pct < 10.0:
+        return f"ДРР: {drr_pct:.2f}% (<10% — отлично)."
+    if drr_pct <= 20.0:
+        return f"ДРР: {drr_pct:.2f}% (10–20% — нормально)."
+    return f"ДРР: {drr_pct:.2f}% (>20% — риск)."
+
+
+def _roas_benchmark_text(roas_value: Any) -> str:
+    roas = _to_float(roas_value)
+    if roas is None:
+        return "ROAS: н/д (ориентир: <3 слабый, 3–5 нормальный, >5 хороший)."
+    if roas < 3.0:
+        return f"ROAS: {roas:.2f} (<3 — слабый)."
+    if roas <= 5.0:
+        return f"ROAS: {roas:.2f} (3–5 — нормальный)."
+    return f"ROAS: {roas:.2f} (>5 — хороший)."
 
 
 def _risk_status_level(value: Any) -> str:
@@ -1087,6 +1133,11 @@ def _top5_comment_with_drr_signal(item: dict[str, Any]) -> str:
         tail = _comment_tail_without_ads(base_comment)
         return f"{signal} {tail}".strip() if tail else signal
 
+    if drr_sku_pct < 10.0:
+        signal = f"✅ **ДРР низкий ({drr_sku_pct:.2f}%)** — реклама эффективна, можно масштабировать."
+        tail = _comment_tail_without_ads(base_comment)
+        return f"{signal} {tail}".strip() if tail else signal
+
     if drr_sku_pct >= 15.0:
         signal = f"⚠️ **ДРР повышенный ({drr_sku_pct:.2f}%)** — масштабировать рекламу нужно осторожно."
         tail = _comment_tail_without_ads(base_comment)
@@ -1138,16 +1189,16 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
         margin_suffix = " (без COGS)" if "без cogs" in margin_label.lower() else ""
         margin_icon = _status_icon(_margin_status_level_by_pct(margin_sku_pct))
         if margin_sku_pct is not None:
-            lines.append(f"**Маржа:** {float(margin_sku_pct):.2f}%{margin_suffix} {margin_icon}")
+            lines.append(f"**Маржа (доля прибыли от выручки):** {float(margin_sku_pct):.2f}%{margin_suffix} {margin_icon}")
         else:
-            lines.append(f"**Маржа:** н/д {margin_icon}")
+            lines.append(f"**Маржа (доля прибыли от выручки):** н/д {margin_icon}")
 
         roi_sku_pct = _to_float(item.get("roi_sku_pct"))
         roi_available = bool(item.get("roi_available"))
         if roi_available and roi_sku_pct is not None:
             lines.append(f"**ROI:** {float(roi_sku_pct):.2f}%")
         else:
-            lines.append("**ROI:** н/д (нет себестоимости)")
+            lines.append("**ROI:** ROI не рассчитан (нет себестоимости)")
 
         lines.append("")
         logistics_current = _to_float(item.get("logistics_new"))
@@ -1187,6 +1238,10 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
             if drr_sku_pct is not None
             else f"- **ДРР SKU:** н/д {drr_icon}"
         )
+        if drr_sku_pct is not None and drr_sku_pct > 25.0:
+            lines.append("- Интерпретация: реклама начинает съедать прибыль.")
+        elif drr_sku_pct is not None and drr_sku_pct < 10.0:
+            lines.append("- Интерпретация: реклама эффективна, можно масштабировать.")
         if ads_load:
             lines.append(f"- Нагрузка рекламы: {ads_load}")
 
@@ -1745,7 +1800,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         sales_revenue_kpi = _to_float(finance.get("gross_revenue"))
     drr_cabinet_kpi = (spend_kpi / sales_revenue_kpi) if spend_kpi is not None and sales_revenue_kpi and sales_revenue_kpi > 0 else None
     drr_cabinet_kpi_pct = (float(drr_cabinet_kpi) * 100.0) if drr_cabinet_kpi is not None else None
-    roas_level = "green" if roas_kpi is not None and roas_kpi >= 4 else ("yellow" if roas_kpi is not None and roas_kpi >= 2 else ("red" if roas_kpi is not None else "yellow"))
+    roas_level = _roas_status_level(roas_kpi)
     kpi_cards = [
         {"title": "Выручка", "value": _money(revenue_kpi), "icon": _status_icon("green" if (revenue_kpi or 0) > 0 else "yellow")},
         {"title": "Прибыль", "value": _money(clean_profit_kpi), "icon": _status_icon(_profit_status_level(clean_profit_kpi))},
@@ -1764,6 +1819,8 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         f"Выручка за период: {_money(finance.get('gross_revenue'))}.",
         f"ROAS рекламы: {_sanitize_table_cell(ads.get('roas', 'н/д'))}.",
         f"ДРР по кабинету: {_fmt_pct(drr_cabinet_kpi_pct, 1)}.",
+        _roas_benchmark_text(roas_kpi),
+        _drr_benchmark_text(drr_cabinet_kpi),
     ]
     for reason in _loss_reasons_human(decision, finance)[:2]:
         insights.append(reason)
@@ -1795,11 +1852,12 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         ["Реклама", _money(ads.get("spend"))],
         ["Налог", _money(finance.get("tax"))],
         [_text(profit_view["clean_label"]), _money(profit_view.get("clean_profit"))],
-        ["Маржа", _pct_ratio(profit_view.get("clean_margin"))],
+        ["Маржа (доля прибыли от выручки)", _pct_ratio(profit_view.get("clean_margin"))],
         ["ROI", _text(roi_main.replace("ROI: ", ""))],
         ["К перечислению", _money(finance.get("payout"))],
     ]
     _append_markdown_table(lines, ["Метрика", "Значение"], finance_rows, align_right={1})
+    lines.append("- Комиссия рассчитана по ВЫКУПАМ (данные finance), поэтому может отличаться от интерфейса WB.")
     lines.append("- Чистая прибыль и маржа в этом разделе рассчитаны с учетом рекламных расходов.")
     for extra in roi_extra:
         lines.append(f"- {extra}")
@@ -1844,6 +1902,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         ]
     )
     _append_markdown_table(lines, ["Показатель", "Значение"], funnel_rows, align_right={1})
+    lines.append("- % выкупа = выкупы / заказы по данным отчета (может отличаться от WB).")
     lines.append(
         "- **Часть заказов не выкупается**: оборот по заказам обычно выше фактической выручки из finance."
     )
@@ -1869,7 +1928,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         ["CTR", _pct_ratio(ads.get("ctr"))],
         ["CPC", _money(ads.get("cpc"))],
         ["CPM", _money(ads.get("cpm"))],
-        ["Атрибутированная выручка", _money(ads.get("revenue_attr"))],
+        ["Выручка от рекламы (по версии WB)", _money(ads.get("revenue_attr"))],
         ["ROAS", _sanitize_table_cell(ads.get("roas", "н/д"))],
         ["ДРР (по рекламной выручке)", drr_text],
         ["ДРР по кабинету", drr_cabinet_text],
@@ -1878,11 +1937,14 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     drr_cabinet_pct = (float(drr_cabinet) * 100.0) if drr_cabinet is not None else None
     drr_signal = _status_icon(_drr_status_level_by_pct(drr_cabinet_pct))
     lines.append(f"- **ДРР по кабинету: {drr_cabinet_text} {drr_signal}**.")
+    lines.append(f"- {_ctr_benchmark_text(ads.get('ctr'))}")
+    lines.append(f"- {_drr_benchmark_text(drr_cabinet)}")
+    lines.append(f"- {_roas_benchmark_text(ads.get('roas'))}")
 
     attributed_revenue = _to_float(ads.get("revenue_attr"))
     factual_revenue = _to_float(finance.get("gross_revenue"))
     lines.append(
-        "- Атрибутированная выручка показывает заказы, которые WB относит к рекламным касаниям, а не факт оплат из finance."
+        "- Выручка от рекламы (по версии WB): выручка, которую WB связывает с рекламой (это заказы, не все из них выкуплены)."
     )
     if attributed_revenue is not None and factual_revenue is not None and attributed_revenue > factual_revenue:
         lines.append(
@@ -2265,6 +2327,76 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     else:
         lines.append("- Рекомендации не сформированы: недостаточно данных.")
         lines.append("")
+
+    lines.append("")
+    lines.append("## 🚀 Итог: что делать")
+    top5_payload = facts.get("top5_sku_unit_economics") if isinstance(facts.get("top5_sku_unit_economics"), dict) else {}
+    top5_items = top5_payload.get("items") if isinstance(top5_payload.get("items"), list) else []
+    dead_stock = decision.get("dead_stock") if isinstance(decision.get("dead_stock"), list) else []
+    unprofitable_sku = decision.get("unprofitable_sku") if isinstance(decision.get("unprofitable_sku"), list) else []
+
+    cut_ads_skus = _top_skus_from_rows(abc_layer.get("c_ads_rows") or [], limit=5)
+    boost_ads_skus = _top_skus_from_rows(abc_layer.get("ab_potential_rows") or [], limit=5)
+    sell_stock_skus = _top_skus_from_rows(abc_layer.get("c_overstock_rows") or [], limit=5)
+    risk_skus = []
+
+    for item in dead_stock[:20]:
+        sku = _to_int((item or {}).get("sku"))
+        if sku > 0 and sku not in sell_stock_skus:
+            sell_stock_skus.append(sku)
+        if len(sell_stock_skus) >= 5:
+            break
+
+    for item in top5_items[:20]:
+        if not isinstance(item, dict):
+            continue
+        sku = _to_int(item.get("sku"))
+        if sku <= 0:
+            continue
+        drr_sku_pct = _to_float(item.get("drr_sku_pct"))
+        profit = _to_float(item.get("profit"))
+        margin_sku_pct = _to_float(item.get("margin_sku_pct"))
+        if drr_sku_pct is not None and drr_sku_pct > 25.0 and sku not in cut_ads_skus:
+            cut_ads_skus.append(sku)
+        if drr_sku_pct is not None and drr_sku_pct < 10.0 and (profit or 0.0) > 0 and sku not in boost_ads_skus:
+            boost_ads_skus.append(sku)
+        if ((drr_sku_pct is not None and drr_sku_pct > 20.0) or (margin_sku_pct is not None and margin_sku_pct < 20.0)) and sku not in risk_skus:
+            risk_skus.append(sku)
+
+    for item in unprofitable_sku[:20]:
+        sku = _to_int((item or {}).get("sku"))
+        if sku > 0 and sku not in risk_skus:
+            risk_skus.append(sku)
+        if len(risk_skus) >= 5:
+            break
+
+    cut_ads_skus = cut_ads_skus[:5]
+    boost_ads_skus = boost_ads_skus[:5]
+    sell_stock_skus = sell_stock_skus[:5]
+    risk_skus = risk_skus[:5]
+
+    lines.append("1. Сократить рекламу:")
+    lines.append(f"SKU: {_sku_csv(cut_ads_skus) if cut_ads_skus else 'нет явных SKU'}")
+    lines.append("Причина: есть клики/рекламные расходы, но слабая отдача по заказам.")
+    lines.append("")
+    lines.append("2. Усилить рекламу:")
+    lines.append(f"SKU: {_sku_csv(boost_ads_skus) if boost_ads_skus else 'нет явных SKU'}")
+    lines.append("Причина: высокая прибыль + нормальный ДРР.")
+    lines.append("")
+    lines.append("3. Распродать остатки:")
+    lines.append(f"SKU: {_sku_csv(sell_stock_skus) if sell_stock_skus else 'нет явных SKU'}")
+    lines.append("Причина: нет заказов/слабое движение + остатки.")
+    lines.append("")
+    lines.append("4. Риск:")
+    lines.append(f"SKU: {_sku_csv(risk_skus) if risk_skus else 'нет явных SKU'}")
+    lines.append("Причина: высокий ДРР и/или падающая маржа.")
+    lines.append("")
+    lines.append("## Почему цифры могут отличаться от WB")
+    lines.append("- WB использует свою логику расчетов.")
+    lines.append("- Отчет считает по выгрузкам (finance, funnel).")
+    lines.append("- Часть заказов не выкупается.")
+    lines.append("- Реклама учитывает атрибуцию WB.")
+    lines.append("")
 
     missing_required = inputs.get("missing_required") or []
     missing_optional = inputs.get("missing_optional") or []

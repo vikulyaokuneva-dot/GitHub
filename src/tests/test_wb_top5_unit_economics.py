@@ -186,8 +186,8 @@ def test_report_renders_top5_unit_economics_block() -> None:
 
     assert "## ТОП-5 SKU: где зарабатываете и где теряете" in md
     assert "### SKU: 405933491 (A)" in md
-    assert "**Маржа:** 47.80% (без COGS)" in md
-    assert "**ROI:** н/д (нет себестоимости)" in md
+    assert "**Маржа (доля прибыли от выручки):** 47.80% (без COGS)" in md
+    assert "**ROI:** ROI не рассчитан (нет себестоимости)" in md
     assert "Реклама:" in md
     assert "- 15.00 RUB на заказ" in md
     assert "- **ДРР SKU:** 18.90%" in md
