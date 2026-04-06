@@ -2553,15 +2553,25 @@ def _build_actions(
             }
         )
 
-    if decision_layer.get("ads_leaks"):
+    ads_leaks = decision_layer.get("ads_leaks") if isinstance(decision_layer.get("ads_leaks"), list) else []
+    ads_leaks_spend = sum(
+        (_to_float_or_none(item.get("spend")) or 0.0)
+        for item in ads_leaks
+        if isinstance(item, dict) and _to_int(item.get("orders")) == 0
+    )
+    if ads_leaks:
         actions.append(
             {
                 "priority": "P0",
                 "area": "ads",
                 "action": "Отключить кампании и запросы с расходом без заказов",
                 "why": "Реклама убыточная и сливает бюджет",
-                "expected_effect": "Снижение рекламного расхода без потери выручки",
-                "numbers": {"leaks_count": len(decision_layer.get("ads_leaks") or [])},
+                "expected_effect": f"Снижение рекламного расхода без потери выручки (~{round(float(ads_leaks_spend), 2)} RUB за период)",
+                "numbers": {
+                    "leaks_count": len(ads_leaks),
+                    "leaks_spend_rub": round(float(ads_leaks_spend), 2),
+                    "estimated_saving_rub": round(float(ads_leaks_spend), 2),
+                },
             }
         )
 

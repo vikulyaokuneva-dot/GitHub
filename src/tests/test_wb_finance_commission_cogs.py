@@ -146,3 +146,15 @@ def test_markdown_is_consistent_with_cogs_status_not_matched() -> None:
 
     assert "COGS найден, но не сопоставлен с SKU продаж" in md
     assert "не рассчитан (нет данных по себестоимости)" in md
+
+
+def test_kpi_contains_cogs_impact_block_when_cogs_applied() -> None:
+    facts = _base_facts()
+    facts["financial_summary"]["cogs_status"] = "full_match"
+    facts["financial_summary"]["cogs_total"] = 200
+    md = build_audit_markdown(facts)
+
+    assert "### Влияние себестоимости" in md
+    assert "Прибыль без себестоимости" in md
+    assert "Итоговая прибыль" in md
+    assert "Снижение прибыли" in md
