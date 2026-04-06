@@ -388,19 +388,97 @@ def _extract_funnel_impressions(facts: dict[str, Any], funnel: dict[str, Any]) -
     return total if total > 0 else None
 
 
-def _search_conclusion(row: dict[str, Any]) -> str:
-    impressions = _to_int(row.get("impressions"))
+def _search_sku_label(row: dict[str, Any]) -> str:
+    sku = _to_int(row.get("nmId"))
+    if sku > 0:
+        return str(sku)
+    seller_article = _text(row.get("seller_article"))
+    if seller_article:
+        return seller_article
+    return "н/д"
+
+
+def _search_cr_ratio(row: dict[str, Any]) -> float | None:
     clicks = _to_int(row.get("clicks"))
+    if clicks <= 0:
+        return None
+    orders = _to_int(row.get("orders"))
+    return float(orders) / float(clicks)
+
+
+def _search_drr_ratio(row: dict[str, Any]) -> float | None:
+    spend = _to_float(row.get("spend"))
+    revenue = _to_float(row.get("revenue"))
+    if spend is None or revenue is None or revenue <= 0:
+        return None
+    return float(spend) / float(revenue)
+
+
+def _search_bucket(row: dict[str, Any]) -> str:
+    clicks = _to_int(row.get("clicks"))
+    add_to_cart = _to_int(row.get("add_to_cart"))
     orders = _to_int(row.get("orders"))
     buyouts = _to_int(row.get("buyouts"))
+    buyouts_available = row.get("buyouts") not in (None, "")
+    cr = _search_cr_ratio(row) or 0.0
 
-    if orders > 0 or buyouts > 0:
-        return "работает: есть заказы"
-    if clicks > 0 and orders == 0 and buyouts == 0:
-        return "есть интерес, но нет заказов: проблема конверсии"
-    if impressions > 0 and clicks == 0:
-        return "низкий CTR: есть показы, но нет кликов"
-    return "недостаточно данных"
+    if orders > 0 and cr > 0 and ((buyouts > 0) if buyouts_available else True):
+        return "effective"
+    if clicks > 0 and add_to_cart > 0 and (orders == 0 or cr <= 0.02):
+        return "potential"
+    if clicks > 0 and orders == 0:
+        return "ineffective"
+    if orders > 0 and cr > 0:
+        return "effective"
+    return "other"
+
+
+def _search_conclusion(row: dict[str, Any]) -> str:
+    bucket = _search_bucket(row)
+    if bucket == "effective":
+        return "работает"
+    if bucket == "ineffective":
+        return "сливает бюджет"
+    return "нужно улучшить карточку"
+
+
+def _search_cr_text(row: dict[str, Any]) -> str:
+    cr = _search_cr_ratio(row)
+    return _fmt_pct(cr * 100.0, 2) if cr is not None else "н/д"
+
+
+def _search_drr_text(row: dict[str, Any]) -> str:
+    drr = _search_drr_ratio(row)
+    return _fmt_pct(drr * 100.0, 2) if drr is not None else "н/д"
+
+
+def _search_has_metric(rows: list[dict[str, Any]], key: str) -> bool:
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if row.get(key) not in (None, ""):
+            return True
+    return False
+
+
+def _search_target_labels(rows: list[dict[str, Any]], *, limit: int = 5) -> list[str]:
+    labels: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        query = _text(row.get("query"))
+        if not query:
+            continue
+        sku = _search_sku_label(row)
+        key = (query.lower(), sku.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        labels.append(f'"{query}" (SKU {sku})' if sku != "н/д" else f'"{query}"')
+        if len(labels) >= limit:
+            break
+    return labels
 
 
 def _sanitize_table_cell(value: Any) -> str:
@@ -537,6 +615,39 @@ def _page_break(lines: list[str]) -> None:
 
 def _search_rows_sorted(rows: list[dict[str, Any]], *, mode: str) -> list[dict[str, Any]]:
     data = [row for row in rows if isinstance(row, dict)]
+    if mode == "effective":
+        data = [row for row in data if _search_bucket(row) == "effective"]
+        return sorted(
+            data,
+            key=lambda row: (
+                _to_int(row.get("orders")),
+                _to_int(row.get("buyouts")),
+                _to_int(row.get("clicks")),
+            ),
+            reverse=True,
+        )
+    if mode == "ineffective":
+        data = [row for row in data if _search_bucket(row) == "ineffective"]
+        return sorted(
+            data,
+            key=lambda row: (
+                _to_int(row.get("clicks")),
+                _to_int(row.get("add_to_cart")),
+                _to_int(row.get("impressions")),
+            ),
+            reverse=True,
+        )
+    if mode == "potential":
+        data = [row for row in data if _search_bucket(row) == "potential"]
+        return sorted(
+            data,
+            key=lambda row: (
+                _to_int(row.get("add_to_cart")),
+                _to_int(row.get("clicks")),
+                _to_int(row.get("orders")),
+            ),
+            reverse=True,
+        )
     if mode == "orders":
         data = [row for row in data if _to_int(row.get("orders")) > 0]
         return sorted(
@@ -2168,23 +2279,38 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     _page_break(lines)
 
+    search_effective_rows: list[dict[str, Any]] = []
+    search_ineffective_rows: list[dict[str, Any]] = []
+    search_potential_rows: list[dict[str, Any]] = []
+    search_disable_targets: list[str] = []
+    search_scale_targets: list[str] = []
+    search_optimize_targets: list[str] = []
+
     lines.append("## 11. Поисковые запросы")
     search_status = str(search.get("status") or "")
     if search_status == "ok":
         base_rows = search.get("base_rows") if isinstance(search.get("base_rows"), list) else []
-        summary = search.get("summary") if isinstance(search.get("summary"), dict) else {}
-        rows_count = _to_int(summary.get("rows_count") or len(base_rows))
-        rows_with_orders = _to_int(summary.get("profitable_count") or len(search.get("profitable") or []))
-        rows_without_orders = _to_int(summary.get("unprofitable_count") or len(search.get("unprofitable") or []))
-        rows_with_potential = _to_int(summary.get("potential_count") or len(search.get("potential") or []))
+        search_effective_rows = _search_rows_sorted(base_rows, mode="effective")
+        search_ineffective_rows = _search_rows_sorted(base_rows, mode="ineffective")
+        search_potential_rows = _search_rows_sorted(base_rows, mode="potential")
+        rows_count = len(base_rows)
+
+        lines.append("Найдено:")
+        lines.append(f"- {len(search_effective_rows)} эффективных запросов (дают заказы)")
+        lines.append(f"- {len(search_ineffective_rows)} неэффективных (сливают бюджет)")
+        lines.append(f"- {len(search_potential_rows)} с потенциалом")
+        lines.append("")
 
         summary_rows = [
             ["Всего строк в search-отчете", rows_count],
-            ["Связки query+SKU с заказами", rows_with_orders],
-            ["Связки query+SKU без заказов", rows_without_orders],
-            ["Связки query+SKU с потенциалом", rows_with_potential],
+            ["Эффективные (работают)", len(search_effective_rows)],
+            ["Неэффективные (сливают бюджет)", len(search_ineffective_rows)],
+            ["Потенциал (нужна доработка карточки)", len(search_potential_rows)],
         ]
         _append_markdown_table(lines, ["Показатель", "Значение"], summary_rows, align_right={1})
+
+        show_spend = _search_has_metric(base_rows, "spend")
+        show_drr = show_spend and _search_has_metric(base_rows, "revenue")
 
         def _render_search_table(title: str, rows: list[dict[str, Any]]) -> None:
             lines.append(title)
@@ -2192,30 +2318,91 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
                 lines.append("- Данных для таблицы нет.")
                 lines.append("")
                 return
-            table_rows = [
-                [
+
+            headers = ["Запрос", "SKU", "Клики", "В корзину", "Заказы", "CR"]
+            align_right = {2, 3, 4, 5}
+            if show_spend:
+                headers.append("Расход")
+                align_right.add(len(headers) - 1)
+            if show_drr:
+                headers.append("ДРР")
+                align_right.add(len(headers) - 1)
+            headers.append("Вывод")
+
+            table_rows: list[list[Any]] = []
+            for item in rows[:10]:
+                row_out: list[Any] = [
                     _text(item.get("query")),
-                    _to_int(item.get("nmId")),
+                    _search_sku_label(item),
                     _to_int(item.get("clicks")),
                     _to_int(item.get("add_to_cart")),
                     _to_int(item.get("orders")),
-                    _search_conclusion(item),
+                    _search_cr_text(item),
                 ]
-                for item in rows[:10]
-            ]
-            _append_markdown_table(
-                lines,
-                ["Запрос", "SKU", "Клики", "В корзину", "Заказы", "Вывод"],
-                table_rows,
-                align_right={2, 3, 4},
-            )
+                if show_spend:
+                    row_out.append(_money(item.get("spend")))
+                if show_drr:
+                    row_out.append(_search_drr_text(item))
+                row_out.append(_search_conclusion(item))
+                table_rows.append(row_out)
 
-        _render_search_table("TOP-10 запросов по кликам", _search_rows_sorted(base_rows, mode="clicks"))
-        _render_search_table("TOP-10 запросов с заказами", _search_rows_sorted(base_rows, mode="orders"))
-        _render_search_table(
-            "TOP-10 запросов без заказов, но с кликами",
-            _search_rows_sorted(base_rows, mode="no_orders_clicks"),
+            _append_markdown_table(lines, headers, table_rows, align_right=align_right)
+
+        _render_search_table("### Эффективные запросы (оставить и масштабировать)", search_effective_rows)
+        _render_search_table("### Неэффективные запросы (отключить / снизить ставки)", search_ineffective_rows)
+        _render_search_table("### Запросы с потенциалом (доработать карточку)", search_potential_rows)
+
+        search_disable_targets = _search_target_labels(search_ineffective_rows, limit=7)
+        search_scale_targets = _search_target_labels(search_effective_rows, limit=7)
+        search_optimize_targets = _search_target_labels(search_potential_rows, limit=7)
+
+        lines.append("### Что делать с поиском")
+        lines.append("1. Отключить / снизить ставки:")
+        lines.append(
+            f"- {', '.join(search_disable_targets) if search_disable_targets else 'нет явных запросов без заказов'}"
         )
+        lines.append("- Причина: есть клики, но нет заказов -> сливает бюджет.")
+        lines.append("")
+        lines.append("2. Усилить:")
+        lines.append(
+            f"- {', '.join(search_scale_targets) if search_scale_targets else 'нет явных конверсионных запросов'}"
+        )
+        lines.append("- Причина: запросы дают заказы и подтверждают спрос.")
+        lines.append("")
+        lines.append("3. Оптимизировать карточку:")
+        lines.append(
+            f"- {', '.join(search_optimize_targets) if search_optimize_targets else 'нет явных запросов с потенциалом'}"
+        )
+        lines.append("- Причина: есть добавления в корзину, но заказов мало/нет.")
+        lines.append("")
+
+        strong_sku_map: dict[str, int] = {}
+        for item in search_effective_rows:
+            sku = _search_sku_label(item)
+            if sku == "н/д":
+                continue
+            strong_sku_map[sku] = strong_sku_map.get(sku, 0) + max(_to_int(item.get("orders")), 1)
+        weak_sku_map: dict[str, int] = {}
+        for item in search_ineffective_rows:
+            sku = _search_sku_label(item)
+            if sku == "н/д":
+                continue
+            weak_sku_map[sku] = weak_sku_map.get(sku, 0) + max(_to_int(item.get("clicks")), 1)
+
+        lines.append("### Связь с SKU")
+        strong_skus = sorted(strong_sku_map.items(), key=lambda pair: pair[1], reverse=True)[:5]
+        weak_skus = sorted(weak_sku_map.items(), key=lambda pair: pair[1], reverse=True)[:5]
+        if strong_skus:
+            for sku, _score in strong_skus:
+                lines.append(f"- SKU {sku}: есть конверсионные запросы -> усиливать рекламу.")
+        else:
+            lines.append("- Сильные SKU по поисковым запросам не выявлены.")
+        if weak_skus:
+            for sku, _score in weak_skus:
+                lines.append(f"- SKU {sku}: много кликов без заказов -> отключить/снизить рекламу.")
+        else:
+            lines.append("- SKU с явным сливом бюджета в поиске не выявлены.")
+        lines.append("")
         lines.append("- Search-отчет отражает связки «поисковый запрос + SKU», а не все заказы кабинета.")
         lines.append("")
     elif search_status == "missing":
@@ -2268,6 +2455,13 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             f"Отключить или снизить рекламу по SKU: {_sku_csv(c_ads_skus)}",
             "Сокращение рекламных расходов без заказов.",
         )
+    if search_disable_targets:
+        _append_action_row(
+            "P0",
+            "search",
+            f"Отключить/снизить ставки по поисковым запросам: {', '.join(search_disable_targets[:5])}",
+            "Сокращение расходов по запросам с кликами без заказов.",
+        )
 
     for action in actions:
         if not isinstance(action, dict) or not _is_finance_funnel_action(action):
@@ -2292,6 +2486,20 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             "stock",
             f"Контролировать остатки и пополнение по SKU: {_sku_csv(critical_a_skus)}",
             "Снижение риска дефицита по ключевым SKU категории A.",
+        )
+    if search_scale_targets:
+        _append_action_row(
+            "P1",
+            "search",
+            f"Усилить ставки по поисковым запросам: {', '.join(search_scale_targets[:5])}",
+            "Рост заказов за счет уже конверсионных запросов.",
+        )
+    if search_optimize_targets:
+        _append_action_row(
+            "P1",
+            "search",
+            f"Оптимизировать карточки под запросы: {', '.join(search_optimize_targets[:5])}",
+            "Рост конверсии в заказ по запросам с добавлениями в корзину.",
         )
 
     for action in actions:
@@ -2390,6 +2598,18 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append("4. Риск:")
     lines.append(f"SKU: {_sku_csv(risk_skus) if risk_skus else 'нет явных SKU'}")
     lines.append("Причина: высокий ДРР и/или падающая маржа.")
+    lines.append("")
+    lines.append("5. Поиск: отключить / снизить ставки:")
+    lines.append(
+        f"Запросы: {', '.join(search_disable_targets[:5]) if search_disable_targets else 'нет явных запросов'}"
+    )
+    lines.append("Причина: клики есть, заказов нет -> сливается бюджет.")
+    lines.append("")
+    lines.append("6. Поиск: масштабировать:")
+    lines.append(
+        f"Запросы: {', '.join(search_scale_targets[:5]) if search_scale_targets else 'нет явных запросов'}"
+    )
+    lines.append("Причина: запросы уже дают заказы и подтверждают спрос.")
     lines.append("")
     lines.append("## Почему цифры могут отличаться от WB")
     lines.append("- WB использует свою логику расчетов.")
