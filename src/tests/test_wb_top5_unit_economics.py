@@ -184,7 +184,7 @@ def test_report_renders_top5_unit_economics_block() -> None:
 
     md = build_audit_markdown(facts)
 
-    assert "## ТОП-5 SKU: где зарабатываете и где теряете" in md
+    assert "## 7. ТОП-5 SKU: где зарабатываете и где теряете" in md
     assert "### SKU: 405933491 (A)" in md
     assert "**Маржа (доля прибыли от выручки):** 47.80% (без COGS)" in md
     assert "**ROI:** ROI не рассчитан (нет себестоимости)" in md

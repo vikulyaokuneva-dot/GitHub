@@ -65,10 +65,10 @@ def test_report_contains_logistics_overpayment_section_in_mode_c():
 
     md = build_audit_markdown(facts)
 
-    assert "## 9." in md
     assert "## 10." in md
     assert "## 11." in md
     assert "## 12." in md
+    assert "## 13." in md
     assert "Точный расчет переплаты за логистику недоступен" in md
     assert "---PAGEBREAK---" in md
 
@@ -156,7 +156,7 @@ def test_report_renders_regional_logistics_decision_block():
 
     md = build_audit_markdown(facts)
 
-    assert "## 8. Логистика: где переплачиваете" in md
+    assert "## 9. Логистика: где переплачиваете" in md
     assert "### SKU в зоне регионального риска" in md
     assert "### Что делать practically" in md
     assert "order_geography" in md

@@ -1,6 +1,7 @@
 # src/metrics.py
 import datetime as dt
 import json
+import re
 from typing import Any, Dict, List, Tuple
 
 from src.cogs import calc_cogs_for_rows
@@ -58,6 +59,24 @@ def _normalize_items(raw: Any) -> List[Dict[str, Any]]:
     if isinstance(raw, dict):
         return [raw]
     return []
+
+
+def _normalize_sku_token(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    cleaned = text.replace("\xa0", " ").replace(",", ".").strip()
+    try:
+        if re.match(r"^\d+(\.0+)?$", cleaned):
+            return str(int(float(cleaned)))
+    except Exception:
+        pass
+    return cleaned
+
+
+def _normalize_seller_token(value: Any) -> str:
+    text = str(value or "").replace("\xa0", " ").strip().lower()
+    return " ".join(text.split())
 
 
 # --------------------
@@ -231,7 +250,13 @@ def calc_stock_forecast(
         "items_count": int(len(items)),
     }
 
-def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict[str, Any]:
+def calc_financial_metrics(
+    realization_raw: Any,
+    tax_rate: float = 0.06,
+    cogs_rows: Any | None = None,
+    *,
+    cogs_file_found: bool | None = None,
+) -> Dict[str, Any]:
     """Считает финансы за период по отчету реализации (reportDetailByPeriod) + SKU P&L.
 
     ВАЖНО:
@@ -267,14 +292,27 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
 
     gross_revenue = 0.0
     commission = 0.0
+    base_commission = 0.0
+    pvz_compensation = 0.0
+    payment_services_compensation = 0.0
+    payment_services_compensation_amount = 0.0
     logistics = 0.0
     storage = 0.0
     penalties = 0.0
     payout = 0.0
 
     qty_by_sku: Dict[int, int] = {}
+    sku_seller_tokens: Dict[int, set[str]] = {}
 
     sku_map: Dict[int, Dict[str, float]] = {}
+
+    use_base_before_agent = False
+    for probe in rows:
+        if not isinstance(probe, dict):
+            continue
+        if f(probe.get("wb_reward_before_agent")) != 0:
+            use_base_before_agent = True
+            break
 
     def sku_get(sku_i: int) -> Dict[str, float]:
         if sku_i not in sku_map:
@@ -319,6 +357,18 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
             or r.get("commissionAmount")
             or 0
         )
+        row_base_commission = f(r.get("wb_reward_before_agent"))
+        if row_base_commission == 0:
+            row_base_commission = row_commission if (not use_base_before_agent or row_commission != 0) else 0.0
+        row_pvz_compensation = f(r.get("pvz_compensation"))
+        row_payment_services_compensation = f(r.get("payment_services_compensation"))
+        row_payment_services_compensation_amount = f(r.get("payment_services_compensation_amount"))
+        row_commission_total = (
+            float(row_base_commission)
+            + float(row_pvz_compensation)
+            + float(row_payment_services_compensation)
+            + float(row_payment_services_compensation_amount)
+        )
         row_logistics = f(
             r.get("delivery_rub")
             or r.get("deliveryRub")
@@ -330,6 +380,13 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
         row_penalty = f(r.get("penalty") or r.get("penaltyAmount") or r.get("fine") or 0)
         # payout берется напрямую из finance отчета WB ("К перечислению продавцу"), без перерасчета формулой.
         row_payout = f(r.get("ppvz_for_pay") or r.get("ppvzForPay") or r.get("to_pay") or r.get("toPay") or 0)
+        seller_token = _normalize_seller_token(
+            r.get("_supplier_article")
+            or r.get("supplierArticle")
+            or r.get("Артикул поставщика")
+            or r.get("Артикул продавца")
+            or ""
+        )
 
         is_sale = ("продаж" in oper) and ("возврат" not in oper)
         is_return = ("возврат" in oper) or ("return" in oper)
@@ -348,10 +405,16 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
                 sales_qty += qty
                 if sku_i:
                     qty_by_sku[sku_i] = qty_by_sku.get(sku_i, 0) + qty
+                    if seller_token:
+                        sku_seller_tokens.setdefault(sku_i, set()).add(seller_token)
 
             gross_revenue += row_amount if row_amount else unit_price * (qty if qty else 1)
 
-            commission += abs(row_commission)
+            commission += row_commission_total
+            base_commission += row_base_commission
+            pvz_compensation += row_pvz_compensation
+            payment_services_compensation += row_payment_services_compensation
+            payment_services_compensation_amount += row_payment_services_compensation_amount
             payout += row_payout
 
             logistics += abs(row_logistics) if row_logistics else 0.0
@@ -363,7 +426,7 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
                 if qty > 0:
                     m["sales_qty"] += float(qty)
                 m["sales_revenue"] += float(row_amount) if row_amount else float(unit_price) * float(qty if qty else 1)
-                m["commission"] += float(abs(row_commission))
+                m["commission"] += float(row_commission_total)
                 m["payout"] += float(row_payout)
                 if row_logistics:
                     m["logistics"] += float(abs(row_logistics))
@@ -377,7 +440,11 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
             if qty != 0:
                 returns_qty += abs(qty)
 
-            commission += abs(row_commission) if row_commission else 0.0
+            commission += row_commission_total
+            base_commission += row_base_commission
+            pvz_compensation += row_pvz_compensation
+            payment_services_compensation += row_payment_services_compensation
+            payment_services_compensation_amount += row_payment_services_compensation_amount
             logistics += abs(row_logistics) if row_logistics else 0.0
             storage += abs(row_storage) if row_storage else 0.0
             penalties += abs(row_penalty) if row_penalty else 0.0
@@ -388,8 +455,7 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
                 if qty != 0:
                     m["returns_qty"] += float(abs(qty))
                 m["returns_revenue_est"] += float(est_amount(qty))
-                if row_commission:
-                    m["commission"] += float(abs(row_commission))
+                m["commission"] += float(row_commission_total)
                 if row_logistics:
                     m["logistics"] += float(abs(row_logistics))
                 if row_storage:
@@ -436,7 +502,11 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
                 m["payout"] += float(row_payout)
             continue
 
-        commission += abs(row_commission) if row_commission else 0.0
+        commission += row_commission_total
+        base_commission += row_base_commission
+        pvz_compensation += row_pvz_compensation
+        payment_services_compensation += row_payment_services_compensation
+        payment_services_compensation_amount += row_payment_services_compensation_amount
         logistics += abs(row_logistics) if row_logistics else 0.0
         storage += abs(row_storage) if row_storage else 0.0
         penalties += abs(row_penalty) if row_penalty else 0.0
@@ -444,8 +514,7 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
 
         if sku_i:
             m = sku_get(sku_i)
-            if row_commission:
-                m["commission"] += float(abs(row_commission))
+            m["commission"] += float(row_commission_total)
             if row_logistics:
                 m["logistics"] += float(abs(row_logistics))
             if row_storage:
@@ -454,7 +523,85 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
                 m["penalties"] += float(abs(row_penalty))
             m["payout"] += float(row_payout)
 
-    cogs_total, cogs_by_sku, missing_sku_qty = calc_cogs_for_rows(qty_by_sku)
+    cogs_by_sku: Dict[int, float] = {}
+    missing_sku_qty: Dict[int, int] = {}
+    cogs_rows_loaded = 0
+    cogs_sku_total = 0
+    cogs_matched_sku = 0
+    cogs_unmatched_sku: list[int] = []
+    cogs_match_key = "nm_id|seller_article"
+
+    legacy_mode = cogs_rows is None and cogs_file_found is None
+    file_found = bool(cogs_file_found) if cogs_file_found is not None else bool(cogs_rows is not None)
+    if legacy_mode:
+        cogs_total, cogs_by_sku, missing_sku_qty = calc_cogs_for_rows(qty_by_sku)
+        cogs_status = "legacy_static_map"
+        cogs_rows_loaded = int(len(cogs_by_sku))
+        cogs_sku_total = int(len(cogs_by_sku))
+        cogs_matched_sku = int(len(cogs_by_sku))
+        cogs_unmatched_sku = sorted(int(sku) for sku in missing_sku_qty.keys())[:200]
+    else:
+        cogs_total = 0.0
+        parsed_cogs_rows = [row for row in (cogs_rows or []) if isinstance(row, dict)]
+        cogs_rows_loaded = int(len(parsed_cogs_rows))
+        cogs_by_sku_id: Dict[int, float] = {}
+        cogs_by_sku_token: Dict[str, float] = {}
+        cogs_by_seller_token: Dict[str, float] = {}
+        for item in parsed_cogs_rows:
+            cost = f(item.get("cogs"))
+            if cost <= 0:
+                continue
+            sku_token = _normalize_sku_token(item.get("sku_token") or item.get("sku"))
+            seller_token = _normalize_seller_token(item.get("seller_sku_token") or item.get("seller_sku"))
+            if sku_token:
+                cogs_by_sku_token[sku_token] = float(cost)
+                try:
+                    sku_id = int(float(sku_token))
+                    if sku_id > 0:
+                        cogs_by_sku_id[sku_id] = float(cost)
+                except Exception:
+                    pass
+            if seller_token:
+                cogs_by_seller_token[seller_token] = float(cost)
+
+        cogs_sku_total = int(len(set(list(cogs_by_sku_token.keys()) + list(cogs_by_seller_token.keys()))))
+        for sku_i, qty in qty_by_sku.items():
+            if int(qty) <= 0:
+                continue
+            sku_cost = None
+            if sku_i in cogs_by_sku_id:
+                sku_cost = cogs_by_sku_id.get(sku_i)
+            if sku_cost is None:
+                sku_token = _normalize_sku_token(sku_i)
+                if sku_token and sku_token in cogs_by_sku_token:
+                    sku_cost = cogs_by_sku_token.get(sku_token)
+            if sku_cost is None:
+                for seller_token in sorted(sku_seller_tokens.get(sku_i) or []):
+                    if seller_token in cogs_by_seller_token:
+                        sku_cost = cogs_by_seller_token.get(seller_token)
+                        break
+            if sku_cost is None or float(sku_cost or 0.0) <= 0:
+                missing_sku_qty[int(sku_i)] = int(qty)
+                cogs_unmatched_sku.append(int(sku_i))
+                continue
+            sku_cost_total = float(sku_cost) * int(qty)
+            cogs_by_sku[int(sku_i)] = round(sku_cost_total, 2)
+            cogs_total += sku_cost_total
+
+        cogs_total = round(cogs_total, 2)
+        cogs_matched_sku = int(len(cogs_by_sku))
+        total_sku_with_qty = int(len([sku for sku, qty in qty_by_sku.items() if int(qty) > 0]))
+        cogs_unmatched_sku = sorted(set(cogs_unmatched_sku))[:200]
+        if not file_found:
+            cogs_status = "file_not_found"
+        elif cogs_rows_loaded <= 0:
+            cogs_status = "file_found_not_read"
+        elif total_sku_with_qty > 0 and cogs_matched_sku == 0:
+            cogs_status = "file_read_not_matched"
+        elif total_sku_with_qty > 0 and cogs_matched_sku < total_sku_with_qty:
+            cogs_status = "partial_match"
+        else:
+            cogs_status = "full_match"
 
     tax = gross_revenue * float(tax_rate or 0.0)
 
@@ -517,12 +664,25 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
         reverse=True
     )[:50]
 
+    profit_without_cogs = cogs_status in {"file_not_found", "file_found_not_read", "file_read_not_matched"}
+    commission_delta_vs_base = round(commission - base_commission, 2)
+    commission_anomaly = bool(abs(commission_delta_vs_base) > 500.0 and abs(commission_delta_vs_base) > abs(base_commission) * 0.2)
+
     return {
         "rows_count": len(rows),
         "sales_qty": sales_qty,
         "returns_qty": returns_qty,
         "gross_revenue": round(gross_revenue, 2),
         "commission": round(commission, 2),
+        "commission_breakdown": {
+            "base_commission": round(base_commission, 2),
+            "pvz_compensation": round(pvz_compensation, 2),
+            "payment_services_compensation": round(payment_services_compensation, 2),
+            "payment_services_compensation_amount": round(payment_services_compensation_amount, 2),
+            "total_commission": round(commission, 2),
+        },
+        "commission_delta_vs_base": commission_delta_vs_base,
+        "commission_anomaly": commission_anomaly,
         "logistics": round(logistics, 2),
         "storage": round(storage, 2),
         "penalties": round(penalties, 2),
@@ -530,6 +690,18 @@ def calc_financial_metrics(realization_raw: Any, tax_rate: float = 0.06) -> Dict
         "tax_rate": float(tax_rate),
         "tax": round(tax, 2),
         "cogs_total": round(cogs_total, 2),
+        "cogs_status": cogs_status,
+        "profit_without_cogs": bool(profit_without_cogs),
+        "cogs_diagnostics": {
+            "cogs_file_found": bool(file_found),
+            "cogs_rows_loaded": int(cogs_rows_loaded),
+            "cogs_sku_total": int(cogs_sku_total),
+            "cogs_matched_sku": int(cogs_matched_sku),
+            "cogs_unmatched_sku": cogs_unmatched_sku,
+            "cogs_match_key": cogs_match_key,
+            "cogs_total": round(cogs_total, 2),
+            "cogs_coverage_pct": round((float(cogs_matched_sku) / float(len(qty_by_sku)) * 100.0), 2) if len(qty_by_sku) > 0 else None,
+        },
         "profit": round(profit, 2),
         "margin": round(margin, 4),
         "cogs_by_sku": cogs_by_sku,

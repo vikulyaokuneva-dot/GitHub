@@ -94,7 +94,7 @@ def test_report_search_block_renders_categories_and_actions() -> None:
 
     md = build_audit_markdown(facts)
 
-    assert "## 11. Поисковые запросы" in md
+    assert "## 12. Поисковые запросы" in md
     assert "эффективных запросов (дают заказы)" in md
     assert "неэффективных (сливают бюджет)" in md
     assert "с потенциалом" in md

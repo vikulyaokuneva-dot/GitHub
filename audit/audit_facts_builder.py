@@ -14,7 +14,7 @@ from audit.audit_loader import (
     FILE_TYPES,
     group_detected_files,
     parse_ads_file_with_diagnostics,
-    parse_cogs_file,
+    parse_cogs_file_with_diagnostics,
     parse_finance_file_with_diagnostics,
     parse_funnel_file,
     parse_orders_file_with_diagnostics,
@@ -1002,9 +1002,13 @@ def _build_top5_sku_unit_economics_payload(
     warehouse_coef = _to_float_or_none(wb_logistics_estimate.get("warehouse_coef")) or 1.0
     cogs_total = _to_float_or_none(financial_summary.get("cogs_total"))
     profit_without_cogs = bool(financial_summary.get("profit_without_cogs"))
+    cogs_status = _norm_text(financial_summary.get("cogs_status") or "")
     if "profit_without_cogs" not in financial_summary:
         profit_without_cogs = bool(cogs_total is None or cogs_total <= 0)
-    margin_label_default = "Маржа без COGS" if profit_without_cogs else "Маржа"
+    if cogs_status == "partial_match":
+        margin_label_default = "Маржа (частично с COGS)"
+    else:
+        margin_label_default = "Маржа без COGS" if profit_without_cogs else "Маржа"
 
     candidates: list[dict[str, Any]] = []
     all_skus = sorted(set(sku_by_id.keys()) | set(sku_financials.keys()))
@@ -2469,10 +2473,12 @@ def _build_actions(
     stock_summary: dict[str, Any],
     logistics_formula_model: dict[str, Any] | None = None,
     localization_loss: dict[str, Any] | None = None,
+    financial_summary: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     profit_state = decision_layer.get("profit_state")
     kpi = decision_layer.get("kpi") or {}
+    finance = financial_summary if isinstance(financial_summary, dict) else {}
 
     if profit_state == "loss":
         actions.append(
@@ -2486,7 +2492,10 @@ def _build_actions(
             }
         )
 
-    if kpi.get("profit_without_cogs"):
+    cogs_status = str(finance.get("cogs_status") or "")
+    cogs_diag = finance.get("cogs_diagnostics") if isinstance(finance.get("cogs_diagnostics"), dict) else {}
+    cogs_coverage = _to_float_or_none(cogs_diag.get("cogs_coverage_pct"))
+    if cogs_status == "file_not_found":
         actions.append(
             {
                 "priority": "P0",
@@ -2494,7 +2503,41 @@ def _build_actions(
                 "action": "Загрузить COGS-файл и пересчитать прибыль с учетом себестоимости",
                 "why": "Текущая прибыль рассчитана без себестоимости",
                 "expected_effect": "Корректная оценка реальной прибыльности кабинета",
-                "numbers": {"profit_without_cogs": True},
+                "numbers": {"cogs_status": cogs_status},
+            }
+        )
+    elif cogs_status in {"file_found_not_read", "file_read_not_matched", "partial_match"}:
+        actions.append(
+            {
+                "priority": "P0",
+                "area": "finance",
+                "action": "Проверить сопоставление COGS по SKU и пересчитать прибыль",
+                "why": "Себестоимость загружена не полностью или не сопоставлена с продажами",
+                "expected_effect": "Корректные profit, margin и ROI по кабинету и SKU",
+                "numbers": {
+                    "cogs_status": cogs_status,
+                    "cogs_coverage_pct": cogs_coverage,
+                    "cogs_rows_loaded": cogs_diag.get("cogs_rows_loaded"),
+                    "cogs_matched_sku": cogs_diag.get("cogs_matched_sku"),
+                },
+            }
+        )
+
+    if bool(finance.get("commission_anomaly")):
+        actions.append(
+            {
+                "priority": "P1",
+                "area": "finance",
+                "action": "Проверить аномальное изменение комиссии WB и структуру комиссионных компонентов",
+                "why": "Комиссия WB заметно отклоняется от базовой комиссии по продажам",
+                "expected_effect": "Подтвержденный и объяснимый расчет комиссии в weekly finance",
+                "numbers": {
+                    "commission": finance.get("commission"),
+                    "base_commission": (finance.get("commission_breakdown") or {}).get("base_commission")
+                    if isinstance(finance.get("commission_breakdown"), dict)
+                    else None,
+                    "delta_vs_base": finance.get("commission_delta_vs_base"),
+                },
             }
         )
 
@@ -2669,6 +2712,10 @@ def _parse_many_finance(files: list[str]) -> tuple[list[dict[str, Any]], dict[st
             "quantity",
             "retail_amount",
             "ppvz_sales_commission",
+            "wb_reward_before_agent",
+            "pvz_compensation",
+            "payment_services_compensation",
+            "payment_services_compensation_amount",
             "ppvz_for_pay",
             "delivery_rub",
             "storage_fee",
@@ -2756,18 +2803,51 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         parse_stocks_file_with_diagnostics(selected_files["stocks"][0]) if selected_files["stocks"] else ([], {"status": "file_not_provided"})
     )
     sku_dimensions, volume_coverage = _build_sku_dimensions(stocks_rows)
+    volume_coverage["expected_source"] = "stocks"
+    volume_coverage["expected_file"] = selected_files["stocks"][0] if selected_files["stocks"] else None
+    if _to_int(volume_coverage.get("with_volume")) <= 0:
+        volume_coverage["missing_reason"] = "volume_not_found_in_stocks_file"
+        volume_coverage["missing_hint"] = "Ожидались колонки объема в файле остатков (stocks)."
     search_rows, search_parse_diag = (
         parse_search_file_with_diagnostics(selected_files["search"][0]) if selected_files["search"] else ([], {"status": "file_not_provided"})
     )
-    cogs_rows = parse_cogs_file(selected_files["cogs"][0]) if selected_files["cogs"] else []
+    cogs_rows, cogs_parse_diag = (
+        parse_cogs_file_with_diagnostics(selected_files["cogs"][0]) if selected_files["cogs"] else ([], {"status": "file_not_provided"})
+    )
 
     funnel_summary = calc_funnel_metrics(funnel_rows) if funnel_rows else {}
-    financial_summary = calc_financial_metrics(finance_rows, tax_rate=tax_rate) if finance_rows else {"rows_count": 0}
+    financial_summary = (
+        calc_financial_metrics(
+            finance_rows,
+            tax_rate=tax_rate,
+            cogs_rows=cogs_rows,
+            cogs_file_found=bool(selected_files["cogs"]),
+        )
+        if finance_rows
+        else {"rows_count": 0}
+    )
     ads_summary = calc_ads_metrics(ads_rows) if ads_rows else {}
     ads_summary["files_count"] = len(selected_files["ads"])
     ads_summary["parse_diagnostics"] = ads_parse_diag
     financial_summary["files_count"] = len(selected_files["finance"])
     financial_summary["parse_diagnostics"] = finance_parse_diag
+    financial_summary["cogs_parse_diagnostics"] = cogs_parse_diag
+    if "cogs_status" not in financial_summary:
+        if not selected_files["cogs"]:
+            financial_summary["cogs_status"] = "file_not_found"
+        elif str(cogs_parse_diag.get("status") or "") == "ok" and len(cogs_rows) > 0:
+            financial_summary["cogs_status"] = "file_read_not_matched"
+        else:
+            financial_summary["cogs_status"] = "file_found_not_read"
+    if not isinstance(financial_summary.get("cogs_diagnostics"), dict):
+        financial_summary["cogs_diagnostics"] = {}
+    financial_summary["cogs_diagnostics"].setdefault("cogs_file_found", bool(selected_files["cogs"]))
+    financial_summary["cogs_diagnostics"].setdefault("cogs_rows_loaded", len(cogs_rows))
+    financial_summary["cogs_diagnostics"].setdefault("cogs_sku_total", len(cogs_rows))
+    financial_summary["cogs_diagnostics"].setdefault("cogs_matched_sku", 0)
+    financial_summary["cogs_diagnostics"].setdefault("cogs_unmatched_sku", [])
+    financial_summary["cogs_diagnostics"].setdefault("cogs_match_key", "nm_id|seller_article")
+    financial_summary["cogs_diagnostics"].setdefault("cogs_total", financial_summary.get("cogs_total"))
 
     period_days = 7
     if period_label and "_" in period_label:
@@ -2937,11 +3017,25 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             "error": f"regional_logistics_impact_failed: {exc}",
         }
 
-    profit_without_cogs = len(cogs_rows) == 0
+    cogs_status = str(financial_summary.get("cogs_status") or "file_not_found")
+    profit_without_cogs = cogs_status in {"file_not_found", "file_found_not_read", "file_read_not_matched"}
     financial_summary["profit_without_cogs"] = bool(profit_without_cogs)
-    financial_summary["profit_label"] = "Прибыль без учета себестоимости" if profit_without_cogs else "Прибыль"
-    if profit_without_cogs:
-        financial_summary["profit_note"] = "COGS-файл не загружен; показатель прибыли не учитывает себестоимость."
+    if cogs_status == "partial_match":
+        financial_summary["profit_label"] = "Прибыль (частично с COGS)"
+        financial_summary["profit_note"] = (
+            "COGS сопоставлен частично: прибыль и маржа рассчитаны по доступной части себестоимости."
+        )
+    elif profit_without_cogs:
+        financial_summary["profit_label"] = "Прибыль без учета себестоимости"
+        if cogs_status == "file_not_found":
+            financial_summary["profit_note"] = "COGS-файл не загружен; показатель прибыли не учитывает себестоимость."
+        elif cogs_status == "file_found_not_read":
+            financial_summary["profit_note"] = "COGS-файл найден, но не прочитан; прибыль рассчитана без себестоимости."
+        else:
+            financial_summary["profit_note"] = "COGS найден, но не сопоставлен с продажами; прибыль рассчитана без себестоимости."
+    else:
+        financial_summary["profit_label"] = "Прибыль"
+        financial_summary["profit_note"] = "COGS применен в расчете прибыли."
 
     source_consistency_warnings = _build_source_consistency_warnings(financial_summary, funnel_summary)
 
@@ -2962,6 +3056,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         stock_summary,
         logistics_formula_model=logistics_formula_model if isinstance(logistics_formula_model, dict) else None,
         localization_loss=localization_loss if isinstance(localization_loss, dict) else None,
+        financial_summary=financial_summary,
     )
 
     parse_diagnostics = {
@@ -2970,6 +3065,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "orders": orders_parse_diag,
         "stocks": stocks_parse_diag,
         "search": search_parse_diag,
+        "cogs": cogs_parse_diag,
     }
     audit_period = _derive_audit_period(
         period_label=period_label,
@@ -2998,6 +3094,8 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "source": "wb",
         "timezone": str(WB_TIMEZONE),
         "tax_rate": tax_rate,
+        "profit_without_cogs": bool(financial_summary.get("profit_without_cogs")),
+        "cogs_status": financial_summary.get("cogs_status"),
         "period": {
             "label": period_label or _iso(report_date),
             "days": int(_to_int((audit_period or {}).get("days")) or period_days),
@@ -3045,6 +3143,25 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             "rows_count": len(cogs_rows),
             "rows": cogs_rows[:200],
             "loaded": bool(cogs_rows),
+            "parse_diagnostics": cogs_parse_diag,
+            "cogs_status": financial_summary.get("cogs_status"),
+            "cogs_file_found": bool(selected_files["cogs"]),
+            "cogs_rows_loaded": (financial_summary.get("cogs_diagnostics") or {}).get("cogs_rows_loaded")
+            if isinstance(financial_summary.get("cogs_diagnostics"), dict)
+            else None,
+            "cogs_sku_total": (financial_summary.get("cogs_diagnostics") or {}).get("cogs_sku_total")
+            if isinstance(financial_summary.get("cogs_diagnostics"), dict)
+            else None,
+            "cogs_matched_sku": (financial_summary.get("cogs_diagnostics") or {}).get("cogs_matched_sku")
+            if isinstance(financial_summary.get("cogs_diagnostics"), dict)
+            else None,
+            "cogs_unmatched_sku": (financial_summary.get("cogs_diagnostics") or {}).get("cogs_unmatched_sku")
+            if isinstance(financial_summary.get("cogs_diagnostics"), dict)
+            else [],
+            "cogs_match_key": (financial_summary.get("cogs_diagnostics") or {}).get("cogs_match_key")
+            if isinstance(financial_summary.get("cogs_diagnostics"), dict)
+            else "nm_id|seller_article",
+            "cogs_total": financial_summary.get("cogs_total"),
         },
         "sku_financials": (financial_summary.get("sku_financials") if isinstance(financial_summary.get("sku_financials"), dict) else {}),
         "sku_profit": sku_profit,
@@ -3056,6 +3173,6 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "notes": [
             "Аудит собран из файлов в audit/input без WB API.",
             "При отсутствии части файлов аудит строится по доступным данным и помечается как partial.",
-            "Обязательные блоки: finance, funnel, stocks. Опциональные: ads, search, cogs.",
+            "Обязательные блоки: finance, funnel, stocks. Опциональные: ads, search, orders, cogs.",
         ],
     }

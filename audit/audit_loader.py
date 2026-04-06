@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -132,6 +133,28 @@ def _to_int(x: Any) -> int:
         return int(round(float(str(x).replace(" ", "").replace(",", "."))))
     except Exception:
         return 0
+
+
+def _to_sku_token(x: Any) -> str:
+    if x is None:
+        return ""
+    text = str(x).strip()
+    if not text:
+        return ""
+    normalized = text.replace("\xa0", " ").replace(",", ".").strip()
+    try:
+        if re.match(r"^\d+(\.0+)?$", normalized):
+            return str(int(float(normalized)))
+    except Exception:
+        pass
+    return normalized
+
+
+def _to_seller_token(x: Any) -> str:
+    text = str(x or "").strip()
+    if not text:
+        return ""
+    return " ".join(text.replace("\xa0", " ").split()).lower()
 
 
 def _lookup(row: dict[str, Any], aliases: tuple[str, ...]) -> Any:
@@ -433,6 +456,50 @@ def parse_finance_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]]
                 _lookup(row, ("Цена розничная с учетом согласованной скидки", "Цена розничная", "retail_price_withdisc_rub"))
             ),
             "ppvz_sales_commission": _to_float(_lookup(row, ("Вознаграждение Вайлдберриз (ВВ), без НДС", "ppvz_sales_commission"))),
+            "wb_reward_before_agent": _to_float(
+                _lookup(
+                    row,
+                    (
+                        "Вознаграждение с продаж до вычета услуг поверенного, без НДС",
+                        "Вознаграждение с продаж до вычета услуг поверенного без НДС",
+                        "wb_reward_before_agent",
+                    ),
+                )
+            ),
+            "pvz_compensation": _to_float(
+                _lookup(
+                    row,
+                    (
+                        "Возмещение за выдачу и возврат товаров на ПВЗ",
+                        "Возмещение за выдачу и возврат товаров на ПВЗ, без НДС",
+                        "pvz_compensation",
+                    ),
+                )
+            ),
+            "payment_services_compensation": _to_float(
+                _lookup(
+                    row,
+                    (
+                        "Компенсация платёжных услуг/Комиссия за интеграцию",
+                        "Компенсация платежных услуг/Комиссия за интеграцию",
+                        "Компенсация платёжных услуг/Комиссия за интеграцию платёжных сервисов",
+                        "Компенсация платежных услуг/Комиссия за интеграцию платежных сервисов",
+                        "payment_services_compensation",
+                    ),
+                )
+            ),
+            "payment_services_compensation_amount": _to_float(
+                _lookup(
+                    row,
+                    (
+                        "Размер компенсации платёжных услуг/Комиссии за интеграцию",
+                        "Размер компенсации платежных услуг/Комиссии за интеграцию",
+                        "Размер компенсации платёжных услуг/Комиссии за интеграцию платёжных сервисов, %",
+                        "Размер компенсации платежных услуг/Комиссии за интеграцию платежных сервисов, %",
+                        "payment_services_compensation_amount",
+                    ),
+                )
+            ),
             "ppvz_for_pay": _to_float(_lookup(row, ("К перечислению Продавцу за реализованный Товар", "ppvz_for_pay"))),
             "delivery_rub": _to_float(
                 _lookup(
@@ -787,6 +854,8 @@ def _extract_volume_liters_from_stocks_row(row: dict[str, Any]) -> tuple[float |
             (
                 "Объем, л",
                 "Объём, л",
+                "Объем товара, л",
+                "Объём товара, л",
                 "Объем л",
                 "Объём л",
                 "volume_liters",
@@ -1178,27 +1247,94 @@ def parse_search_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
 
 
 def parse_cogs_file(path: str) -> list[dict[str, Any]]:
+    rows, _ = parse_cogs_file_with_diagnostics(path)
+    return rows
+
+
+def parse_cogs_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not path:
-        return []
-    df = _read_typed_table(Path(path), "cogs")
+        return [], {"status": "file_not_provided", "path": ""}
+    p = Path(path)
+    sheet = _find_best_sheet(p, "cogs")
+    header = _find_header_row(p, "cogs", sheet_name=sheet)
+    df = _read_raw_table(p, header_row=header, sheet_name=sheet)
+    if df is None:
+        return [], {"status": "parse_failed", "path": path, "sheet": str(sheet), "header_row": int(header)}
+    df = df.dropna(axis=1, how="all").fillna("")
     if df.empty:
-        return []
+        return [], {"status": "empty_after_parse", "path": path, "sheet": str(sheet), "header_row": int(header)}
+
+    sku_aliases = ("Артикул WB", "Код номенклатуры", "SKU", "sku", "nmId", "nm_id")
+    seller_aliases = ("Артикул продавца", "Артикул поставщика", "seller_sku", "supplierArticle")
+    cogs_aliases = ("Себестоимость", "Себестоимость товара", "cogs", "cost", "cost_price")
+
+    source_columns = [str(c) for c in list(df.columns)]
+    col_probe = {str(c): str(c) for c in source_columns}
+    recognized_columns = {
+        "sku": _lookup(col_probe, sku_aliases),
+        "seller_sku": _lookup(col_probe, seller_aliases),
+        "cogs": _lookup(col_probe, cogs_aliases),
+    }
+    missing_columns: list[str] = []
+    if not recognized_columns.get("cogs"):
+        missing_columns.append("cogs")
+    if not recognized_columns.get("sku") and not recognized_columns.get("seller_sku"):
+        missing_columns.append("sku_or_seller_sku")
+
     rows: list[dict[str, Any]] = []
+    parsed_rows = 0
+    skipped_rows = 0
     for _, r in df.iterrows():
+        parsed_rows += 1
         row = dict(r)
-        cogs = _to_float(_lookup(row, ("Себестоимость", "cogs", "cost", "cost_price")))
-        sku_raw = _lookup(row, ("Артикул WB", "Код номенклатуры", "sku", "nmId", "Артикул продавца", "seller_sku"))
-        sku_str = str(sku_raw or "").strip()
-        if not sku_str:
+        cogs = _to_float(_lookup(row, cogs_aliases))
+        if cogs <= 0:
+            skipped_rows += 1
+            continue
+        sku_raw = _lookup(row, sku_aliases)
+        seller_raw = _lookup(row, seller_aliases)
+        sku_token = _to_sku_token(sku_raw)
+        seller_token = _to_seller_token(seller_raw)
+        if not sku_token and not seller_token:
+            skipped_rows += 1
             continue
         rows.append(
             {
-                "sku": _to_int(sku_str),
-                "seller_sku": sku_str,
-                "cogs": cogs,
+                "sku": _to_int(sku_token) if sku_token else 0,
+                "sku_token": sku_token,
+                "seller_sku": str(seller_raw or "").strip(),
+                "seller_sku_token": seller_token,
+                "cogs": float(cogs),
             }
         )
-    return rows
+
+    deduped: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        key = (str(row.get("sku_token") or ""), str(row.get("seller_sku_token") or ""))
+        if key not in deduped:
+            deduped[key] = row
+            continue
+        # Keep latest non-zero value.
+        deduped[key]["cogs"] = float(row.get("cogs") or deduped[key].get("cogs") or 0.0)
+
+    rows_out = list(deduped.values())
+    status = "ok" if rows_out else "empty_after_parse"
+    if missing_columns and not rows_out:
+        status = "unsupported_format"
+    return rows_out, {
+        "status": status,
+        "path": path,
+        "sheet": str(sheet),
+        "header_row": int(header),
+        "source_columns": source_columns,
+        "recognized_columns": recognized_columns,
+        "missing_columns": missing_columns,
+        "rows_scanned": int(parsed_rows),
+        "rows_loaded": int(len(rows_out)),
+        "rows_skipped": int(skipped_rows),
+        "unique_sku_tokens": int(len({str(x.get('sku_token') or '') for x in rows_out if str(x.get('sku_token') or '')})),
+        "unique_seller_tokens": int(len({str(x.get('seller_sku_token') or '') for x in rows_out if str(x.get('seller_sku_token') or '')})),
+    }
 
 
 def select_best_detected_files(detected_files: list[DetectedFile]) -> dict[str, DetectedFile]:

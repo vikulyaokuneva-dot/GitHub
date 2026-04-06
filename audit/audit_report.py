@@ -683,7 +683,7 @@ def _search_rows_sorted(rows: list[dict[str, Any]], *, mode: str) -> list[dict[s
 
 
 def _local_orders_section_lines(local_orders_insights: dict[str, Any]) -> list[str]:
-    lines: list[str] = ["## 7. Локальные заказы и размещение товара"]
+    lines: list[str] = ["## 8. Локальные заказы и размещение товара"]
 
     available = bool(local_orders_insights.get("available"))
     if not available:
@@ -751,7 +751,7 @@ def _coef_pct(value: Any) -> str:
 
 
 def _region_logistics_section_lines(facts: dict[str, Any]) -> list[str]:
-    lines: list[str] = ["## 8. Логистика: где переплачиваете"]
+    lines: list[str] = ["## 9. Логистика: где переплачиваете"]
 
     impact = facts.get("regional_logistics_impact") if isinstance(facts.get("regional_logistics_impact"), dict) else {}
     region_summary = facts.get("region_logistics_summary") if isinstance(facts.get("region_logistics_summary"), dict) else {}
@@ -844,6 +844,13 @@ def _region_logistics_section_lines(facts: dict[str, Any]) -> list[str]:
             )
     else:
         lines.append("- SKU-level оценка пока ограничена: не хватает данных по объему/маршрутам/заказам.")
+        volume_cov = facts.get("volume_coverage") if isinstance(facts.get("volume_coverage"), dict) else {}
+        if _to_int(volume_cov.get("with_volume")) <= 0:
+            expected_file = _file_name(volume_cov.get("expected_file"))
+            if expected_file:
+                lines.append(f"- Объем товара ожидался в файле остатков: {expected_file}.")
+            else:
+                lines.append("- Объем товара ожидался в файле остатков (stocks), но не был распознан.")
         lines.append("")
 
     lines.append("### Что делать practically")
@@ -962,7 +969,7 @@ def _impact_label_from_row(row: dict[str, Any]) -> str:
 
 
 def _logistics_overpayment_section_lines(facts: dict[str, Any]) -> list[str]:
-    lines: list[str] = ["## 9. Переплата за логистику"]
+    lines: list[str] = ["## 10. Переплата за логистику"]
     model = facts.get("logistics_formula_model") if isinstance(facts.get("logistics_formula_model"), dict) else {}
 
     missing_inputs = model.get("missing_inputs") if isinstance(model.get("missing_inputs"), list) else []
@@ -1026,6 +1033,13 @@ def _logistics_overpayment_section_lines(facts: dict[str, Any]) -> list[str]:
         )
         if missing_inputs:
             lines.append("- Сейчас не хватает: " + ", ".join(_text(x) for x in missing_inputs if _text(x)) + ".")
+        if "volume_liters" in [str(x) for x in missing_inputs]:
+            volume_cov = facts.get("volume_coverage") if isinstance(facts.get("volume_coverage"), dict) else {}
+            expected_file = _file_name(volume_cov.get("expected_file"))
+            if expected_file:
+                lines.append(f"- Объем товара ожидался в файле остатков: {expected_file}.")
+            else:
+                lines.append("- Объем товара ожидался в файле остатков (stocks).")
         lines.append("")
 
     if item_price is not None and sales_distribution_index_pct is not None and sales_distribution_index_pct > 0:
@@ -1066,7 +1080,7 @@ def _logistics_overpayment_section_lines(facts: dict[str, Any]) -> list[str]:
 
 
 def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
-    lines: list[str] = ["## 10. Потери из-за плохой локализации"]
+    lines: list[str] = ["## 11. Потери из-за плохой локализации"]
     payload = facts.get("localization_loss") if isinstance(facts.get("localization_loss"), dict) else {}
 
     status = _text(payload.get("status") or "insufficient_data")
@@ -1258,7 +1272,7 @@ def _top5_comment_with_drr_signal(item: dict[str, Any]) -> str:
 
 
 def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
-    lines: list[str] = ["## ТОП-5 SKU: где зарабатываете и где теряете"]
+    lines: list[str] = ["## 7. ТОП-5 SKU: где зарабатываете и где теряете"]
     payload = facts.get("top5_sku_unit_economics") if isinstance(facts.get("top5_sku_unit_economics"), dict) else {}
     rows = payload.get("items") if isinstance(payload.get("items"), list) else []
 
@@ -1297,7 +1311,12 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
 
         margin_sku_pct = _to_float(item.get("margin_sku_pct"))
         margin_label = _text(item.get("margin_label") or "Маржа")
-        margin_suffix = " (без COGS)" if "без cogs" in margin_label.lower() else ""
+        if "без cogs" in margin_label.lower():
+            margin_suffix = " (без COGS)"
+        elif "частично" in margin_label.lower():
+            margin_suffix = " (частично с COGS)"
+        else:
+            margin_suffix = ""
         margin_icon = _status_icon(_margin_status_level_by_pct(margin_sku_pct))
         if margin_sku_pct is not None:
             lines.append(f"**Маржа (доля прибыли от выручки):** {float(margin_sku_pct):.2f}%{margin_suffix} {margin_icon}")
@@ -1374,14 +1393,16 @@ def _profit_view(finance: dict[str, Any], ads: dict[str, Any]) -> dict[str, Any]
     cogs_total = _to_float(finance.get("cogs_total")) or 0.0
     ads_spend = _to_float(ads.get("spend")) or 0.0
     profit_without_cogs = bool(finance.get("profit_without_cogs"))
+    cogs_status = _text(finance.get("cogs_status") or "")
 
     clean_profit = revenue - commission - logistics - storage - tax - cogs_total - ads_spend
     clean_margin = (clean_profit / revenue) if revenue > 0 else 0.0
-    clean_label = (
-        "Чистая прибыль без учета себестоимости (с учетом рекламы)"
-        if profit_without_cogs
-        else "Чистая прибыль"
-    )
+    if cogs_status == "partial_match":
+        clean_label = "Чистая прибыль (частично с COGS, с учетом рекламы)"
+    elif profit_without_cogs:
+        clean_label = "Чистая прибыль без учета себестоимости (с учетом рекламы)"
+    else:
+        clean_label = "Чистая прибыль"
     return {
         "clean_profit": float(clean_profit),
         "clean_margin": float(clean_margin),
@@ -1393,7 +1414,16 @@ def _profit_view(finance: dict[str, Any], ads: dict[str, Any]) -> dict[str, Any]
 
 def _roi_line(finance: dict[str, Any], ads: dict[str, Any], *, clean_profit: float) -> tuple[str, list[str]]:
     profit_without_cogs = bool(finance.get("profit_without_cogs"))
+    cogs_status = _text(finance.get("cogs_status") or "")
     cogs_total = _to_float(finance.get("cogs_total"))
+    if cogs_status == "partial_match":
+        return (
+            "ROI: не рассчитан (COGS сопоставлен частично)",
+            [
+                "ROI на уровне кабинета будет корректным после полного сопоставления COGS по SKU.",
+                "Сейчас прибыль учитывает только сопоставленную часть себестоимости.",
+            ],
+        )
     if profit_without_cogs or cogs_total is None or cogs_total <= 0:
         return (
             "ROI: не рассчитан (нет данных по себестоимости)",
@@ -1417,6 +1447,18 @@ def _roi_line(finance: dict[str, Any], ads: dict[str, Any], *, clean_profit: flo
 
     roi = (float(clean_profit) / expenses) * 100.0
     return (f"ROI: {_fmt_pct(roi, 1)}", [])
+
+
+def _cogs_status_explanation(finance: dict[str, Any]) -> str:
+    status = _text(finance.get("cogs_status") or "")
+    mapping = {
+        "file_not_found": "COGS не найден: прибыль и маржа без себестоимости.",
+        "file_found_not_read": "COGS найден, но не прочитан: прибыль и маржа без себестоимости.",
+        "file_read_not_matched": "COGS найден, но не сопоставлен с SKU продаж: прибыль и маржа без себестоимости.",
+        "partial_match": "COGS сопоставлен частично: прибыль и маржа рассчитаны по сопоставленной части.",
+        "full_match": "COGS применен полностью: прибыль и маржа учитывают себестоимость.",
+    }
+    return mapping.get(status, "")
 
 
 def _build_abc_analysis(
@@ -1874,13 +1916,13 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append("- 4. 📢 Реклама: платите - но не всегда за результат")
     lines.append("- 5. 📦 Остатки: деньги заморожены в складе")
     lines.append("- 6. Ассортимент / SKU")
-    lines.append("- ТОП-5 SKU: где зарабатываете и где теряете")
-    lines.append("- 7. Локальные заказы и размещение товара")
-    lines.append("- 8. Логистика: где переплачиваете")
-    lines.append("- 9. Переплата за логистику")
-    lines.append("- 10. Потери из-за плохой локализации")
-    lines.append("- 11. Поисковые запросы")
-    lines.append("- 12. План действий / рекомендации")
+    lines.append("- 7. ТОП-5 SKU: где зарабатываете и где теряете")
+    lines.append("- 8. Локальные заказы и размещение товара")
+    lines.append("- 9. Логистика: где переплачиваете")
+    lines.append("- 10. Переплата за логистику")
+    lines.append("- 11. Потери из-за плохой локализации")
+    lines.append("- 12. Поисковые запросы")
+    lines.append("- 13. План действий / рекомендации")
     lines.append("")
 
     lines.append("### Источники (файлы)")
@@ -1970,6 +2012,24 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     ]
     _append_markdown_table(lines, ["Метрика", "Значение"], finance_rows, align_right={1})
     lines.append("- Комиссия рассчитана по ВЫКУПАМ (данные finance), поэтому может отличаться от интерфейса WB.")
+    commission_breakdown = finance.get("commission_breakdown") if isinstance(finance.get("commission_breakdown"), dict) else {}
+    if commission_breakdown:
+        lines.append("Комиссия WB включает:")
+        lines.append(f"- базовое вознаграждение WB: {_money(commission_breakdown.get('base_commission'))}")
+        lines.append(f"- выдачу/возврат на ПВЗ: {_money(commission_breakdown.get('pvz_compensation'))}")
+        lines.append(
+            f"- платежные сервисы / интеграцию: {_money(commission_breakdown.get('payment_services_compensation'))}"
+        )
+        lines.append(
+            f"- дополнительные комиссионные компоненты weekly finance: {_money(commission_breakdown.get('payment_services_compensation_amount'))}"
+        )
+    cogs_note = _cogs_status_explanation(finance)
+    if cogs_note:
+        lines.append(f"- {cogs_note}")
+    cogs_diag = finance.get("cogs_diagnostics") if isinstance(finance.get("cogs_diagnostics"), dict) else {}
+    cogs_coverage = _to_float(cogs_diag.get("cogs_coverage_pct"))
+    if cogs_coverage is not None:
+        lines.append(f"- Покрытие COGS по SKU продаж: {_fmt_pct(cogs_coverage, 1)}.")
     lines.append("- Чистая прибыль и маржа в этом разделе рассчитаны с учетом рекламных расходов.")
     for extra in roi_extra:
         lines.append(f"- {extra}")
@@ -2287,7 +2347,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     search_scale_targets: list[str] = []
     search_optimize_targets: list[str] = []
 
-    lines.append("## 11. Поисковые запросы")
+    lines.append("## 12. Поисковые запросы")
     search_status = str(search.get("status") or "")
     if search_status == "ok":
         base_rows = search.get("base_rows") if isinstance(search.get("base_rows"), list) else []
@@ -2421,7 +2481,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     _page_break(lines)
 
-    lines.append("## 12. План действий / рекомендации")
+    lines.append("## 13. План действий / рекомендации")
     action_rows: list[list[str]] = []
 
     def _append_action_row(priority: str, area: str, action_text: str, expected_effect: str) -> None:
