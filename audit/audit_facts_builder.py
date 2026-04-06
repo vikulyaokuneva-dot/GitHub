@@ -17,6 +17,7 @@ from audit.audit_loader import (
     parse_cogs_file,
     parse_finance_file_with_diagnostics,
     parse_funnel_file,
+    parse_orders_file_with_diagnostics,
     parse_search_file_with_diagnostics,
     parse_stocks_file_with_diagnostics,
     scan_input_files,
@@ -39,7 +40,7 @@ from src.sku_performance_analyzer import analyze_sku_performance
 
 WB_TIMEZONE = ZoneInfo(os.getenv("WB_TIMEZONE", "Europe/Moscow"))
 REQUIRED_TYPES = ("finance", "funnel", "stocks")
-OPTIONAL_TYPES = ("ads", "search", "cogs")
+OPTIONAL_TYPES = ("ads", "search", "orders", "cogs")
 LOCAL_MOVE_MIN_BATCH = int(os.getenv("WB_LOCAL_MOVE_MIN_BATCH", "5"))
 
 
@@ -1580,6 +1581,7 @@ def _geo_label(row: dict[str, Any]) -> str:
 
 def _build_local_orders_insights(
     *,
+    orders_rows: list[dict[str, Any]],
     funnel_rows: list[dict[str, Any]],
     stocks_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -1589,14 +1591,22 @@ def _build_local_orders_insights(
     stock_by_sku_region: dict[tuple[int, str], int] = defaultdict(int)
     stock_by_region: dict[str, int] = defaultdict(int)
 
+    preferred_orders_source = "orders_feed"
+    raw_orders_rows = orders_rows or []
+    if not raw_orders_rows:
+        preferred_orders_source = "funnel"
+        raw_orders_rows = funnel_rows or []
+
     orders_rows_scanned = 0
     orders_rows_with_geo = 0
-    for row in funnel_rows or []:
+    for row in raw_orders_rows:
         if not isinstance(row, dict):
             continue
         orders_rows_scanned += 1
         sku = _to_int(row.get("nmId") or row.get("nm_id") or row.get("sku"))
         orders = _to_int(row.get("orderCount") or row.get("orders") or row.get("quantity"))
+        if orders <= 0 and preferred_orders_source == "orders_feed":
+            orders = 1
         geo = _geo_label(row)
         if sku <= 0 or orders <= 0:
             continue
@@ -1627,13 +1637,15 @@ def _build_local_orders_insights(
     if total_orders <= 0:
         return {
             "available": False,
-            "message": "Данные по локальным заказам за период не найдены.",
+            "message": "нет данных по географии заказов",
             "by_region": [],
             "by_sku": [],
+            "orders_with_geo": [],
             "recommendations": [],
             "diagnostics": {
                 "orders_rows_scanned": int(orders_rows_scanned),
                 "orders_rows_with_geo": int(orders_rows_with_geo),
+                "orders_geo_source": preferred_orders_source,
                 "stock_rows_scanned": int(stock_rows_scanned),
                 "stock_rows_with_geo": int(stock_rows_with_geo),
                 "required_fields": [
@@ -1653,23 +1665,31 @@ def _build_local_orders_insights(
                 "region": region,
                 "orders": int(region_orders),
                 "share_pct": round(share, 1),
-                "stock_qty": int(stock_by_region.get(region)) if stock_rows_with_geo > 0 else None,
+                "stock_qty": int(stock_by_region.get(region) or 0) if stock_rows_with_geo > 0 else None,
             }
         )
 
     by_sku = []
+    orders_with_geo: list[dict[str, Any]] = []
     for sku, sku_orders in sorted(total_orders_by_sku.items(), key=lambda x: x[1], reverse=True):
         regions = []
         for (s, region), region_orders in orders_by_sku_region.items():
             if s != sku:
                 continue
+            orders_with_geo.append(
+                {
+                    "sku": int(sku),
+                    "region": str(region),
+                    "orders": int(region_orders),
+                }
+            )
             share = (float(region_orders) / float(sku_orders)) * 100.0 if sku_orders > 0 else 0.0
             regions.append(
                 {
                     "region": region,
                     "orders": int(region_orders),
                     "share_pct": round(share, 1),
-                    "stock_qty": int(stock_by_sku_region.get((sku, region))) if stock_rows_with_geo > 0 else None,
+                    "stock_qty": int(stock_by_sku_region.get((sku, region)) or 0) if stock_rows_with_geo > 0 else None,
                 }
             )
         regions = sorted(regions, key=lambda x: x["orders"], reverse=True)
@@ -1757,10 +1777,16 @@ def _build_local_orders_insights(
         "message": "Локальный спрос рассчитан по данным с географией заказов.",
         "by_region": by_region[:20],
         "by_sku": by_sku[:50],
+        "orders_with_geo": sorted(
+            orders_with_geo,
+            key=lambda item: (int(item.get("orders") or 0), int(item.get("sku") or 0)),
+            reverse=True,
+        )[:500],
         "recommendations": recommendations[:80],
         "diagnostics": {
             "orders_rows_scanned": int(orders_rows_scanned),
             "orders_rows_with_geo": int(orders_rows_with_geo),
+            "orders_geo_source": preferred_orders_source,
             "stock_rows_scanned": int(stock_rows_scanned),
             "stock_rows_with_geo": int(stock_rows_with_geo),
             "minimal_batch": int(LOCAL_MOVE_MIN_BATCH),
@@ -2681,6 +2707,27 @@ def _parse_many_ads(files: list[str]) -> tuple[list[dict[str, Any]], dict[str, A
     }
 
 
+def _parse_many_orders(files: list[str]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    rows_all: list[dict[str, Any]] = []
+    diagnostics = []
+    for path in files:
+        rows, diag = parse_orders_file_with_diagnostics(path)
+        rows_all.extend(rows)
+        diagnostics.append(diag)
+
+    deduped, dup_count = _dedupe_rows(
+        rows_all,
+        key_fields=("date", "nmId", "seller_article", "region", "city", "orders"),
+    )
+    return deduped, {
+        "files_count": len(files),
+        "rows_raw_total": len(rows_all),
+        "rows_after_dedup": len(deduped),
+        "duplicates_removed": int(dup_count),
+        "files": diagnostics,
+    }
+
+
 def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") -> dict[str, Any]:
     tax_rate = float(os.getenv("WB_TAX_RATE", "0.06"))
     report_date = dt.datetime.now(WB_TIMEZONE).date()
@@ -2697,11 +2744,13 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "funnel": [grouped_files["funnel"][0].path] if grouped_files.get("funnel") else [],
         "stocks": [grouped_files["stocks"][0].path] if grouped_files.get("stocks") else [],
         "search": [grouped_files["search"][0].path] if grouped_files.get("search") else [],
+        "orders": [x.path for x in (grouped_files.get("orders") or [])],
         "cogs": [grouped_files["cogs"][0].path] if grouped_files.get("cogs") else [],
     }
 
     finance_rows, finance_parse_diag = _parse_many_finance(selected_files["finance"])
     ads_rows, ads_parse_diag = _parse_many_ads(selected_files["ads"])
+    orders_rows, orders_parse_diag = _parse_many_orders(selected_files["orders"])
     funnel_rows = parse_funnel_file(selected_files["funnel"][0]) if selected_files["funnel"] else []
     stocks_rows, stocks_parse_diag = (
         parse_stocks_file_with_diagnostics(selected_files["stocks"][0]) if selected_files["stocks"] else ([], {"status": "file_not_provided"})
@@ -2742,6 +2791,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         search_parse_diag=search_parse_diag,
     )
     local_orders_insights = _build_local_orders_insights(
+        orders_rows=orders_rows,
         funnel_rows=funnel_rows,
         stocks_rows=stocks_rows,
     )
@@ -2917,6 +2967,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
     parse_diagnostics = {
         "finance": finance_parse_diag,
         "ads": ads_parse_diag,
+        "orders": orders_parse_diag,
         "stocks": stocks_parse_diag,
         "search": search_parse_diag,
     }
@@ -2924,7 +2975,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         period_label=period_label,
         report_date=report_date,
         funnel_rows=funnel_rows,
-        orders_rows=None,
+        orders_rows=orders_rows,
         finance_rows=finance_rows,
         selected_files=selected_files,
         parse_diagnostics=parse_diagnostics,
@@ -2960,6 +3011,11 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "sku_dimensions": sku_dimensions,
         "volume_coverage": volume_coverage,
         "search_insights": search_insights,
+        "orders_with_geo": (
+            local_orders_insights.get("orders_with_geo")
+            if isinstance(local_orders_insights.get("orders_with_geo"), list)
+            else []
+        ),
         "local_orders_insights": local_orders_insights,
         "logistics_reference": {
             "regions": logistics_payload.get("reference") or {},

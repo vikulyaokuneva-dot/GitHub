@@ -13,7 +13,7 @@ import pandas as pd
 
 
 SUPPORTED_EXTENSIONS = {".xlsx", ".xls", ".csv", ".zip"}
-FILE_TYPES = ("finance", "funnel", "stocks", "ads", "search", "cogs")
+FILE_TYPES = ("finance", "funnel", "stocks", "ads", "search", "orders", "cogs")
 
 
 TYPE_FILENAME_HINTS: dict[str, tuple[str, ...]] = {
@@ -22,6 +22,7 @@ TYPE_FILENAME_HINTS: dict[str, tuple[str, ...]] = {
     "stocks": ("stock", "остатк", "склад", "warehouse"),
     "ads": ("ads", "advert", "реклам", "статистика"),
     "search": ("search", "поиск", "запрос", "keyword", "ключ"),
+    "orders": ("orders", "заказы", "лента заказов", "order feed", "заказ"),
     "cogs": ("cogs", "себестоим", "cost", "cost price"),
 }
 
@@ -31,6 +32,7 @@ TYPE_SHEET_HINTS: dict[str, tuple[str, ...]] = {
     "stocks": ("stock", "остатк", "sheet1"),
     "ads": ("статист", "ads", "campaign"),
     "search": ("поиск", "search", "query", "запрос"),
+    "orders": ("заказ", "orders", "лента", "all orders"),
     "cogs": ("cogs", "себестоим", "cost"),
 }
 
@@ -40,6 +42,7 @@ PREFERRED_SHEET_SUBSTR: dict[str, tuple[str, ...]] = {
     "stocks": ("sheet1", "остатк", "stock"),
     "ads": ("статист", "statistics", "campaign"),
     "search": ("поиск", "search", "query"),
+    "orders": ("все заказы", "all orders", "orders", "заказ"),
     "cogs": ("cogs", "себестоим", "cost"),
 }
 
@@ -73,6 +76,14 @@ TYPE_COLUMN_HINTS: dict[str, tuple[str, ...]] = {
         "запрос",
         "показы",
         "клики",
+    ),
+    "orders": (
+        "артикул wb",
+        "артикул продавца",
+        "дата оформления заказа",
+        "регион прибытия",
+        "регион доставки",
+        "id заказа",
     ),
     "cogs": (
         "себестоимость",
@@ -550,6 +561,176 @@ def parse_funnel_file(path: str) -> list[dict[str, Any]]:
             continue
         rows.append(payload)
     return rows
+
+
+def _pick_orders_sheet(path: Path) -> str | int:
+    sheets = _excel_sheet_names(path)
+    if not sheets:
+        return 0
+    for sheet in sheets:
+        sn = _norm(sheet)
+        if "все заказы" in sn or "all orders" in sn:
+            return sheet
+    for sheet in sheets:
+        sn = _norm(sheet)
+        if "заказ" in sn or "orders" in sn:
+            return sheet
+    return _find_best_sheet(path, "orders")
+
+
+def _lookup_col_name(row: dict[str, Any], aliases: tuple[str, ...]) -> str | None:
+    normalized = {_norm(k): str(k) for k in row.keys()}
+    for alias in aliases:
+        key = _norm(alias)
+        if key in normalized:
+            return normalized.get(key)
+    return None
+
+
+def _value_by_col_offset(row: dict[str, Any], col_name: str | None, offset: int = 1) -> Any:
+    if not col_name:
+        return None
+    keys = list(row.keys())
+    try:
+        idx = keys.index(col_name)
+    except Exception:
+        return None
+    target_idx = idx + int(offset)
+    if target_idx < 0 or target_idx >= len(keys):
+        return None
+    return row.get(keys[target_idx])
+
+
+def parse_orders_file(path: str) -> list[dict[str, Any]]:
+    rows, _ = parse_orders_file_with_diagnostics(path)
+    return rows
+
+
+def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if not path:
+        return [], {"status": "file_not_provided", "path": ""}
+
+    p = Path(path)
+    sheet = _pick_orders_sheet(p)
+    header = _find_header_row(p, "orders", sheet_name=sheet)
+    df = _read_raw_table(p, header_row=header, sheet_name=sheet)
+    if df is None:
+        return [], {"status": "parse_failed", "path": path, "sheet": str(sheet), "header_row": int(header)}
+
+    df = df.dropna(axis=1, how="all").fillna("")
+    if df.empty:
+        return [], {"status": "empty_after_parse", "path": path, "sheet": str(sheet), "header_row": int(header)}
+
+    sku_aliases = ("Артикул WB", "Код номенклатуры", "nmId", "nm_id", "sku")
+    seller_aliases = ("Артикул продавца", "Артикул поставщика", "supplierArticle", "seller sku")
+    date_aliases = (
+        "Дата оформления заказа",
+        "Дата заказа",
+        "Дата",
+        "date",
+        "order_date",
+    )
+    region_aliases = (
+        "Регион прибытия",
+        "Регион доставки",
+        "Регион",
+        "Область",
+        "region",
+        "delivery_region",
+    )
+    city_aliases = (
+        "Город прибытия",
+        "Город доставки",
+        "Город",
+        "city",
+        "delivery_city",
+    )
+    qty_aliases = ("Количество заказов", "Заказы", "Кол-во", "Количество", "orders", "quantity")
+
+    first_row = dict(df.iloc[0].to_dict()) if len(df) > 0 else {}
+    sku_col = _lookup_col_name(first_row, sku_aliases)
+    seller_col = _lookup_col_name(first_row, seller_aliases)
+    date_col = _lookup_col_name(first_row, date_aliases)
+    region_col = _lookup_col_name(first_row, region_aliases)
+    city_col = _lookup_col_name(first_row, city_aliases)
+    qty_col = _lookup_col_name(first_row, qty_aliases)
+
+    missing_columns: list[str] = []
+    if not sku_col and not seller_col:
+        missing_columns.append("sku_or_seller_article")
+    if not date_col:
+        missing_columns.append("date")
+    if not region_col and not city_col:
+        missing_columns.append("region_or_city")
+
+    rows: list[dict[str, Any]] = []
+    parsed_rows = 0
+    skipped_rows = 0
+    geo_rows = 0
+    for _, r in df.iterrows():
+        parsed_rows += 1
+        row = dict(r)
+
+        sku = _to_int(_lookup(row, sku_aliases))
+        seller_article = str(_lookup(row, seller_aliases) or "").strip()
+        if sku <= 0 and not seller_article:
+            skipped_rows += 1
+            continue
+
+        date_raw = str(_lookup(row, date_aliases) or "").strip()
+        region = str(_lookup(row, region_aliases) or "").strip()
+        city = str(_lookup(row, city_aliases) or "").strip()
+        if not city and region_col:
+            city = str(_value_by_col_offset(row, region_col, offset=1) or "").strip()
+            if _norm(city).startswith("unnamed"):
+                city = ""
+
+        if not region and not city:
+            skipped_rows += 1
+            continue
+
+        if region or city:
+            geo_rows += 1
+
+        qty_raw = _lookup(row, qty_aliases)
+        qty = _to_int(qty_raw)
+        if qty <= 0:
+            qty = 1
+
+        rows.append(
+            {
+                "date": date_raw,
+                "nmId": int(sku),
+                "seller_article": seller_article,
+                "region": region,
+                "city": city,
+                "orders": int(max(qty, 1)),
+                "quantity": int(max(qty, 1)),
+            }
+        )
+
+    status = "ok" if rows else "empty_after_parse"
+    if missing_columns and not rows:
+        status = "unsupported_format"
+    return rows, {
+        "status": status,
+        "path": path,
+        "sheet": str(sheet),
+        "header_row": int(header),
+        "rows_scanned": int(parsed_rows),
+        "rows_parsed": int(len(rows)),
+        "rows_with_geo": int(geo_rows),
+        "rows_skipped": int(skipped_rows),
+        "recognized_columns": {
+            "sku": sku_col,
+            "seller_article": seller_col,
+            "date": date_col,
+            "region": region_col,
+            "city": city_col,
+            "orders": qty_col,
+        },
+        "missing_columns": missing_columns,
+    }
 
 
 def parse_stocks_file(path: str) -> list[dict[str, Any]]:
@@ -1057,3 +1238,7 @@ def load_funnel_xlsx(path: str) -> list[dict[str, Any]]:
 
 def load_stocks_xlsx(path: str) -> list[dict[str, Any]]:
     return parse_stocks_file(path)
+
+
+def load_orders_xlsx(path: str) -> list[dict[str, Any]]:
+    return parse_orders_file(path)

@@ -1887,6 +1887,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     source_rows = [
         ["Финансы", _source_file_cell(selected_files.get("finance"))],
         ["Воронка", _source_file_cell(selected_files.get("funnel"))],
+        ["Лента заказов", _source_file_cell(selected_files.get("orders"))],
         ["Реклама", _source_file_cell(selected_files.get("ads"))],
         ["Остатки", _source_file_cell(selected_files.get("stocks"))],
         ["Поиск", _source_file_cell(selected_files.get("search"))],
