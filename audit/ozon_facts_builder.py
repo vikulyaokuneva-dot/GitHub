@@ -40,6 +40,14 @@ def _to_int(value: Any) -> int:
         return 0
 
 
+def _first_text(*values: Any) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
 def _resolve_ozon_input_root(input_dir: str) -> str:
     from pathlib import Path
 
@@ -93,8 +101,11 @@ def _build_inputs_section(
 
 
 def _build_ozon_products_summary(items: list[dict[str, Any]], diagnostics: dict[str, Any]) -> dict[str, Any]:
-    total_orders = sum(_to_int(x.get("orders")) for x in items)
-    total_revenue = sum(_to_float(x.get("revenue")) for x in items)
+    missing_columns = set(str(x) for x in (diagnostics.get("missing_columns") or []))
+    parser_warnings = [str(x) for x in (diagnostics.get("warnings") or [])]
+
+    total_orders = None if "orders" in missing_columns else sum(_to_int(x.get("orders")) for x in items)
+    total_revenue = None if "revenue" in missing_columns else sum(_to_float(x.get("revenue")) for x in items)
     total_views = sum(_to_int(x.get("views")) for x in items)
 
     conv_values = [x.get("conversion") for x in items if x.get("conversion") is not None]
@@ -102,10 +113,11 @@ def _build_ozon_products_summary(items: list[dict[str, Any]], diagnostics: dict[
 
     return {
         "rows_count": len(items),
-        "total_orders": int(total_orders),
-        "total_revenue": round(total_revenue, 2),
+        "total_orders": (int(total_orders) if total_orders is not None else None),
+        "total_revenue": (round(total_revenue, 2) if total_revenue is not None else None),
         "total_views": int(total_views),
         "avg_conversion": (round(float(avg_conversion), 4) if avg_conversion is not None else None),
+        "metrics_warnings": parser_warnings,
         "diagnostics": diagnostics,
     }
 
@@ -115,11 +127,13 @@ def _build_sku_profit(items: list[dict[str, Any]], cogs_index: dict[str, dict[st
     stats = {"ok": 0, "no_cogs": 0, "no_orders": 0}
 
     for item in items:
-        sku = item.get("sku")
+        sku = _first_text(item.get("sku"), item.get("offer_id"), item.get("name")) or None
         offer_id = item.get("offer_id")
         name = item.get("name")
         orders_raw = item.get("orders")
         revenue_total = _to_float(item.get("revenue"))
+        stock = _to_float(item.get("stock")) if item.get("stock") is not None else None
+        buyouts = _to_int(item.get("buyouts")) if item.get("buyouts") is not None else None
 
         orders_count = _to_int(orders_raw) if orders_raw is not None else None
         cogs_unit, matched_by = match_cogs_for_sku(
@@ -156,12 +170,19 @@ def _build_sku_profit(items: list[dict[str, Any]], cogs_index: dict[str, dict[st
                 "views": (_to_int(item.get("views")) if item.get("views") is not None else None),
                 "conversion": (_to_float(item.get("conversion")) if item.get("conversion") is not None else None),
                 "price": (_to_float(item.get("price")) if item.get("price") is not None else None),
+                "stock": stock,
+                "buyouts": buyouts,
+                "id_source": item.get("id_source"),
             }
         )
 
     out_sorted = sorted(
         out,
-        key=lambda x: float(x.get("gross_profit")) if x.get("gross_profit") is not None else float("-inf"),
+        key=lambda x: (
+            float(x.get("gross_profit")) if x.get("gross_profit") is not None else float("-inf"),
+            _to_float(x.get("revenue_total")),
+            _to_int(x.get("orders")),
+        ),
         reverse=True,
     )
     return out_sorted, stats
@@ -172,13 +193,48 @@ def _build_abc(items: list[dict[str, Any]]) -> dict[str, Any]:
     valid = sorted(valid, key=lambda x: float(x.get("gross_profit") or 0.0), reverse=True)
 
     if not valid:
+        # Fallback: if profit cannot be computed (e.g. no COGS), build ABC by revenue.
+        revenue_rows = [x for x in items if _to_float(x.get("revenue_total")) > 0]
+        revenue_rows = sorted(revenue_rows, key=lambda x: float(x.get("revenue_total") or 0.0), reverse=True)
+        if not revenue_rows:
+            return {
+                "items": [],
+                "summary": {
+                    "status": "no_gross_profit_data",
+                    "basis": "gross_profit",
+                    "basis_note": "Недостаточно данных для ABC-анализа.",
+                    "a_count": 0,
+                    "b_count": 0,
+                    "c_count": 0,
+                },
+            }
+
+        total_revenue = sum(_to_float(x.get("revenue_total")) for x in revenue_rows)
+        cumulative = 0.0
+        revenue_items_out = []
+        for idx, item in enumerate(revenue_rows):
+            revenue = max(_to_float(item.get("revenue_total")), 0.0)
+            cumulative += revenue
+            share = (cumulative / total_revenue) if total_revenue > 0 else 0.0
+            if share <= 0.80 or idx == 0:
+                abc = "A"
+            elif share <= 0.95:
+                abc = "B"
+            else:
+                abc = "C"
+            revenue_items_out.append({**item, "abc_class": abc, "cum_revenue_share": round(share, 4)})
+
         return {
-            "items": [],
+            "items": revenue_items_out,
             "summary": {
-                "status": "no_gross_profit_data",
-                "a_count": 0,
-                "b_count": 0,
-                "c_count": 0,
+                "status": "fallback_revenue_no_cogs",
+                "basis": "revenue",
+                "basis_note": "ABC по выручке (fallback, т.к. нет COGS)",
+                "total_items": len(revenue_items_out),
+                "a_count": len([x for x in revenue_items_out if x.get("abc_class") == "A"]),
+                "b_count": len([x for x in revenue_items_out if x.get("abc_class") == "B"]),
+                "c_count": len([x for x in revenue_items_out if x.get("abc_class") == "C"]),
+                "total_revenue": round(total_revenue, 2),
             },
         }
 
@@ -212,6 +268,8 @@ def _build_abc(items: list[dict[str, Any]]) -> dict[str, Any]:
 
     summary = {
         "status": "ok",
+        "basis": "gross_profit",
+        "basis_note": "ABC по валовой прибыли.",
         "total_items": len(items_out),
         "a_count": len([x for x in items_out if x.get("abc_class") == "A"]),
         "b_count": len([x for x in items_out if x.get("abc_class") == "B"]),
@@ -305,8 +363,9 @@ def _build_decision_layer(
                 }
             )
 
+    abc_basis = ((abc_analysis.get("summary") or {}).get("basis") or "gross_profit")
     for item in (abc_analysis.get("items") or []):
-        if item.get("abc_class") == "C" and _to_float(item.get("gross_profit")) <= 0:
+        if abc_basis == "gross_profit" and item.get("abc_class") == "C" and _to_float(item.get("gross_profit")) <= 0:
             sku_problems.append(
                 {
                     "type": "candidate_disable_or_rework",
@@ -318,13 +377,32 @@ def _build_decision_layer(
                 }
             )
 
-    if (products_diagnostics.get("missing_columns") or []):
+    missing_columns = products_diagnostics.get("missing_columns") or []
+    if missing_columns:
         data_gaps.append(
             {
                 "type": "products_missing_columns",
-                "details": products_diagnostics.get("missing_columns"),
+                "details": missing_columns,
+                "diagnostics": {
+                    "missing_columns": missing_columns,
+                    "source_columns": products_diagnostics.get("source_columns") or [],
+                    "resolved_columns": products_diagnostics.get("resolved_columns") or {},
+                    "unresolved_columns": products_diagnostics.get("unresolved_columns") or [],
+                },
             }
         )
+
+    if "revenue" in [str(x) for x in missing_columns]:
+        data_gaps.append(
+            {
+                "type": "products_revenue_missing",
+                "details": "revenue column missing caused empty revenue metrics",
+            }
+        )
+
+    for warning in (products_diagnostics.get("warnings") or []):
+        data_gaps.append({"type": "products_parser_warning", "details": str(warning)})
+
     if cogs_diagnostics.get("status") != "ok":
         data_gaps.append(
             {
@@ -449,6 +527,23 @@ def build_ozon_audit_facts(input_dir: str = "audit/input/ozon", period_label: st
     abc_analysis = _build_abc(sku_profit_items)
     ozon_products_summary = _build_ozon_products_summary(products_rows, products_diagnostics)
 
+    top_sku_by_revenue = sorted(
+        [x for x in sku_profit_items if _to_float(x.get("revenue_total")) > 0],
+        key=lambda x: (_to_float(x.get("revenue_total")), _to_int(x.get("orders"))),
+        reverse=True,
+    )[:10]
+    top_sku_by_orders = sorted(
+        [x for x in sku_profit_items if _to_int(x.get("orders")) > 0],
+        key=lambda x: (_to_int(x.get("orders")), _to_float(x.get("revenue_total"))),
+        reverse=True,
+    )[:10]
+    sku_without_orders = [x for x in sku_profit_items if _to_int(x.get("orders")) <= 0][:100]
+    sku_with_stock = sorted(
+        [x for x in sku_profit_items if _to_float(x.get("stock")) > 0],
+        key=lambda x: (_to_float(x.get("stock")), _to_float(x.get("revenue_total"))),
+        reverse=True,
+    )[:100]
+
     gross_revenue = sum(_to_float(x.get("revenue_total")) for x in sku_profit_items)
     known_profit_items = [x for x in sku_profit_items if x.get("gross_profit") is not None]
     gross_profit_known = sum(_to_float(x.get("gross_profit")) for x in known_profit_items)
@@ -507,12 +602,18 @@ def build_ozon_audit_facts(input_dir: str = "audit/input/ozon", period_label: st
                 "ok_items": sku_profit_stats.get("ok", 0),
                 "no_cogs_items": sku_profit_stats.get("no_cogs", 0),
                 "no_orders_items": sku_profit_stats.get("no_orders", 0),
+                "sku_without_orders_count": len(sku_without_orders),
+                "sku_with_stock_count": len(sku_with_stock),
             },
         },
         "stock_summary": stock_summary,
         "financial_summary": financial_summary,
         "ads_summary": ads_summary,
         "abc_analysis": abc_analysis,
+        "top_sku_by_revenue": top_sku_by_revenue,
+        "top_sku_by_orders": top_sku_by_orders,
+        "sku_without_orders": sku_without_orders,
+        "sku_with_stock": sku_with_stock,
         "decision_layer": decision_layer,
         "actions": actions,
         "missing_blocks": missing_blocks,
@@ -524,4 +625,3 @@ def build_ozon_audit_facts(input_dir: str = "audit/input/ozon", period_label: st
             "Анализ рекламы требует рекламного отчета Ozon.",
         ],
     }
-

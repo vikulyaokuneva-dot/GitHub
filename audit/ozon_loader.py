@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -64,27 +65,66 @@ OZON_COLUMN_HINTS: dict[str, tuple[str, ...]] = {
 
 
 PRODUCT_FIELD_ALIASES: dict[str, tuple[str, ...]] = {
-    "sku": ("sku", "sku id", "sku_id", "артикул wb", "sku ozon"),
-    "offer_id": (
-        "offer id",
-        "offer_id",
-        "offerid",
+    "sku": (
+        "sku",
+        "sku товара",
         "артикул",
+        "артикул товара",
         "артикул продавца",
+        "seller sku",
+        "ozon sku",
+        "sku id",
+        "sku_id",
+    ),
+    "offer_id": (
+        "offer_id",
+        "offer id",
+        "offerid",
+        "id предложения",
+        "артикул продавца",
+        "seller sku",
         "seller code",
         "seller_code",
         "vendor code",
         "vendor_code",
     ),
-    "name": ("товар", "наименование", "название", "product", "item name", "name"),
-    "orders": ("заказы", "заказов", "orders", "ordered units", "количество заказов", "продажи, шт"),
-    "revenue": ("выручка", "revenue", "sales", "продажи, руб", "sum", "сумма продаж"),
+    "name": (
+        "наименование",
+        "наименование товара",
+        "название",
+        "товар",
+        "product",
+        "item name",
+        "name",
+    ),
+    "orders": (
+        "orders",
+        "заказы",
+        "количество заказов",
+        "товаров заказано",
+        "заказано",
+        "ordered units",
+        "продажи, шт",
+    ),
+    "revenue": (
+        "revenue",
+        "выручка",
+        "сумма продаж",
+        "сумма заказов",
+        "продажи, руб",
+        "итого продаж",
+        "оборот",
+        "sales",
+        "sum",
+    ),
+    "stock": ("stock", "остаток", "остатки"),
+    "buyouts": ("buyouts", "выкуп", "выкупы"),
     "price": ("цена", "price", "средняя цена", "avg price"),
     "views": ("просмотры", "views", "показы", "impressions", "visits"),
     "conversion": ("конверсия", "conversion", "cr", "конверсия в заказ"),
 }
 
-
+REQUIRED_PRODUCT_COLUMNS: tuple[str, ...] = ("sku", "offer_id", "name", "orders", "revenue")
 COGS_FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "id": (
         "sku",
@@ -104,7 +144,7 @@ def _norm(value: Any) -> str:
     s = "" if value is None else str(value)
     s = s.replace("\xa0", " ").replace("\n", " ").replace("\r", " ")
     s = s.strip().lower().replace("ё", "е")
-    s = " ".join(s.split())
+    s = re.sub(r"\s+", " ", s)
     return s
 
 
@@ -343,14 +383,66 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df.rename(columns=renamed)
 
 
+def _tokenize_header(text: str) -> list[str]:
+    return re.findall(r"[a-zа-я0-9]+", _norm(text))
+
+
+def _compact_header(text: str) -> str:
+    return re.sub(r"[\s\W_]+", "", _norm(text), flags=re.UNICODE)
+
+
+def _column_match_score(column_name: str, alias: str) -> tuple[int, int]:
+    col_norm = _norm(column_name)
+    alias_norm = _norm(alias)
+    if not col_norm or not alias_norm:
+        return (0, 10**9)
+
+    if col_norm == alias_norm:
+        return (1000, 0)
+
+    col_compact = _compact_header(col_norm)
+    alias_compact = _compact_header(alias_norm)
+    if col_compact and col_compact == alias_compact:
+        return (960, 0)
+
+    col_tokens = _tokenize_header(col_norm)
+    alias_tokens = _tokenize_header(alias_norm)
+    if alias_tokens and col_tokens:
+        if col_tokens == alias_tokens:
+            return (930, abs(len(col_norm) - len(alias_norm)))
+        if all(token in col_tokens for token in alias_tokens):
+            coverage = int((len(alias_tokens) / max(len(col_tokens), 1)) * 100)
+            return (820 + coverage, abs(len(col_norm) - len(alias_norm)))
+
+    if col_norm.startswith(alias_norm) or col_norm.endswith(alias_norm):
+        return (740, abs(len(col_norm) - len(alias_norm)))
+    if alias_norm in col_norm:
+        return (620, abs(len(col_norm) - len(alias_norm)))
+    return (0, 10**9)
+
+
+def _rank_column_candidates(columns: list[str], aliases: tuple[str, ...]) -> list[tuple[int, int, str]]:
+    ranked: list[tuple[int, int, str]] = []
+    for col in columns:
+        best_score = 0
+        best_distance = 10**9
+        for alias in aliases:
+            score, distance = _column_match_score(col, alias)
+            if score > best_score or (score == best_score and distance < best_distance):
+                best_score = score
+                best_distance = distance
+        if best_score > 0:
+            ranked.append((best_score, best_distance, col))
+
+    ranked.sort(key=lambda x: (x[0], -x[1], -len(_norm(x[2]))), reverse=True)
+    return ranked
+
+
 def _find_column(columns: list[str], aliases: tuple[str, ...]) -> str | None:
-    norm_cols = [_norm(c) for c in columns]
-    for alias in aliases:
-        a = _norm(alias)
-        for col in norm_cols:
-            if a and a in col:
-                return col
-    return None
+    ranked = _rank_column_candidates(columns, aliases)
+    if not ranked:
+        return None
+    return ranked[0][2]
 
 
 def _resolve_sheet(path: Path, file_type: str) -> str | int:
@@ -380,29 +472,31 @@ def parse_ozon_products_file(path: str) -> tuple[list[dict[str, Any]], dict[str,
         return [], {"status": "empty_file", "sheet": str(sheet)}
 
     header_row = _detect_header_row(df_raw, PRODUCT_FIELD_ALIASES, max_scan=20)
-    df = _read_with_header(p, header_row=header_row, sheet_name=sheet)
-    df = _normalize_columns(df).fillna("")
+    df = _read_with_header(p, header_row=header_row, sheet_name=sheet).fillna("")
     if df.empty:
         return [], {"status": "empty_after_header", "sheet": str(sheet), "header_row": header_row}
 
-    cols = [_norm(c) for c in list(df.columns)]
-    recognized: dict[str, str] = {}
+    source_columns = [str(c) for c in list(df.columns)]
+    resolved_columns: dict[str, str] = {}
     for field, aliases in PRODUCT_FIELD_ALIASES.items():
-        col = _find_column(cols, aliases)
+        col = _find_column(source_columns, aliases)
         if col:
-            recognized[field] = col
+            resolved_columns[field] = col
+    resolved_norm = {field: _norm(col) for field, col in resolved_columns.items()}
 
-    missing_columns = [k for k in ("sku", "offer_id", "name", "orders", "revenue") if k not in recognized]
+    missing_columns = [k for k in REQUIRED_PRODUCT_COLUMNS if k not in resolved_columns]
+    unresolved_columns = [k for k in PRODUCT_FIELD_ALIASES.keys() if k not in resolved_columns]
 
     rows: list[dict[str, Any]] = []
     rows_before = len(df)
+    sku_fallback_to_offer_id_count = 0
 
     for _, raw in df.iterrows():
         row = {_norm(k): v for k, v in dict(raw).items()}
 
-        name_val = str(row.get(recognized.get("name", ""), "")).strip() if "name" in recognized else ""
-        sku_val = str(row.get(recognized.get("sku", ""), "")).strip() if "sku" in recognized else ""
-        offer_val = str(row.get(recognized.get("offer_id", ""), "")).strip() if "offer_id" in recognized else ""
+        name_val = str(row.get(resolved_norm.get("name", ""), "")).strip() if "name" in resolved_norm else ""
+        sku_val = str(row.get(resolved_norm.get("sku", ""), "")).strip() if "sku" in resolved_norm else ""
+        offer_val = str(row.get(resolved_norm.get("offer_id", ""), "")).strip() if "offer_id" in resolved_norm else ""
 
         marker = " ".join([_norm(name_val), _norm(sku_val), _norm(offer_val)])
         if any(x in marker for x in ("итого", "всего", "total")):
@@ -410,24 +504,45 @@ def parse_ozon_products_file(path: str) -> tuple[list[dict[str, Any]], dict[str,
         if not name_val and not sku_val and not offer_val:
             continue
 
-        orders = _to_int(row.get(recognized.get("orders", ""), None)) if "orders" in recognized else None
-        revenue = _to_float(row.get(recognized.get("revenue", ""), None)) if "revenue" in recognized else None
-        price = _to_float(row.get(recognized.get("price", ""), None)) if "price" in recognized else None
-        views = _to_int(row.get(recognized.get("views", ""), None)) if "views" in recognized else None
-        conversion = _to_float(row.get(recognized.get("conversion", ""), None)) if "conversion" in recognized else None
+        id_source = "sku"
+        sku_final = sku_val
+        if not sku_final and offer_val:
+            sku_final = offer_val
+            id_source = "offer_id_fallback"
+            sku_fallback_to_offer_id_count += 1
+        elif not sku_final and name_val:
+            sku_final = name_val
+            id_source = "name_fallback"
+
+        orders = _to_int(row.get(resolved_norm.get("orders", ""), None)) if "orders" in resolved_norm else None
+        revenue = _to_float(row.get(resolved_norm.get("revenue", ""), None)) if "revenue" in resolved_norm else None
+        stock = _to_float(row.get(resolved_norm.get("stock", ""), None)) if "stock" in resolved_norm else None
+        buyouts = _to_int(row.get(resolved_norm.get("buyouts", ""), None)) if "buyouts" in resolved_norm else None
+        price = _to_float(row.get(resolved_norm.get("price", ""), None)) if "price" in resolved_norm else None
+        views = _to_int(row.get(resolved_norm.get("views", ""), None)) if "views" in resolved_norm else None
+        conversion = _to_float(row.get(resolved_norm.get("conversion", ""), None)) if "conversion" in resolved_norm else None
 
         rows.append(
             {
-                "sku": sku_val or None,
+                "sku": sku_final or None,
                 "offer_id": offer_val or None,
                 "name": name_val or None,
+                "id_source": id_source,
                 "orders": orders,
                 "revenue": revenue,
+                "stock": stock,
+                "buyouts": buyouts,
                 "price": price,
                 "views": views,
                 "conversion": conversion,
             }
         )
+
+    warnings: list[str] = []
+    if "revenue" not in resolved_columns:
+        warnings.append("revenue column missing caused empty revenue metrics")
+    if "sku" not in resolved_columns and "offer_id" in resolved_columns:
+        warnings.append("sku column missing, fallback to offer_id enabled")
 
     diagnostics = {
         "status": "ok",
@@ -436,8 +551,13 @@ def parse_ozon_products_file(path: str) -> tuple[list[dict[str, Any]], dict[str,
         "header_row": int(header_row),
         "rows_before_filter": int(rows_before),
         "rows_after_filter": int(len(rows)),
-        "recognized_columns": recognized,
+        "source_columns": source_columns,
+        "resolved_columns": resolved_columns,
+        "recognized_columns": resolved_columns,  # backward-compatible alias
+        "unresolved_columns": unresolved_columns,
         "missing_columns": missing_columns,
+        "sku_fallback_to_offer_id_count": int(sku_fallback_to_offer_id_count),
+        "warnings": warnings,
     }
     return rows, diagnostics
 
@@ -452,19 +572,19 @@ def parse_ozon_cogs_file(path: str) -> tuple[dict[str, float], dict[str, Any]]:
         return {}, {"status": "empty_file", "sheet": str(sheet)}
 
     header_row = _detect_header_row(df_raw, COGS_FIELD_ALIASES, max_scan=20)
-    df = _read_with_header(p, header_row=header_row, sheet_name=sheet)
-    df = _normalize_columns(df).fillna("")
+    df = _read_with_header(p, header_row=header_row, sheet_name=sheet).fillna("")
     if df.empty:
         return {}, {"status": "empty_after_header", "sheet": str(sheet), "header_row": header_row}
 
-    cols = [_norm(c) for c in list(df.columns)]
-    id_col = _find_column(cols, COGS_FIELD_ALIASES["id"])
-    cogs_col = _find_column(cols, COGS_FIELD_ALIASES["cogs"])
+    source_columns = [str(c) for c in list(df.columns)]
+    id_col = _find_column(source_columns, COGS_FIELD_ALIASES["id"])
+    cogs_col = _find_column(source_columns, COGS_FIELD_ALIASES["cogs"])
     if not id_col or not cogs_col:
         return {}, {
             "status": "required_columns_missing",
             "sheet": str(sheet),
             "header_row": int(header_row),
+            "source_columns": source_columns,
             "recognized_columns": {"id": id_col, "cogs": cogs_col},
         }
 
@@ -472,8 +592,8 @@ def parse_ozon_cogs_file(path: str) -> tuple[dict[str, float], dict[str, Any]]:
     skipped = 0
     for _, raw in df.iterrows():
         row = {_norm(k): v for k, v in dict(raw).items()}
-        id_raw = row.get(id_col, "")
-        cogs_raw = row.get(cogs_col, None)
+        id_raw = row.get(_norm(id_col), "")
+        cogs_raw = row.get(_norm(cogs_col), None)
         key = str(id_raw or "").strip()
         if not key:
             continue
@@ -491,6 +611,7 @@ def parse_ozon_cogs_file(path: str) -> tuple[dict[str, float], dict[str, Any]]:
         "rows_total": int(len(df)),
         "rows_loaded": int(len(cogs_map)),
         "rows_skipped": int(skipped),
+        "source_columns": source_columns,
         "recognized_columns": {"id": id_col, "cogs": cogs_col},
     }
     return cogs_map, diagnostics
