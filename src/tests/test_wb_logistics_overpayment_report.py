@@ -160,3 +160,17 @@ def test_report_renders_regional_logistics_decision_block():
     assert "### SKU в зоне регионального риска" in md
     assert "### Что делать practically" in md
     assert "order_geography" in md
+
+
+def test_logistics_section_estimates_irp_when_missing() -> None:
+    facts = _base_facts()
+    facts["logistics_formula_model"] = {
+        "mode": "B",
+        "localization_share_pct": 48.0,
+        "localization_index": 1.12,
+        "item_price": 2300.0,
+        "missing_inputs": ["sales_distribution_index_pct"],
+    }
+
+    md = build_audit_markdown(facts)
+    assert "ИРП (оценочный)" in md or "ИРП рассчитан оценочно" in md

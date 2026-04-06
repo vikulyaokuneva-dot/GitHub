@@ -2560,17 +2560,26 @@ def _build_actions(
         if isinstance(item, dict) and _to_int(item.get("orders")) == 0
     )
     if ads_leaks:
+        ads_loss_is_significant = float(ads_leaks_spend) >= 100.0
         actions.append(
             {
                 "priority": "P0",
                 "area": "ads",
                 "action": "Отключить кампании и запросы с расходом без заказов",
-                "why": "Реклама убыточная и сливает бюджет",
-                "expected_effect": f"Снижение рекламного расхода без потери выручки (~{round(float(ads_leaks_spend), 2)} RUB за период)",
+                "why": (
+                    "Реклама убыточная и сливает бюджет"
+                    if ads_loss_is_significant
+                    else "Данные не подтверждают значимые потери по рекламе"
+                ),
+                "expected_effect": (
+                    f"Снижение рекламного расхода без потери выручки (~{round(float(ads_leaks_spend), 2)} RUB за период)"
+                    if ads_loss_is_significant
+                    else "Существенная экономия не подтверждена (менее 100 RUB)"
+                ),
                 "numbers": {
                     "leaks_count": len(ads_leaks),
                     "leaks_spend_rub": round(float(ads_leaks_spend), 2),
-                    "estimated_saving_rub": round(float(ads_leaks_spend), 2),
+                    "estimated_saving_rub": round(float(ads_leaks_spend), 2) if ads_loss_is_significant else None,
                 },
             }
         )

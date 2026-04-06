@@ -1,0 +1,46 @@
+[
+  {
+    "priority": "P1",
+    "area": "finance",
+    "action": "Проверить аномальное изменение комиссии WB и структуру комиссионных компонентов",
+    "why": "Комиссия WB заметно отклоняется от базовой комиссии по продажам",
+    "expected_effect": "Подтвержденный и объяснимый расчет комиссии в weekly finance",
+    "numbers": {
+      "commission": 7751.77,
+      "base_commission": 3548.44,
+      "delta_vs_base": 4203.33
+    }
+  },
+  {
+    "priority": "P0",
+    "area": "finance",
+    "action": "Проверить период и полноту weekly finance-файлов относительно funnel",
+    "why": "Между funnel и finance есть сильные расхождения",
+    "expected_effect": "Согласованные показатели выручки и количества выкупов",
+    "numbers": {
+      "warnings_count": 1
+    }
+  },
+  {
+    "priority": "P0",
+    "area": "ads",
+    "action": "Отключить кампании и запросы с расходом без заказов",
+    "why": "Данные не подтверждают значимые потери по рекламе",
+    "expected_effect": "Существенная экономия не подтверждена (менее 100 RUB)",
+    "numbers": {
+      "leaks_count": 92,
+      "leaks_spend_rub": 0.0,
+      "estimated_saving_rub": null
+    }
+  },
+  {
+    "priority": "P1",
+    "area": "stock",
+    "action": "Сократить мертвые остатки: распродать или убрать закупку по SKU без продаж",
+    "why": "Деньги заморожены в остатках без движения",
+    "expected_effect": "Высвобождение оборотного капитала",
+    "numbers": {
+      "dead_stock_count": 6
+    }
+  }
+]

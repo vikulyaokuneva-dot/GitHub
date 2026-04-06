@@ -101,7 +101,7 @@ def test_report_search_block_renders_categories_and_actions() -> None:
     assert "### Эффективные запросы (оставить и масштабировать)" in md
     assert "### Неэффективные запросы (отключить / снизить ставки)" in md
     assert "### Запросы с потенциалом (доработать карточку)" in md
-    assert "| Запрос | SKU | Клики | В корзину | Заказы | CR | Расход | Выручка | Прибыль (оценка) | ДРР | Вывод |" in md
+    assert "| Запрос | SKU | Клики | CTR | В корзину | Заказы | CR | Расход | Выручка | Прибыль (оценка) | ДРР | Вывод |" in md
     assert "### Деньги в поиске" in md
     assert "Потери на неэффективных запросах" in md
     assert "работает" in md
@@ -114,3 +114,37 @@ def test_report_search_block_renders_categories_and_actions() -> None:
     assert "SKU 810239842:" in md
     assert "5. Поиск: отключить / снизить ставки:" in md
     assert "6. Поиск: масштабировать:" in md
+
+
+def test_search_ignores_zero_spend_rows_for_ineffective_bucket() -> None:
+    facts = _base_facts()
+    facts["search_insights"] = {
+        "status": "ok",
+        "base_rows": [
+            {
+                "query": "без рекламы",
+                "nmId": 111,
+                "clicks": 50,
+                "add_to_cart": 0,
+                "orders": 0,
+                "buyouts": 0,
+                "spend": 0.0,
+                "revenue": 0.0,
+            },
+            {
+                "query": "с рекламой",
+                "nmId": 222,
+                "clicks": 40,
+                "add_to_cart": 0,
+                "orders": 0,
+                "buyouts": 0,
+                "spend": 500.0,
+                "revenue": 0.0,
+            },
+        ],
+    }
+
+    md = build_audit_markdown(facts)
+    assert "Найдено (только запросы с рекламой, spend > 0):" in md
+    assert "пропущено 1 строк без рекламного расхода (spend = 0)" in md
+    assert "| Строк с рекламой (spend > 0) | 1 |" in md

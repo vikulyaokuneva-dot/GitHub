@@ -158,3 +158,24 @@ def test_kpi_contains_cogs_impact_block_when_cogs_applied() -> None:
     assert "Прибыль без себестоимости" in md
     assert "Итоговая прибыль" in md
     assert "Снижение прибыли" in md
+
+
+def test_kpi_renders_ads_drr_beside_cabinet_drr() -> None:
+    facts = _base_facts()
+    facts["ads_summary"]["drr"] = 0.18
+    facts["ads_summary"]["spend"] = 100
+    facts["funnel_summary"]["revenue_orders"] = 1000
+    md = build_audit_markdown(facts)
+
+    assert "ДРР рекламы (РК)" in md
+    assert "ДРР по кабинету" in md
+
+
+def test_ads_zero_spend_uses_non_loss_wording() -> None:
+    facts = _base_facts()
+    facts["ads_summary"]["spend"] = 0
+    facts["decision_layer"] = {"ads_leaks": [{"level": "query", "spend": 0, "orders": 0}], "reasons_of_loss": []}
+    md = build_audit_markdown(facts)
+
+    assert "Данные не подтверждают значимые потери рекламы в этом периоде." in md
+    assert "существенная экономия не подтверждена (менее 100 RUB)." in md
