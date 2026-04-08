@@ -665,6 +665,26 @@ def parse_funnel_file(path: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for _, r in df.iterrows():
         row = dict(r)
+        clicks_aliases = ("Переходы в карточку", "Клики", "openCardCount", "clicks")
+        impressions_aliases = (
+            "Просмотры",
+            "Показы",
+            "Показы, шт",
+            "impressions",
+            "views",
+            "showCount",
+            "shows",
+        )
+        clicks_col = _lookup_col_name(row, clicks_aliases)
+        impressions_col = _lookup_col_name(row, impressions_aliases)
+        clicks = _to_int(_lookup(row, clicks_aliases))
+        impressions = _to_int(_lookup(row, impressions_aliases))
+        clicks_inferred_from_impressions = False
+        if clicks <= 0 and impressions > 0 and not clicks_col and impressions_col:
+            # Legacy fallback: some files used one column for card transitions.
+            clicks = int(impressions)
+            clicks_inferred_from_impressions = True
+
         payload = {
             "date": str(
                 _lookup(
@@ -681,7 +701,10 @@ def parse_funnel_file(path: str) -> list[dict[str, Any]]:
                 or ""
             ).strip(),
             "nmId": _to_int(_lookup(row, ("Артикул WB", "Код номенклатуры", "Номенклатура", "nmId"))),
-            "openCardCount": _to_int(_lookup(row, ("Переходы в карточку", "Просмотры", "Показы", "openCardCount"))),
+            "openCardCount": int(clicks),
+            "clicks": int(clicks),
+            "impressions": int(max(impressions, 0)),
+            "clicks_inferred_from_impressions": bool(clicks_inferred_from_impressions),
             "addToCartCount": _to_int(_lookup(row, ("Положили в корзину", "Добавлений в корзину", "addToCartCount"))),
             "orderCount": _to_int(_lookup(row, ("Заказали, шт", "Заказы", "orderCount"))),
             "buyoutCount": _to_int(_lookup(row, ("Выкупили, шт", "Выкупы", "buyoutCount"))),
@@ -708,6 +731,7 @@ def parse_funnel_file(path: str) -> list[dict[str, Any]]:
         }
         is_empty_row = (
             payload["nmId"] == 0
+            and payload["impressions"] == 0
             and payload["openCardCount"] == 0
             and payload["addToCartCount"] == 0
             and payload["orderCount"] == 0

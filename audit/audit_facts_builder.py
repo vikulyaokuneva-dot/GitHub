@@ -311,6 +311,60 @@ def _extract_first_numeric_from_rows(
     return None
 
 
+def _derive_funnel_impressions_and_ctr(
+    *,
+    funnel_summary: dict[str, Any],
+    funnel_rows: list[dict[str, Any]],
+    ads_summary: dict[str, Any],
+) -> dict[str, Any]:
+    clicks = _to_int((funnel_summary or {}).get("views"))
+    if clicks <= 0:
+        clicks = sum(
+            max(
+                _to_int(row.get("clicks"))
+                or _to_int(row.get("openCardCount"))
+                or 0,
+                0,
+            )
+            for row in (funnel_rows or [])
+            if isinstance(row, dict)
+        )
+
+    impressions_from_summary = _to_int((funnel_summary or {}).get("impressions"))
+    impressions_from_funnel = sum(
+        max(
+            _to_int(row.get("impressions"))
+            or _to_int(row.get("shows"))
+            or _to_int(row.get("showCount"))
+            or 0,
+            0,
+        )
+        for row in (funnel_rows or [])
+        if isinstance(row, dict)
+    )
+
+    impressions: int | None = None
+    source = "missing"
+    if impressions_from_funnel > 0:
+        impressions = int(impressions_from_funnel)
+        source = "funnel"
+    elif impressions_from_summary > 0:
+        impressions = int(impressions_from_summary)
+        source = "funnel"
+    else:
+        ads_impressions = _to_int((ads_summary or {}).get("impressions"))
+        if ads_impressions > 0:
+            impressions = int(ads_impressions)
+            source = "ads"
+
+    ctr = (float(clicks) / float(impressions)) if impressions is not None and impressions > 0 else None
+    return {
+        "impressions": impressions,
+        "ctr": round(float(ctr), 4) if ctr is not None else None,
+        "impressions_source": source,
+    }
+
+
 def _estimate_item_price(
     *,
     funnel_summary: dict[str, Any],
@@ -3124,6 +3178,15 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         else {"rows_count": 0}
     )
     ads_summary = calc_ads_metrics(ads_rows) if ads_rows else {}
+    funnel_traffic = _derive_funnel_impressions_and_ctr(
+        funnel_summary=funnel_summary if isinstance(funnel_summary, dict) else {},
+        funnel_rows=funnel_rows,
+        ads_summary=ads_summary if isinstance(ads_summary, dict) else {},
+    )
+    funnel_summary = dict(funnel_summary or {})
+    funnel_summary["impressions"] = funnel_traffic.get("impressions")
+    funnel_summary["ctr"] = funnel_traffic.get("ctr")
+    funnel_summary["impressions_source"] = funnel_traffic.get("impressions_source")
     ads_summary["files_count"] = len(selected_files["ads"])
     ads_summary["parse_diagnostics"] = ads_parse_diag
     financial_summary["files_count"] = len(selected_files["finance"])

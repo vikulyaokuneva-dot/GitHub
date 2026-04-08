@@ -399,7 +399,24 @@ def _extract_funnel_impressions(facts: dict[str, Any], funnel: dict[str, Any]) -
             or 0,
             0,
         )
-    return total if total > 0 else None
+    if total > 0:
+        return total
+
+    ads_summary = facts.get("ads_summary") if isinstance(facts.get("ads_summary"), dict) else {}
+    ads_impressions = _to_int(ads_summary.get("impressions"))
+    return ads_impressions if ads_impressions > 0 else None
+
+
+def _funnel_ctr_conclusion(ctr_ratio: Any) -> str:
+    ctr = _to_float(ctr_ratio)
+    if ctr is None:
+        return "н/д (нет данных о показах)"
+    ctr_pct = float(ctr) * 100.0
+    if ctr_pct < 1.0:
+        return "Низкий CTR — проблема в рекламе или обложке"
+    if ctr_pct <= 3.0:
+        return "CTR в норме"
+    return "Хороший CTR — трафик качественный"
 
 
 def _search_sku_label(row: dict[str, Any]) -> str:
@@ -2326,25 +2343,38 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     _page_break(lines)
 
     lines.append("## 3. 📊 Воронка продаж: путь до выкупа")
-    impressions = _extract_funnel_impressions(facts, funnel)
-    views_count = _to_int(funnel.get("views"))
+    impressions = _to_int(funnel.get("impressions"))
+    if impressions <= 0:
+        fallback_impressions = _extract_funnel_impressions(facts, funnel)
+        impressions = _to_int(fallback_impressions)
+    impressions_value = impressions if impressions > 0 else None
+    clicks_count = _to_int(funnel.get("views"))
     add_to_cart_count = _to_int(funnel.get("add_to_cart"))
     orders_count = _to_int(funnel.get("orders"))
     buyouts_count = _to_int(funnel.get("buys"))
-    cr_to_card = (float(views_count) / float(impressions)) if impressions is not None and impressions > 0 else None
+    ctr_ratio = _to_float(funnel.get("ctr"))
+    if ctr_ratio is None and impressions_value is not None and impressions_value > 0:
+        ctr_ratio = float(clicks_count) / float(impressions_value)
+    impressions_text = _to_int(impressions_value) if impressions_value is not None else "н/д (нет данных о показах)"
+    ctr_text = _pct_ratio(ctr_ratio) if ctr_ratio is not None else "н/д (нет данных о показах)"
+    impressions_source = _text(funnel.get("impressions_source")).lower()
     lines.append("### Визуальная воронка")
-    lines.append(f"**{_to_int(impressions) if impressions is not None else 'н/д'}** показов")
-    lines.append(f"↓ в карточку: **{views_count}** (CR: **{_pct_ratio(cr_to_card)}**)")
-    lines.append(f"↓ в корзину: **{add_to_cart_count}** (CR: **{_pct_ratio(funnel.get('cr_cart'))}**)")
-    lines.append(f"↓ заказов: **{orders_count}** (CR: **{_pct_ratio(funnel.get('cr_order'))}**)")
-    lines.append(f"↓ выкупов: **{buyouts_count}** (% выкупа: **{_pct_ratio(funnel.get('buyout_rate'))}**)")
+    lines.append(f"Показы: **{impressions_text}**")
+    lines.append(f"↓ CTR: **{ctr_text}**")
+    lines.append(f"Клики: **{clicks_count}**")
+    lines.append(f"↓ CR: **{_pct_ratio(funnel.get('cr_cart'))}**")
+    lines.append(f"Корзина: **{add_to_cart_count}**")
+    lines.append(f"↓ CR: **{_pct_ratio(funnel.get('cr_order'))}**")
+    lines.append(f"Заказы: **{orders_count}**")
+    lines.append(f"↓ % выкупа: **{_pct_ratio(funnel.get('buyout_rate'))}**")
+    lines.append(f"Выкупы: **{buyouts_count}**")
     lines.append("")
     funnel_rows: list[list[Any]] = []
-    if impressions is not None:
-        funnel_rows.append(["Показы", _to_int(impressions)])
     funnel_rows.extend(
         [
-            ["Переходы в карточку", views_count],
+            ["Показы", impressions_text],
+            ["Клики (переходы в карточку)", clicks_count],
+            ["CTR", ctr_text],
             ["В корзину", add_to_cart_count],
             ["Заказы", orders_count],
             ["Выкупы", buyouts_count],
@@ -2356,6 +2386,11 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         ]
     )
     _append_markdown_table(lines, ["Показатель", "Значение"], funnel_rows, align_right={1})
+    if impressions_source == "ads":
+        lines.append(
+            "- Показы взяты из рекламного отчета (ads stats), т.к. в файле «Воронка продаж» они не найдены."
+        )
+    lines.append(f"- {_funnel_ctr_conclusion(ctr_ratio)}.")
     lines.append("- % выкупа = выкупы / заказы по данным отчета (может отличаться от WB).")
     lines.append(
         "- **Часть заказов не выкупается**: оборот по заказам обычно выше фактической выручки из finance."
