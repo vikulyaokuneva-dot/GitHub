@@ -2675,233 +2675,158 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     search_status = str(search.get("status") or "")
     if search_status == "ok":
         base_rows = search.get("base_rows") if isinstance(search.get("base_rows"), list) else []
-        ad_rows = [row for row in base_rows if isinstance(row, dict) and (_to_float(row.get("spend")) or 0.0) > 0]
-        search_effective_rows = _search_rows_sorted(ad_rows, mode="effective")
-        search_ineffective_rows = _search_rows_sorted(ad_rows, mode="ineffective")
-        search_potential_rows = _search_rows_sorted(ad_rows, mode="potential")
-        rows_count = len(ad_rows)
-        rows_count_raw = len(base_rows)
-        search_margin_before_ads = _search_margin_before_ads(finance)
-        search_benchmarks = _search_effective_benchmarks(ad_rows)
-        cart_to_order = search_benchmarks.get("cart_to_order")
-        aov = search_benchmarks.get("aov")
+        effective_rows = search.get("effective") if isinstance(search.get("effective"), list) else []
+        weak_rows = search.get("weak") if isinstance(search.get("weak"), list) else []
+        unprofitable_rows = search.get("unprofitable") if isinstance(search.get("unprofitable"), list) else []
 
-        def _search_money(item: dict[str, Any]) -> dict[str, float | None]:
-            return _search_money_snapshot(
-                item,
-                margin_before_ads=search_margin_before_ads,
-                cart_to_order=cart_to_order,
-                aov=aov,
-            )
+        search_effective_rows = [row for row in effective_rows if isinstance(row, dict)]
+        search_potential_rows = [row for row in weak_rows if isinstance(row, dict)]
+        search_ineffective_rows = [row for row in unprofitable_rows if isinstance(row, dict)]
 
-        lines.append("Найдено (только запросы с рекламой, spend > 0):")
-        lines.append(f"- {len(search_effective_rows)} эффективных запросов (дают заказы)")
-        lines.append(f"- {len(search_ineffective_rows)} неэффективных (сливают бюджет)")
-        lines.append(f"- {len(search_potential_rows)} с потенциалом")
-        if rows_count_raw > rows_count:
-            lines.append(f"- пропущено {rows_count_raw - rows_count} строк без рекламного расхода (spend = 0)")
-        lines.append("")
+        if not search_effective_rows and not search_potential_rows and not search_ineffective_rows:
+            valid_rows = [row for row in base_rows if isinstance(row, dict)]
+            search_effective_rows = [row for row in valid_rows if _text(row.get("bucket")) == "effective"]
+            search_potential_rows = [row for row in valid_rows if _text(row.get("bucket")) == "weak"]
+            search_ineffective_rows = [row for row in valid_rows if _text(row.get("bucket")) == "unprofitable"]
 
-        search_ineffective_spend_total = sum((_search_money(row).get("spend") or 0.0) for row in search_ineffective_rows)
-        ineffective_clicks_total = sum(_to_int(row.get("clicks")) for row in search_ineffective_rows)
-        ineffective_orders_total = sum(_to_int(row.get("orders")) for row in search_ineffective_rows)
-        search_scale_profit_total = sum(
-            max((_search_money(row).get("estimated_profit") or 0.0), 0.0) for row in search_effective_rows
+        orders_data = search.get("orders_data") if isinstance(search.get("orders_data"), dict) else {}
+        orders_available = bool(orders_data.get("available"))
+        orders_message = _text(orders_data.get("message"))
+        orders_source = _text(orders_data.get("source"))
+
+        rows_with_spend = [
+            row
+            for row in base_rows
+            if isinstance(row, dict) and (_to_float(row.get("spend")) or 0.0) > 0
+        ]
+
+        search_ineffective_spend_total = round(
+            sum(_to_float(row.get("spend")) for row in search_ineffective_rows),
+            2,
         )
-        potential_clicks_total = sum(_to_int(row.get("clicks")) for row in search_potential_rows)
-        potential_add_to_cart_total = sum(_to_int(row.get("add_to_cart")) for row in search_potential_rows)
-        potential_orders_total = sum(_to_int(row.get("orders")) for row in search_potential_rows)
-        potential_profit_calc = sum(
-            max((_search_money(row).get("estimated_profit") or 0.0), 0.0) for row in search_potential_rows
+        search_scale_profit_total = round(
+            sum(max(_to_float(row.get("revenue")) - _to_float(row.get("spend")), 0.0) for row in search_effective_rows),
+            2,
         )
-        search_potential_profit_total = potential_profit_calc if potential_profit_calc > 0 else 0.0
+        # Потенциал экономии: довести слабые запросы до DRR 20%.
+        search_potential_profit_total = round(
+            sum(
+                max(_to_float(row.get("spend")) - (_to_float(row.get("revenue")) * 0.20), 0.0)
+                for row in search_potential_rows
+                if _to_float(row.get("revenue")) > 0
+            ),
+            2,
+        )
 
         summary_rows = [
-            ["Строк с рекламой (spend > 0)", rows_count],
-            ["Всего строк в search-отчете", rows_count_raw],
-            ["Эффективные (работают)", len(search_effective_rows)],
-            ["Неэффективные (сливают бюджет)", len(search_ineffective_rows)],
-            ["Потенциал (нужна доработка карточки)", len(search_potential_rows)],
-            ["Потери на неэффективных запросах (оценка)", _money(search_ineffective_spend_total)],
-            ["Потенциальная прибыль по запросам с корзиной (оценка)", _money(search_potential_profit_total)],
+            ["Всего запросов", len(base_rows)],
+            ["С рекламным расходом (spend > 0)", len(rows_with_spend)],
+            ["A. Убыточные (spend>0, orders=0)", len(search_ineffective_rows)],
+            ["B. Слабые (orders>0, DRR>30%)", len(search_potential_rows)],
+            ["C. Эффективные (orders>0, DRR<20%)", len(search_effective_rows)],
+            ["Потери на убыточных запросах", _money(search_ineffective_spend_total)],
         ]
         _append_markdown_table(lines, ["Показатель", "Значение"], summary_rows, align_right={1})
 
-        lines.append("### Деньги в поиске")
-        ineffective_loss_text = _money_or_label(
-            search_ineffective_spend_total,
-            threshold=100.0,
-            low_label="нет значимых потерь",
-        )
-        potential_profit_text = _money_or_label(
-            search_potential_profit_total,
-            threshold=100.0,
-            low_label="данные не подтверждают значимый потенциал",
-        )
-        lines.append(
-            f"- Потери на неэффективных запросах: клики {ineffective_clicks_total}, расход {ineffective_loss_text}, заказов {ineffective_orders_total}."
-        )
-        lines.append(
-            f"- Потенциальная прибыль по запросам с корзиной: {potential_profit_text} (клики {potential_clicks_total}, добавления в корзину {potential_add_to_cart_total}, заказов {potential_orders_total})."
-        )
-        if search_margin_before_ads is None:
-            lines.append("- Оценка прибыли по запросам ограничена: в finance не хватает данных для расчета маржи до рекламы.")
-        elif cart_to_order is None or aov is None:
-            lines.append("- Оценка потенциала по запросам с корзиной ограничена: недостаточно данных по конверсионным запросам.")
+        lines.append(f"Найдено {len(search_ineffective_rows)} убыточных запросов:")
+        lines.append(f"- Потери: ~{_money(search_ineffective_spend_total)}")
+        lines.append("- Рекомендуется отключить")
+        if not orders_available:
+            lines.append("- нет данных о заказах по запросам")
+        elif orders_source:
+            lines.append(f"- Источник заказов по запросам: {orders_source}")
+        lines.append("- Полный список запросов сохранен в JSON (search_insights).")
         lines.append("")
 
-        def _render_search_table(title: str, rows: list[dict[str, Any]]) -> None:
+        def _render_unprofitable_table(rows: list[dict[str, Any]]) -> None:
+            lines.append("### A. TOP-10 убыточных запросов")
+            if not rows:
+                lines.append("- Убыточные запросы не найдены.")
+                lines.append("")
+                return
+            table_rows = [
+                [
+                    _text(item.get("query")),
+                    _money(item.get("spend")),
+                    _to_int(item.get("clicks")),
+                    _to_int(item.get("orders")),
+                    _text(item.get("action") or "Отключить"),
+                ]
+                for item in rows[:10]
+            ]
+            _append_markdown_table(
+                lines,
+                ["Запрос", "Расход", "Клики", "Заказы", "Действие"],
+                table_rows,
+                align_right={1, 2, 3},
+            )
+
+        def _render_bucket_table(title: str, rows: list[dict[str, Any]], default_action: str) -> None:
             lines.append(title)
             if not rows:
                 lines.append("- Данных для таблицы нет.")
                 lines.append("")
                 return
-
-            headers = [
-                "Запрос",
-                "SKU",
-                "Клики",
-                "CTR",
-                "В корзину",
-                "Заказы",
-                "CR",
-                "Расход",
-                "Выручка",
-                "Прибыль (оценка)",
-                "ДРР",
-                "Вывод",
-            ]
-            align_right = {2, 3, 4, 5, 6, 7, 8, 9, 10}
-
-            table_rows: list[list[Any]] = []
-            for item in rows[:10]:
-                snapshot = _search_money(item)
-                drr_text = _fmt_pct((snapshot["drr"] or 0.0) * 100.0, 2) if snapshot.get("drr") is not None else "н/д"
-                row_out: list[Any] = [
+            table_rows = [
+                [
                     _text(item.get("query")),
-                    _search_sku_label(item),
+                    _money(item.get("spend")),
                     _to_int(item.get("clicks")),
-                    _search_ctr_text(item),
-                    _to_int(item.get("add_to_cart")),
                     _to_int(item.get("orders")),
-                    _search_cr_text(item),
-                    _money(snapshot.get("spend")),
-                    _money(snapshot.get("revenue")),
-                    _search_profit_text(snapshot),
-                    drr_text,
-                    _search_conclusion(item),
+                    _pct_ratio(item.get("drr")),
+                    _text(item.get("action") or default_action),
                 ]
-                table_rows.append(row_out)
+                for item in rows[:10]
+            ]
+            _append_markdown_table(
+                lines,
+                ["Запрос", "Расход", "Клики", "Заказы", "ДРР", "Действие"],
+                table_rows,
+                align_right={1, 2, 3, 4},
+            )
 
-            _append_markdown_table(lines, headers, table_rows, align_right=align_right)
-
-        _render_search_table("### Эффективные запросы (оставить и масштабировать)", search_effective_rows)
-        _render_search_table("### Неэффективные запросы (отключить / снизить ставки)", search_ineffective_rows)
-        _render_search_table("### Запросы с потенциалом (доработать карточку)", search_potential_rows)
+        _render_unprofitable_table(search_ineffective_rows)
+        _render_bucket_table("### B. TOP-10 слабых запросов", search_potential_rows, "Снизить ставку")
+        _render_bucket_table("### C. TOP-10 эффективных запросов", search_effective_rows, "Масштабировать")
 
         search_disable_targets = _search_target_labels(search_ineffective_rows, limit=7)
         search_scale_targets = _search_target_labels(search_effective_rows, limit=7)
         search_optimize_targets = _search_target_labels(search_potential_rows, limit=7)
 
-        lines.append("### Что делать с поиском")
-        lines.append("1. Отключить / снизить ставки:")
+        lines.append("### Что делать")
+        lines.append("1. Отключить:")
         lines.append(
-            f"- {', '.join(search_disable_targets) if search_disable_targets else 'нет явных запросов без заказов'}"
-        )
-        lines.append(
-            "- Причина: есть клики и рекламный расход, но нет заказов -> сливает бюджет."
-            if search_ineffective_spend_total >= 100.0
-            else "- Причина: данные не подтверждают значимые потери по запросам."
+            f"- {', '.join(search_disable_targets) if search_disable_targets else 'нет явных запросов для отключения'}"
         )
         lines.append(
             f"- Потери за период: {_money(search_ineffective_spend_total)}."
-            if search_ineffective_spend_total >= 100.0
-            else "- Потери за период: нет значимых потерь."
+            if search_ineffective_spend_total > 0
+            else "- Потери за период: не выявлены."
         )
         lines.append("")
-        lines.append("2. Усилить:")
+        lines.append("2. Снизить ставку:")
         lines.append(
-            f"- {', '.join(search_scale_targets) if search_scale_targets else 'нет явных конверсионных запросов'}"
+            f"- {', '.join(search_optimize_targets) if search_optimize_targets else 'нет явных слабых запросов'}"
         )
-        lines.append("- Причина: запросы дают заказы и подтверждают спрос.")
         lines.append(
-            f"- Оценка текущей прибыли по рабочим запросам: {_money(search_scale_profit_total)}."
-            if search_scale_profit_total >= 100.0
-            else "- Оценка текущей прибыли по рабочим запросам: значимый денежный эффект пока не подтвержден."
-        )
-        lines.append("")
-        lines.append("3. Оптимизировать карточку:")
-        lines.append(
-            f"- {', '.join(search_optimize_targets) if search_optimize_targets else 'нет явных запросов с потенциалом'}"
-        )
-        lines.append("- Причина: есть добавления в корзину, но заказов мало/нет.")
-        lines.append(
-            f"- Потенциал прибыли после доработки: {_money(search_potential_profit_total)}."
-            if (search_potential_profit_total or 0.0) >= 100.0
-            else "- Потенциал прибыли после доработки: данные не подтверждают значимый денежный эффект."
+            f"- Потенциал экономии при целевом DRR 20%: {_money(search_potential_profit_total)}."
+            if (search_potential_profit_total or 0.0) > 0
+            else "- Потенциал экономии: не подтвержден по текущим данным."
         )
         lines.append("")
-
-        lines.append("### Связь с SKU")
-        sku_search_map: dict[str, dict[str, Any]] = {}
-        for item in ad_rows:
-            if not isinstance(item, dict):
-                continue
-            sku = _search_sku_label(item)
-            if sku == "н/д":
-                continue
-            bucket = _search_bucket(item)
-            snapshot = _search_money(item)
-            query = _text(item.get("query"))
-            node = sku_search_map.setdefault(
-                sku,
-                {
-                    "good_queries": [],
-                    "bad_queries": [],
-                    "potential_queries": [],
-                    "profit": 0.0,
-                    "loss": 0.0,
-                    "potential_profit": 0.0,
-                },
-            )
-            est_profit = _to_float(snapshot.get("estimated_profit")) or 0.0
-            if bucket == "effective":
-                if query and query not in node["good_queries"]:
-                    node["good_queries"].append(query)
-                node["profit"] += max(est_profit, 0.0)
-            elif bucket == "ineffective":
-                if query and query not in node["bad_queries"]:
-                    node["bad_queries"].append(query)
-                node["loss"] += abs(min(est_profit, 0.0))
-            elif bucket == "potential":
-                if query and query not in node["potential_queries"]:
-                    node["potential_queries"].append(query)
-                node["potential_profit"] += max(est_profit, 0.0)
-
-        if sku_search_map:
-            ranked_skus = sorted(
-                sku_search_map.items(),
-                key=lambda item: float(item[1].get("profit", 0.0) + item[1].get("loss", 0.0) + item[1].get("potential_profit", 0.0)),
-                reverse=True,
-            )[:6]
-            for sku, node in ranked_skus:
-                good = ", ".join(f'"{q}"' for q in node.get("good_queries", [])[:2]) or "нет"
-                bad = ", ".join(f'"{q}"' for q in node.get("bad_queries", [])[:2]) or "нет"
-                potential = ", ".join(f'"{q}"' for q in node.get("potential_queries", [])[:2]) or "нет"
-                lines.append(f"- SKU {sku}:")
-                lines.append(f"  прибыльные запросы: {good}")
-                lines.append(f"  сливающие запросы: {bad}")
-                lines.append(f"  запросы с потенциалом: {potential}")
-                lines.append(
-                    f"  деньги: +{_money(node.get('profit'))} / -{_money(node.get('loss'))} / потенциал +{_money(node.get('potential_profit'))}"
-                )
-        else:
-            lines.append("- Связка search→SKU не собрана: нет SKU в search-данных.")
-        lines.append("")
-        lines.append("- Search-отчет отражает связки «поисковый запрос + SKU», а не все заказы кабинета.")
+        lines.append("3. Масштабировать:")
+        lines.append(
+            f"- {', '.join(search_scale_targets) if search_scale_targets else 'нет явных эффективных запросов'}"
+        )
+        lines.append(
+            f"- Валовая отдача (revenue - spend): {_money(search_scale_profit_total)}."
+            if search_scale_profit_total > 0
+            else "- Валовая отдача: не подтверждена по текущим данным."
+        )
         lines.append("")
     elif search_status == "missing":
         lines.append("- Отчет поисковых запросов не предоставлен.")
+        lines.append("- Блок не пустой: без search-файла невозможно построить классификацию A/B/C по запросам.")
         lines.append("")
     else:
         parse_diag = search.get("parse_diagnostics") or {}
@@ -2911,6 +2836,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         lines.append(
             f"- Диагностика parse: sheet={parse_diag.get('sheet')}, header_row={parse_diag.get('header_row')}, rows_parsed={parse_diag.get('rows_parsed')}."
         )
+        lines.append("- Блок не пустой: исправьте формат search-файла, затем пересоберите аудит.")
         lines.append("")
 
     _page_break(lines)
@@ -3001,11 +2927,11 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         _append_action_row(
             "P1",
             "search",
-            f"Оптимизировать карточки под запросы: {', '.join(search_optimize_targets[:5])}",
+            f"Снизить ставки по слабым поисковым запросам: {', '.join(search_optimize_targets[:5])}",
             (
-                f"Рост конверсии в заказ по запросам с добавлениями в корзину (потенциал прибыли ~{_money(search_potential_profit_total)})."
+                f"Снижение ДРР и экономия бюджета по слабым запросам (потенциал экономии ~{_money(search_potential_profit_total)})."
                 if (search_potential_profit_total or 0.0) >= 100.0
-                else "Потенциал роста есть, но значимый денежный эффект пока не подтвержден (менее 100 RUB)."
+                else "Слабые запросы выявлены, но значимая экономия пока не подтверждена (менее 100 RUB)."
             ),
         )
 
@@ -3147,8 +3073,8 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     )
     lines.append("Причина: запросы уже дают заказы и подтверждают спрос.")
     lines.append(
-        f"Потенциал прибыли: {_money(search_potential_profit_total)}."
-        if (search_potential_profit_total or 0.0) >= 100.0
+        f"Валовая отдача (revenue - spend): {_money(search_scale_profit_total)}."
+        if (search_scale_profit_total or 0.0) >= 100.0
         else "Потенциал прибыли: значимый эффект пока не подтвержден (менее 100 RUB)."
     )
     lines.append("")

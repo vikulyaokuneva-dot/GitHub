@@ -2223,15 +2223,61 @@ def _build_search_insights(
     selected_search_files: list[str],
     search_rows: list[dict[str, Any]],
     search_parse_diag: dict[str, Any],
+    ads_rows: list[dict[str, Any]],
+    orders_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    def _alloc_float(total: float, weights: list[float]) -> list[float]:
+        size = len(weights)
+        if size <= 0:
+            return []
+        total_norm = float(total or 0.0)
+        if total_norm <= 0:
+            return [0.0] * size
+        safe_weights = [max(float(w or 0.0), 0.0) for w in weights]
+        denom = sum(safe_weights)
+        if denom <= 0:
+            even = total_norm / float(size)
+            out = [even] * size
+        else:
+            out = [(total_norm * w / denom) for w in safe_weights]
+        diff = total_norm - sum(out)
+        if size > 0 and abs(diff) > 1e-9:
+            out[-1] += diff
+        return out
+
+    def _alloc_int(total: int, weights: list[float]) -> list[int]:
+        size = len(weights)
+        total_int = int(max(total, 0))
+        if size <= 0:
+            return []
+        if total_int <= 0:
+            return [0] * size
+        base = _alloc_float(float(total_int), weights)
+        ints = [int(x) for x in base]
+        remain = int(total_int - sum(ints))
+        if remain > 0:
+            fractions = [(idx, base[idx] - float(ints[idx])) for idx in range(size)]
+            fractions.sort(key=lambda x: x[1], reverse=True)
+            for idx, _ in fractions[:remain]:
+                ints[idx] += 1
+        return ints
+
     if not selected_search_files:
         return {
             "status": "missing",
             "message": "search file not provided",
             "profitable": [],
             "unprofitable": [],
+            "weak": [],
+            "effective": [],
             "potential": [],
             "base_rows": [],
+            "total_leak_spend": 0.0,
+            "orders_data": {
+                "available": False,
+                "source": "missing",
+                "message": "нет данных о заказах по запросам",
+            },
             "parse_diagnostics": search_parse_diag,
         }
 
@@ -2242,69 +2288,314 @@ def _build_search_insights(
             "message": f"search file selected but parse status is {status}",
             "profitable": [],
             "unprofitable": [],
+            "weak": [],
+            "effective": [],
             "potential": [],
             "base_rows": [],
+            "total_leak_spend": 0.0,
+            "orders_data": {
+                "available": False,
+                "source": "missing",
+                "message": "нет данных о заказах по запросам",
+            },
             "parse_diagnostics": search_parse_diag,
         }
 
-    profitable: list[dict[str, Any]] = []
-    unprofitable: list[dict[str, Any]] = []
-    potential: list[dict[str, Any]] = []
-    base_rows: list[dict[str, Any]] = []
-
+    # 1) Агрегация search по query+SKU (полный список для JSON).
+    aggregated: dict[tuple[str, int, str], dict[str, Any]] = {}
     for row in search_rows:
-        query = str(row.get("query") or "").strip()
-        if not query:
+        if not isinstance(row, dict):
             continue
-        impressions = _to_int(row.get("impressions"))
-        clicks = _to_int(row.get("clicks"))
-        add_to_cart = _to_int(row.get("add_to_cart"))
-        orders = _to_int(row.get("orders"))
-        buyouts = _to_int(row.get("buyouts"))
-        spend = _to_float(row.get("spend"))
-        revenue = _to_float(row.get("revenue"))
-        ctr = (clicks / impressions) if impressions > 0 else None
+        query_raw = str(row.get("query") or "").strip()
+        if not query_raw:
+            continue
+        nm_id = _to_int(row.get("nmId"))
+        seller_article = str(row.get("seller_article") or "").strip()
+        key = (_norm_text(query_raw), int(nm_id), _norm_text(seller_article))
+        bucket = aggregated.setdefault(
+            key,
+            {
+                "query": query_raw,
+                "nmId": int(nm_id),
+                "seller_article": seller_article,
+                "impressions": 0,
+                "clicks": 0,
+                "add_to_cart": 0,
+                "orders": 0,
+                "buyouts": 0,
+                "spend": 0.0,
+                "revenue": 0.0,
+                "spend_source": "search",
+                "revenue_source": "search",
+                "orders_source": "search",
+            },
+        )
+        bucket["impressions"] += max(_to_int(row.get("impressions")), 0)
+        bucket["clicks"] += max(_to_int(row.get("clicks")), 0)
+        bucket["add_to_cart"] += max(_to_int(row.get("add_to_cart")), 0)
+        bucket["orders"] += max(_to_int(row.get("orders")), 0)
+        bucket["buyouts"] += max(_to_int(row.get("buyouts")), 0)
+        bucket["spend"] += max(_to_float(row.get("spend")), 0.0)
+        bucket["revenue"] += max(_to_float(row.get("revenue")), 0.0)
 
-        payload = {
-            "query": query,
-            "impressions": impressions,
-            "clicks": clicks,
-            "add_to_cart": add_to_cart,
-            "orders": orders,
-            "buyouts": buyouts,
-            "spend": round(spend, 2),
-            "revenue": round(revenue, 2),
-            "ctr": round(ctr, 4) if ctr is not None else None,
-            "nmId": _to_int(row.get("nmId")),
-            "seller_article": row.get("seller_article"),
-            "roas": round((revenue / spend), 3) if spend > 0 else None,
-        }
-        base_rows.append(payload)
+    base_rows = list(aggregated.values())
 
-        if (orders > 0 or buyouts > 0) and (revenue > 0 or spend == 0):
-            profitable.append(payload)
-        elif (spend > 0 or clicks > 0) and orders == 0 and buyouts == 0:
-            unprofitable.append(payload)
-        elif impressions > 0 and clicks == 0:
-            potential.append(payload)
+    # 2) Подготовка ads-агрегатов (для merge search + ads).
+    ads_by_sku: dict[int, dict[str, float]] = {}
+    ads_by_query_sku: dict[tuple[str, int], dict[str, float]] = {}
+    for row in ads_rows or []:
+        if not isinstance(row, dict):
+            continue
+        sku = _to_int(row.get("nmId"))
+        if sku <= 0:
+            continue
+        spend = max(_to_float(row.get("spend")), 0.0)
+        impressions = max(_to_int(row.get("impressions")), 0)
+        clicks = max(_to_int(row.get("clicks")), 0)
+        revenue = max(_to_float(row.get("revenueAttr") if row.get("revenueAttr") is not None else row.get("revenue")), 0.0)
+        sku_bucket = ads_by_sku.setdefault(
+            int(sku),
+            {
+                "spend": 0.0,
+                "impressions": 0.0,
+                "clicks": 0.0,
+                "revenue": 0.0,
+            },
+        )
+        sku_bucket["spend"] += spend
+        sku_bucket["impressions"] += float(impressions)
+        sku_bucket["clicks"] += float(clicks)
+        sku_bucket["revenue"] += revenue
+
+        query_raw = str(row.get("query") or "").strip()
+        query_norm = _norm_text(query_raw)
+        if query_norm:
+            query_bucket = ads_by_query_sku.setdefault(
+                (query_norm, int(sku)),
+                {
+                    "spend": 0.0,
+                    "impressions": 0.0,
+                    "clicks": 0.0,
+                    "revenue": 0.0,
+                },
+            )
+            query_bucket["spend"] += spend
+            query_bucket["impressions"] += float(impressions)
+            query_bucket["clicks"] += float(clicks)
+            query_bucket["revenue"] += revenue
+
+    # 3) Прямой merge по query+SKU, если в ads есть query-level строки.
+    for item in base_rows:
+        sku = _to_int(item.get("nmId"))
+        query_norm = _norm_text(item.get("query"))
+        if sku <= 0 or not query_norm:
+            continue
+        direct = ads_by_query_sku.get((query_norm, int(sku)))
+        if not isinstance(direct, dict):
+            continue
+        if _to_float(item.get("spend")) <= 0 and _to_float(direct.get("spend")) > 0:
+            item["spend"] = round(_to_float(direct.get("spend")), 2)
+            item["spend_source"] = "ads_query_direct"
+        if _to_float(item.get("revenue")) <= 0 and _to_float(direct.get("revenue")) > 0:
+            item["revenue"] = round(_to_float(direct.get("revenue")), 2)
+            item["revenue_source"] = "ads_query_direct"
+        if _to_int(item.get("impressions")) <= 0 and _to_int(direct.get("impressions")) > 0:
+            item["impressions"] = _to_int(direct.get("impressions"))
+
+    indices_by_sku: dict[int, list[int]] = {}
+    for idx, item in enumerate(base_rows):
+        sku = _to_int(item.get("nmId"))
+        if sku <= 0:
+            continue
+        indices_by_sku.setdefault(int(sku), []).append(idx)
+
+    # 4) Fallback spend/revenue из ads по SKU с аллокацией по query.
+    for sku, idxs in indices_by_sku.items():
+        ads_node = ads_by_sku.get(int(sku))
+        if not isinstance(ads_node, dict):
+            continue
+        spend_total_sku = _to_float(ads_node.get("spend"))
+        revenue_total_sku = _to_float(ads_node.get("revenue"))
+        search_spend_sku = sum(max(_to_float(base_rows[i].get("spend")), 0.0) for i in idxs)
+        search_revenue_sku = sum(max(_to_float(base_rows[i].get("revenue")), 0.0) for i in idxs)
+
+        clicks_weights = [max(_to_int(base_rows[i].get("clicks")), 0) for i in idxs]
+        impressions_weights = [max(_to_int(base_rows[i].get("impressions")), 0) for i in idxs]
+        if sum(clicks_weights) > 0:
+            weights = [float(x) for x in clicks_weights]
+        elif sum(impressions_weights) > 0:
+            weights = [float(x) for x in impressions_weights]
+        else:
+            weights = [1.0 for _ in idxs]
+
+        if search_spend_sku <= 0 and spend_total_sku > 0:
+            allocated_spend = _alloc_float(spend_total_sku, weights)
+            for i, part in zip(idxs, allocated_spend):
+                base_rows[i]["spend"] = round(max(part, 0.0), 2)
+                base_rows[i]["spend_source"] = "ads_sku_allocated"
+
+        if search_revenue_sku <= 0 and revenue_total_sku > 0:
+            order_weights = [max(_to_int(base_rows[i].get("orders")), 0) for i in idxs]
+            if sum(order_weights) > 0:
+                revenue_weights = [float(x) for x in order_weights]
+            else:
+                revenue_weights = weights
+            allocated_revenue = _alloc_float(revenue_total_sku, revenue_weights)
+            for i, part in zip(idxs, allocated_revenue):
+                base_rows[i]["revenue"] = round(max(part, 0.0), 2)
+                base_rows[i]["revenue_source"] = "ads_sku_allocated"
+
+    # 5) Fallback orders: если в search нет заказов, пробуем связать через orders/SKU.
+    recognized_columns = search_parse_diag.get("recognized_columns") if isinstance(search_parse_diag, dict) else {}
+    orders_column_detected = bool((recognized_columns or {}).get("orders"))
+    orders_in_search = sum(max(_to_int(item.get("orders")), 0) for item in base_rows)
+    orders_source = "search"
+    orders_available = bool(orders_in_search > 0)
+    orders_message = "orders from search file"
+
+    if orders_in_search <= 0:
+        buyouts_total = sum(max(_to_int(item.get("buyouts")), 0) for item in base_rows)
+        if buyouts_total > 0:
+            for item in base_rows:
+                if _to_int(item.get("orders")) <= 0 and _to_int(item.get("buyouts")) > 0:
+                    item["orders"] = _to_int(item.get("buyouts"))
+                    item["orders_source"] = "search_buyouts_proxy"
+            orders_source = "search_buyouts_proxy"
+            orders_available = True
+            orders_message = "orders restored from buyouts in search file"
+        else:
+            orders_by_sku: dict[int, int] = {}
+            for row in orders_rows or []:
+                if not isinstance(row, dict):
+                    continue
+                sku = _to_int(row.get("nmId") or row.get("nm_id") or row.get("sku"))
+                qty = _to_int(row.get("orders") or row.get("orderCount") or row.get("quantity"))
+                if sku <= 0 or qty <= 0:
+                    continue
+                orders_by_sku[int(sku)] = orders_by_sku.get(int(sku), 0) + int(qty)
+
+            linked_any = False
+            for sku, idxs in indices_by_sku.items():
+                sku_orders = orders_by_sku.get(int(sku), 0)
+                if sku_orders <= 0:
+                    continue
+                clicks_weights = [max(_to_int(base_rows[i].get("clicks")), 0) for i in idxs]
+                impressions_weights = [max(_to_int(base_rows[i].get("impressions")), 0) for i in idxs]
+                if sum(clicks_weights) > 0:
+                    weights = [float(x) for x in clicks_weights]
+                elif sum(impressions_weights) > 0:
+                    weights = [float(x) for x in impressions_weights]
+                else:
+                    weights = [1.0 for _ in idxs]
+                allocated_orders = _alloc_int(sku_orders, weights)
+                for i, part in zip(idxs, allocated_orders):
+                    base_rows[i]["orders"] = max(_to_int(base_rows[i].get("orders")), int(part))
+                    if int(part) > 0:
+                        base_rows[i]["orders_source"] = "orders_sku_allocated"
+                        linked_any = True
+            if linked_any:
+                orders_source = "orders_sku_allocated"
+                orders_available = True
+                orders_message = "orders linked via SKU from orders feed"
+            else:
+                if orders_column_detected:
+                    orders_source = "search"
+                    orders_available = True
+                    orders_message = "orders column is present: 0 orders in period"
+                else:
+                    orders_source = "missing"
+                    orders_available = False
+                    orders_message = "нет данных о заказах по запросам"
+
+    # 6) Финальные метрики query-level + A/B/C классификация.
+    unprofitable: list[dict[str, Any]] = []
+    weak: list[dict[str, Any]] = []
+    effective: list[dict[str, Any]] = []
+
+    for item in base_rows:
+        impressions = max(_to_int(item.get("impressions")), 0)
+        clicks = max(_to_int(item.get("clicks")), 0)
+        spend = max(_to_float(item.get("spend")), 0.0)
+        orders = max(_to_int(item.get("orders")), 0)
+        revenue = max(_to_float(item.get("revenue")), 0.0)
+        ctr = (float(clicks) / float(impressions)) if impressions > 0 else None
+        cpc = (float(spend) / float(clicks)) if clicks > 0 else None
+        cr = (float(orders) / float(clicks)) if clicks > 0 else None
+        drr = (float(spend) / float(revenue)) if revenue > 0 else None
+        roas = (float(revenue) / float(spend)) if spend > 0 else None
+
+        item["ctr"] = round(float(ctr), 4) if ctr is not None else None
+        item["cpc"] = round(float(cpc), 4) if cpc is not None else None
+        item["cr"] = round(float(cr), 4) if cr is not None else None
+        item["drr"] = round(float(drr), 4) if drr is not None else None
+        item["roas"] = round(float(roas), 4) if roas is not None else None
+        item["spend"] = round(float(spend), 2)
+        item["revenue"] = round(float(revenue), 2)
+        item["orders"] = int(orders)
+
+        bucket = "unclassified"
+        action = "Проверить вручную"
+        if orders_available:
+            if spend > 0 and orders == 0:
+                bucket = "unprofitable"
+                action = "Отключить"
+                unprofitable.append(item)
+            elif orders > 0 and drr is not None and drr > 0.30:
+                bucket = "weak"
+                action = "Снизить ставку"
+                weak.append(item)
+            elif orders > 0 and drr is not None and drr < 0.20:
+                bucket = "effective"
+                action = "Масштабировать"
+                effective.append(item)
+        else:
+            action = "нет данных о заказах по запросам"
+        item["bucket"] = bucket
+        item["action"] = action
+
+    unprofitable = sorted(unprofitable, key=lambda r: (_to_float(r.get("spend")), _to_int(r.get("clicks"))), reverse=True)
+    weak = sorted(weak, key=lambda r: (_to_float(r.get("spend")), _to_int(r.get("orders"))), reverse=True)
+    effective = sorted(
+        effective,
+        key=lambda r: ((_to_float(r.get("revenue")) - _to_float(r.get("spend"))), _to_int(r.get("orders"))),
+        reverse=True,
+    )
+    total_leak_spend = round(sum(max(_to_float(r.get("spend")), 0.0) for r in unprofitable), 2)
 
     final_status = "ok" if base_rows else ("empty_after_parse" if status == "ok" else status)
+    message = "search parsed and enriched with ads"
+    if not orders_available:
+        message = "search parsed, but нет данных о заказах по запросам"
+    elif orders_source == "orders_sku_allocated":
+        message = "search parsed, orders linked via SKU/orders feed"
     return {
         "status": final_status,
-        "message": (
-            "search parsed"
-            if final_status == "ok"
-            else f"search file selected but no usable rows (status={final_status})"
-        ),
-        "profitable": profitable[:200],
-        "unprofitable": unprofitable[:200],
-        "potential": potential[:200],
-        "base_rows": base_rows[:500],
+        "message": message if final_status == "ok" else f"search file selected but no usable rows (status={final_status})",
+        # Backward-compatible keys:
+        "profitable": effective,
+        "unprofitable": unprofitable,
+        "potential": weak,
+        # New explicit buckets:
+        "effective": effective,
+        "weak": weak,
+        "base_rows": base_rows,
+        "total_leak_spend": total_leak_spend,
+        "orders_data": {
+            "available": bool(orders_available),
+            "source": orders_source,
+            "message": orders_message,
+        },
         "summary": {
             "rows_count": len(base_rows),
-            "profitable_count": len(profitable),
+            "profitable_count": len(effective),
             "unprofitable_count": len(unprofitable),
-            "potential_count": len(potential),
+            "weak_count": len(weak),
+            "effective_count": len(effective),
+            "potential_count": len(weak),
+            "total_leak_spend": total_leak_spend,
+            "orders_data_available": bool(orders_available),
+            "orders_data_source": orders_source,
+            "orders_data_message": orders_message,
         },
         "parse_diagnostics": search_parse_diag,
     }
@@ -3042,7 +3333,7 @@ def _parse_many_ads(files: list[str]) -> tuple[list[dict[str, Any]], dict[str, A
 
     deduped, dup_count = _dedupe_rows(
         rows_all,
-        key_fields=("nmId", "name", "spend", "impressions", "clicks", "revenueAttr"),
+        key_fields=("nmId", "query", "name", "spend", "impressions", "clicks", "revenueAttr"),
     )
     return deduped, {
         "files_count": len(files),
@@ -3296,6 +3587,8 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         selected_search_files=selected_files["search"],
         search_rows=search_rows,
         search_parse_diag=search_parse_diag,
+        ads_rows=ads_rows,
+        orders_rows=orders_rows,
     )
     local_orders_insights = _build_local_orders_insights(
         orders_rows=orders_rows,

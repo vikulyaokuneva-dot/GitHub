@@ -120,6 +120,7 @@ def run_audit_mode(
     else:
         pdf_path = os.path.join(out_dir, f"audit_{file_date}.pdf")
     actions_path = os.path.join(out_dir, f"actions_audit_{file_date}.json")
+    search_insights_path = os.path.join(out_dir, "search_insights.json")
 
     with open(facts_path, "w", encoding="utf-8") as f:
         json.dump(facts, f, ensure_ascii=False, indent=2)
@@ -127,6 +128,8 @@ def run_audit_mode(
         f.write(md)
     with open(actions_path, "w", encoding="utf-8") as f:
         json.dump(actions, f, ensure_ascii=False, indent=2)
+    with open(search_insights_path, "w", encoding="utf-8") as f:
+        json.dump(facts.get("search_insights") or {}, f, ensure_ascii=False, indent=2)
 
     title_prefix = "WB" if source_norm == "wb" else "Ozon"
     if source_norm == "wb" and period_label_ru:
@@ -144,12 +147,14 @@ def run_audit_mode(
     print(f"[audit] saved md: {md_path}")
     print(f"[audit] saved pdf: {pdf_path}")
     print(f"[audit] saved actions: {actions_path}")
+    print(f"[audit] saved search insights: {search_insights_path}")
 
     return {
         "facts_path": facts_path,
         "md_path": md_path,
         "pdf_path": pdf_path,
         "actions_path": actions_path,
+        "search_insights_path": search_insights_path,
         "source": source_norm,
         "missing_required": missing_required,
         "missing_optional": missing_optional,

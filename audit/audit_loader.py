@@ -1221,6 +1221,21 @@ def parse_ads_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]], di
     for _, r in df.iterrows():
         row = dict(r)
         name = str(_lookup(row, ("Название", "name")) or "")
+        query = str(
+            _lookup(
+                row,
+                (
+                    "Поисковый запрос",
+                    "Поисковая фраза",
+                    "Ключевая фраза",
+                    "Фраза",
+                    "Запрос",
+                    "keyword",
+                    "query",
+                ),
+            )
+            or ""
+        ).strip()
         if _norm(name).startswith("всего по кампании"):
             skipped += 1
             continue
@@ -1232,6 +1247,7 @@ def parse_ads_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]], di
             "revenueAttr": _to_float(_lookup(row, ("Заказов на сумму, RUB", "Заказов на сумму", "revenueAttr", "orderSum"))),
             "views": _to_int(_lookup(row, ("Показы", "Показы, шт", "impressions", "views"))),
             "name": name,
+            "query": query,
         }
         if payload["nmId"] == 0 and payload["spend"] == 0 and payload["impressions"] == 0 and payload["clicks"] == 0:
             skipped += 1
