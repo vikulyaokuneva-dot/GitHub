@@ -41,3 +41,23 @@ def test_explicit_regular_font_works_without_bold(monkeypatch: pytest.MonkeyPatc
 
     assert info["regular_path"] == str(regular)
     assert info["bold_path"] == str(regular)
+
+
+def test_markdown_to_simple_pdf_supports_page_number_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pdf_report, "_REGISTERED_FONTS", None)
+    pdf_path = tmp_path / "report_with_numbers.pdf"
+    markdown = "# Титул\n\n---PAGEBREAK---\n\n## Страница 2\n\nТекст"
+
+    pdf_report.markdown_to_simple_pdf(
+        markdown,
+        pdf_path,
+        title="WB отчет",
+        page_number_format="{page} / {total}",
+        page_number_align="right",
+        skip_first_page_numbering=True,
+    )
+
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0

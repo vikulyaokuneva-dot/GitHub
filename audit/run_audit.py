@@ -136,7 +136,14 @@ def run_audit_mode(
         pdf_title = f"Аудит кабинета WB за период {period_label_ru}"
     else:
         pdf_title = f"{title_prefix} аудит за {file_date}"
-    markdown_to_simple_pdf(md, pdf_path, title=pdf_title)
+    markdown_to_simple_pdf(
+        md,
+        pdf_path,
+        title=pdf_title,
+        page_number_format="Стр. {page} из {total}",
+        page_number_align="center",
+        skip_first_page_numbering=True,
+    )
 
     if send_email and send_email_with_pdf:
         subject = pdf_title

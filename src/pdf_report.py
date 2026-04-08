@@ -12,6 +12,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 LOGGER = logging.getLogger(__name__)
@@ -280,7 +281,85 @@ def _esc(text: str) -> str:
     return value
 
 
-def markdown_to_simple_pdf(markdown_text: str | bytes, pdf_path: str | os.PathLike[str], title: str = "Report") -> None:
+class _PageNumberCanvas(canvas.Canvas):
+    def __init__(
+        self,
+        *args: Any,
+        footer_font_name: str,
+        footer_font_size: float = 9.0,
+        footer_format: str = "Стр. {page} из {total}",
+        skip_first_page: bool = True,
+        footer_align: str = "center",
+        footer_right_margin: float = 16 * mm,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self._saved_page_states: list[dict[str, Any]] = []
+        self._footer_font_name = footer_font_name
+        self._footer_font_size = footer_font_size
+        self._footer_format = footer_format
+        self._skip_first_page = skip_first_page
+        self._footer_align = footer_align
+        self._footer_right_margin = footer_right_margin
+
+    def showPage(self) -> None:  # noqa: N802
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self) -> None:
+        total_physical_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self._draw_footer(total_physical_pages)
+            canvas.Canvas.showPage(self)
+        canvas.Canvas.save(self)
+
+    def _draw_footer(self, total_physical_pages: int) -> None:
+        physical_page = int(self._pageNumber)
+
+        if self._skip_first_page:
+            if physical_page <= 1:
+                return
+            page = physical_page - 1
+            total = total_physical_pages - 1
+        else:
+            page = physical_page
+            total = total_physical_pages
+
+        if total <= 0:
+            return
+
+        text = self._footer_format.format(
+            page=page,
+            total=total,
+            physical_page=physical_page,
+            physical_total=total_physical_pages,
+        )
+
+        width, _ = self._pagesize
+        y = 8 * mm
+
+        self.saveState()
+        self.setFont(self._footer_font_name, self._footer_font_size)
+        self.setFillColor(colors.grey)
+
+        if self._footer_align == "right":
+            self.drawRightString(width - self._footer_right_margin, y, text)
+        else:
+            self.drawCentredString(width / 2.0, y, text)
+
+        self.restoreState()
+
+
+def markdown_to_simple_pdf(
+    markdown_text: str | bytes,
+    pdf_path: str | os.PathLike[str],
+    title: str = "Report",
+    *,
+    page_number_format: str = "Стр. {page} из {total}",
+    page_number_align: str = "center",
+    skip_first_page_numbering: bool = True,
+) -> None:
     font_info = _ensure_pdf_fonts_registered()
     md = _normalize_markdown(markdown_text)
 
@@ -412,7 +491,22 @@ def markdown_to_simple_pdf(markdown_text: str | bytes, pdf_path: str | os.PathLi
 
         story.append(Spacer(1, 4))
 
-    doc.build(story)
+    normalized_align = str(page_number_align or "center").strip().lower()
+    if normalized_align not in {"center", "right"}:
+        normalized_align = "center"
+
+    def _canvas_factory(*args: Any, **kwargs: Any) -> _PageNumberCanvas:
+        return _PageNumberCanvas(
+            *args,
+            footer_font_name=font_info["regular_name"],
+            footer_format=page_number_format,
+            skip_first_page=skip_first_page_numbering,
+            footer_align=normalized_align,
+            footer_right_margin=doc.rightMargin,
+            **kwargs,
+        )
+
+    doc.build(story, canvasmaker=_canvas_factory)
 
 
 __all__ = ["markdown_to_simple_pdf", "get_pdf_font_diagnostics"]
