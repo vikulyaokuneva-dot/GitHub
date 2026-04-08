@@ -167,6 +167,55 @@ def test_report_renders_regional_logistics_decision_block() -> None:
     assert "order_geography" in md
 
 
+def test_localization_loss_section_renders_transparent_formula_and_sku_actions_table() -> None:
+    facts = _base_facts()
+    facts["logistics_summary"] = {
+        "localization_pct": 40.0,
+        "orders_count": 10,
+        "avg_logistics_cost_est": 92.0,
+        "estimated_logistics_total": 920.0,
+        "local_cost_per_order": 50.0,
+        "non_local_cost_per_order": 120.0,
+        "target_localization_pct": 70.0,
+        "target_avg_logistics_cost": 71.0,
+        "delta_vs_target_per_order": 21.0,
+        "potential_overpay_due_localization": 210.0,
+    }
+    facts["local_orders_insights"] = {
+        "available": True,
+        "sku_non_local_available": True,
+        "sku_non_local_actions": [
+            {"sku": 405933491, "non_local_orders_count": 15, "top_region": "Урал", "recommendation": "Добавить склад в Урал"},
+            {"sku": 810239842, "non_local_orders_count": 9, "top_region": "Сибирь", "recommendation": "Переместить часть остатков в Сибирь"},
+        ],
+    }
+
+    md = build_audit_markdown(facts)
+    section_11 = md[md.index("## 11. ") : md.index("## 12. ")]
+
+    assert "Локализация кабинета: 40%" in section_11
+    assert "Средняя стоимость логистики = (localization × local_cost) + ((1 - localization) × non_local_cost)" in section_11
+    assert "Текущая средняя стоимость: 92.00 RUB" in section_11
+    assert "21.00 RUB × 10 = 210.00 RUB" in section_11
+    assert "| SKU | Не локальные заказы | Основной регион спроса | Рекомендация |" in section_11
+    assert "Доля локализации" not in section_11
+
+
+def test_localization_loss_section_uses_honest_fallback_when_route_geo_missing() -> None:
+    facts = _base_facts()
+    facts["logistics_summary"] = {"localization_pct": 40.0, "orders_count": 10}
+    facts["local_orders_insights"] = {
+        "available": True,
+        "sku_non_local_available": False,
+        "sku_non_local_actions": [],
+    }
+
+    md = build_audit_markdown(facts)
+    section_11 = md[md.index("## 11. ") : md.index("## 12. ")]
+
+    assert "Недостаточно данных по географии заказов для анализа локализации по SKU" in section_11
+
+
 def test_logistics_section_estimates_irp_when_missing() -> None:
     facts = _base_facts()
     facts["logistics_formula_model"] = {

@@ -1395,113 +1395,114 @@ def _logistics_overpayment_section_lines(facts: dict[str, Any]) -> list[str]:
 
 def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
     lines: list[str] = ["## 11. Потери из-за плохой локализации"]
-    payload = facts.get("localization_loss") if isinstance(facts.get("localization_loss"), dict) else {}
     logistics_summary = facts.get("logistics_summary") if isinstance(facts.get("logistics_summary"), dict) else {}
+    local_orders_insights = facts.get("local_orders_insights") if isinstance(facts.get("local_orders_insights"), dict) else {}
 
-    status = _text(payload.get("status") or "insufficient_data")
-    estimation_mode = _text(payload.get("estimation_mode") or "insufficient_data")
-    total_loss = _to_float(payload.get("total_estimated_loss_rub"))
-    loss_share = _to_float(payload.get("loss_share_of_revenue"))
-    non_local_share = _to_float(payload.get("non_local_orders_share"))
-    affected = _to_int(payload.get("affected_sku_count"))
-    missing_inputs = payload.get("missing_inputs") if isinstance(payload.get("missing_inputs"), list) else []
-    top_rows = payload.get("top_loss_sku") if isinstance(payload.get("top_loss_sku"), list) else []
-    recommendations = payload.get("recommendations") if isinstance(payload.get("recommendations"), list) else []
     localization_pct = _to_float(logistics_summary.get("localization_pct"))
-    cabinet_overpay = _to_float(logistics_summary.get("potential_overpay_due_localization"))
-    if total_loss is None and cabinet_overpay is not None:
-        total_loss = cabinet_overpay
+    orders_count = _to_int(logistics_summary.get("orders_count"))
+    local_cost = _to_float(logistics_summary.get("local_cost_per_order"))
+    non_local_cost = _to_float(logistics_summary.get("non_local_cost_per_order"))
+    target_localization_pct = _to_float(logistics_summary.get("target_localization_pct"))
+    avg_logistics_cost_est = _to_float(logistics_summary.get("avg_logistics_cost_est"))
+    target_avg_logistics_cost = _to_float(logistics_summary.get("target_avg_logistics_cost"))
+    delta_vs_target = _to_float(logistics_summary.get("delta_vs_target_per_order"))
+    potential_overpay = _to_float(logistics_summary.get("potential_overpay_due_localization"))
 
-    lines.append("### Оценка за период")
-    lines.append(f"- Режим оценки: **{estimation_mode}**.")
+    if local_cost is None:
+        local_cost = 50.0
+    if non_local_cost is None:
+        non_local_cost = 120.0
+    if target_localization_pct is None:
+        target_localization_pct = 70.0
+    if target_avg_logistics_cost is None:
+        target_share = max(0.0, min(1.0, float(target_localization_pct) / 100.0))
+        target_avg_logistics_cost = (target_share * float(local_cost)) + ((1.0 - target_share) * float(non_local_cost))
+    if delta_vs_target is None and avg_logistics_cost_est is not None and target_avg_logistics_cost is not None:
+        delta_vs_target = float(avg_logistics_cost_est) - float(target_avg_logistics_cost)
+    if potential_overpay is None and delta_vs_target is not None and orders_count > 0:
+        potential_overpay = max(0.0, float(delta_vs_target) * float(orders_count))
+
+    lines.append("")
     if localization_pct is None:
-        lines.append("- Локализация не задана — точный расчет ограничен.")
+        lines.append("Локализация кабинета: н/д")
     else:
-        lines.append(f"- Локализация по кабинету: **{_fmt_pct(localization_pct, 1)}**.")
-    if total_loss is not None:
-        lines.append(f"- Оценка потерь из-за локализации: **{_money(total_loss)}** за период.")
-    else:
-        lines.append("- Точная рублевая оценка пока недоступна, используется качественная оценка риска.")
-    if non_local_share is not None:
-        lines.append(f"- Доля нелокальных заказов: **{_fmt_pct(non_local_share * 100.0, 1)}**.")
-    if loss_share is not None:
-        lines.append(f"- Давление на выручку: **{_fmt_pct(loss_share * 100.0, 2)}**.")
-    lines.append(f"- SKU в зоне влияния: **{affected}**.")
-    if status == "insufficient_data" and missing_inputs:
-        lines.append("- Для точного расчета не хватает: " + ", ".join(_text(x) for x in missing_inputs if _text(x)) + ".")
+        lines.append(f"Локализация кабинета: {_fmt_pct(localization_pct, 1)}")
+    lines.append(f"Общее количество заказов: {orders_count}")
     lines.append("")
 
-    lines.append("### TOP SKU по потерям/риску")
-    if top_rows:
-        has_rub = any(_to_float((row or {}).get("total_loss_rub")) is not None for row in top_rows if isinstance(row, dict))
-        table_rows: list[list[Any]] = []
-        for row in top_rows[:10]:
-            if not isinstance(row, dict):
-                continue
-            if has_rub:
-                table_rows.append(
-                    [
-                        row.get("sku"),
-                        _to_int(row.get("orders")),
-                        _fmt_pct(_to_float(row.get("localization_share_pct")), 2),
-                        _sanitize_table_cell(row.get("localization_index")),
-                        _fmt_pct(_to_float(row.get("sales_distribution_index_pct")), 2),
-                        _money(row.get("total_loss_rub")),
-                        _text(row.get("conclusion")),
-                    ]
-                )
-            else:
-                table_rows.append(
-                    [
-                        row.get("sku"),
-                        _to_int(row.get("orders")),
-                        _fmt_pct(_to_float(row.get("localization_share_pct")), 2),
-                        _sanitize_table_cell(row.get("localization_index")),
-                        _fmt_pct(_to_float(row.get("sales_distribution_index_pct")), 2),
-                        _text(row.get("risk_level") or "н/д"),
-                        _text(row.get("conclusion")),
-                    ]
-                )
-        if has_rub:
-            _append_markdown_table(
-                lines,
-                ["SKU", "Заказы", "Доля локализации", "ИЛ", "ИРП", "Потери", "Вывод"],
-                table_rows,
-                align_right={1, 2, 3, 4, 5},
-            )
-        else:
-            _append_markdown_table(
-                lines,
-                ["SKU", "Заказы", "Доля локализации", "ИЛ", "ИРП", "Risk", "Вывод"],
-                table_rows,
-                align_right={1, 2, 3, 4},
-            )
+    lines.append("### Расчет влияния локализации на логистику")
+    lines.append("Используем модель:")
+    lines.append("Средняя стоимость логистики = (localization × local_cost) + ((1 - localization) × non_local_cost)")
+    lines.append("")
+
+    if localization_pct is None:
+        lines.append("Текущая локализация: н/д")
     else:
-        lines.append("- SKU-данные для оценки потерь не распознаны автоматически.")
+        lines.append(f"Текущая локализация: {_fmt_pct(localization_pct, 1)}")
+    lines.append(f"Целевая локализация: {_fmt_pct(target_localization_pct, 1)}")
+    lines.append(f"Локальная доставка: {_money(local_cost)}")
+    lines.append(f"Межрегиональная доставка: {_money(non_local_cost)}")
+    lines.append("")
+
+    if avg_logistics_cost_est is None:
+        lines.append("Текущая средняя стоимость: н/д")
+    else:
+        lines.append(f"Текущая средняя стоимость: {_money(avg_logistics_cost_est)}")
+    lines.append(f"При локализации {_fmt_pct(target_localization_pct, 1)}: {_money(target_avg_logistics_cost)}")
+    lines.append("")
+
+    if delta_vs_target is None:
+        lines.append("Разница: н/д на заказ")
+    else:
+        lines.append(f"Разница: {_money(delta_vs_target)} на заказ")
+    if potential_overpay is None:
+        lines.append("Итого влияние за период: н/д")
+    elif delta_vs_target is None or orders_count <= 0:
+        lines.append(f"Итого влияние за период: {_money(potential_overpay)}")
+    else:
+        lines.append(f"{_money(delta_vs_target)} × {orders_count} = {_money(potential_overpay)}")
+    lines.append("")
+    lines.append(
+        "Расчет является модельной оценкой и показывает, насколько увеличивается стоимость логистики "
+        "при текущем уровне локализации"
+    )
+    lines.append("")
+
+    lines.append("### TOP-10 SKU: не локальные заказы")
+    sku_actions = (
+        local_orders_insights.get("sku_non_local_actions")
+        if isinstance(local_orders_insights.get("sku_non_local_actions"), list)
+        else []
+    )
+    sku_non_local_available = bool(local_orders_insights.get("sku_non_local_available"))
+    if not sku_non_local_available:
+        lines.append("Недостаточно данных по географии заказов для анализа локализации по SKU")
         lines.append("")
+        return lines
 
-    lines.append("### Рекомендации")
-    if recommendations:
-        for rec in recommendations[:5]:
-            if not isinstance(rec, dict):
-                continue
-            action = _text(rec.get("action"))
-            why = _text(rec.get("why"))
-            effect = _text(rec.get("expected_effect"))
-            if action:
-                lines.append(f"- {action}. Причина: {why}. Ожидаемый эффект: {effect}.")
-        manual_rec = _cabinet_localization_recommendation(localization_pct)
-        if manual_rec:
-            lines.append(f"- {manual_rec}")
-    else:
-        manual_rec = _cabinet_localization_recommendation(localization_pct)
-        if manual_rec:
-            lines.append(f"- {manual_rec}")
-        else:
-            lines.append("- Дополнительные рекомендации появятся после уточнения данных по локализации и маршрутам заказов.")
+    if not sku_actions:
+        lines.append("Нелокальные заказы по SKU не выявлены за выбранный период.")
+        lines.append("")
+        return lines
 
-    if localization_pct is not None and isinstance(facts.get("region_logistics_summary"), dict) and facts.get("region_logistics_summary"):
-        lines.append("- Используйте данные по регионам спроса для приоритизации перераспределения остатков.")
+    table_rows: list[list[Any]] = []
+    for row in sku_actions[:10]:
+        if not isinstance(row, dict):
+            continue
+        table_rows.append(
+            [
+                _to_int(row.get("sku")),
+                _to_int(row.get("non_local_orders_count")),
+                _text(row.get("top_region") or "н/д"),
+                _text(row.get("recommendation")),
+            ]
+        )
+    _append_markdown_table(
+        lines,
+        ["SKU", "Не локальные заказы", "Основной регион спроса", "Рекомендация"],
+        table_rows,
+        align_right={1},
+    )
     lines.append("")
     return lines
 

@@ -821,6 +821,37 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
         "region",
         "delivery_region",
     )
+    customer_region_aliases = (
+        "Регион покупателя",
+        "Регион клиента",
+        "Регион назначения",
+        "customer_region",
+        "destination_region",
+        "to_region",
+        "delivery_region",
+        "region",
+        "Регион прибытия",
+        "Регион доставки",
+        "Регион",
+    )
+    warehouse_region_aliases = (
+        "Регион отправки",
+        "Регион отгрузки",
+        "Регион склада",
+        "Складской регион",
+        "warehouse_region",
+        "origin_region",
+        "from_region",
+        "source_region",
+        "shipment_region",
+    )
+    warehouse_aliases = (
+        "Склад",
+        "Склад WB",
+        "Склад продавца",
+        "warehouse",
+        "warehouseName",
+    )
     city_aliases = (
         "Город прибытия",
         "Город доставки",
@@ -835,6 +866,9 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
     seller_col = _lookup_col_name(first_row, seller_aliases)
     date_col = _lookup_col_name(first_row, date_aliases)
     region_col = _lookup_col_name(first_row, region_aliases)
+    customer_region_col = _lookup_col_name(first_row, customer_region_aliases)
+    warehouse_region_col = _lookup_col_name(first_row, warehouse_region_aliases)
+    warehouse_col = _lookup_col_name(first_row, warehouse_aliases)
     city_col = _lookup_col_name(first_row, city_aliases)
     qty_col = _lookup_col_name(first_row, qty_aliases)
 
@@ -862,6 +896,13 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
 
         date_raw = str(_lookup(row, date_aliases) or "").strip()
         region = str(_lookup(row, region_aliases) or "").strip()
+        customer_region = str(_lookup(row, customer_region_aliases) or "").strip()
+        warehouse_region = str(_lookup(row, warehouse_region_aliases) or "").strip()
+        warehouse = str(_lookup(row, warehouse_aliases) or "").strip()
+        if not customer_region:
+            customer_region = region
+        if not warehouse_region and warehouse:
+            warehouse_region = warehouse
         city = str(_lookup(row, city_aliases) or "").strip()
         if not city and region_col:
             city = str(_value_by_col_offset(row, region_col, offset=1) or "").strip()
@@ -885,8 +926,11 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
                 "date": date_raw,
                 "nmId": int(sku),
                 "seller_article": seller_article,
-                "region": region,
+                "region": customer_region or region,
                 "city": city,
+                "customer_region": customer_region,
+                "warehouse_region": warehouse_region,
+                "warehouse": warehouse,
                 "orders": int(max(qty, 1)),
                 "quantity": int(max(qty, 1)),
             }
@@ -909,6 +953,9 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
             "seller_article": seller_col,
             "date": date_col,
             "region": region_col,
+            "customer_region": customer_region_col,
+            "warehouse_region": warehouse_region_col,
+            "warehouse": warehouse_col,
             "city": city_col,
             "orders": qty_col,
         },

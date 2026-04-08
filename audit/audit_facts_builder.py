@@ -437,6 +437,8 @@ def _build_cabinet_logistics_summary(
 
     avg_logistics_cost_est: float | None = None
     estimated_logistics_total: float | None = None
+    target_avg_logistics_cost: float | None = None
+    delta_vs_target_per_order: float | None = None
     potential_overpay_due_localization: float | None = None
 
     if localization_pct is not None:
@@ -450,7 +452,8 @@ def _build_cabinet_logistics_summary(
         target_avg_logistics_cost = (
             target_share * LOCAL_COST_PER_ORDER + (1.0 - target_share) * NON_LOCAL_COST_PER_ORDER
         )
-        potential_overpay = (float(avg_logistics_cost_est) - float(target_avg_logistics_cost)) * float(orders_count)
+        delta_vs_target_per_order = float(avg_logistics_cost_est) - float(target_avg_logistics_cost)
+        potential_overpay = float(delta_vs_target_per_order) * float(orders_count)
         potential_overpay_due_localization = max(0.0, potential_overpay)
 
     revenue = _cabinet_revenue_for_irp(funnel_summary, financial_summary)
@@ -469,7 +472,15 @@ def _build_cabinet_logistics_summary(
         "estimated_logistics_total": round(float(estimated_logistics_total), 2)
         if estimated_logistics_total is not None
         else None,
+        "local_cost_per_order": float(LOCAL_COST_PER_ORDER),
+        "non_local_cost_per_order": float(NON_LOCAL_COST_PER_ORDER),
         "target_localization_pct": float(TARGET_LOCALIZATION_PCT),
+        "target_avg_logistics_cost": round(float(target_avg_logistics_cost), 2)
+        if target_avg_logistics_cost is not None
+        else None,
+        "delta_vs_target_per_order": round(float(delta_vs_target_per_order), 2)
+        if delta_vs_target_per_order is not None
+        else None,
         "potential_overpay_due_localization": round(float(potential_overpay_due_localization), 2)
         if potential_overpay_due_localization is not None
         else None,
@@ -1840,8 +1851,13 @@ def _build_local_orders_insights(
     orders_by_sku_region: dict[tuple[int, str], int] = defaultdict(int)
     total_orders_by_sku: dict[int, int] = defaultdict(int)
     total_orders_by_region: dict[str, int] = defaultdict(int)
+    local_orders_by_region: dict[str, int] = defaultdict(int)
+    non_local_orders_by_region: dict[str, int] = defaultdict(int)
     stock_by_sku_region: dict[tuple[int, str], int] = defaultdict(int)
     stock_by_region: dict[str, int] = defaultdict(int)
+    non_local_orders_by_sku: dict[int, int] = defaultdict(int)
+    customer_region_by_sku: dict[tuple[int, str], int] = defaultdict(int)
+    sku_orders_with_routes: dict[int, int] = defaultdict(int)
 
     preferred_orders_source = "orders_feed"
     raw_orders_rows = orders_rows or []
@@ -1849,6 +1865,24 @@ def _build_local_orders_insights(
         preferred_orders_source = "funnel"
         raw_orders_rows = funnel_rows or []
 
+    origin_aliases = (
+        "warehouse_region",
+        "origin_region",
+        "from_region",
+        "source_region",
+        "shipment_region",
+        "warehouse",
+    )
+    destination_aliases = (
+        "customer_region",
+        "destination_region",
+        "to_region",
+        "delivery_region",
+        "region",
+        "city",
+    )
+    route_rows_with_origin_destination = 0
+    route_rows_non_local = 0
     orders_rows_scanned = 0
     orders_rows_with_geo = 0
     for row in raw_orders_rows:
@@ -1868,6 +1902,32 @@ def _build_local_orders_insights(
         orders_by_sku_region[(sku, geo)] += orders
         total_orders_by_sku[sku] += orders
         total_orders_by_region[geo] += orders
+
+        origin_region = ""
+        destination_region = ""
+        for key in origin_aliases:
+            value = str(row.get(key) or "").strip()
+            if value:
+                origin_region = value
+                break
+        for key in destination_aliases:
+            value = str(row.get(key) or "").strip()
+            if value:
+                destination_region = value
+                break
+
+        origin_norm = _norm_geo_compare(origin_region)
+        destination_norm = _norm_geo_compare(destination_region)
+        if origin_norm and destination_norm:
+            route_rows_with_origin_destination += 1
+            sku_orders_with_routes[sku] += orders
+            customer_region_by_sku[(sku, destination_region)] += orders
+            if origin_norm == destination_norm:
+                local_orders_by_region[destination_region] += orders
+            else:
+                route_rows_non_local += 1
+                non_local_orders_by_region[destination_region] += orders
+                non_local_orders_by_sku[sku] += orders
 
     stock_rows_scanned = 0
     stock_rows_with_geo = 0
@@ -1893,11 +1953,15 @@ def _build_local_orders_insights(
             "by_region": [],
             "by_sku": [],
             "orders_with_geo": [],
+            "sku_non_local_available": False,
+            "sku_non_local_actions": [],
             "recommendations": [],
             "diagnostics": {
                 "orders_rows_scanned": int(orders_rows_scanned),
                 "orders_rows_with_geo": int(orders_rows_with_geo),
                 "orders_geo_source": preferred_orders_source,
+                "route_rows_with_origin_destination": int(route_rows_with_origin_destination),
+                "route_rows_non_local": int(route_rows_non_local),
                 "stock_rows_scanned": int(stock_rows_scanned),
                 "stock_rows_with_geo": int(stock_rows_with_geo),
                 "required_fields": [
@@ -1918,6 +1982,10 @@ def _build_local_orders_insights(
                 "orders": int(region_orders),
                 "share_pct": round(share, 1),
                 "stock_qty": int(stock_by_region.get(region) or 0) if stock_rows_with_geo > 0 else None,
+                "local_orders": int(local_orders_by_region.get(region) or 0) if route_rows_with_origin_destination > 0 else None,
+                "non_local_orders": int(non_local_orders_by_region.get(region) or 0)
+                if route_rows_with_origin_destination > 0
+                else None,
             }
         )
 
@@ -1950,6 +2018,39 @@ def _build_local_orders_insights(
                 "sku": int(sku),
                 "total_orders": int(sku_orders),
                 "regions": regions[:10],
+            }
+        )
+
+    sku_non_local_actions: list[dict[str, Any]] = []
+    for sku, non_local_orders in sorted(non_local_orders_by_sku.items(), key=lambda x: x[1], reverse=True):
+        if non_local_orders <= 0:
+            continue
+        total_orders = int(total_orders_by_sku.get(sku) or 0)
+        top_region = ""
+        top_region_orders = 0
+        for (sku_key, region), region_orders in customer_region_by_sku.items():
+            if int(sku_key) != int(sku):
+                continue
+            if int(region_orders) > top_region_orders:
+                top_region = str(region)
+                top_region_orders = int(region_orders)
+
+        # "Активно продается" — рабочий порог для приоритета открытия/подключения склада.
+        active_sales = total_orders >= 20
+        if active_sales and top_region:
+            recommendation = f"Добавить склад в {top_region}"
+        elif top_region:
+            recommendation = f"Переместить часть остатков в {top_region}"
+        else:
+            recommendation = "Проверить географию спроса и маршруты доставки"
+
+        sku_non_local_actions.append(
+            {
+                "sku": int(sku),
+                "non_local_orders_count": int(non_local_orders),
+                "top_region": top_region,
+                "total_orders": int(total_orders),
+                "recommendation": recommendation,
             }
         )
 
@@ -2034,11 +2135,19 @@ def _build_local_orders_insights(
             key=lambda item: (int(item.get("orders") or 0), int(item.get("sku") or 0)),
             reverse=True,
         )[:500],
+        "sku_non_local_available": bool(route_rows_with_origin_destination > 0),
+        "sku_non_local_actions": sorted(
+            sku_non_local_actions,
+            key=lambda item: int(item.get("non_local_orders_count") or 0),
+            reverse=True,
+        ),
         "recommendations": recommendations[:80],
         "diagnostics": {
             "orders_rows_scanned": int(orders_rows_scanned),
             "orders_rows_with_geo": int(orders_rows_with_geo),
             "orders_geo_source": preferred_orders_source,
+            "route_rows_with_origin_destination": int(route_rows_with_origin_destination),
+            "route_rows_non_local": int(route_rows_non_local),
             "stock_rows_scanned": int(stock_rows_scanned),
             "stock_rows_with_geo": int(stock_rows_with_geo),
             "minimal_batch": int(LOCAL_MOVE_MIN_BATCH),
@@ -3602,7 +3711,17 @@ def _parse_many_orders(files: list[str]) -> tuple[list[dict[str, Any]], dict[str
 
     deduped, dup_count = _dedupe_rows(
         rows_all,
-        key_fields=("date", "nmId", "seller_article", "region", "city", "orders"),
+        key_fields=(
+            "date",
+            "nmId",
+            "seller_article",
+            "region",
+            "city",
+            "customer_region",
+            "warehouse_region",
+            "warehouse",
+            "orders",
+        ),
     )
     return deduped, {
         "files_count": len(files),

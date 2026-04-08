@@ -86,3 +86,63 @@ def test_local_orders_insights_returns_honest_message_when_geo_missing() -> None
     )
     assert payload.get("available") is False
     assert payload.get("message") == "нет данных по географии заказов"
+
+
+def test_local_orders_insights_builds_non_local_sku_actions() -> None:
+    orders_rows = [
+        {
+            "nmId": 111111,
+            "orders": 12,
+            "region": "Центральный",
+            "customer_region": "Сибирский",
+            "warehouse_region": "Центральный",
+        },
+        {
+            "nmId": 111111,
+            "orders": 10,
+            "region": "Сибирский",
+            "customer_region": "Сибирский",
+            "warehouse_region": "Центральный",
+        },
+        {
+            "nmId": 222222,
+            "orders": 8,
+            "region": "Центральный",
+            "customer_region": "Центральный",
+            "warehouse_region": "Центральный",
+        },
+    ]
+
+    payload = _build_local_orders_insights(
+        orders_rows=orders_rows,
+        funnel_rows=[],
+        stocks_rows=[],
+    )
+
+    assert payload.get("available") is True
+    assert payload.get("sku_non_local_available") is True
+    actions = payload.get("sku_non_local_actions") or []
+    assert len(actions) == 1
+
+    first = actions[0]
+    assert int(first.get("sku") or 0) == 111111
+    assert int(first.get("non_local_orders_count") or 0) == 22
+    assert str(first.get("top_region") or "") == "Сибирский"
+    assert "Добавить склад в Сибирский" in str(first.get("recommendation") or "")
+
+
+def test_local_orders_insights_non_local_actions_require_origin_and_destination() -> None:
+    orders_rows = [
+        {"nmId": 111111, "orders": 3, "region": "Центральный"},
+        {"nmId": 111111, "orders": 2, "region": "Сибирский"},
+    ]
+
+    payload = _build_local_orders_insights(
+        orders_rows=orders_rows,
+        funnel_rows=[],
+        stocks_rows=[],
+    )
+
+    assert payload.get("available") is True
+    assert payload.get("sku_non_local_available") is False
+    assert payload.get("sku_non_local_actions") == []
