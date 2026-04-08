@@ -428,6 +428,76 @@ def _funnel_ctr_conclusion(ctr_ratio: Any) -> str:
     return "Хороший CTR — трафик качественный"
 
 
+def _kpi_management_insights(
+    *,
+    decision: dict[str, Any],
+    search: dict[str, Any],
+    funnel: dict[str, Any],
+    profit_view: dict[str, Any],
+) -> list[str]:
+    insights: list[str] = []
+
+    leak_spend = _to_float(search.get("total_leak_spend"))
+    if leak_spend is None or leak_spend <= 0:
+        leak_spend = sum(
+            _to_float(item.get("spend")) or 0.0
+            for item in (decision.get("ads_leaks") or [])
+            if isinstance(item, dict) and (_to_int(item.get("orders")) == 0) and (_to_float(item.get("spend")) or 0.0) > 0
+        )
+    if (leak_spend or 0.0) > 0:
+        insights.append("\u0420\u0435\u043a\u043b\u0430\u043c\u0430 \u0441\u043b\u0438\u0432\u0430\u0435\u0442 \u0431\u044e\u0434\u0436\u0435\u0442: \u0435\u0441\u0442\u044c \u0440\u0430\u0441\u0445\u043e\u0434 \u0431\u0435\u0437 \u0437\u0430\u043a\u0430\u0437\u043e\u0432.")
+
+    growth_hypotheses = search.get("growth_hypotheses") if isinstance(search.get("growth_hypotheses"), list) else []
+    effective = search.get("effective") if isinstance(search.get("effective"), list) else []
+    if growth_hypotheses:
+        insights.append(
+            "\u0415\u0441\u0442\u044c \u0441\u043f\u0440\u043e\u0441 \u0432 \u043f\u043e\u0438\u0441\u043a\u0435 \u0431\u0435\u0437 \u0440\u0435\u043a\u043b\u0430\u043c\u044b: \u0437\u0430\u043f\u0440\u043e\u0441\u044b \u0441 \u0432\u044b\u0441\u043e\u043a\u0438\u043c CTR \u0441\u0442\u043e\u0438\u0442 \u043f\u0440\u043e\u0442\u0435\u0441\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c."
+        )
+    elif effective:
+        insights.append("\u0415\u0441\u0442\u044c \u0442\u043e\u0447\u043a\u0438 \u0440\u043e\u0441\u0442\u0430 \u0432 \u043f\u043e\u0438\u0441\u043a\u0435: \u044d\u0444\u0444\u0435\u043a\u0442\u0438\u0432\u043d\u044b\u0435 \u0437\u0430\u043f\u0440\u043e\u0441\u044b \u043c\u043e\u0436\u043d\u043e \u043c\u0430\u0441\u0448\u0442\u0430\u0431\u0438\u0440\u043e\u0432\u0430\u0442\u044c.")
+
+    impressions = _to_int(funnel.get("impressions"))
+    clicks = _to_int(funnel.get("views"))
+    ctr_ratio = _to_float(funnel.get("ctr"))
+    if ctr_ratio is None and impressions > 0:
+        ctr_ratio = float(clicks) / float(impressions)
+
+    orders = _to_int(funnel.get("orders"))
+    cr_click_to_order = (float(orders) / float(clicks)) if clicks > 0 else None
+
+    if ctr_ratio is not None and ctr_ratio >= 0.03:
+        if cr_click_to_order is not None and cr_click_to_order < 0.02:
+            insights.append("\u0421\u043f\u0440\u043e\u0441 \u0435\u0441\u0442\u044c (CTR \u0432\u044b\u0441\u043e\u043a\u0438\u0439), \u043d\u043e \u0437\u0430\u043a\u0430\u0437\u043e\u0432 \u043c\u0430\u043b\u043e \u2014 \u043f\u0440\u043e\u0431\u043b\u0435\u043c\u0430 \u0432 \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0435.")
+        else:
+            insights.append("\u0421\u043f\u0440\u043e\u0441 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d: CTR \u0432\u044b\u0448\u0435 \u043d\u043e\u0440\u043c\u044b.")
+    elif cr_click_to_order is not None and cr_click_to_order < 0.02:
+        insights.append("\u041a\u043e\u043d\u0432\u0435\u0440\u0441\u0438\u044f \u0432 \u0437\u0430\u043a\u0430\u0437 \u043d\u0438\u0437\u043a\u0430\u044f \u2014 \u043d\u0443\u0436\u043d\u043e \u0443\u0441\u0438\u043b\u0438\u0442\u044c \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0443.")
+
+    if len(insights) < 2:
+        clean_profit = _to_float(profit_view.get("clean_profit"))
+        clean_margin = _to_float(profit_view.get("clean_margin"))
+        if clean_profit is not None and clean_profit < 0:
+            insights.append("\u041f\u0440\u0438\u0431\u044b\u043b\u044c \u0432 \u043c\u0438\u043d\u0443\u0441\u0435 \u2014 \u0441\u043d\u0430\u0447\u0430\u043b\u0430 \u043d\u0443\u0436\u043d\u043e \u0441\u043e\u043a\u0440\u0430\u0442\u0438\u0442\u044c \u043f\u043e\u0442\u0435\u0440\u0438.")
+        elif clean_margin is not None and clean_margin < 0.3:
+            insights.append("\u041c\u0430\u0440\u0436\u0430 \u043d\u0438\u0437\u043a\u0430\u044f \u2014 \u043f\u0440\u0438\u0431\u044b\u043b\u044c \u043f\u043e\u0434 \u0434\u0430\u0432\u043b\u0435\u043d\u0438\u0435\u043c \u0440\u0430\u0441\u0445\u043e\u0434\u043e\u0432.")
+        else:
+            insights.append("\u041a\u0430\u0431\u0438\u043d\u0435\u0442 \u0441\u0442\u0430\u0431\u0438\u043b\u0435\u043d: \u043c\u043e\u0436\u043d\u043e \u0442\u043e\u0447\u0435\u0447\u043d\u043e \u0443\u0441\u0438\u043b\u0438\u0432\u0430\u0442\u044c \u0440\u0430\u0431\u043e\u0447\u0438\u0435 \u0441\u0432\u044f\u0437\u043a\u0438.")
+
+    if len(insights) < 2:
+        insights.append("\u041d\u0443\u0436\u043d\u043e \u0432\u044b\u0440\u0430\u0432\u043d\u0438\u0432\u0430\u0442\u044c \u0432\u043e\u0440\u043e\u043d\u043a\u0443 \u0438 \u0447\u0438\u0441\u0442\u0438\u0442\u044c \u0441\u043b\u0430\u0431\u0443\u044e \u0440\u0435\u043a\u043b\u0430\u043c\u0443.")
+
+    unique: list[str] = []
+    seen: set[str] = set()
+    for insight in insights:
+        key = _text(insight).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(insight)
+
+    return unique[:4]
+
+
 def _search_sku_label(row: dict[str, Any]) -> str:
     sku = _to_int(row.get("nmId"))
     if sku > 0:
@@ -2342,25 +2412,21 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         {"title": "ДРР рекламы (РК)", "value": _fmt_pct(drr_ads_kpi_pct, 1), "icon": _status_icon(_drr_status_level_by_pct(drr_ads_kpi_pct))},
         {"title": "ДРР кабинета", "value": _fmt_pct(drr_cabinet_kpi_pct, 1), "icon": _status_icon(_drr_status_level_by_pct(drr_cabinet_kpi_pct))},
     ]
+    lines.append("# \U0001F4CA KPI и инсайты")
+    lines.append("### Короткий вывод")
+    kpi_insights = _kpi_management_insights(
+        decision=decision,
+        search=search,
+        funnel=funnel,
+        profit_view=profit_view,
+    )
+    for insight in kpi_insights[:4]:
+        lines.append(f"- {insight}")
+    lines.append("")
+    lines.append("Ключевые выводы сформированы на основе анализа данных ниже.")
+    lines.append("")
+    lines.append("### KPI в цифрах")
     _append_kpi_cards(lines, kpi_cards, columns=4)
-    lines.append("### Ключевые выводы")
-    insights: list[str] = [
-        _kpi_state_text(
-            profit=profit_view["clean_profit"],
-            margin=profit_view["clean_margin"],
-            profit_without_cogs=bool(profit_view["profit_without_cogs"]),
-        ),
-        f"Выручка за период: {_money(finance.get('gross_revenue'))}.",
-        f"ROAS рекламы: {_sanitize_table_cell(ads.get('roas', 'н/д'))}.",
-        f"ДРР рекламы (из РК): {_fmt_pct(drr_ads_kpi_pct, 1)}.",
-        f"ДРР по кабинету: {_fmt_pct(drr_cabinet_kpi_pct, 1)}.",
-        _roas_benchmark_text(roas_kpi),
-        _drr_benchmark_text(drr_cabinet_kpi),
-    ]
-    for reason in _loss_reasons_human(decision, finance)[:2]:
-        insights.append(reason)
-    for insight in insights[:5]:
-        lines.append(f"- **{insight}**")
     lines.append("")
 
     cogs_status_kpi = _text(finance.get("cogs_status") or "")

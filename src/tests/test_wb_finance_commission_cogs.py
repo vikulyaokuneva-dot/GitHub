@@ -179,3 +179,22 @@ def test_ads_zero_spend_uses_non_loss_wording() -> None:
 
     assert "Данные не подтверждают значимые потери рекламы в этом периоде." in md
     assert "существенная экономия не подтверждена (менее 100 RUB)." in md
+
+def test_kpi_block_starts_with_insights_then_metrics() -> None:
+    facts = _base_facts()
+    facts["funnel_summary"].update({"impressions": 5000, "views": 250, "orders": 2, "ctr": 0.05})
+    facts["search_insights"] = {"total_leak_spend": 1500, "growth_hypotheses": [{"query": "test"}], "effective": []}
+    facts["decision_layer"] = {"ads_leaks": [{"spend": 1000, "orders": 0}], "reasons_of_loss": []}
+
+    md = build_audit_markdown(facts)
+
+    assert "# \U0001F4CA KPI и инсайты" in md
+    assert "Ключевые выводы сформированы на основе анализа данных ниже." in md
+
+    summary_pos = md.index("### Короткий вывод")
+    metrics_pos = md.index("### KPI в цифрах")
+    assert summary_pos < metrics_pos
+
+    insight_block = md[summary_pos:metrics_pos]
+    bullet_count = sum(1 for line in insight_block.splitlines() if line.strip().startswith("- "))
+    assert 2 <= bullet_count <= 4
