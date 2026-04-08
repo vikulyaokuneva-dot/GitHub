@@ -283,10 +283,10 @@ def _esc(text: str) -> str:
 
 
 def _normalize_heading_key(text: str) -> str:
-    key = _coerce_text(text).strip().lower().replace("ё", "е")
+    key = _coerce_text(text).strip().lower().replace("\u0451", "\u0435")
     key = re.sub(r"^\s*[-*•]+\s*", "", key)
     key = re.sub(r"^\s*\d+\.\s*", "", key)
-    key = re.sub(r"\s*\.+\s*(\d+|н/д)\s*$", "", key)
+    key = re.sub(r"\s*\.+\s*(\d+|\u043d/\u0434)\s*$", "", key)
     key = key.replace("—", "-")
     key = re.sub(r"\s+", " ", key).strip(" .:-")
     return key
@@ -294,7 +294,7 @@ def _normalize_heading_key(text: str) -> str:
 
 def _is_toc_heading(title: str) -> bool:
     key = _normalize_heading_key(title)
-    return key in {"оглавление", "содержание"}
+    return key in {"\u043e\u0433\u043b\u0430\u0432\u043b\u0435\u043d\u0438\u0435", "\u0441\u043e\u0434\u0435\u0440\u0436\u0430\u043d\u0438\u0435"}
 
 
 def _extract_toc_entry_title(line: str) -> str | None:
@@ -302,23 +302,87 @@ def _extract_toc_entry_title(line: str) -> str | None:
     if not match:
         return None
     title = _coerce_text(match.group(1)).strip()
-    title = re.sub(r"\s*\.+\s*(\d+|н/д)\s*$", "", title)
+    title = re.sub(r"\s*\.+\s*(\d+|\u043d/\u0434)\s*$", "", title)
     return title.strip()
 
 
 def _format_toc_entry(title: str, page: int | None) -> str:
     clean_title = _coerce_text(title).strip()
-    page_token = "н/д" if page is None else str(page)
+    page_token = "\u043d/\u0434" if page is None else str(page)
     target_width = 62
     dots_count = max(6, target_width - len(clean_title) - len(page_token))
     return f"{clean_title} {'.' * dots_count} {page_token}"
 
 
-def _format_toc_leader_title(title: str) -> str:
+def _fit_text_to_width(
+    text: str,
+    max_width: float,
+    *,
+    font_name: str,
+    font_size: float,
+    suffix: str = "...",
+) -> str:
+    clean = _coerce_text(text).strip()
+    if max_width <= 0:
+        return ""
+    if pdfmetrics.stringWidth(clean, font_name, font_size) <= max_width:
+        return clean
+
+    suffix_width = pdfmetrics.stringWidth(suffix, font_name, font_size)
+    if suffix_width >= max_width:
+        return ""
+
+    low = 0
+    high = len(clean)
+    while low < high:
+        mid = (low + high + 1) // 2
+        candidate = clean[:mid].rstrip()
+        width = pdfmetrics.stringWidth(candidate, font_name, font_size) + suffix_width
+        if width <= max_width:
+            low = mid
+        else:
+            high = mid - 1
+
+    fitted = clean[:low].rstrip()
+    if not fitted:
+        return ""
+    return f"{fitted}{suffix}"
+
+
+def _build_toc_leader(
+    title: str,
+    *,
+    leader_width: float,
+    font_name: str,
+    font_size: float,
+    min_dots: int = 8,
+) -> str:
     clean_title = _coerce_text(title).strip()
-    target_width = 62
-    dots_count = max(6, target_width - len(clean_title))
-    return f"{clean_title} {'.' * dots_count}"
+    dot_width = pdfmetrics.stringWidth(".", font_name, font_size)
+    space_width = pdfmetrics.stringWidth(" ", font_name, font_size)
+    if dot_width <= 0:
+        return clean_title
+
+    # Keep at least a short dotted trail and one space before the page number column.
+    required_for_min_dots = (min_dots * dot_width) + (2 * space_width)
+    title_max_width = max(0.0, leader_width - required_for_min_dots)
+    safe_title = _fit_text_to_width(
+        clean_title,
+        title_max_width,
+        font_name=font_name,
+        font_size=font_size,
+        suffix="...",
+    )
+
+    title_width = pdfmetrics.stringWidth(safe_title, font_name, font_size)
+    remaining = max(0.0, leader_width - title_width - (2 * space_width))
+    dots_count = max(min_dots, int(remaining / dot_width))
+
+    leader = f"{safe_title} {'.' * dots_count} "
+    while dots_count > min_dots and pdfmetrics.stringWidth(leader, font_name, font_size) > leader_width:
+        dots_count -= 1
+        leader = f"{safe_title} {'.' * dots_count} "
+    return leader
 
 
 def _resolve_toc_page(entry_title: str, section_pages: dict[str, int]) -> int | None:
@@ -459,11 +523,22 @@ def _build_story(
                 toc_title = _extract_toc_entry_title(line)
                 if toc_title:
                     page = _resolve_toc_page(toc_title, toc_pages or {}) if toc_pages else None
-                    page_token = "н/д" if page is None else str(page)
-                    leader = _format_toc_leader_title(toc_title)
+                    page_token = "\u043d/\u0434" if page is None else str(page)
+                    page_col_width = max(
+                        12 * mm,
+                        pdfmetrics.stringWidth(page_token, body.fontName, body.fontSize) + (2 * mm),
+                    )
+                    leader_col_width = max(24 * mm, doc.width - page_col_width)
+                    leader = _build_toc_leader(
+                        toc_title,
+                        leader_width=leader_col_width,
+                        font_name=body.fontName,
+                        font_size=body.fontSize,
+                        min_dots=8,
+                    )
                     toc_table = Table(
                         [[Paragraph(_esc(leader), body), Paragraph(_esc(page_token), body)]],
-                        colWidths=[doc.width - 18 * mm, 18 * mm],
+                        colWidths=[leader_col_width, page_col_width],
                         hAlign="LEFT",
                     )
                     toc_table.setStyle(

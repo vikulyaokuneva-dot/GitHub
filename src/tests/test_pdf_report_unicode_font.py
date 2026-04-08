@@ -84,3 +84,27 @@ def test_logical_page_number_respects_title_page_skip() -> None:
     assert pdf_report._logical_page_number(1, skip_first_page_numbering=True) is None
     assert pdf_report._logical_page_number(2, skip_first_page_numbering=True) == 1
     assert pdf_report._logical_page_number(4, skip_first_page_numbering=False) == 4
+
+
+def test_toc_leader_uses_width_and_truncates() -> None:
+    leader = pdf_report._build_toc_leader(
+        "Очень длинное название раздела для проверки усечения в оглавлении",
+        leader_width=180.0,
+        font_name="Helvetica",
+        font_size=10.0,
+        min_dots=8,
+    )
+
+    assert leader.endswith(" ")
+    assert "." in leader
+    assert "..." in leader
+
+
+def test_fit_text_to_width_shortens_when_needed() -> None:
+    fitted = pdf_report._fit_text_to_width(
+        "Супердлинная строка для проверки",
+        max_width=40.0,
+        font_name="Helvetica",
+        font_size=10.0,
+    )
+    assert fitted.endswith("...")
