@@ -2191,11 +2191,102 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append("")
     _page_break(lines)
 
+    # Executive summary page (after title page).
+    lines.append("# КРАТКИЙ ИТОГ ПО КАБИНЕТУ")
+    lines.append("")
+
+    search_effective_items = search.get("effective") if isinstance(search.get("effective"), list) else []
+    growth_hypotheses_items = search.get("growth_hypotheses") if isinstance(search.get("growth_hypotheses"), list) else []
+    regions_over_150 = facts.get("logistics_regions_over_150")
+    regions_over_150_count = len(regions_over_150) if isinstance(regions_over_150, list) else 0
+
+    weekly_loss = _to_float(search.get("total_leak_spend"))
+    if weekly_loss is None or weekly_loss <= 0:
+        weekly_loss = _to_float((money_losses or {}).get("ads_waste_rub")) or 0.0
+    monthly_loss = float(weekly_loss) * 4.0
+    yearly_loss = monthly_loss * 12.0
+
+    frozen_stock_value = _to_float((money_losses or {}).get("frozen_stock_value_rub")) or 0.0
+    logistic_loss = _to_float(((facts.get("regional_logistics_impact") or {}).get("total_estimated_overpay_rub"))) or 0.0
+
+    def _rub_short(amount: float) -> str:
+        return f"{int(round(float(amount or 0.0))):,}".replace(",", " ")
+
+    lines.append("## 💸 Потери")
+    lines.append(
+        f"Вы теряете ~{_rub_short(monthly_loss)} ₽ в месяц"
+        if monthly_loss > 0
+        else "Существенных потерь на неэффективной рекламе за период не выявлено."
+    )
+    if monthly_loss > 0:
+        lines.append("на неэффективной рекламе")
+    if frozen_stock_value > 0:
+        lines.append(f"- Дополнительно заморожено в остатках: ~{_rub_short(frozen_stock_value)} ₽.")
+    if logistic_loss > 0:
+        lines.append(f"- Дополнительные потери на логистике: ~{_rub_short(logistic_loss)} ₽.")
+    lines.append("")
+
+    lines.append("## 📈 Точки роста")
+    if len(search_effective_items) > 0:
+        lines.append(
+            "Есть запросы с подтвержденным спросом (заказы + низкий ДРР)"
+        )
+        lines.append("→ их можно масштабировать")
+    if len(growth_hypotheses_items) > 0:
+        lines.append("Найдены запросы с CTR > 15% без рекламы")
+        lines.append("→ стоит протестировать")
+    else:
+        lines.append("Новые гипотезы роста не выявлены — требуется накопление данных")
+    lines.append("")
+
+    lines.append("## ⚠️ Риски")
+    if frozen_stock_value > 0:
+        lines.append(f"Заморожено в остатках: {_rub_short(frozen_stock_value)} ₽")
+    elif _to_int((money_losses or {}).get("frozen_stock_sku_count")) > 0:
+        lines.append(
+            f"Есть залежавшиеся остатки: {_to_int((money_losses or {}).get('frozen_stock_sku_count'))} SKU без нормального движения"
+        )
+    if logistic_loss > 0:
+        lines.append(f"Есть риск дорогой логистики: ~{_rub_short(logistic_loss)} ₽ потерь за период")
+    elif regions_over_150_count > 0:
+        lines.append(f"Есть дорогая логистика: {regions_over_150_count} регионов с повышенным коэффициентом")
+    if frozen_stock_value <= 0 and logistic_loss <= 0 and regions_over_150_count <= 0:
+        lines.append("Критичные риски по остаткам и логистике по текущим данным не выявлены.")
+    lines.append("")
+
+    lines.append("## 🎯 Главный вывод")
+    if monthly_loss > 0:
+        main_problem = "слив бюджета на рекламе"
+    elif frozen_stock_value > 0:
+        main_problem = "замороженные деньги в остатках"
+    elif logistic_loss > 0 or regions_over_150_count > 0:
+        main_problem = "дорогая логистика"
+    else:
+        main_problem = "критичных потерь не выявлено"
+
+    if len(growth_hypotheses_items) > 0:
+        main_growth = "запуск тестов по запросам с высоким CTR без рекламы"
+    elif len(search_effective_items) > 0:
+        main_growth = "масштабирование эффективных поисковых запросов"
+    else:
+        main_growth = "накопление данных и тест новых гипотез"
+
+    lines.append(f"Основная проблема — {main_problem}")
+    lines.append(f"Основная точка роста — {main_growth}")
+    lines.append("")
+
+    lines.append("## 💡")
+    lines.append("Если ничего не менять:")
+    lines.append(f"→ за год это ~{_rub_short(yearly_loss)} ₽ потерь")
+    lines.append("")
+    _page_break(lines)
+
     lines.append("## Оглавление")
     lines.append(f"Период отчета: {period_label_ru}")
     if audit_kind:
         lines.append(f"Тип аудита: {audit_kind}")
     lines.append("")
+    lines.append("- Executive Summary: краткий итог по кабинету")
     lines.append("- 1. KPI и инсайты")
     lines.append("- 2. 💰 Финансы: сколько реально зарабатываете")
     lines.append("- 3. 📊 Воронка продаж: путь до выкупа")
