@@ -975,9 +975,33 @@ def _coef_pct(value: Any) -> str:
     return _fmt_pct(parsed, 1)
 
 
+def _cabinet_localization_comment(localization_pct: float | None) -> str:
+    if localization_pct is None:
+        return "Локализация не задана — точный расчет ограничен."
+    if localization_pct < 50.0:
+        return "Локализация низкая: значительная часть заказов едет не локально, это повышает расходы."
+    if localization_pct <= 70.0:
+        return "Локализация средняя: есть потенциал для улучшения."
+    return "Локализация хорошая: логистика ближе к оптимальной."
+
+
+def _cabinet_localization_recommendation(localization_pct: float | None) -> str | None:
+    if localization_pct is None:
+        return None
+    if localization_pct <= 40.0:
+        return (
+            "Локализация низкая. Стоит перераспределять остатки в регионы с высоким спросом, "
+            "чтобы снижать долю межрегиональных заказов."
+        )
+    if localization_pct < 70.0:
+        return "Стоит усилить распределение остатков по ключевым регионам, чтобы приблизиться к цели 70%."
+    return None
+
+
 def _region_logistics_section_lines(facts: dict[str, Any]) -> list[str]:
     lines: list[str] = ["## 9. Логистика: где переплачиваете"]
 
+    logistics_summary = facts.get("logistics_summary") if isinstance(facts.get("logistics_summary"), dict) else {}
     impact = facts.get("regional_logistics_impact") if isinstance(facts.get("regional_logistics_impact"), dict) else {}
     region_summary = facts.get("region_logistics_summary") if isinstance(facts.get("region_logistics_summary"), dict) else {}
     high_risk_regions = impact.get("high_risk_regions") if isinstance(impact.get("high_risk_regions"), list) else []
@@ -990,13 +1014,29 @@ def _region_logistics_section_lines(facts: dict[str, Any]) -> list[str]:
     weighted_coef = _to_float(impact.get("weighted_region_coef_pct"))
     routes_available = bool(impact.get("routes_available"))
     non_local_share = _to_float((facts.get("localization_loss") or {}).get("non_local_orders_share"))
+    localization_pct = _to_float(logistics_summary.get("localization_pct"))
+    avg_cost_est = _to_float(logistics_summary.get("avg_logistics_cost_est"))
+    estimated_total = _to_float(logistics_summary.get("estimated_logistics_total"))
+    orders_count = _to_int(logistics_summary.get("orders_count"))
 
-    if not impact and not region_summary:
+    if not impact and not region_summary and not logistics_summary:
         lines.append("- Данные по региональной логистике не загружены; денежная оценка недоступна.")
         lines.append("")
         return lines
 
     lines.append("### Краткий вывод")
+    if localization_pct is None:
+        lines.append("- Локализация не задана — точный расчет ограничен.")
+    else:
+        lines.append(f"- Локализация по кабинету: **{_fmt_pct(localization_pct, 1)}**.")
+    if avg_cost_est is not None:
+        lines.append(f"- Средняя оценка логистики на заказ: **{_money(avg_cost_est)}**.")
+    if estimated_total is not None:
+        lines.append(f"- Оценка общей логистики за период: **{_money(estimated_total)}**.")
+    if orders_count > 0:
+        lines.append(f"- Заказов в расчете: **{orders_count}**.")
+    lines.append(f"- {_cabinet_localization_comment(localization_pct)}")
+
     if mode == "full_rub" and total_overpay is not None:
         lines.append(f"- Оценочная переплата на логистике за период: **{_money(total_overpay)}**.")
         if weighted_coef is not None:
@@ -1196,6 +1236,7 @@ def _impact_label_from_row(row: dict[str, Any]) -> str:
 def _logistics_overpayment_section_lines(facts: dict[str, Any]) -> list[str]:
     lines: list[str] = ["## 10. Переплата за логистику"]
     model = facts.get("logistics_formula_model") if isinstance(facts.get("logistics_formula_model"), dict) else {}
+    logistics_summary = facts.get("logistics_summary") if isinstance(facts.get("logistics_summary"), dict) else {}
 
     missing_inputs = model.get("missing_inputs") if isinstance(model.get("missing_inputs"), list) else []
     mode = _text(model.get("mode")).upper()
@@ -1221,8 +1262,27 @@ def _logistics_overpayment_section_lines(facts: dict[str, Any]) -> list[str]:
     risk_level = _localization_risk_label(
         model.get("risk_level") or _localization_risk_from_share(localization_share_pct)
     )
+    cabinet_localization_pct = _to_float(logistics_summary.get("localization_pct"))
+    cabinet_overpay = _to_float(logistics_summary.get("potential_overpay_due_localization"))
+    cabinet_target_pct = _to_float(logistics_summary.get("target_localization_pct"))
+    if cabinet_target_pct is None:
+        cabinet_target_pct = 70.0
 
     lines.append("### Краткий вывод")
+    if cabinet_localization_pct is None:
+        lines.append("- Локализация не задана — точный расчет ограничен.")
+    else:
+        lines.append(
+            f"- Текущая локализация: **{_fmt_pct(cabinet_localization_pct, 1)}**, целевая: **{_fmt_pct(cabinet_target_pct, 1)}**."
+        )
+        if cabinet_overpay is not None:
+            lines.append(f"- Ориентировочная переплата за период: **{_money(cabinet_overpay)}**.")
+            lines.append(
+                f"- При локализации {_fmt_pct(cabinet_localization_pct, 1)} кабинет переплачивает за логистику ориентировочно "
+                f"**{_money(cabinet_overpay)}** за период относительно сценария с локализацией {_fmt_pct(cabinet_target_pct, 1)}."
+            )
+        lines.append("- Это модельная оценка для приоритезации действий.")
+
     lines.append(f"- Риск влияния локализации: **{risk_level}**.")
     for msg in _localization_human_message(
         localization_share_pct=localization_share_pct,
@@ -1316,6 +1376,7 @@ def _logistics_overpayment_section_lines(facts: dict[str, Any]) -> list[str]:
 def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
     lines: list[str] = ["## 11. Потери из-за плохой локализации"]
     payload = facts.get("localization_loss") if isinstance(facts.get("localization_loss"), dict) else {}
+    logistics_summary = facts.get("logistics_summary") if isinstance(facts.get("logistics_summary"), dict) else {}
 
     status = _text(payload.get("status") or "insufficient_data")
     estimation_mode = _text(payload.get("estimation_mode") or "insufficient_data")
@@ -1326,9 +1387,17 @@ def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
     missing_inputs = payload.get("missing_inputs") if isinstance(payload.get("missing_inputs"), list) else []
     top_rows = payload.get("top_loss_sku") if isinstance(payload.get("top_loss_sku"), list) else []
     recommendations = payload.get("recommendations") if isinstance(payload.get("recommendations"), list) else []
+    localization_pct = _to_float(logistics_summary.get("localization_pct"))
+    cabinet_overpay = _to_float(logistics_summary.get("potential_overpay_due_localization"))
+    if total_loss is None and cabinet_overpay is not None:
+        total_loss = cabinet_overpay
 
     lines.append("### Оценка за период")
     lines.append(f"- Режим оценки: **{estimation_mode}**.")
+    if localization_pct is None:
+        lines.append("- Локализация не задана — точный расчет ограничен.")
+    else:
+        lines.append(f"- Локализация по кабинету: **{_fmt_pct(localization_pct, 1)}**.")
     if total_loss is not None:
         lines.append(f"- Оценка потерь из-за локализации: **{_money(total_loss)}** за период.")
     else:
@@ -1401,8 +1470,18 @@ def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
             effect = _text(rec.get("expected_effect"))
             if action:
                 lines.append(f"- {action}. Причина: {why}. Ожидаемый эффект: {effect}.")
+        manual_rec = _cabinet_localization_recommendation(localization_pct)
+        if manual_rec:
+            lines.append(f"- {manual_rec}")
     else:
-        lines.append("- Дополнительные рекомендации появятся после уточнения данных по локализации и маршрутам заказов.")
+        manual_rec = _cabinet_localization_recommendation(localization_pct)
+        if manual_rec:
+            lines.append(f"- {manual_rec}")
+        else:
+            lines.append("- Дополнительные рекомендации появятся после уточнения данных по локализации и маршрутам заказов.")
+
+    if localization_pct is not None and isinstance(facts.get("region_logistics_summary"), dict) and facts.get("region_logistics_summary"):
+        lines.append("- Используйте данные по регионам спроса для приоритизации перераспределения остатков.")
     lines.append("")
     return lines
 

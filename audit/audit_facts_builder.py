@@ -10,6 +10,8 @@ from collections import defaultdict
 from zoneinfo import ZoneInfo
 from typing import Any
 
+import pandas as pd
+
 from audit.audit_loader import (
     FILE_TYPES,
     group_detected_files,
@@ -43,6 +45,11 @@ WB_TIMEZONE = ZoneInfo(os.getenv("WB_TIMEZONE", "Europe/Moscow"))
 REQUIRED_TYPES = ("finance", "funnel", "stocks")
 OPTIONAL_TYPES = ("ads", "search", "orders", "cogs")
 LOCAL_MOVE_MIN_BATCH = int(os.getenv("WB_LOCAL_MOVE_MIN_BATCH", "5"))
+LOGISTICS_CONFIG_REL_PATH = os.path.join("logist", "logistics_config.xlsx")
+LOGISTICS_CONFIG_UPDATE_FREQUENCY_DAYS = 14
+LOCAL_COST_PER_ORDER = 50.0
+NON_LOCAL_COST_PER_ORDER = 120.0
+TARGET_LOCALIZATION_PCT = 70.0
 
 
 def _iso(d: dt.date) -> str:
@@ -282,6 +289,192 @@ def _to_float_relaxed(value: Any) -> float | None:
         return float(value)
     except Exception:
         return None
+
+
+def _parse_localization_pct(value: Any) -> float | None:
+    if value is None:
+        return None
+    has_percent_sign = False
+    parsed: float | None = None
+    if isinstance(value, str):
+        text = value.strip().replace("\xa0", " ")
+        if not text:
+            return None
+        has_percent_sign = "%" in text
+        cleaned = text.replace("%", "").replace(" ", "").replace(",", ".")
+        if cleaned == "":
+            return None
+        try:
+            parsed = float(cleaned)
+        except Exception:
+            return None
+    else:
+        parsed = _to_float_or_none(value)
+
+    if parsed is None:
+        return None
+
+    pct = float(parsed)
+    if not has_percent_sign and 0.0 <= pct <= 1.0:
+        pct *= 100.0
+    pct = min(max(pct, 0.0), 100.0)
+    return round(pct, 2)
+
+
+def _norm_key_like(value: Any) -> str:
+    return _norm_text(value).replace("ё", "е")
+
+
+def _is_localization_key(value: Any) -> bool:
+    key = _norm_key_like(value)
+    if not key:
+        return False
+    return any(
+        token in key
+        for token in (
+            "процент локальных заказов",
+            "доля локальных заказов",
+            "локализац",
+            "localization",
+            "local_share",
+            "local share",
+            "localization_pct",
+        )
+    )
+
+
+def _extract_localization_pct_from_df(df: pd.DataFrame) -> float | None:
+    if df is None or df.empty:
+        return None
+
+    work = df.fillna("")
+    row_count = min(int(work.shape[0]), 60)
+    col_count = min(int(work.shape[1]), 12)
+
+    # Priority: rows with explicit localization key + neighbor value.
+    for row_idx in range(row_count):
+        row_values = [work.iat[row_idx, col_idx] for col_idx in range(col_count)]
+        key_positions = [idx for idx, cell in enumerate(row_values) if _is_localization_key(cell)]
+        if not key_positions:
+            continue
+
+        for key_pos in key_positions:
+            ordered_cells = row_values[key_pos + 1 :] + row_values[:key_pos]
+            for candidate in ordered_cells:
+                pct = _parse_localization_pct(candidate)
+                if pct is not None:
+                    return pct
+
+    # Fallback: first parseable numeric value in the sheet.
+    for row_idx in range(row_count):
+        for col_idx in range(col_count):
+            pct = _parse_localization_pct(work.iat[row_idx, col_idx])
+            if pct is not None:
+                return pct
+    return None
+
+
+def _load_logistics_config(input_dir: str) -> dict[str, Any]:
+    source = os.path.join(input_dir, LOGISTICS_CONFIG_REL_PATH).replace("\\", "/")
+    payload = {
+        "localization_pct": None,
+        "source": source,
+        "scope": "cabinet",
+        "update_frequency_days": LOGISTICS_CONFIG_UPDATE_FREQUENCY_DAYS,
+    }
+
+    source_path = os.path.join(input_dir, LOGISTICS_CONFIG_REL_PATH)
+    if not os.path.isfile(source_path):
+        return payload
+
+    try:
+        workbook = pd.read_excel(source_path, sheet_name=None, header=None)
+    except Exception:
+        return payload
+
+    for _, sheet_df in (workbook or {}).items():
+        pct = _extract_localization_pct_from_df(sheet_df)
+        if pct is not None:
+            payload["localization_pct"] = pct
+            return payload
+    return payload
+
+
+def _cabinet_orders_count(funnel_summary: dict[str, Any], financial_summary: dict[str, Any]) -> int:
+    orders = _to_int(funnel_summary.get("orders"))
+    if orders > 0:
+        return orders
+    buys = _to_int(funnel_summary.get("buys"))
+    if buys > 0:
+        return buys
+    finance_sales = _to_int(financial_summary.get("sales_qty"))
+    if finance_sales > 0:
+        return finance_sales
+    return 0
+
+
+def _cabinet_revenue_for_irp(funnel_summary: dict[str, Any], financial_summary: dict[str, Any]) -> float | None:
+    revenue = _to_float_or_none(financial_summary.get("gross_revenue"))
+    if revenue is not None and revenue > 0:
+        return float(revenue)
+    fallback = _to_float_or_none(funnel_summary.get("revenue_buyouts"))
+    if fallback is not None and fallback > 0:
+        return float(fallback)
+    fallback_orders = _to_float_or_none(funnel_summary.get("revenue_orders"))
+    if fallback_orders is not None and fallback_orders > 0:
+        return float(fallback_orders)
+    return None
+
+
+def _build_cabinet_logistics_summary(
+    *,
+    funnel_summary: dict[str, Any],
+    financial_summary: dict[str, Any],
+    logistics_config: dict[str, Any],
+) -> dict[str, Any]:
+    localization_pct = _to_float_or_none(logistics_config.get("localization_pct"))
+    orders_count = _cabinet_orders_count(funnel_summary, financial_summary)
+
+    avg_logistics_cost_est: float | None = None
+    estimated_logistics_total: float | None = None
+    potential_overpay_due_localization: float | None = None
+
+    if localization_pct is not None:
+        local_share = max(0.0, min(1.0, float(localization_pct) / 100.0))
+        avg_logistics_cost_est = (
+            local_share * LOCAL_COST_PER_ORDER + (1.0 - local_share) * NON_LOCAL_COST_PER_ORDER
+        )
+        estimated_logistics_total = float(avg_logistics_cost_est) * float(orders_count)
+
+        target_share = TARGET_LOCALIZATION_PCT / 100.0
+        target_avg_logistics_cost = (
+            target_share * LOCAL_COST_PER_ORDER + (1.0 - target_share) * NON_LOCAL_COST_PER_ORDER
+        )
+        potential_overpay = (float(avg_logistics_cost_est) - float(target_avg_logistics_cost)) * float(orders_count)
+        potential_overpay_due_localization = max(0.0, potential_overpay)
+
+    revenue = _cabinet_revenue_for_irp(funnel_summary, financial_summary)
+    logistics_fact = _to_float_or_none(financial_summary.get("logistics"))
+    logistics_used = logistics_fact if (logistics_fact is not None and logistics_fact > 0) else estimated_logistics_total
+    cogs = _to_float_or_none(financial_summary.get("cogs_total")) or 0.0
+    commission = _to_float_or_none(financial_summary.get("commission")) or 0.0
+    irp = None
+    if revenue is not None and revenue > 0 and logistics_used is not None:
+        irp = (float(revenue) - float(logistics_used) - float(cogs) - float(commission)) / float(revenue)
+
+    return {
+        "localization_pct": round(float(localization_pct), 2) if localization_pct is not None else None,
+        "orders_count": int(orders_count),
+        "avg_logistics_cost_est": round(float(avg_logistics_cost_est), 2) if avg_logistics_cost_est is not None else None,
+        "estimated_logistics_total": round(float(estimated_logistics_total), 2)
+        if estimated_logistics_total is not None
+        else None,
+        "target_localization_pct": float(TARGET_LOCALIZATION_PCT),
+        "potential_overpay_due_localization": round(float(potential_overpay_due_localization), 2)
+        if potential_overpay_due_localization is not None
+        else None,
+        "irp": round(float(irp), 4) if irp is not None else None,
+    }
 
 
 def _extract_first_numeric_from_rows(
@@ -3645,6 +3838,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         ads_rows=ads_rows,
         orders_rows=orders_rows,
     )
+    logistics_config = _load_logistics_config(input_dir=input_dir)
     local_orders_insights = _build_local_orders_insights(
         orders_rows=orders_rows,
         funnel_rows=funnel_rows,
@@ -3694,6 +3888,75 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
                 "error": f"logistics_formula_model_failed: {exc}",
             },
         }
+
+    config_localization_pct = _to_float_or_none(logistics_config.get("localization_pct"))
+    if isinstance(logistics_formula_model, dict) and config_localization_pct is not None:
+        logistics_formula_model["localization_share_pct"] = round(float(config_localization_pct), 2)
+        input_candidates = (
+            logistics_formula_model.get("input_candidates")
+            if isinstance(logistics_formula_model.get("input_candidates"), dict)
+            else {}
+        )
+        input_candidates["localization_share_pct"] = round(float(config_localization_pct), 2)
+        logistics_formula_model["input_candidates"] = input_candidates
+
+        inputs_available = (
+            logistics_formula_model.get("inputs_available")
+            if isinstance(logistics_formula_model.get("inputs_available"), dict)
+            else {}
+        )
+        inputs_available["localization_share_pct"] = True
+        logistics_formula_model["inputs_available"] = inputs_available
+
+        recalculated = compute_wb_logistics_estimate(
+            volume_liters=_to_float_or_none(logistics_formula_model.get("volume_liters")),
+            item_price=_to_float_or_none(logistics_formula_model.get("item_price")),
+            warehouse_coef=_to_float_or_none(logistics_formula_model.get("warehouse_coef")) or 1.0,
+            localization_share_pct=float(config_localization_pct),
+            supply_type=SUPPLY_TYPE_BOX,
+            is_sgt=False,
+            is_courier_wb=False,
+        )
+        for key in (
+            "base_logistics",
+            "localization_index",
+            "sales_distribution_index_pct",
+            "sales_distribution_component",
+            "estimated_delivery_cost",
+            "neutral_estimated_delivery_cost",
+            "overpayment_absolute",
+            "overpayment_pct_vs_neutral",
+            "estimated_reverse_logistics",
+            "estimated_storage_daily",
+            "missing_inputs",
+            "explanation",
+            "status",
+            "diagnostics",
+            "tariff_per_liter",
+        ):
+            if key in recalculated:
+                logistics_formula_model[key] = recalculated.get(key)
+
+        if float(config_localization_pct) >= 70.0:
+            logistics_formula_model["risk_level"] = "low"
+        elif float(config_localization_pct) >= 40.0:
+            logistics_formula_model["risk_level"] = "medium"
+        else:
+            logistics_formula_model["risk_level"] = "high"
+
+        has_delivery = _to_float_or_none(logistics_formula_model.get("estimated_delivery_cost")) is not None
+        has_volume = bool((logistics_formula_model.get("inputs_available") or {}).get("volume_liters"))
+        has_price = bool((logistics_formula_model.get("inputs_available") or {}).get("item_price"))
+        if has_delivery and has_volume and has_price:
+            logistics_formula_model["mode"] = "A"
+        else:
+            logistics_formula_model["mode"] = "B"
+
+    logistics_summary = _build_cabinet_logistics_summary(
+        funnel_summary=funnel_summary,
+        financial_summary=financial_summary,
+        logistics_config=logistics_config,
+    )
     finance_status = "ok" if _to_int(financial_summary.get("rows_count")) > 0 else "missing"
     try:
         sku_performance = analyze_sku_performance(
@@ -3891,6 +4154,8 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "sku_dimensions": sku_dimensions,
         "volume_coverage": volume_coverage,
         "search_insights": search_insights,
+        "logistics_config": logistics_config,
+        "logistics_summary": logistics_summary,
         "orders_with_geo": (
             local_orders_insights.get("orders_with_geo")
             if isinstance(local_orders_insights.get("orders_with_geo"), list)
