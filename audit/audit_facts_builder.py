@@ -2737,7 +2737,7 @@ def _build_search_insights(
                 bucket = "unprofitable"
                 action = "Отключить"
                 unprofitable.append(item)
-            elif orders > 0 and drr is not None and drr > 0.30:
+            elif spend > 0 and orders > 0 and drr is not None and drr > 0.25:
                 bucket = "weak"
                 action = "Снизить ставку"
                 weak.append(item)

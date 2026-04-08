@@ -5,6 +5,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from audit.audit_facts_builder import _build_search_insights
 from audit.audit_report import build_audit_markdown
 
 
@@ -16,7 +17,7 @@ def _base_facts() -> dict:
         "audit_period": {
             "date_from": "2026-04-01",
             "date_to": "2026-04-05",
-            "label_ru": "с 01.04.2026 по 05.04.2026",
+            "label_ru": "period",
         },
         "inputs": {
             "selected_files": {},
@@ -39,7 +40,7 @@ def _base_facts() -> dict:
         "ads_summary": {"spend": 0, "roas": None, "impressions": 0, "clicks": 0, "drr": None},
         "stock_summary": {"stock_units": 0, "sku_count": 0, "days_of_cover": 0, "risk_of_oos": False},
         "search_insights": {"status": "missing"},
-        "local_orders_insights": {"available": False, "message": "нет данных"},
+        "local_orders_insights": {"available": False, "message": "no data"},
         "decision_layer": {"reasons_of_loss": [], "unprofitable_sku": []},
         "sku_profit": [],
         "actions": [],
@@ -53,98 +54,97 @@ def _base_facts() -> dict:
     }
 
 
-def test_report_search_block_renders_categories_and_actions() -> None:
+def test_report_search_tables_include_sku_grouping_and_no_text_decode_block() -> None:
     facts = _base_facts()
     facts["search_insights"] = {
         "status": "ok",
         "base_rows": [
-            {
-                "query": "платье женское",
-                "nmId": 405933491,
-                "clicks": 80,
-                "add_to_cart": 14,
-                "orders": 9,
-                "buyouts": 7,
-                "spend": 1200.0,
-                "revenue": 18000.0,
-            },
-            {
-                "query": "платье в офис",
-                "nmId": 810239842,
-                "clicks": 120,
-                "add_to_cart": 0,
-                "orders": 0,
-                "buyouts": 0,
-                "spend": 2100.0,
-                "revenue": 0.0,
-            },
-            {
-                "query": "платье миди",
-                "nmId": 0,
-                "seller_article": "ART-55",
-                "clicks": 55,
-                "add_to_cart": 11,
-                "orders": 0,
-                "buyouts": 0,
-                "spend": 900.0,
-                "revenue": 0.0,
-            },
+            {"query": "growth-1", "nmId": 12345, "impressions": 120, "clicks": 30, "spend": 0.0},
+            {"query": "growth-2", "nmId": 12345, "impressions": 90, "clicks": 18, "spend": 0.0},
         ],
+        "unprofitable": [
+            {"query": "loss-q1", "nmId": 12345, "impressions": 1000, "clicks": 40, "ctr": 4.0, "spend": 700.0, "orders": 0, "revenue": 0.0, "action": "Отключить"},
+            {"query": "loss-q2", "nmId": 12345, "impressions": 800, "clicks": 30, "ctr": 3.75, "spend": 500.0, "orders": 0, "revenue": 0.0, "action": "Отключить"},
+        ],
+        "weak": [
+            {"query": "weak-q1", "nmId": 55555, "impressions": 900, "clicks": 60, "ctr": 6.67, "spend": 800.0, "orders": 2, "revenue": 2400.0, "drr": 0.33, "action": "Снизить ставку"},
+        ],
+        "effective": [
+            {"query": "eff-q1", "nmId": 66666, "impressions": 1100, "clicks": 70, "ctr": 6.36, "spend": 600.0, "orders": 8, "revenue": 5000.0, "drr": 0.12, "action": "Масштабировать"},
+        ],
+        "growth_hypotheses": [
+            {"query": "growth-1", "impressions": 120, "clicks": 30, "ctr": 25.0, "spend": 0.0},
+            {"query": "growth-2", "impressions": 90, "clicks": 18, "ctr": 20.0, "spend": 0.0},
+        ],
+        "orders_data": {"available": True, "source": "search", "message": "ok"},
     }
 
     md = build_audit_markdown(facts)
 
     assert "## 12. Поисковые запросы" in md
-    assert "эффективных запросов (дают заказы)" in md
-    assert "неэффективных (сливают бюджет)" in md
-    assert "с потенциалом" in md
-    assert "### Эффективные запросы (оставить и масштабировать)" in md
-    assert "### Неэффективные запросы (отключить / снизить ставки)" in md
-    assert "### Запросы с потенциалом (доработать карточку)" in md
-    assert "| Запрос | SKU | Клики | CTR | В корзину | Заказы | CR | Расход | Выручка | Прибыль (оценка) | ДРР | Вывод |" in md
-    assert "### Деньги в поиске" in md
-    assert "Потери на неэффективных запросах" in md
-    assert "работает" in md
-    assert "сливает бюджет" in md
-    assert "нужно улучшить карточку" in md
-    assert "ART-55" in md
-    assert "### Что делать с поиском" in md
-    assert "### Связь с SKU" in md
-    assert "SKU 405933491:" in md
-    assert "SKU 810239842:" in md
-    assert "5. Поиск: отключить / снизить ставки:" in md
-    assert "6. Поиск: масштабировать:" in md
+    assert "Слабые запросы — есть заказы, но высокая стоимость привлечения (высокий ДРР)" in md
+    assert "| Артикул | Запрос | Показы | Клики | CTR | Расход | Заказы | Действие |" in md
+    assert "| Артикул | Запрос | Показы | Клики | CTR | Расход | Заказы | ДРР | Действие |" in md
+    assert "| Артикул | Запрос | Показы | Клики | CTR | Реклама | Действие |" in md
+    assert "| 12345 | loss-q1 |" in md
+    assert "|  | loss-q2 |" in md
+    assert "### Что делать" not in md
 
 
-def test_search_ignores_zero_spend_rows_for_ineffective_bucket() -> None:
+def test_report_search_tables_show_rk_column_when_present() -> None:
     facts = _base_facts()
     facts["search_insights"] = {
         "status": "ok",
-        "base_rows": [
-            {
-                "query": "без рекламы",
-                "nmId": 111,
-                "clicks": 50,
-                "add_to_cart": 0,
-                "orders": 0,
-                "buyouts": 0,
-                "spend": 0.0,
-                "revenue": 0.0,
-            },
-            {
-                "query": "с рекламой",
-                "nmId": 222,
-                "clicks": 40,
-                "add_to_cart": 0,
-                "orders": 0,
-                "buyouts": 0,
-                "spend": 500.0,
-                "revenue": 0.0,
-            },
-        ],
+        "base_rows": [{"query": "q1", "nmId": 123, "rk": "RK-01", "impressions": 100, "clicks": 10, "spend": 0.0}],
+        "unprofitable": [{"query": "q1", "nmId": 123, "rk": "RK-01", "impressions": 100, "clicks": 10, "ctr": 10.0, "spend": 100.0, "orders": 0, "revenue": 0.0}],
+        "weak": [{"query": "q2", "nmId": 124, "rk": "RK-02", "impressions": 100, "clicks": 20, "ctr": 20.0, "spend": 200.0, "orders": 1, "revenue": 500.0, "drr": 0.4}],
+        "effective": [{"query": "q3", "nmId": 125, "rk": "RK-03", "impressions": 100, "clicks": 30, "ctr": 30.0, "spend": 100.0, "orders": 5, "revenue": 1000.0, "drr": 0.1}],
+        "growth_hypotheses": [{"query": "q1", "impressions": 100, "clicks": 20, "ctr": 20.0, "spend": 0.0, "rk": "RK-01"}],
+        "orders_data": {"available": True, "source": "search", "message": "ok"},
     }
 
     md = build_audit_markdown(facts)
-    assert "Найдено (только запросы с рекламой, spend > 0):" in md
-    assert "пропущено 1 строк без рекламного расхода (spend = 0)" in md
-    assert "| Строк с рекламой (spend > 0) | 1 |" in md
+    assert "| Артикул | Запрос | РК | Показы | Клики | CTR | Расход | Заказы | Действие |" in md
+    assert "| Артикул | Запрос | РК | Показы | Клики | CTR | Расход | Заказы | ДРР | Действие |" in md
+    assert "| Артикул | Запрос | РК | Показы | Клики | CTR | Реклама | Действие |" in md
+
+
+def test_search_weak_bucket_uses_drr_threshold_25pct() -> None:
+    insights = _build_search_insights(
+        selected_search_files=["search.xlsx"],
+        search_rows=[
+            {
+                "query": "weak-26",
+                "nmId": 111,
+                "seller_article": "",
+                "impressions": 100,
+                "clicks": 20,
+                "add_to_cart": 5,
+                "orders": 2,
+                "buyouts": 0,
+                "spend": 260.0,
+                "revenue": 1000.0,
+            },
+            {
+                "query": "effective-18",
+                "nmId": 222,
+                "seller_article": "",
+                "impressions": 100,
+                "clicks": 20,
+                "add_to_cart": 5,
+                "orders": 2,
+                "buyouts": 0,
+                "spend": 180.0,
+                "revenue": 1000.0,
+            },
+        ],
+        search_parse_diag={"status": "ok", "recognized_columns": {"orders": True}},
+        ads_rows=[],
+        orders_rows=[],
+    )
+
+    weak_queries = {str(x.get("query")) for x in (insights.get("weak") or []) if isinstance(x, dict)}
+    effective_queries = {str(x.get("query")) for x in (insights.get("effective") or []) if isinstance(x, dict)}
+
+    assert "weak-26" in weak_queries
+    assert "effective-18" in effective_queries
