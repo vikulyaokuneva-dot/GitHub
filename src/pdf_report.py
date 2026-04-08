@@ -314,6 +314,13 @@ def _format_toc_entry(title: str, page: int | None) -> str:
     return f"{clean_title} {'.' * dots_count} {page_token}"
 
 
+def _format_toc_leader_title(title: str) -> str:
+    clean_title = _coerce_text(title).strip()
+    target_width = 62
+    dots_count = max(6, target_width - len(clean_title))
+    return f"{clean_title} {'.' * dots_count}"
+
+
 def _resolve_toc_page(entry_title: str, section_pages: dict[str, int]) -> int | None:
     entry_key = _normalize_heading_key(entry_title)
     if not entry_key:
@@ -452,8 +459,27 @@ def _build_story(
                 toc_title = _extract_toc_entry_title(line)
                 if toc_title:
                     page = _resolve_toc_page(toc_title, toc_pages or {}) if toc_pages else None
-                    entry_line = _format_toc_entry(toc_title, page) if toc_pages is not None else toc_title
-                    story.append(Paragraph(_esc(entry_line), body))
+                    page_token = "н/д" if page is None else str(page)
+                    leader = _format_toc_leader_title(toc_title)
+                    toc_table = Table(
+                        [[Paragraph(_esc(leader), body), Paragraph(_esc(page_token), body)]],
+                        colWidths=[doc.width - 18 * mm, 18 * mm],
+                        hAlign="LEFT",
+                    )
+                    toc_table.setStyle(
+                        TableStyle(
+                            [
+                                ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+                                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                            ]
+                        )
+                    )
+                    story.append(toc_table)
+                    story.append(Spacer(1, 1))
                     continue
 
             bullet_match = re.match(r"^\s*[-*•]\s+(.*)$", line)
