@@ -93,6 +93,23 @@ TYPE_COLUMN_HINTS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+STORAGE_COLUMN_ALIASES: tuple[str, ...] = (
+    "Хранение, руб",
+    "Хранение (руб)",
+    "Хранение руб",
+    "Стоимость хранения",
+    "Услуги по хранению",
+    "Услуги по хранению, руб",
+    "Хранение товара",
+    "Хранение",
+    "storage_fee",
+    "storage fee",
+    "storagefee",
+    "storage_cost",
+    "storage cost",
+    "storage",
+)
+
 
 def _norm(text: Any) -> str:
     s = "" if text is None else str(text)
@@ -157,17 +174,61 @@ def _to_seller_token(x: Any) -> str:
     return " ".join(text.replace("\xa0", " ").split()).lower()
 
 
+def _is_missing_cell(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() == ""
+    try:
+        return bool(pd.isna(value))
+    except Exception:
+        return False
+
+
 def _lookup(row: dict[str, Any], aliases: tuple[str, ...]) -> Any:
     normalized = {_norm(k): v for k, v in row.items()}
+    first_found = None
+    has_first = False
     for alias in aliases:
         key = _norm(alias)
         if key in normalized:
-            return normalized.get(key)
+            value = normalized.get(key)
+            if not has_first:
+                first_found = value
+                has_first = True
+            if not _is_missing_cell(value):
+                return value
+    if has_first:
+        return first_found
     return None
 
 
 def _has_any(row: dict[str, Any], aliases: tuple[str, ...]) -> bool:
     return _lookup(row, aliases) not in (None, "", [])
+
+
+def _resolve_storage_column(columns: list[Any]) -> str | None:
+    normalized_to_original: dict[str, str] = {}
+    ordered_pairs: list[tuple[str, str]] = []
+    for raw_name in columns:
+        original = str(raw_name)
+        normalized = _norm(original)
+        if not normalized:
+            continue
+        normalized_to_original.setdefault(normalized, original)
+        ordered_pairs.append((normalized, original))
+
+    for alias in STORAGE_COLUMN_ALIASES:
+        key = _norm(alias)
+        if key in normalized_to_original:
+            return normalized_to_original.get(key)
+
+    for normalized, original in ordered_pairs:
+        if ("хран" in normalized or "storage" in normalized) and not any(
+            token in normalized for token in ("срок", "дней", "day", "days")
+        ):
+            return original
+    return None
 
 
 def _score_hints(values: list[str], hints: tuple[str, ...], per_hit: int, cap: int) -> int:
@@ -416,11 +477,22 @@ def parse_finance_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]]
     df = _read_typed_table(Path(path), "finance")
     if df.empty:
         return [], {"status": "empty_after_parse", "path": path}
+
+    available_columns = [str(col) for col in list(df.columns)]
+    storage_source_column = _resolve_storage_column(list(df.columns))
+    storage_total = 0.0
+    storage_rows_nonzero = 0
+
     rows: list[dict[str, Any]] = []
     skipped_rows = 0
     for _, r in df.iterrows():
         row = dict(r)
         doc_type = str(_lookup(row, ("Тип документа", "Обоснование для оплаты", "doc_type_name", "supplier_oper_name")) or "").strip()
+        storage_value_raw = row.get(storage_source_column) if storage_source_column else _lookup(row, STORAGE_COLUMN_ALIASES)
+        storage_fee = _to_float(storage_value_raw)
+        if abs(storage_fee) > 1e-9:
+            storage_rows_nonzero += 1
+            storage_total += abs(storage_fee)
         payload = {
             "doc_type_name": doc_type,
             "supplier_oper_name": doc_type,
@@ -512,10 +584,11 @@ def parse_finance_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]]
                     ),
                 )
             ),
-            "storage_fee": _to_float(_lookup(row, ("Хранение", "storage_fee", "storage"))),
+            "storage_fee": storage_fee,
             "penalty": _to_float(_lookup(row, ("Общая сумма штрафов", "penalty", "fine"))),
             "_supplier_article": str(_lookup(row, ("Артикул поставщика", "Артикул продавца", "supplierArticle")) or ""),
             "_name": str(_lookup(row, ("Название", "name")) or ""),
+            "_storage_source_column": storage_source_column or "",
             "region": str(
                 _lookup(
                     row,
@@ -543,11 +616,25 @@ def parse_finance_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]]
             ]
         )
         is_total = any(x in marker for x in ("итого", "всего", "total"))
+        has_financial_amount = any(
+            abs(_to_float(payload.get(key))) > 1e-9
+            for key in (
+                "retail_amount",
+                "ppvz_sales_commission",
+                "wb_reward_before_agent",
+                "pvz_compensation",
+                "payment_services_compensation",
+                "payment_services_compensation_amount",
+                "ppvz_for_pay",
+                "delivery_rub",
+                "storage_fee",
+                "penalty",
+            )
+        )
         looks_empty = (
             payload["nm_id"] == 0
             and payload["quantity"] == 0
-            and payload["retail_amount"] == 0.0
-            and payload["ppvz_for_pay"] == 0.0
+            and not has_financial_amount
             and not payload["_name"]
             and not payload["supplier_oper_name"]
         )
@@ -561,6 +648,11 @@ def parse_finance_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]]
         "rows_total": int(len(df)),
         "rows_parsed": int(len(rows)),
         "rows_skipped": int(skipped_rows),
+        "storage_column_found": bool(storage_source_column),
+        "storage_source_column": storage_source_column,
+        "storage_rows_nonzero": int(storage_rows_nonzero),
+        "storage_total": round(float(storage_total), 2),
+        "available_columns": available_columns,
     }
 
 

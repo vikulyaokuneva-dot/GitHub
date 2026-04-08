@@ -2718,10 +2718,27 @@ def _build_inputs_section(
 def _parse_many_finance(files: list[str]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     rows_all: list[dict[str, Any]] = []
     diagnostics = []
+    storage_columns_detected: set[str] = set()
+    storage_column_found = False
+    storage_available_columns: list[str] = []
+    storage_available_seen: set[str] = set()
     for path in files:
         rows, diag = parse_finance_file_with_diagnostics(path)
         rows_all.extend(rows)
         diagnostics.append(diag)
+        if bool(diag.get("storage_column_found")):
+            storage_column_found = True
+        source_column = str(diag.get("storage_source_column") or "").strip()
+        if source_column:
+            storage_columns_detected.add(source_column)
+        available_columns = diag.get("available_columns")
+        if isinstance(available_columns, list):
+            for column in available_columns:
+                column_str = str(column or "").strip()
+                if not column_str or column_str in storage_available_seen:
+                    continue
+                storage_available_seen.add(column_str)
+                storage_available_columns.append(column_str)
 
     deduped, dup_count = _dedupe_rows(
         rows_all,
@@ -2748,6 +2765,9 @@ def _parse_many_finance(files: list[str]) -> tuple[list[dict[str, Any]], dict[st
         "rows_raw_total": len(rows_all),
         "rows_after_dedup": len(deduped),
         "duplicates_removed": int(dup_count),
+        "storage_column_found": bool(storage_column_found),
+        "storage_columns_detected": sorted(storage_columns_detected),
+        "storage_available_columns": storage_available_columns,
         "files": diagnostics,
     }
 
@@ -2851,6 +2871,35 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
     financial_summary["files_count"] = len(selected_files["finance"])
     financial_summary["parse_diagnostics"] = finance_parse_diag
     financial_summary["cogs_parse_diagnostics"] = cogs_parse_diag
+    if not isinstance(financial_summary.get("storage_debug"), dict):
+        financial_summary["storage_debug"] = {}
+    financial_summary["storage_debug"].setdefault("source_column", None)
+    financial_summary["storage_debug"].setdefault("rows_with_storage", 0)
+    financial_summary["storage_debug"].setdefault("storage_total", _to_float(financial_summary.get("storage")))
+    financial_summary["storage_debug"].setdefault(
+        "source_columns_detected",
+        list((finance_parse_diag.get("storage_columns_detected") or []))
+        if isinstance(finance_parse_diag, dict)
+        else [],
+    )
+
+    storage_debug = financial_summary.get("storage_debug") if isinstance(financial_summary.get("storage_debug"), dict) else {}
+    storage_source_column = str(storage_debug.get("source_column") or "").strip()
+    storage_rows_with_values = _to_int(storage_debug.get("rows_with_storage"))
+    storage_total = _to_float(storage_debug.get("storage_total"))
+    storage_available_columns = (
+        list(finance_parse_diag.get("storage_available_columns") or []) if isinstance(finance_parse_diag, dict) else []
+    )
+    if storage_source_column:
+        print("STORAGE DEBUG:")
+        print(f'source_column="{storage_source_column}"')
+        print(f"rows_with_storage={storage_rows_with_values}")
+        print(f"storage_total={storage_total:.2f}")
+    else:
+        print("STORAGE WARNING:")
+        print("No storage column found in financial report")
+        print(f"available_columns={storage_available_columns}")
+
     if "cogs_status" not in financial_summary:
         if not selected_files["cogs"]:
             financial_summary["cogs_status"] = "file_not_found"

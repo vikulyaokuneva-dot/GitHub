@@ -300,6 +300,9 @@ def calc_financial_metrics(
     storage = 0.0
     penalties = 0.0
     payout = 0.0
+    storage_rows_nonzero = 0
+    storage_source_counts: Dict[str, int] = {}
+    storage_source_columns_seen: set[str] = set()
 
     qty_by_sku: Dict[int, int] = {}
     sku_seller_tokens: Dict[int, set[str]] = {}
@@ -377,6 +380,13 @@ def calc_financial_metrics(
             or 0
         )
         row_storage = f(r.get("storage_fee") or r.get("storageFee") or r.get("storage") or 0)
+        storage_source_column_raw = str(r.get("_storage_source_column") or "").strip()
+        if storage_source_column_raw:
+            storage_source_columns_seen.add(storage_source_column_raw)
+        if abs(row_storage) > 1e-9:
+            storage_rows_nonzero += 1
+            if storage_source_column_raw:
+                storage_source_counts[storage_source_column_raw] = storage_source_counts.get(storage_source_column_raw, 0) + 1
         row_penalty = f(r.get("penalty") or r.get("penaltyAmount") or r.get("fine") or 0)
         # payout берется напрямую из finance отчета WB ("К перечислению продавцу"), без перерасчета формулой.
         row_payout = f(r.get("ppvz_for_pay") or r.get("ppvzForPay") or r.get("to_pay") or r.get("toPay") or 0)
@@ -667,6 +677,11 @@ def calc_financial_metrics(
     profit_without_cogs = cogs_status in {"file_not_found", "file_found_not_read", "file_read_not_matched"}
     commission_delta_vs_base = round(commission - base_commission, 2)
     commission_anomaly = bool(abs(commission_delta_vs_base) > 500.0 and abs(commission_delta_vs_base) > abs(base_commission) * 0.2)
+    selected_storage_source_column = None
+    if storage_source_counts:
+        selected_storage_source_column = sorted(storage_source_counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+    elif storage_source_columns_seen:
+        selected_storage_source_column = sorted(storage_source_columns_seen)[0]
 
     return {
         "rows_count": len(rows),
@@ -685,6 +700,12 @@ def calc_financial_metrics(
         "commission_anomaly": commission_anomaly,
         "logistics": round(logistics, 2),
         "storage": round(storage, 2),
+        "storage_debug": {
+            "source_column": selected_storage_source_column,
+            "rows_with_storage": int(storage_rows_nonzero),
+            "storage_total": round(storage, 2),
+            "source_columns_detected": sorted(storage_source_columns_seen),
+        },
         "penalties": round(penalties, 2),
         "payout": round(payout, 2),
         "tax_rate": float(tax_rate),
