@@ -16,6 +16,15 @@ def _to_float(value: Any) -> float | None:
         return None
 
 
+def _to_float_or_none(value: Any) -> float | None:
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
 def _to_int(value: Any) -> int:
     try:
         if value is None or value == "":
@@ -2667,6 +2676,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     search_disable_targets: list[str] = []
     search_scale_targets: list[str] = []
     search_optimize_targets: list[str] = []
+    search_growth_targets: list[str] = []
     search_ineffective_spend_total = 0.0
     search_scale_profit_total = 0.0
     search_potential_profit_total: float | None = None
@@ -2678,10 +2688,12 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         effective_rows = search.get("effective") if isinstance(search.get("effective"), list) else []
         weak_rows = search.get("weak") if isinstance(search.get("weak"), list) else []
         unprofitable_rows = search.get("unprofitable") if isinstance(search.get("unprofitable"), list) else []
+        growth_rows = search.get("growth_hypotheses") if isinstance(search.get("growth_hypotheses"), list) else []
 
         search_effective_rows = [row for row in effective_rows if isinstance(row, dict)]
         search_potential_rows = [row for row in weak_rows if isinstance(row, dict)]
         search_ineffective_rows = [row for row in unprofitable_rows if isinstance(row, dict)]
+        growth_rows = [row for row in growth_rows if isinstance(row, dict)]
 
         if not search_effective_rows and not search_potential_rows and not search_ineffective_rows:
             valid_rows = [row for row in base_rows if isinstance(row, dict)]
@@ -2747,8 +2759,10 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             table_rows = [
                 [
                     _text(item.get("query")),
-                    _money(item.get("spend")),
+                    _to_int(item.get("impressions")),
                     _to_int(item.get("clicks")),
+                    _fmt_pct(_to_float_or_none(item.get("ctr")), 2),
+                    _money(item.get("spend")),
                     _to_int(item.get("orders")),
                     _text(item.get("action") or "Отключить"),
                 ]
@@ -2756,9 +2770,9 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             ]
             _append_markdown_table(
                 lines,
-                ["Запрос", "Расход", "Клики", "Заказы", "Действие"],
+                ["Запрос", "Показы", "Клики", "CTR", "Расход", "Заказы", "Действие"],
                 table_rows,
-                align_right={1, 2, 3},
+                align_right={1, 2, 3, 4, 5},
             )
 
         def _render_bucket_table(title: str, rows: list[dict[str, Any]], default_action: str) -> None:
@@ -2770,8 +2784,10 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             table_rows = [
                 [
                     _text(item.get("query")),
-                    _money(item.get("spend")),
+                    _to_int(item.get("impressions")),
                     _to_int(item.get("clicks")),
+                    _fmt_pct(_to_float_or_none(item.get("ctr")), 2),
+                    _money(item.get("spend")),
                     _to_int(item.get("orders")),
                     _pct_ratio(item.get("drr")),
                     _text(item.get("action") or default_action),
@@ -2780,18 +2796,49 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             ]
             _append_markdown_table(
                 lines,
-                ["Запрос", "Расход", "Клики", "Заказы", "ДРР", "Действие"],
+                ["Запрос", "Показы", "Клики", "CTR", "Расход", "Заказы", "ДРР", "Действие"],
                 table_rows,
-                align_right={1, 2, 3, 4},
+                align_right={1, 2, 3, 4, 5, 6},
             )
 
         _render_unprofitable_table(search_ineffective_rows)
         _render_bucket_table("### B. TOP-10 слабых запросов", search_potential_rows, "Снизить ставку")
         _render_bucket_table("### C. TOP-10 эффективных запросов", search_effective_rows, "Масштабировать")
 
+        lines.append("### 🚀 D. Гипотезы роста")
+        if growth_rows:
+            lines.append("Найдены запросы с высоким CTR без рекламы:")
+            lines.append("→ пользователи активно кликают")
+            lines.append("→ спрос подтвержден")
+            lines.append("")
+            lines.append("Рекомендуется:")
+            lines.append("запустить рекламу и протестировать эти запросы")
+            lines.append("")
+            growth_table_rows = [
+                [
+                    _text(item.get("query")),
+                    _to_int(item.get("impressions")),
+                    _to_int(item.get("clicks")),
+                    _fmt_pct(_to_float_or_none(item.get("ctr")), 2),
+                    "нет",
+                    "Протестировать",
+                ]
+                for item in growth_rows[:10]
+            ]
+            _append_markdown_table(
+                lines,
+                ["Запрос", "Показы", "Клики", "CTR", "Реклама", "Действие"],
+                growth_table_rows,
+                align_right={1, 2, 3},
+            )
+        else:
+            lines.append("Запросов с высоким CTR без рекламы не найдено")
+            lines.append("")
+
         search_disable_targets = _search_target_labels(search_ineffective_rows, limit=7)
         search_scale_targets = _search_target_labels(search_effective_rows, limit=7)
         search_optimize_targets = _search_target_labels(search_potential_rows, limit=7)
+        search_growth_targets = _search_target_labels(growth_rows, limit=7)
 
         lines.append("### Что делать")
         lines.append("1. Отключить:")
@@ -2822,6 +2869,16 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             f"- Валовая отдача (revenue - spend): {_money(search_scale_profit_total)}."
             if search_scale_profit_total > 0
             else "- Валовая отдача: не подтверждена по текущим данным."
+        )
+        lines.append("")
+        lines.append("4. Гипотезы роста (без рекламы):")
+        lines.append(
+            f"- {', '.join(search_growth_targets) if search_growth_targets else 'Запросов с высоким CTR без рекламы не найдено'}"
+        )
+        lines.append(
+            "- Запустить тестовые кампании по этим запросам с ограниченным бюджетом и оценить окупаемость."
+            if search_growth_targets
+            else "- Новые гипотезы роста не выявлены по текущим данным."
         )
         lines.append("")
     elif search_status == "missing":
@@ -2933,6 +2990,13 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
                 if (search_potential_profit_total or 0.0) >= 100.0
                 else "Слабые запросы выявлены, но значимая экономия пока не подтверждена (менее 100 RUB)."
             ),
+        )
+    if search_growth_targets:
+        _append_action_row(
+            "P1",
+            "search",
+            f"Протестировать новые поисковые запросы без рекламы: {', '.join(search_growth_targets[:5])}",
+            "Найден подтвержденный спрос (высокий CTR без рекламы) — можно открыть новый источник заказов.",
         )
 
     for action in actions:
@@ -3076,6 +3140,21 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         f"Валовая отдача (revenue - spend): {_money(search_scale_profit_total)}."
         if (search_scale_profit_total or 0.0) >= 100.0
         else "Потенциал прибыли: значимый эффект пока не подтвержден (менее 100 RUB)."
+    )
+    lines.append("")
+    lines.append("7. Поиск: гипотезы роста:")
+    lines.append(
+        f"Запросы: {', '.join(search_growth_targets[:5]) if search_growth_targets else 'Запросов с высоким CTR без рекламы не найдено'}"
+    )
+    lines.append(
+        "Причина: высокий CTR при нулевом расходе — спрос есть, рекламу можно масштабировать тестом."
+        if search_growth_targets
+        else "Причина: в текущих данных не найдено запросов с высоким CTR без рекламы."
+    )
+    lines.append(
+        "Действие: запустить тестовые кампании с небольшим бюджетом и оценить DRR/заказы."
+        if search_growth_targets
+        else "Действие: продолжить сбор данных и пересчитать блок на следующем периоде."
     )
     lines.append("")
     lines.append("## Почему цифры могут отличаться от WB")

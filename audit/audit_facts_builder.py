@@ -2273,6 +2273,7 @@ def _build_search_insights(
             "potential": [],
             "base_rows": [],
             "total_leak_spend": 0.0,
+            "growth_hypotheses": [],
             "orders_data": {
                 "available": False,
                 "source": "missing",
@@ -2293,6 +2294,7 @@ def _build_search_insights(
             "potential": [],
             "base_rows": [],
             "total_leak_spend": 0.0,
+            "growth_hypotheses": [],
             "orders_data": {
                 "available": False,
                 "source": "missing",
@@ -2518,13 +2520,15 @@ def _build_search_insights(
         spend = max(_to_float(item.get("spend")), 0.0)
         orders = max(_to_int(item.get("orders")), 0)
         revenue = max(_to_float(item.get("revenue")), 0.0)
-        ctr = (float(clicks) / float(impressions)) if impressions > 0 else None
+        ctr_ratio = (float(clicks) / float(impressions)) if impressions > 0 else None
+        ctr_pct = (float(ctr_ratio) * 100.0) if ctr_ratio is not None else None
         cpc = (float(spend) / float(clicks)) if clicks > 0 else None
         cr = (float(orders) / float(clicks)) if clicks > 0 else None
         drr = (float(spend) / float(revenue)) if revenue > 0 else None
         roas = (float(revenue) / float(spend)) if spend > 0 else None
 
-        item["ctr"] = round(float(ctr), 4) if ctr is not None else None
+        # CTR is stored in percent (0..100), per audit requirements.
+        item["ctr"] = round(float(ctr_pct), 2) if ctr_pct is not None else None
         item["cpc"] = round(float(cpc), 4) if cpc is not None else None
         item["cr"] = round(float(cr), 4) if cr is not None else None
         item["drr"] = round(float(drr), 4) if drr is not None else None
@@ -2562,6 +2566,55 @@ def _build_search_insights(
     )
     total_leak_spend = round(sum(max(_to_float(r.get("spend")), 0.0) for r in unprofitable), 2)
 
+    # 7) Growth hypotheses D: high CTR, no ad spend.
+    growth_query_map: dict[str, dict[str, Any]] = {}
+    for row in base_rows:
+        if not isinstance(row, dict):
+            continue
+        query = str(row.get("query") or "").strip()
+        if not query:
+            continue
+        q_norm = _norm_text(query)
+        node = growth_query_map.setdefault(
+            q_norm,
+            {
+                "query": query,
+                "impressions": 0,
+                "clicks": 0,
+                "spend": 0.0,
+            },
+        )
+        node["impressions"] += max(_to_int(row.get("impressions")), 0)
+        node["clicks"] += max(_to_int(row.get("clicks")), 0)
+        node["spend"] += max(_to_float(row.get("spend")), 0.0)
+
+    growth_hypotheses: list[dict[str, Any]] = []
+    for node in growth_query_map.values():
+        impressions = max(_to_int(node.get("impressions")), 0)
+        clicks = max(_to_int(node.get("clicks")), 0)
+        spend = max(_to_float(node.get("spend")), 0.0)
+        ctr_ratio = (float(clicks) / float(impressions)) if impressions > 0 else None
+        ctr_pct = (float(ctr_ratio) * 100.0) if ctr_ratio is not None else None
+        strict_ok = impressions >= 100 and ctr_pct is not None and ctr_pct >= 15.0
+        relaxed_ok = impressions >= 50 and ctr_pct is not None and ctr_pct >= 20.0
+        if spend <= 0 and (strict_ok or relaxed_ok):
+            growth_hypotheses.append(
+                {
+                    "query": str(node.get("query") or ""),
+                    "impressions": int(impressions),
+                    "clicks": int(clicks),
+                    "ctr": round(float(ctr_pct), 2) if ctr_pct is not None else None,
+                    "spend": 0.0,
+                    "action": "Протестировать",
+                    "ads": "нет",
+                }
+            )
+    growth_hypotheses = sorted(
+        growth_hypotheses,
+        key=lambda row: (_to_float_or_none(row.get("ctr")) or -1.0, _to_int(row.get("impressions"))),
+        reverse=True,
+    )
+
     final_status = "ok" if base_rows else ("empty_after_parse" if status == "ok" else status)
     message = "search parsed and enriched with ads"
     if not orders_available:
@@ -2580,6 +2633,7 @@ def _build_search_insights(
         "weak": weak,
         "base_rows": base_rows,
         "total_leak_spend": total_leak_spend,
+        "growth_hypotheses": growth_hypotheses,
         "orders_data": {
             "available": bool(orders_available),
             "source": orders_source,
@@ -2593,6 +2647,7 @@ def _build_search_insights(
             "effective_count": len(effective),
             "potential_count": len(weak),
             "total_leak_spend": total_leak_spend,
+            "growth_hypotheses_count": len(growth_hypotheses),
             "orders_data_available": bool(orders_available),
             "orders_data_source": orders_source,
             "orders_data_message": orders_message,
