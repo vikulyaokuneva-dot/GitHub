@@ -22,6 +22,7 @@ from audit.audit_loader import (
     parse_stocks_file_with_diagnostics,
     scan_input_files,
 )
+from audit.audit_stock_parser import parse_audit_stock_history_with_diagnostics
 from audit.localization_loss import estimate_total_localization_loss
 from audit.logistics_model import SUPPLY_TYPE_BOX, compute_wb_logistics_estimate
 from shared.logistics_reference import (
@@ -2058,34 +2059,81 @@ def _audit_stock_summary(
     *,
     stocks_raw: list[dict[str, Any]],
     stocks_parse_diag: dict[str, Any],
+    stock_history_payload: dict[str, Any] | None,
     avg_daily_sales: float,
     lead_days: int = 14,
     safety_days: int = 7,
 ) -> dict[str, Any]:
-    total_units = 0
+    history = stock_history_payload if isinstance(stock_history_payload, dict) else {}
+    history_totals_raw = history.get("sku_total_stocks")
+    history_warehouses_raw = history.get("sku_stocks_by_warehouse")
+    has_history_totals = isinstance(history_totals_raw, dict) and bool(history_totals_raw)
+
     by_key: dict[str, int] = defaultdict(int)
+    total_units = 0
     parsed_rows = int(stocks_parse_diag.get("parsed_rows") or 0)
     mapped_rows = int(stocks_parse_diag.get("mapped_rows") or 0)
 
-    for r in (stocks_raw or []):
-        if not isinstance(r, dict):
-            continue
-        q = _to_int(r.get("quantityFull") or r.get("quantity") or r.get("qty") or r.get("stock"))
-        key = r.get("nmId") or r.get("nm_id") or r.get("supplierArticle") or r.get("vendorCode")
-        if key:
-            by_key[str(key)] += max(q, 0)
-        if q > 0:
-            total_units += q
+    if has_history_totals:
+        for key_raw, qty_raw in (history_totals_raw or {}).items():
+            key = str(key_raw or "").strip()
+            if not key:
+                continue
+            qty = max(_to_int(qty_raw), 0)
+            by_key[key] += qty
+            total_units += qty
+    else:
+        for r in (stocks_raw or []):
+            if not isinstance(r, dict):
+                continue
+            q = _to_int(r.get("quantityFull") or r.get("quantity") or r.get("qty") or r.get("stock"))
+            key = r.get("nmId") or r.get("nm_id") or r.get("supplierArticle") or r.get("vendorCode")
+            if key:
+                by_key[str(key)] += max(q, 0)
+            if q > 0:
+                total_units += q
 
     sku_count = len(by_key)
     days_of_cover = (float(total_units) / float(avg_daily_sales)) if avg_daily_sales else 0.0
     threshold = int(lead_days + safety_days)
 
-    aggregation_status = stocks_parse_diag.get("status") or "unknown"
+    aggregation_status = str(stocks_parse_diag.get("status") or "unknown")
     if aggregation_status == "ok" and parsed_rows > 0 and total_units == 0:
         aggregation_status = "aggregation_zero_with_nonempty_input"
     if aggregation_status == "ok" and parsed_rows > 0 and mapped_rows == 0:
         aggregation_status = "aggregation_unmapped"
+
+    history_source = str(history.get("source") or "").strip()
+    source = "xlsx_history" if has_history_totals or history_source == "xlsx_history" else "stocks_file"
+    source_sheet = history.get("source_sheet") if has_history_totals else stocks_parse_diag.get("sheet")
+    source_date = history.get("source_date") if has_history_totals else None
+
+    sku_stocks_by_warehouse: dict[str, list[dict[str, Any]]] = {}
+    if isinstance(history_warehouses_raw, dict):
+        for key_raw, rows in history_warehouses_raw.items():
+            key = str(key_raw or "").strip()
+            if not key or not isinstance(rows, list):
+                continue
+            normalized_rows: list[dict[str, Any]] = []
+            for item in rows:
+                if not isinstance(item, dict):
+                    continue
+                warehouse = str(item.get("warehouse") or "").strip()
+                qty = max(_to_int(item.get("qty")), 0)
+                if not warehouse:
+                    continue
+                normalized_rows.append({"warehouse": warehouse, "qty": qty})
+            sku_stocks_by_warehouse[key] = sorted(
+                normalized_rows,
+                key=lambda item: int(item.get("qty") or 0),
+                reverse=True,
+            )
+
+    control_total_history = _to_int(history.get("control_total_history"))
+    control_total_detail = history.get("control_total_detail")
+    control_total_diff = history.get("control_total_diff")
+    control_totals_match = history.get("control_totals_match")
+    warnings = history.get("warnings") if isinstance(history.get("warnings"), list) else []
 
     return {
         "stock_units": int(total_units),
@@ -2094,14 +2142,24 @@ def _audit_stock_summary(
         "risk_of_oos": bool(days_of_cover != 0 and days_of_cover < threshold),
         "threshold_days": threshold,
         "items_count": int(len(stocks_raw or [])),
-        "by_sku_or_article": by_key,
+        "by_sku_or_article": dict(by_key),
+        "source": source,
+        "source_sheet": source_sheet,
+        "source_date": source_date,
+        "sku_total_stocks": dict(by_key),
+        "sku_stocks_by_warehouse": sku_stocks_by_warehouse,
+        "control_total_history": int(control_total_history) if control_total_history > 0 else None,
+        "control_total_detail": _to_int(control_total_detail) if control_total_detail is not None else None,
+        "control_total_diff": _to_int(control_total_diff) if control_total_diff is not None else None,
+        "control_totals_match": bool(control_totals_match) if control_totals_match is not None else None,
+        "warnings": warnings,
         "parsed_rows": parsed_rows,
         "mapped_rows": mapped_rows,
         "aggregation_status": aggregation_status,
         "parse_diagnostics": stocks_parse_diag,
         "note": (
-            "Остатки собраны из выгрузки файлов. "
-            "Если нет Артикул WB, агрегирование идет по артикулу продавца."
+            "Остатки audit-режима приоритетно собраны из листа 'Остатки по дням' "
+            "как сумма по всем складам на выбранную дату."
         ),
     }
 
@@ -2838,9 +2896,61 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
     ads_rows, ads_parse_diag = _parse_many_ads(selected_files["ads"])
     orders_rows, orders_parse_diag = _parse_many_orders(selected_files["orders"])
     funnel_rows = parse_funnel_file(selected_files["funnel"][0]) if selected_files["funnel"] else []
-    stocks_rows, stocks_parse_diag = (
-        parse_stocks_file_with_diagnostics(selected_files["stocks"][0]) if selected_files["stocks"] else ([], {"status": "file_not_provided"})
-    )
+
+    preferred_stock_date = None
+    if period_label and "_" in period_label:
+        try:
+            _, d2s = period_label.split("_", 1)
+            preferred_stock_date = dt.date.fromisoformat(d2s).isoformat()
+        except Exception:
+            preferred_stock_date = None
+
+    stock_history_payload: dict[str, Any] = {
+        "status": "file_not_provided",
+        "rows": [],
+        "warnings": [],
+    }
+    if selected_files["stocks"]:
+        stock_history_payload = parse_audit_stock_history_with_diagnostics(
+            selected_files["stocks"][0],
+            preferred_date=preferred_stock_date,
+        )
+
+    history_rows = stock_history_payload.get("rows") if isinstance(stock_history_payload.get("rows"), list) else []
+    history_ok = str(stock_history_payload.get("status") or "") == "ok" and len(history_rows) > 0
+    if history_ok:
+        stocks_rows = history_rows
+        stocks_parse_diag = {
+            "status": "ok",
+            "path": selected_files["stocks"][0],
+            "sheet": stock_history_payload.get("source_sheet"),
+            "source": stock_history_payload.get("source"),
+            "source_date": stock_history_payload.get("source_date"),
+            "source_date_column": stock_history_payload.get("source_date_column"),
+            "available_dates": stock_history_payload.get("available_dates"),
+            "parsed_rows": stock_history_payload.get("rows_parsed"),
+            "rows_parsed": stock_history_payload.get("rows_parsed"),
+            "mapped_rows": stock_history_payload.get("rows_parsed"),
+            "control_totals_match": stock_history_payload.get("control_totals_match"),
+            "control_total_history": stock_history_payload.get("control_total_history"),
+            "control_total_detail": stock_history_payload.get("control_total_detail"),
+            "warnings": stock_history_payload.get("warnings"),
+        }
+    else:
+        stocks_rows, stocks_parse_diag = (
+            parse_stocks_file_with_diagnostics(selected_files["stocks"][0])
+            if selected_files["stocks"]
+            else ([], {"status": "file_not_provided"})
+        )
+        if selected_files["stocks"] and str(stock_history_payload.get("status") or "") != "file_not_provided":
+            stocks_parse_diag = dict(stocks_parse_diag)
+            stocks_parse_diag["history_parser"] = {
+                "status": stock_history_payload.get("status"),
+                "source_sheet": stock_history_payload.get("source_sheet"),
+                "source_date": stock_history_payload.get("source_date"),
+                "warnings": stock_history_payload.get("warnings"),
+            }
+
     sku_dimensions, volume_coverage = _build_sku_dimensions(stocks_rows)
     volume_coverage["expected_source"] = "stocks"
     volume_coverage["expected_file"] = selected_files["stocks"][0] if selected_files["stocks"] else None
@@ -2931,8 +3041,46 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
     stock_summary = _audit_stock_summary(
         stocks_raw=stocks_rows,
         stocks_parse_diag=stocks_parse_diag,
+        stock_history_payload=stock_history_payload,
         avg_daily_sales=avg_daily_sales,
     )
+    sku_totals_debug = stock_summary.get("sku_total_stocks") if isinstance(stock_summary.get("sku_total_stocks"), dict) else {}
+    sku_warehouses_debug = (
+        stock_summary.get("sku_stocks_by_warehouse")
+        if isinstance(stock_summary.get("sku_stocks_by_warehouse"), dict)
+        else {}
+    )
+    if sku_totals_debug:
+        sorted_sku_totals = sorted(
+            ((str(k), _to_int(v)) for k, v in sku_totals_debug.items()),
+            key=lambda item: int(item[1]),
+            reverse=True,
+        )
+        max_debug_rows = 20
+        for sku_text, total_qty in sorted_sku_totals[:max_debug_rows]:
+            warehouses = sku_warehouses_debug.get(sku_text) if isinstance(sku_warehouses_debug.get(sku_text), list) else []
+            print("STOCK DEBUG:")
+            print(f"sku={sku_text}")
+            print(f"source={stock_summary.get('source_sheet')}")
+            print(f"date={stock_summary.get('source_date')}")
+            print(f"warehouses={len(warehouses)}")
+            print(f"total_stock={int(total_qty)}")
+        if len(sorted_sku_totals) > max_debug_rows:
+            print(f"STOCK DEBUG: skipped {len(sorted_sku_totals) - max_debug_rows} SKU debug rows")
+    else:
+        print("STOCK WARNING:")
+        print("No SKU stock totals parsed from stock history")
+
+    control_totals_match = stock_summary.get("control_totals_match")
+    if control_totals_match is False:
+        print("STOCK WARNING:")
+        print(
+            "Totals mismatch between sheets: "
+            f"history={stock_summary.get('control_total_history')}, "
+            f"detail={stock_summary.get('control_total_detail')}, "
+            f"diff={stock_summary.get('control_total_diff')}"
+        )
+
     search_insights = _build_search_insights(
         selected_search_files=selected_files["search"],
         search_rows=search_rows,

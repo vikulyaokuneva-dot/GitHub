@@ -1439,6 +1439,13 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
     lines: list[str] = ["## 7. ТОП-5 SKU: где зарабатываете и где теряете"]
     payload = facts.get("top5_sku_unit_economics") if isinstance(facts.get("top5_sku_unit_economics"), dict) else {}
     rows = payload.get("items") if isinstance(payload.get("items"), list) else []
+    stock_summary = facts.get("stock_summary") if isinstance(facts.get("stock_summary"), dict) else {}
+    sku_total_stocks = stock_summary.get("sku_total_stocks") if isinstance(stock_summary.get("sku_total_stocks"), dict) else {}
+    sku_stocks_by_warehouse = (
+        stock_summary.get("sku_stocks_by_warehouse")
+        if isinstance(stock_summary.get("sku_stocks_by_warehouse"), dict)
+        else {}
+    )
 
     if not rows:
         message = _text(payload.get("message") or "Недостаточно данных для расчета ТОП-5 SKU по юнит-экономике.")
@@ -1459,9 +1466,36 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
             lines.append("----------------------------------------")
             lines.append("")
 
+        sku_int = _to_int(item.get("sku"))
         sku = _text(item.get("sku") or "н/д")
         category = _text(item.get("category") or "N/A")
         lines.append(f"### SKU: {sku} ({category})")
+
+        stock_total_value = sku_total_stocks.get(str(sku_int))
+        if stock_total_value is None:
+            stock_total_value = sku_total_stocks.get(sku)
+        stock_total = _to_int(stock_total_value) if stock_total_value is not None else None
+        warehouses_raw = sku_stocks_by_warehouse.get(str(sku_int))
+        if warehouses_raw is None:
+            warehouses_raw = sku_stocks_by_warehouse.get(sku)
+        warehouses = warehouses_raw if isinstance(warehouses_raw, list) else []
+        top_warehouses: list[tuple[str, int]] = []
+        for wh_item in warehouses:
+            if not isinstance(wh_item, dict):
+                continue
+            wh_name = _text(wh_item.get("warehouse"))
+            wh_qty = _to_int(wh_item.get("qty"))
+            if not wh_name:
+                continue
+            top_warehouses.append((wh_name, wh_qty))
+        top_warehouses = sorted(top_warehouses, key=lambda item: item[1], reverse=True)
+        if stock_total is not None:
+            lines.append(f"**Общий остаток:** {stock_total} шт")
+            for wh_name, wh_qty in top_warehouses[:3]:
+                lines.append(f"- {wh_name} — {wh_qty} шт")
+            if len(top_warehouses) > 3:
+                lines.append(f"- и еще {len(top_warehouses) - 3} складов")
+            lines.append("")
 
         profit_icon = _status_icon(_profit_status_level(item.get("profit")))
         lines.append(f"**Выручка:** {_money(item.get('revenue'))}")

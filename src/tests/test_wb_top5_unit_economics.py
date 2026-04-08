@@ -151,6 +151,15 @@ def test_top5_unit_economics_payload_filters_and_computes_risk() -> None:
 
 def test_report_renders_top5_unit_economics_block() -> None:
     facts = _base_facts()
+    facts["stock_summary"]["sku_total_stocks"] = {"405933491": 523}
+    facts["stock_summary"]["sku_stocks_by_warehouse"] = {
+        "405933491": [
+            {"warehouse": "Тула", "qty": 91},
+            {"warehouse": "Екатеринбург", "qty": 60},
+            {"warehouse": "Электросталь", "qty": 50},
+            {"warehouse": "Остальные", "qty": 322},
+        ]
+    }
     facts["top5_sku_unit_economics"] = {
         "available": True,
         "items": [
@@ -186,6 +195,11 @@ def test_report_renders_top5_unit_economics_block() -> None:
 
     assert "## 7. ТОП-5 SKU: где зарабатываете и где теряете" in md
     assert "### SKU: 405933491 (A)" in md
+    assert "**Общий остаток:** 523 шт" in md
+    assert "- Остальные — 322 шт" in md
+    assert "- Тула — 91 шт" in md
+    assert "- Екатеринбург — 60 шт" in md
+    assert "- и еще 1 складов" in md
     assert "**Маржа (доля прибыли от выручки):** 47.80% (без COGS)" in md
     assert "**ROI:** ROI не рассчитан (нет себестоимости)" in md
     assert "Реклама:" in md
