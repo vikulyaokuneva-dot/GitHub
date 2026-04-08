@@ -1396,6 +1396,60 @@ def _where_money_lost_section_lines(
     lines.append("")
     return lines
 
+
+def _money_losses_section_lines(money_losses: dict[str, Any]) -> list[str]:
+    losses = money_losses if isinstance(money_losses, dict) else {}
+
+    ads_waste_rub = _to_float(losses.get("ads_waste_rub")) or 0.0
+    ads_waste_count = max(_to_int(losses.get("ads_waste_count")), 0)
+    negative_profit_rub = _to_float(losses.get("negative_profit_rub")) or 0.0
+    negative_profit_sku_count = max(_to_int(losses.get("negative_profit_sku_count")), 0)
+    frozen_stock_value_rub = _to_float(losses.get("frozen_stock_value_rub"))
+    frozen_stock_sku_count = max(_to_int(losses.get("frozen_stock_sku_count")), 0)
+    frozen_stock_qty_units = max(_to_int(losses.get("frozen_stock_qty_units")), 0)
+    storage_risk_sku_count = max(_to_int(losses.get("storage_risk_sku_count")), 0)
+
+    total_direct_losses_rub = _to_float(losses.get("total_direct_losses_rub"))
+    if total_direct_losses_rub is None:
+        total_direct_losses_rub = float(ads_waste_rub) + float(negative_profit_rub)
+
+    lines: list[str] = ["### Потери денег"]
+    lines.append("- Прямые потери считаются отдельно от потенциальных рисков, чтобы не задваивать суммы.")
+    lines.append("")
+
+    lines.append("1. Слив бюджета на рекламе")
+    lines.append(f"- {_money(ads_waste_rub)}")
+    lines.append(f"- {ads_waste_count} запросов/кампаний без продаж")
+
+    lines.append("2. Убыточные товары")
+    lines.append(f"- {_money(negative_profit_rub)}")
+    lines.append(f"- {negative_profit_sku_count} SKU в минусе")
+
+    lines.append("3. Зависшие остатки")
+    if frozen_stock_value_rub is not None:
+        lines.append(f"- {_money(frozen_stock_value_rub)} заморожено в товаре")
+    else:
+        lines.append("- Оценка в рублях недоступна (нет COGS по части SKU)")
+    lines.append(f"- {frozen_stock_sku_count} SKU без продаж/с медленной оборачиваемостью")
+    if frozen_stock_qty_units > 0:
+        lines.append(f"- Объем зависших остатков: {frozen_stock_qty_units} шт")
+
+    lines.append("4. Избыточное хранение")
+    lines.append(f"- Высокий риск доп. расходов на хранение у {storage_risk_sku_count} SKU")
+
+    lines.append("Итого прямые потери:")
+    lines.append(f"- {_money(total_direct_losses_rub)}")
+    lines.append("")
+
+    lines.append("Рекомендации:")
+    lines.append("- Отключить неэффективные запросы/кампании без заказов.")
+    lines.append("- Остановить или пересобрать убыточные SKU.")
+    lines.append("- Распродать зависшие позиции или не дозакупать их.")
+    lines.append("- Пересмотреть размещение остатков по складам и объемы поставок.")
+    lines.append("")
+    return lines
+
+
 def _risk_label_ru(level: Any) -> str:
     key = _text(level).lower()
     mapping = {
@@ -2077,6 +2131,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     search = facts.get("search_insights") or {}
     local_orders_insights = facts.get("local_orders_insights") or {}
     decision = facts.get("decision_layer") or {}
+    money_losses = facts.get("money_losses") if isinstance(facts.get("money_losses"), dict) else {}
     inputs = facts.get("inputs") or {}
     sku_profit = facts.get("sku_profit") or []
     actions = facts.get("actions") or []
@@ -2267,6 +2322,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append("- К перечислению — значение из финансового отчета WB (без перерасчета).")
     lines.append("")
 
+    lines.extend(_money_losses_section_lines(money_losses))
     _page_break(lines)
 
     lines.append("## 3. 📊 Воронка продаж: путь до выкупа")

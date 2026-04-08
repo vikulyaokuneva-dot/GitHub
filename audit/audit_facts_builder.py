@@ -2526,6 +2526,154 @@ def _build_decision_layer(
     }
 
 
+def _build_money_losses(
+    *,
+    ads_summary: dict[str, Any],
+    decision_layer: dict[str, Any],
+    financial_summary: dict[str, Any],
+    sku_rows: list[dict[str, Any]],
+    stock_summary: dict[str, Any],
+) -> dict[str, Any]:
+    ads_waste_rub = 0.0
+    ads_waste_count = 0
+    ads_waste_source = "none"
+
+    ads_leaks = decision_layer.get("ads_leaks") if isinstance(decision_layer.get("ads_leaks"), list) else []
+    query_leaks = [
+        item
+        for item in ads_leaks
+        if isinstance(item, dict)
+        and str(item.get("level") or "").strip().lower() == "query"
+        and _to_float(item.get("spend")) > 0
+        and _to_int(item.get("orders")) == 0
+    ]
+    if query_leaks:
+        ads_waste_rub = round(sum(_to_float(item.get("spend")) for item in query_leaks), 2)
+        ads_waste_count = len(query_leaks)
+        ads_waste_source = "query"
+    else:
+        cabinet_leaks = [
+            item
+            for item in ads_leaks
+            if isinstance(item, dict)
+            and str(item.get("level") or "").strip().lower() == "cabinet"
+            and _to_float(item.get("spend")) > 0
+            and _to_int(item.get("orders")) == 0
+        ]
+        if cabinet_leaks:
+            ads_waste_rub = round(sum(_to_float(item.get("spend")) for item in cabinet_leaks), 2)
+            ads_waste_count = len(cabinet_leaks)
+            ads_waste_source = "cabinet"
+        else:
+            spend_total = _to_float_or_none(ads_summary.get("spend"))
+            revenue_attr = _to_float_or_none(ads_summary.get("revenue_attr"))
+            if (spend_total or 0.0) > 0 and (revenue_attr or 0.0) <= 0:
+                ads_waste_rub = round(float(spend_total or 0.0), 2)
+                ads_waste_count = 1
+                ads_waste_source = "ads_summary_fallback"
+
+    negative_profit_rows: list[dict[str, Any]] = []
+    for row in sku_rows or []:
+        if not isinstance(row, dict):
+            continue
+        sku = _to_int(row.get("sku"))
+        profit = _to_float_or_none(row.get("profit"))
+        if sku <= 0 or profit is None or profit >= 0:
+            continue
+        negative_profit_rows.append(
+            {
+                "sku": int(sku),
+                "profit": round(float(profit), 2),
+                "stock_qty": _to_int(row.get("stock_qty")),
+            }
+        )
+    negative_profit_rub = round(sum(abs(_to_float(item.get("profit"))) for item in negative_profit_rows), 2)
+    negative_profit_sku_count = len(negative_profit_rows)
+
+    sku_financials = _as_sku_int_map(financial_summary.get("sku_financials"))
+    frozen_rows: list[dict[str, Any]] = []
+    storage_risk_rows: list[dict[str, Any]] = []
+    frozen_stock_value_total = 0.0
+    frozen_stock_value_valuated_sku = 0
+    frozen_stock_qty_total = 0
+
+    for row in sku_rows or []:
+        if not isinstance(row, dict):
+            continue
+        sku = _to_int(row.get("sku"))
+        if sku <= 0:
+            continue
+        stock_qty = max(_to_int(row.get("stock_qty")), 0)
+        orders = _to_int(row.get("orders"))
+        buyouts = _to_int(row.get("buyouts"))
+        turnover_days = _to_float_or_none(row.get("turnover_days"))
+        if stock_qty <= 0:
+            continue
+
+        no_sales = orders <= 0 and buyouts <= 0
+        slow_turnover = turnover_days is not None and float(turnover_days) >= 45.0
+        if no_sales or slow_turnover:
+            frozen_stock_qty_total += int(stock_qty)
+            cogs_unit = None
+            fin = sku_financials.get(sku) or {}
+            cogs_total_sku = _to_float_or_none(fin.get("cogs"))
+            sales_qty_sku = _to_int(fin.get("sales_qty"))
+            if cogs_total_sku is not None and cogs_total_sku > 0 and sales_qty_sku > 0:
+                cogs_unit = float(cogs_total_sku) / float(sales_qty_sku)
+                frozen_stock_value_total += float(cogs_unit) * float(stock_qty)
+                frozen_stock_value_valuated_sku += 1
+            frozen_rows.append(
+                {
+                    "sku": int(sku),
+                    "stock_qty": int(stock_qty),
+                    "orders": int(orders),
+                    "buyouts": int(buyouts),
+                    "turnover_days": round(float(turnover_days), 2) if turnover_days is not None else None,
+                    "cogs_unit": round(float(cogs_unit), 2) if cogs_unit is not None else None,
+                }
+            )
+
+        storage_risk = stock_qty >= 50 and (buyouts <= 1 or (turnover_days is not None and float(turnover_days) >= 60.0))
+        if storage_risk:
+            storage_risk_rows.append(
+                {
+                    "sku": int(sku),
+                    "stock_qty": int(stock_qty),
+                    "buyouts": int(buyouts),
+                    "turnover_days": round(float(turnover_days), 2) if turnover_days is not None else None,
+                }
+            )
+
+    frozen_stock_sku_count = len(frozen_rows)
+    frozen_stock_value_rub = round(float(frozen_stock_value_total), 2) if frozen_stock_value_valuated_sku > 0 else None
+    storage_risk_sku_count = len(storage_risk_rows)
+
+    total_direct_losses_rub = round(float(ads_waste_rub) + float(negative_profit_rub), 2)
+
+    return {
+        "ads_waste_rub": round(float(ads_waste_rub), 2),
+        "ads_waste_count": int(ads_waste_count),
+        "ads_waste_source": ads_waste_source,
+        "negative_profit_rub": round(float(negative_profit_rub), 2),
+        "negative_profit_sku_count": int(negative_profit_sku_count),
+        "frozen_stock_value_rub": frozen_stock_value_rub,
+        "frozen_stock_sku_count": int(frozen_stock_sku_count),
+        "frozen_stock_qty_units": int(frozen_stock_qty_total),
+        "frozen_stock_value_estimate_available": bool(frozen_stock_value_valuated_sku > 0),
+        "frozen_stock_valuated_sku_count": int(frozen_stock_value_valuated_sku),
+        "storage_risk_sku_count": int(storage_risk_sku_count),
+        "total_direct_losses_rub": round(float(total_direct_losses_rub), 2),
+        "ads_waste_items": query_leaks[:20] if query_leaks else ads_leaks[:20],
+        "negative_profit_items": negative_profit_rows[:20],
+        "frozen_stock_items": frozen_rows[:20],
+        "storage_risk_items": storage_risk_rows[:20],
+        "source": {
+            "stock_source": stock_summary.get("source"),
+            "stock_source_date": stock_summary.get("source_date"),
+        },
+    }
+
+
 def _build_actions(
     decision_layer: dict[str, Any],
     stock_summary: dict[str, Any],
@@ -3267,6 +3415,13 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         source_consistency_warnings=source_consistency_warnings,
         profit_without_cogs=profit_without_cogs,
     )
+    money_losses = _build_money_losses(
+        ads_summary=ads_summary,
+        decision_layer=decision_layer,
+        financial_summary=financial_summary,
+        sku_rows=sku_rows,
+        stock_summary=stock_summary,
+    )
     actions = _build_actions(
         decision_layer,
         stock_summary,
@@ -3384,6 +3539,7 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
         "top5_sku_unit_economics": top5_sku_unit_economics,
         "abc_analysis": (sku_performance.get("abc_summary") if isinstance(sku_performance, dict) else {}) or {},
         "decision_layer": decision_layer,
+        "money_losses": money_losses,
         "actions": actions,
         "source_consistency_warnings": source_consistency_warnings,
         "notes": [
