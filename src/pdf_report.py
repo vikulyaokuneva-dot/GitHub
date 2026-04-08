@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -281,6 +282,192 @@ def _esc(text: str) -> str:
     return value
 
 
+def _normalize_heading_key(text: str) -> str:
+    key = _coerce_text(text).strip().lower().replace("ё", "е")
+    key = re.sub(r"^\s*[-*•]+\s*", "", key)
+    key = re.sub(r"^\s*\d+\.\s*", "", key)
+    key = re.sub(r"\s*\.+\s*(\d+|н/д)\s*$", "", key)
+    key = key.replace("—", "-")
+    key = re.sub(r"\s+", " ", key).strip(" .:-")
+    return key
+
+
+def _is_toc_heading(title: str) -> bool:
+    key = _normalize_heading_key(title)
+    return key in {"оглавление", "содержание"}
+
+
+def _extract_toc_entry_title(line: str) -> str | None:
+    match = re.match(r"^\s*[-*•]\s+(.*)$", line)
+    if not match:
+        return None
+    title = _coerce_text(match.group(1)).strip()
+    title = re.sub(r"\s*\.+\s*(\d+|н/д)\s*$", "", title)
+    return title.strip()
+
+
+def _format_toc_entry(title: str, page: int | None) -> str:
+    clean_title = _coerce_text(title).strip()
+    page_token = "н/д" if page is None else str(page)
+    target_width = 62
+    dots_count = max(6, target_width - len(clean_title) - len(page_token))
+    return f"{clean_title} {'.' * dots_count} {page_token}"
+
+
+def _resolve_toc_page(entry_title: str, section_pages: dict[str, int]) -> int | None:
+    entry_key = _normalize_heading_key(entry_title)
+    if not entry_key:
+        return None
+
+    direct = section_pages.get(entry_key)
+    if direct is not None:
+        return direct
+
+    best_match_key = ""
+    best_match_page: int | None = None
+    for section_key, page in section_pages.items():
+        if entry_key in section_key or section_key in entry_key:
+            if len(section_key) > len(best_match_key):
+                best_match_key = section_key
+                best_match_page = page
+    return best_match_page
+
+
+def _logical_page_number(physical_page: int, *, skip_first_page_numbering: bool) -> int | None:
+    if skip_first_page_numbering:
+        if physical_page <= 1:
+            return None
+        return physical_page - 1
+    if physical_page <= 0:
+        return None
+    return physical_page
+
+
+class _TrackingDocTemplate(SimpleDocTemplate):
+    def __init__(self, *args: Any, heading_pages: dict[str, int], **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._heading_pages = heading_pages
+
+    def afterFlowable(self, flowable: Any) -> None:  # noqa: N802
+        section_key = getattr(flowable, "_wb_heading_key", "")
+        if not section_key:
+            return
+        if section_key in self._heading_pages:
+            return
+        self._heading_pages[section_key] = int(self.canv.getPageNumber())
+
+
+def _build_story(
+    *,
+    doc: SimpleDocTemplate,
+    markdown_text: str,
+    h1: ParagraphStyle,
+    h2: ParagraphStyle,
+    h3: ParagraphStyle,
+    body: ParagraphStyle,
+    font_info: dict[str, str],
+    toc_pages: dict[str, int] | None = None,
+    capture_headings: bool = False,
+) -> list[Any]:
+    story: list[Any] = []
+    in_toc_section = False
+
+    def _append_page_break() -> None:
+        if not story:
+            return
+        if isinstance(story[-1], PageBreak):
+            return
+        story.append(PageBreak())
+
+    def _attach_heading_key(paragraph: Paragraph, heading_text: str) -> Paragraph:
+        if capture_headings:
+            paragraph._wb_heading_key = _normalize_heading_key(heading_text)  # type: ignore[attr-defined]
+        return paragraph
+
+    for block in _split_blocks(markdown_text):
+        if block.strip() == "---PAGEBREAK---":
+            _append_page_break()
+            continue
+
+        if block.splitlines() and block.splitlines()[0].strip().startswith("|"):
+            rows = _parse_md_table(block)
+            if rows:
+                tbl_data = [[Paragraph(_esc(cell), body) for cell in row] for row in rows]
+                col_count = len(tbl_data[0])
+                col_width = (A4[0] - doc.leftMargin - doc.rightMargin) / col_count
+                table = Table(tbl_data, hAlign="LEFT", colWidths=[col_width] * col_count, repeatRows=1)
+
+                table_style = TableStyle(
+                    [
+                        ("FONTNAME", (0, 0), (-1, 0), font_info["bold_name"]),
+                        ("FONTNAME", (0, 1), (-1, -1), font_info["regular_name"]),
+                        ("FONTSIZE", (0, 0), (-1, -1), 9.5),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("LINEBELOW", (0, 0), (-1, 0), 1, colors.grey),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                        ("TOPPADDING", (0, 0), (-1, -1), 4),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ]
+                )
+                for row_index in range(1, len(tbl_data)):
+                    if row_index % 2 == 0:
+                        table_style.add("BACKGROUND", (0, row_index), (-1, row_index), colors.HexColor("#FAFAFA"))
+                table.setStyle(table_style)
+
+                story.append(table)
+                story.append(Spacer(1, 8))
+                continue
+
+        for raw_line in block.splitlines():
+            line = raw_line.rstrip()
+            if line.strip() == "---PAGEBREAK---":
+                _append_page_break()
+                continue
+            if not line.strip():
+                story.append(Spacer(1, 6))
+                continue
+
+            if line.startswith("# "):
+                heading_text = line[2:].strip()
+                in_toc_section = False
+                para = Paragraph(_esc(heading_text), h1)
+                story.append(_attach_heading_key(para, heading_text))
+                continue
+
+            if line.startswith("## "):
+                heading_text = line[3:].strip()
+                in_toc_section = _is_toc_heading(heading_text)
+                para = Paragraph(_esc(heading_text), h2)
+                story.append(_attach_heading_key(para, heading_text))
+                continue
+
+            if line.startswith("### "):
+                story.append(Paragraph(_esc(line[4:].strip()), h3))
+                continue
+
+            if in_toc_section:
+                toc_title = _extract_toc_entry_title(line)
+                if toc_title:
+                    page = _resolve_toc_page(toc_title, toc_pages or {}) if toc_pages else None
+                    entry_line = _format_toc_entry(toc_title, page) if toc_pages is not None else toc_title
+                    story.append(Paragraph(_esc(entry_line), body))
+                    continue
+
+            bullet_match = re.match(r"^\s*[-*•]\s+(.*)$", line)
+            if bullet_match:
+                story.append(Paragraph(f"• {_esc(bullet_match.group(1).strip())}", body))
+                continue
+
+            story.append(Paragraph(_esc(line), body))
+
+        story.append(Spacer(1, 4))
+
+    return story
+
+
 class _PageNumberCanvas(canvas.Canvas):
     def __init__(
         self,
@@ -366,8 +553,7 @@ def markdown_to_simple_pdf(
     target = Path(pdf_path)
     target.parent.mkdir(parents=True, exist_ok=True)
 
-    doc = SimpleDocTemplate(
-        str(target),
+    base_doc_args = dict(
         pagesize=A4,
         leftMargin=16 * mm,
         rightMargin=16 * mm,
@@ -417,79 +603,60 @@ def markdown_to_simple_pdf(
         spaceAfter=3,
     )
 
-    story: list[Any] = []
+    toc_pages: dict[str, int] = {}
+    previous_snapshot: tuple[tuple[str, int], ...] | None = None
 
-    def _append_page_break() -> None:
-        if not story:
-            return
-        if isinstance(story[-1], PageBreak):
-            return
-        story.append(PageBreak())
+    # Two-pass stabilization:
+    # 1) collect section start pages;
+    # 2) rebuild TOC with real numbers;
+    # if TOC text slightly shifts pages, one extra probe pass updates mapping.
+    for _ in range(2):
+        heading_pages_physical: dict[str, int] = {}
+        probe_doc = _TrackingDocTemplate(
+            BytesIO(),
+            heading_pages=heading_pages_physical,
+            **base_doc_args,
+        )
+        probe_story = _build_story(
+            doc=probe_doc,
+            markdown_text=md,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            body=body,
+            font_info=font_info,
+            toc_pages=toc_pages if toc_pages else None,
+            capture_headings=True,
+        )
+        probe_doc.build(probe_story)
 
-    for block in _split_blocks(md):
-        if block.strip() == "---PAGEBREAK---":
-            _append_page_break()
-            continue
+        computed_toc_pages: dict[str, int] = {}
+        for section_key, physical_page in heading_pages_physical.items():
+            logical_page = _logical_page_number(
+                physical_page,
+                skip_first_page_numbering=skip_first_page_numbering,
+            )
+            if logical_page is not None:
+                computed_toc_pages[section_key] = logical_page
 
-        if block.splitlines() and block.splitlines()[0].strip().startswith("|"):
-            rows = _parse_md_table(block)
-            if rows:
-                tbl_data = [[Paragraph(_esc(cell), body) for cell in row] for row in rows]
-                col_count = len(tbl_data[0])
-                col_width = (A4[0] - doc.leftMargin - doc.rightMargin) / col_count
-                table = Table(tbl_data, hAlign="LEFT", colWidths=[col_width] * col_count, repeatRows=1)
+        snapshot = tuple(sorted(computed_toc_pages.items()))
+        toc_pages = computed_toc_pages
+        if snapshot == previous_snapshot:
+            break
+        previous_snapshot = snapshot
 
-                table_style = TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, 0), font_info["bold_name"]),
-                        ("FONTNAME", (0, 1), (-1, -1), font_info["regular_name"]),
-                        ("FONTSIZE", (0, 0), (-1, -1), 9.5),
-                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
-                        ("LINEBELOW", (0, 0), (-1, 0), 1, colors.grey),
-                        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                        ("TOPPADDING", (0, 0), (-1, -1), 4),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                    ]
-                )
-                for row_index in range(1, len(tbl_data)):
-                    if row_index % 2 == 0:
-                        table_style.add("BACKGROUND", (0, row_index), (-1, row_index), colors.HexColor("#FAFAFA"))
-                table.setStyle(table_style)
-
-                story.append(table)
-                story.append(Spacer(1, 8))
-                continue
-
-        for raw_line in block.splitlines():
-            line = raw_line.rstrip()
-            if line.strip() == "---PAGEBREAK---":
-                _append_page_break()
-                continue
-            if not line.strip():
-                story.append(Spacer(1, 6))
-                continue
-
-            if line.startswith("# "):
-                story.append(Paragraph(_esc(line[2:].strip()), h1))
-                continue
-            if line.startswith("## "):
-                story.append(Paragraph(_esc(line[3:].strip()), h2))
-                continue
-            if line.startswith("### "):
-                story.append(Paragraph(_esc(line[4:].strip()), h3))
-                continue
-
-            bullet_match = re.match(r"^\s*[-•]\s+(.*)$", line)
-            if bullet_match:
-                story.append(Paragraph(f"• {_esc(bullet_match.group(1).strip())}", body))
-                continue
-
-            story.append(Paragraph(_esc(line), body))
-
-        story.append(Spacer(1, 4))
+    doc = SimpleDocTemplate(str(target), **base_doc_args)
+    story = _build_story(
+        doc=doc,
+        markdown_text=md,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        body=body,
+        font_info=font_info,
+        toc_pages=toc_pages,
+        capture_headings=False,
+    )
 
     normalized_align = str(page_number_align or "center").strip().lower()
     if normalized_align not in {"center", "right"}:

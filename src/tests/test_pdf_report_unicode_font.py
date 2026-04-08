@@ -61,3 +61,26 @@ def test_markdown_to_simple_pdf_supports_page_number_options(
 
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
+
+
+def test_toc_helpers_resolve_pages() -> None:
+    section_pages = {
+        pdf_report._normalize_heading_key("1. KPI и инсайты"): 3,
+        pdf_report._normalize_heading_key("Краткий итог по кабинету"): 1,
+    }
+
+    assert pdf_report._resolve_toc_page("1. KPI и инсайты", section_pages) == 3
+    assert pdf_report._resolve_toc_page("Executive Summary: краткий итог по кабинету", section_pages) == 1
+
+
+def test_toc_entry_format_contains_dots_and_page() -> None:
+    line = pdf_report._format_toc_entry("1. KPI и инсайты", 3)
+    assert "1. KPI и инсайты" in line
+    assert "3" in line
+    assert "...." in line
+
+
+def test_logical_page_number_respects_title_page_skip() -> None:
+    assert pdf_report._logical_page_number(1, skip_first_page_numbering=True) is None
+    assert pdf_report._logical_page_number(2, skip_first_page_numbering=True) == 1
+    assert pdf_report._logical_page_number(4, skip_first_page_numbering=False) == 4
