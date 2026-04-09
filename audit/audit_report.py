@@ -927,7 +927,7 @@ def _search_rows_sorted(rows: list[dict[str, Any]], *, mode: str) -> list[dict[s
     )
 
 
-def _local_orders_section_lines(local_orders_insights: dict[str, Any]) -> list[str]:
+def _local_orders_section_lines(local_orders_insights: dict[str, Any], *, total_buyouts: int = 0) -> list[str]:
     lines: list[str] = ["## 8. Локальные заказы и размещение товара"]
 
     available = bool(local_orders_insights.get("available"))
@@ -949,20 +949,36 @@ def _local_orders_section_lines(local_orders_insights: dict[str, Any]) -> list[s
     recommendations = local_orders_insights.get("recommendations") or []
 
     lines.append("### Сводка по локальному спросу")
+    lines.append("Распределение по регионам рассчитывается от выкупов.")
+    lines.append("Если товар отсутствует на складе региона, но есть выкуп — заказ считается не локальным.")
+    region_buyouts_total = _to_int(local_orders_insights.get("total_buyouts"))
+    if region_buyouts_total <= 0 and isinstance(by_region, list):
+        region_buyouts_total = sum(_to_int((item or {}).get("buyouts")) for item in by_region if isinstance(item, dict))
+    if region_buyouts_total <= 0:
+        region_buyouts_total = max(_to_int(total_buyouts), 0)
+    lines.append(f"Всего выкупов: {region_buyouts_total}")
+    lines.append("")
     if by_region:
         rows: list[list[Any]] = []
         for item in by_region[:12]:
             stock_qty_raw = item.get("stock_qty")
             stock_text = "н/д" if stock_qty_raw is None else str(int(stock_qty_raw))
+            region_buyouts = _to_int(item.get("buyouts"))
+            region_share = (
+                (float(region_buyouts) / float(region_buyouts_total))
+                if region_buyouts_total > 0 and region_buyouts > 0
+                else None
+            )
             rows.append(
                 [
                     _text(item.get("region") or "Не указан"),
-                    int(item.get("orders") or 0),
-                    _fmt_pct(_to_float(item.get("share_pct")), 1),
+                    region_buyouts,
+                    (_fmt_pct(region_share * 100.0, 1) if region_share is not None else "н/д"),
                     stock_text,
                 ]
             )
-        _append_markdown_table(lines, ["Регион/город", "Заказы, шт", "Доля", "Остаток, шт"], rows, align_right={1, 2, 3})
+        _append_markdown_table(lines, ["Регион/город", "Выкупы, шт", "Доля", "Остаток, шт"], rows, align_right={1, 2, 3})
+        lines.append("При небольшом количестве выкупов доли по регионам могут выглядеть завышенными.")
     else:
         lines.append("- Данные по регионам не обнаружены.")
         lines.append("")
@@ -1529,10 +1545,6 @@ def _where_money_lost_section_lines(
     lines: list[str] = ["### 🚨 Где теряются деньги"]
 
     ads_leaks = decision.get("ads_leaks") if isinstance(decision.get("ads_leaks"), list) else []
-    dead_stock = decision.get("dead_stock") if isinstance(decision.get("dead_stock"), list) else []
-    regions_over_150 = facts.get("logistics_regions_over_150") if isinstance(facts.get("logistics_regions_over_150"), list) else []
-    c_overstock_rows = abc_layer.get("c_overstock_rows") if isinstance(abc_layer.get("c_overstock_rows"), list) else []
-    c_ads_rows = abc_layer.get("c_ads_rows") if isinstance(abc_layer.get("c_ads_rows"), list) else []
     finance = facts.get("financial_summary") if isinstance(facts.get("financial_summary"), dict) else {}
 
     ads_loss_rub = 0.0
@@ -1545,35 +1557,25 @@ def _where_money_lost_section_lines(
         if _to_int(leak.get("orders")) == 0:
             ads_loss_rub += float(spend)
 
-    cogs_loss_rub = _to_float(finance.get("cogs_total")) or 0.0
-    logistics_loss_rub = _to_float(finance.get("logistics")) or 0.0
+    logistics_summary = facts.get("logistics_summary") if isinstance(facts.get("logistics_summary"), dict) else {}
+    funnel = facts.get("funnel_summary") if isinstance(facts.get("funnel_summary"), dict) else {}
+    buyouts_count = _to_int(funnel.get("buys"))
+    if buyouts_count <= 0:
+        buyouts_count = _to_int(finance.get("sales_qty"))
+    delta_per_unit = _to_float(logistics_summary.get("delta_vs_target_per_order"))
+    if delta_per_unit is None:
+        avg_logistics_cost = _to_float(logistics_summary.get("avg_logistics_cost_est"))
+        target_logistics_cost = _to_float(logistics_summary.get("target_avg_logistics_cost"))
+        if avg_logistics_cost is not None and target_logistics_cost is not None:
+            delta_per_unit = float(avg_logistics_cost) - float(target_logistics_cost)
+    if delta_per_unit is None or delta_per_unit < 0:
+        delta_per_unit = 0.0
+    logistics_loss_rub = float(delta_per_unit) * float(max(buyouts_count, 0))
     top_losses = [
         ("Реклама без заказов", ads_loss_rub),
-        ("Себестоимость", cogs_loss_rub),
-        ("Логистика", logistics_loss_rub),
+        ("Переплата за логистику", logistics_loss_rub),
     ]
     top_losses_sorted = sorted(top_losses, key=lambda item: float(item[1] or 0.0), reverse=True)
-
-    def _row_sku(value: Any) -> int:
-        if isinstance(value, dict):
-            return _to_int(value.get("sku"))
-        if isinstance(value, (list, tuple)) and value:
-            return _to_int(value[0])
-        return 0
-
-    top_dead_sku = []
-    for item in dead_stock[:5]:
-        sku = _row_sku(item)
-        if sku > 0:
-            top_dead_sku.append(str(sku))
-
-    top_c_problem = []
-    for row in (c_overstock_rows + c_ads_rows):
-        sku = _row_sku(row)
-        if sku > 0 and str(sku) not in top_c_problem:
-            top_c_problem.append(str(sku))
-        if len(top_c_problem) >= 5:
-            break
 
     lines.append("#### ТОП потерь")
     for idx, (title, amount) in enumerate(top_losses_sorted, start=1):
@@ -1584,21 +1586,16 @@ def _where_money_lost_section_lines(
     lines.append(f"- 🚨 **Реклама без заказов:** {len(ads_leaks)} связок, потери: {ads_loss_text}.")
     if ads_leaks and ads_loss_rub >= 100.0:
         lines.append("- Нужна чистка неэффективных запросов и связок, которые расходуют бюджет без выкупа.")
-
-    lines.append(f"- ⚠️ **Залежавшиеся остатки:** {len(dead_stock)} SKU")
-    if top_dead_sku:
-        lines.append(f"- Кандидаты на разбор: **{', '.join(top_dead_sku)}**.")
-
-    lines.append(f"- 💸 **Дорогая логистика:** {len(regions_over_150)} регионов с коэффициентом >150%")
-    if regions_over_150:
-        lines.append(f"- Регионы риска: **{', '.join(str(x) for x in regions_over_150[:5])}**.")
-
-    c_problem_count = len(c_overstock_rows) + len(c_ads_rows)
-    lines.append(
-        f"- {_icon_red() if c_problem_count > 0 else _icon_green()} **Проблемные C-SKU:** {c_problem_count} кейсов"
+    logistics_loss_text = _money_or_label(
+        logistics_loss_rub,
+        threshold=100.0,
+        low_label="нет значимой переплаты",
     )
-    if top_c_problem:
-        lines.append(f"- SKU категории C с риском: **{', '.join(top_c_problem)}**.")
+    lines.append(f"- 💸 **Переплата за логистику:** {logistics_loss_text}.")
+    if logistics_loss_rub >= 100.0 and delta_per_unit > 0 and buyouts_count > 0:
+        lines.append(
+            f"- Расчет: {_money(delta_per_unit)} × {buyouts_count} выкупов = {_money(logistics_loss_rub)}."
+        )
 
     lines.append("")
     return lines
@@ -2697,8 +2694,6 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         else f"{month_multiplier:.2f}"
     )
     lines.append(f"{_rub_short(logistics_loss_period)} × {multiplier_text} = {_rub_short(monthly_logistics_loss)} ₽ в месяц")
-    if frozen_stock_value > 0:
-        lines.append(f"- Дополнительно заморожено в остатках: ~{_rub_short(frozen_stock_value)} ₽.")
     lines.append("")
 
     lines.append("## 📈 Точки роста")
@@ -3217,7 +3212,10 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     _page_break(lines)
 
-    lines.extend(_local_orders_section_lines(local_orders_insights))
+    local_buyouts_total = _to_int(funnel.get("buys"))
+    if local_buyouts_total <= 0:
+        local_buyouts_total = _to_int(finance.get("sales_qty"))
+    lines.extend(_local_orders_section_lines(local_orders_insights, total_buyouts=local_buyouts_total))
 
     _page_break(lines)
 

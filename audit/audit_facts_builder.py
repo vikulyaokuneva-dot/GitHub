@@ -2045,6 +2045,7 @@ def _build_local_orders_insights(
     orders_by_sku_region: dict[tuple[int, str], int] = defaultdict(int)
     total_orders_by_sku: dict[int, int] = defaultdict(int)
     total_orders_by_region: dict[str, int] = defaultdict(int)
+    total_buyouts_by_region: dict[str, int] = defaultdict(int)
     local_orders_by_region: dict[str, int] = defaultdict(int)
     non_local_orders_by_region: dict[str, int] = defaultdict(int)
     stock_by_sku_region: dict[tuple[int, str], int] = defaultdict(int)
@@ -2085,17 +2086,21 @@ def _build_local_orders_insights(
         orders_rows_scanned += 1
         sku = _to_int(row.get("nmId") or row.get("nm_id") or row.get("sku"))
         orders = _to_int(row.get("orderCount") or row.get("orders") or row.get("quantity"))
+        buyouts = _to_int(row.get("buyoutCount") or row.get("buyouts") or row.get("buys"))
         if orders <= 0 and preferred_orders_source == "orders_feed":
             orders = 1
         geo = _geo_label(row)
-        if sku <= 0 or orders <= 0:
+        if sku <= 0 or (orders <= 0 and buyouts <= 0):
             continue
         if not geo:
             continue
         orders_rows_with_geo += 1
-        orders_by_sku_region[(sku, geo)] += orders
-        total_orders_by_sku[sku] += orders
-        total_orders_by_region[geo] += orders
+        if orders > 0:
+            orders_by_sku_region[(sku, geo)] += orders
+            total_orders_by_sku[sku] += orders
+            total_orders_by_region[geo] += orders
+        if buyouts > 0:
+            total_buyouts_by_region[geo] += buyouts
 
         origin_region = ""
         destination_region = ""
@@ -2140,7 +2145,8 @@ def _build_local_orders_insights(
         stock_by_region[geo] += qty
 
     total_orders = sum(total_orders_by_region.values())
-    if total_orders <= 0:
+    total_buyouts = sum(total_buyouts_by_region.values())
+    if total_orders <= 0 and total_buyouts <= 0:
         return {
             "available": False,
             "message": "нет данных по географии заказов",
@@ -2161,20 +2167,36 @@ def _build_local_orders_insights(
                 "required_fields": [
                     "SKU (nmId)",
                     "region/city/warehouse for orders",
-                    "orders quantity",
+                    "buyouts quantity",
                 ],
                 "required_source_hint": "WB выгрузка заказов с географией доставки (регион/город) по SKU за период.",
             },
         }
 
     by_region = []
-    for region, region_orders in sorted(total_orders_by_region.items(), key=lambda x: x[1], reverse=True):
-        share = (float(region_orders) / float(total_orders)) * 100.0 if total_orders > 0 else 0.0
+    region_keys = set(total_orders_by_region.keys()) | set(total_buyouts_by_region.keys())
+    sorted_regions = sorted(
+        region_keys,
+        key=lambda region: (
+            int(total_buyouts_by_region.get(region) or 0),
+            int(total_orders_by_region.get(region) or 0),
+        ),
+        reverse=True,
+    )
+    for region in sorted_regions:
+        region_orders = int(total_orders_by_region.get(region) or 0)
+        region_buyouts = int(total_buyouts_by_region.get(region) or 0)
+        share = (
+            (float(region_buyouts) / float(total_buyouts)) * 100.0
+            if total_buyouts > 0 and region_buyouts > 0
+            else None
+        )
         by_region.append(
             {
                 "region": region,
                 "orders": int(region_orders),
-                "share_pct": round(share, 1),
+                "buyouts": int(region_buyouts),
+                "share_pct": round(share, 1) if share is not None else None,
                 "stock_qty": int(stock_by_region.get(region) or 0) if stock_rows_with_geo > 0 else None,
                 "local_orders": int(local_orders_by_region.get(region) or 0) if route_rows_with_origin_destination > 0 else None,
                 "non_local_orders": int(non_local_orders_by_region.get(region) or 0)
@@ -2322,6 +2344,7 @@ def _build_local_orders_insights(
     return {
         "available": True,
         "message": "Локальный спрос рассчитан по данным с географией заказов.",
+        "total_buyouts": int(total_buyouts),
         "by_region": by_region[:20],
         "by_sku": by_sku[:50],
         "orders_with_geo": sorted(
