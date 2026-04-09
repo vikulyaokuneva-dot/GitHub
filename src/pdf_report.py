@@ -34,6 +34,19 @@ COLOR_DARK_TEXT = colors.HexColor("#1F2937")
 COLOR_BORDER_GRAY = colors.HexColor("#D3D8DE")
 COLOR_WHITE = colors.white
 
+TOC_CLEAN_ENTRIES: tuple[str, ...] = (
+    "KPI и инсайты",
+    "Финансы",
+    "Воронка продаж",
+    "Реклама",
+    "Остатки",
+    "Локализация",
+    "Логистика",
+    "Поисковые запросы",
+    "Эффективность товаров",
+    "План действий",
+)
+
 # Preferred unicode font families with Cyrillic support.
 _FONT_FILE_CANDIDATES: tuple[tuple[str, str], ...] = (
     ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"),
@@ -284,16 +297,22 @@ def _parse_md_table(block: str) -> List[List[str]]:
 
 
 def _esc(text: str) -> str:
-    value = _coerce_text(text)
+    value = _clean_pdf_text(_coerce_text(text))
     value = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    # Minimal inline markdown support for emphasis in generated reports.
-    value = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", value)
     value = value.replace("\n", "<br/>")
     return value
 
 
+def _remove_unstable_marker_chars(text: str) -> str:
+    value = _coerce_text(text)
+    value = re.sub(r"[■▪□▫◾◽]", "", value)
+    for token in ("в– ", "в–Є", "в–«", "в—Џ", "в—†", "в—‡"):
+        value = value.replace(token, "")
+    return value
+
+
 def _strip_visual_prefix(text: str) -> str:
-    value = _coerce_text(text).strip()
+    value = _remove_unstable_marker_chars(_coerce_text(text)).strip()
     # Remove unstable decorative prefixes (emoji/symbol markers) that render as boxes in PDF.
     value = re.sub(
         r"^\s*[\u200b\ufe0f\u2022\u25a0\u25aa\u25ab\u25cf\u25c6\u25c7\u2605\u2606\u27a4\u25b6\u2713\u2714\u2717\u2716■▪▫●◆◇★☆➤▶✓✔✗✖⚠️💸📈🎯💡📊💰📦]+\s*",
@@ -328,7 +347,7 @@ def _semantic_bg(color: colors.Color) -> colors.Color:
 def _clean_list_text(text: str) -> str:
     value = _coerce_text(text).strip()
     value = re.sub(r"^\s*[-*\u2022]+\s*", "", value)
-    return _strip_visual_prefix(value)
+    return _clean_pdf_text(_strip_visual_prefix(value))
 
 
 def _colorize_key_figures(text: str, color: colors.Color) -> str:
@@ -347,6 +366,51 @@ def _colorize_key_figures(text: str, color: colors.Color) -> str:
             out,
         )
     return out
+
+
+def _format_money_token(value: str) -> str:
+    parsed = _parse_numeric_cell(value)
+    if parsed is None:
+        return value
+    rounded = int(round(float(parsed)))
+    return f"{rounded:,} ₽".replace(",", " ")
+
+
+def _format_percent_token(value: str) -> str:
+    parsed = _parse_numeric_cell(value)
+    if parsed is None:
+        return value
+    return f"{float(parsed):.1f}%"
+
+
+def _clean_pdf_text(value: str) -> str:
+    text = _remove_unstable_marker_chars(_coerce_text(value))
+    text = text.replace("**", "").replace("__", "").replace("`", "")
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Normalize metric labels.
+    text = re.sub(r"\bДРР\s*SKU\b", "ДРР", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bROI\s*SKU\b", "ROI", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bПрибыль\s*SKU\b", "Прибыль", text, flags=re.IGNORECASE)
+
+    # Normalize money and percent formatting.
+    text = re.sub(
+        r"(-?\d[\d\s]*(?:[.,]\d+)?)\s*(?:RUB|rub|руб\.?|₽)\b",
+        lambda m: _format_money_token(m.group(1)),
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"(-?\d[\d\s]*(?:[.,]\d+)?)\s*%",
+        lambda m: _format_percent_token(m.group(1)),
+        text,
+    )
+
+    # Business phrasing cleanup.
+    text = re.sub(r"(?i)(потери)\s*:\s*([0-9][0-9\s]*\s*₽)", r"\1 \2", text)
+    text = re.sub(r"\s*:\s*:", ": ", text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    return text
 
 
 def _parse_numeric_cell(value: str) -> float | None:
@@ -699,8 +763,10 @@ def _build_story(
 ) -> list[Any]:
     story: list[Any] = []
     in_toc_section = False
+    toc_rendered = False
     in_exec_summary = False
     active_exec_card: dict[str, Any] | None = None
+    last_heading_key = ""
 
     def _append_page_break() -> None:
         _flush_exec_card()
@@ -716,7 +782,7 @@ def _build_story(
         return flowable
 
     def _append_heading_bar(heading_text: str, *, level: int) -> None:
-        clean_heading = _strip_visual_prefix(heading_text)
+        clean_heading = _clean_pdf_text(_strip_visual_prefix(heading_text))
         color = _semantic_color(clean_heading)
         style = h1 if level == 1 else h2
         bar = _SectionHeaderBar(text=clean_heading, style=style, color=color, width=doc.width)
@@ -803,21 +869,30 @@ def _build_story(
 
             if line.startswith("# "):
                 _flush_exec_card()
-                heading_text = _strip_visual_prefix(line[2:].strip())
+                heading_text = _clean_pdf_text(_strip_visual_prefix(line[2:].strip()))
                 heading_key = _normalize_heading_key(heading_text)
+                if heading_key and heading_key == last_heading_key:
+                    continue
+                last_heading_key = heading_key
                 in_exec_summary = bool(
                     "краткий итог по кабинету" in heading_key
                     or "executive summary" in heading_key
                 )
                 in_toc_section = False
+                toc_rendered = False
                 _append_heading_bar(heading_text, level=1)
                 continue
 
             if line.startswith("## "):
                 _flush_exec_card()
-                heading_text = _strip_visual_prefix(line[3:].strip())
+                heading_text = _clean_pdf_text(_strip_visual_prefix(line[3:].strip()))
                 in_toc_section = _is_toc_heading(heading_text)
+                if in_toc_section:
+                    toc_rendered = False
                 heading_key = _normalize_heading_key(heading_text)
+                if heading_key and heading_key == last_heading_key:
+                    continue
+                last_heading_key = heading_key
                 if in_exec_summary and heading_key in {"потери", "точки роста", "риски", "главный вывод"}:
                     active_exec_card = {
                         "title": heading_text,
@@ -830,7 +905,11 @@ def _build_story(
 
             if line.startswith("### "):
                 _flush_exec_card()
-                h3_title = _strip_visual_prefix(line[4:].strip())
+                h3_title = _clean_pdf_text(_strip_visual_prefix(line[4:].strip()))
+                h3_key = _normalize_heading_key(h3_title)
+                if h3_key and h3_key == last_heading_key:
+                    continue
+                last_heading_key = h3_key
                 h3_card = _build_callout_card(
                     title=h3_title,
                     lines=[],
@@ -844,48 +923,50 @@ def _build_story(
                 continue
 
             if in_toc_section:
-                toc_title = _extract_toc_entry_title(line)
-                if toc_title:
-                    page = _resolve_toc_page(toc_title, toc_pages or {}) if toc_pages else None
-                    page_token = "\u043d/\u0434" if page is None else str(page)
-                    page_col_width = max(
-                        12 * mm,
-                        pdfmetrics.stringWidth(page_token, body.fontName, body.fontSize) + (2 * mm),
-                    )
-                    leader_col_width = max(24 * mm, doc.width - page_col_width)
-                    leader = _build_toc_leader(
-                        toc_title,
-                        leader_width=leader_col_width,
-                        font_name=body.fontName,
-                        font_size=body.fontSize,
-                        min_dots=8,
-                    )
-                    toc_table = Table(
-                        [[Paragraph(_esc(leader), body), Paragraph(_esc(page_token), body)]],
-                        colWidths=[leader_col_width, page_col_width],
-                        hAlign="LEFT",
-                    )
-                    toc_table.setStyle(
-                        TableStyle(
-                            [
-                                ("ALIGN", (1, 0), (1, 0), "RIGHT"),
-                                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-                            ]
+                if not toc_rendered:
+                    for index, title in enumerate(TOC_CLEAN_ENTRIES, start=1):
+                        toc_title = f"{index}. {title}"
+                        page = _resolve_toc_page(toc_title, toc_pages or {}) if toc_pages else None
+                        page_token = "\u043d/\u0434" if page is None else str(page)
+                        page_col_width = max(
+                            12 * mm,
+                            pdfmetrics.stringWidth(page_token, body.fontName, body.fontSize) + (2 * mm),
                         )
-                    )
-                    story.append(toc_table)
-                    story.append(Spacer(1, 1))
-                    continue
+                        leader_col_width = max(24 * mm, doc.width - page_col_width)
+                        leader = _build_toc_leader(
+                            toc_title,
+                            leader_width=leader_col_width,
+                            font_name=body.fontName,
+                            font_size=body.fontSize,
+                            min_dots=8,
+                        )
+                        toc_table = Table(
+                            [[Paragraph(_esc(leader), body), Paragraph(_esc(page_token), body)]],
+                            colWidths=[leader_col_width, page_col_width],
+                            hAlign="LEFT",
+                        )
+                        toc_table.setStyle(
+                            TableStyle(
+                                [
+                                    ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+                                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                                ]
+                            )
+                        )
+                        story.append(toc_table)
+                        story.append(Spacer(1, 1))
+                    toc_rendered = True
+                continue
 
             if isinstance(active_exec_card, dict):
                 active_exec_card.setdefault("lines", []).append(_clean_list_text(line))
                 continue
 
-            semantic_line = _strip_visual_prefix(line)
+            semantic_line = _clean_pdf_text(_strip_visual_prefix(line))
             semantic_match = re.match(
                 r"^(Потери|Точки роста|Риски|Главный вывод)\s*:?\s*(.*)$",
                 semantic_line,
@@ -912,7 +993,7 @@ def _build_story(
                 story.append(Paragraph(f"- {_esc(bullet_text)}", body))
                 continue
 
-            story.append(Paragraph(_esc(_strip_visual_prefix(line)), body))
+            story.append(Paragraph(_esc(_clean_pdf_text(_strip_visual_prefix(line))), body))
 
         _flush_exec_card()
         story.append(Spacer(1, 4))
