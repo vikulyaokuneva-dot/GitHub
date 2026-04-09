@@ -1397,9 +1397,13 @@ def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
     lines: list[str] = ["## 11. Потери из-за плохой локализации"]
     logistics_summary = facts.get("logistics_summary") if isinstance(facts.get("logistics_summary"), dict) else {}
     local_orders_insights = facts.get("local_orders_insights") if isinstance(facts.get("local_orders_insights"), dict) else {}
+    funnel = facts.get("funnel_summary") if isinstance(facts.get("funnel_summary"), dict) else {}
+    finance = facts.get("financial_summary") if isinstance(facts.get("financial_summary"), dict) else {}
 
     localization_pct = _to_float(logistics_summary.get("localization_pct"))
-    orders_count = _to_int(logistics_summary.get("orders_count"))
+    buyouts_count = _to_int(funnel.get("buys"))
+    if buyouts_count <= 0:
+        buyouts_count = _to_int(finance.get("sales_qty"))
     local_cost = _to_float(logistics_summary.get("local_cost_per_order"))
     non_local_cost = _to_float(logistics_summary.get("non_local_cost_per_order"))
     target_localization_pct = _to_float(logistics_summary.get("target_localization_pct"))
@@ -1419,15 +1423,22 @@ def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
         target_avg_logistics_cost = (target_share * float(local_cost)) + ((1.0 - target_share) * float(non_local_cost))
     if delta_vs_target is None and avg_logistics_cost_est is not None and target_avg_logistics_cost is not None:
         delta_vs_target = float(avg_logistics_cost_est) - float(target_avg_logistics_cost)
-    if potential_overpay is None and delta_vs_target is not None and orders_count > 0:
-        potential_overpay = max(0.0, float(delta_vs_target) * float(orders_count))
+    if (
+        buyouts_count <= 0
+        and potential_overpay is not None
+        and delta_vs_target is not None
+        and float(delta_vs_target) > 0
+    ):
+        buyouts_count = max(0, int(round(float(potential_overpay) / float(delta_vs_target))))
+    if potential_overpay is None and delta_vs_target is not None and buyouts_count > 0:
+        potential_overpay = max(0.0, float(delta_vs_target) * float(buyouts_count))
 
     lines.append("")
     if localization_pct is None:
         lines.append("Локализация кабинета: н/д")
     else:
         lines.append(f"Локализация кабинета: {_fmt_pct(localization_pct, 1)}")
-    lines.append(f"Общее количество заказов: {orders_count}")
+    lines.append(f"Общее количество выкупов: {buyouts_count}")
     lines.append("")
 
     lines.append("### Расчет влияния локализации на логистику")
@@ -1452,15 +1463,15 @@ def _localization_loss_section_lines(facts: dict[str, Any]) -> list[str]:
     lines.append("")
 
     if delta_vs_target is None:
-        lines.append("Разница: н/д на заказ")
+        lines.append("Разница: н/д на выкуп")
     else:
-        lines.append(f"Разница: {_money(delta_vs_target)} на заказ")
+        lines.append(f"Разница: {_money(delta_vs_target)} на выкуп")
     if potential_overpay is None:
         lines.append("Итого влияние за период: н/д")
-    elif delta_vs_target is None or orders_count <= 0:
+    elif delta_vs_target is None or buyouts_count <= 0:
         lines.append(f"Итого влияние за период: {_money(potential_overpay)}")
     else:
-        lines.append(f"{_money(delta_vs_target)} × {orders_count} = {_money(potential_overpay)}")
+        lines.append(f"{_money(delta_vs_target)} × {buyouts_count} = {_money(potential_overpay)}")
     lines.append("")
     lines.append(
         "Расчет является модельной оценкой и показывает, насколько увеличивается стоимость логистики "
@@ -2617,30 +2628,77 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     regions_over_150 = facts.get("logistics_regions_over_150")
     regions_over_150_count = len(regions_over_150) if isinstance(regions_over_150, list) else 0
 
-    weekly_loss = _to_float(search.get("total_leak_spend"))
-    if weekly_loss is None or weekly_loss <= 0:
-        weekly_loss = _to_float((money_losses or {}).get("ads_waste_rub")) or 0.0
-    monthly_loss = float(weekly_loss) * 4.0
-    yearly_loss = monthly_loss * 12.0
+    period_days = 0
+    period_from = _parse_iso_date(audit_period.get("date_from"))
+    period_to = _parse_iso_date(audit_period.get("date_to"))
+    if period_from and period_to:
+        period_days = abs((period_to - period_from).days) + 1
+    if period_days <= 0:
+        raw_period = facts.get("period") if isinstance(facts.get("period"), dict) else {}
+        period_days = _to_int(raw_period.get("days"))
+    if period_days <= 0:
+        period_days = 7
+
+    # Weekly audits are normalized to month by x4.
+    month_multiplier = 4.0 if period_days <= 8 else (30.0 / float(period_days))
+
+    ads_loss_period = _to_float(search.get("total_leak_spend"))
+    if ads_loss_period is None or ads_loss_period <= 0:
+        ads_loss_period = _to_float((money_losses or {}).get("ads_waste_rub")) or 0.0
+    ads_loss_monthly = float(ads_loss_period) * float(month_multiplier)
+
+    logistics_summary = facts.get("logistics_summary") if isinstance(facts.get("logistics_summary"), dict) else {}
+    potential_overpay_due_localization = _to_float(logistics_summary.get("potential_overpay_due_localization"))
+    delta_per_unit = _to_float(logistics_summary.get("delta_vs_target_per_order"))
+    if delta_per_unit is None:
+        avg_logistics_cost = _to_float(logistics_summary.get("avg_logistics_cost_est"))
+        target_logistics_cost = _to_float(logistics_summary.get("target_avg_logistics_cost"))
+        if avg_logistics_cost is not None and target_logistics_cost is not None:
+            delta_per_unit = float(avg_logistics_cost) - float(target_logistics_cost)
+    if delta_per_unit is None:
+        delta_per_unit = 0.0
+    if delta_per_unit < 0:
+        delta_per_unit = 0.0
+
+    buyouts_count = _to_int(funnel.get("buys"))
+    if buyouts_count <= 0:
+        buyouts_count = _to_int(finance.get("sales_qty"))
+    if (
+        buyouts_count <= 0
+        and delta_per_unit is not None
+        and delta_per_unit > 0
+        and potential_overpay_due_localization is not None
+        and potential_overpay_due_localization > 0
+    ):
+        buyouts_count = max(0, int(round(float(potential_overpay_due_localization) / float(delta_per_unit))))
+
+    logistics_loss_period = float(delta_per_unit) * float(max(buyouts_count, 0))
+    monthly_logistics_loss = float(logistics_loss_period) * float(month_multiplier)
+
+    total_losses_monthly = float(ads_loss_monthly) + float(monthly_logistics_loss)
+    yearly_loss = float(total_losses_monthly) * 12.0
 
     frozen_stock_value = _to_float((money_losses or {}).get("frozen_stock_value_rub")) or 0.0
-    logistic_loss = _to_float(((facts.get("regional_logistics_impact") or {}).get("total_estimated_overpay_rub"))) or 0.0
 
     def _rub_short(amount: float) -> str:
         return f"{int(round(float(amount or 0.0))):,}".replace(",", " ")
 
     lines.append("## 💸 Потери")
-    lines.append(
-        f"Вы теряете ~{_rub_short(monthly_loss)} ₽ в месяц"
-        if monthly_loss > 0
-        else "Существенных потерь на неэффективной рекламе за период не выявлено."
+    lines.append(f"Вы теряете ~{_rub_short(total_losses_monthly)} ₽ в месяц")
+    lines.append(f"• Неэффективная реклама: {_rub_short(ads_loss_monthly)} ₽")
+    lines.append(f"• Переплата за логистику: {_rub_short(monthly_logistics_loss)} ₽")
+    lines.append("")
+    lines.append("Расчет логистики:")
+    lines.append(f"Разница: {_rub_short(delta_per_unit)} ₽ на выкуп")
+    lines.append(f"{_rub_short(delta_per_unit)} × {buyouts_count} = {_rub_short(logistics_loss_period)} ₽ за период")
+    multiplier_text = (
+        str(int(round(month_multiplier)))
+        if abs(float(month_multiplier) - float(round(month_multiplier))) < 1e-9
+        else f"{month_multiplier:.2f}"
     )
-    if monthly_loss > 0:
-        lines.append("на неэффективной рекламе")
+    lines.append(f"{_rub_short(logistics_loss_period)} × {multiplier_text} = {_rub_short(monthly_logistics_loss)} ₽ в месяц")
     if frozen_stock_value > 0:
         lines.append(f"- Дополнительно заморожено в остатках: ~{_rub_short(frozen_stock_value)} ₽.")
-    if logistic_loss > 0:
-        lines.append(f"- Дополнительные потери на логистике: ~{_rub_short(logistic_loss)} ₽.")
     lines.append("")
 
     lines.append("## 📈 Точки роста")
@@ -2663,20 +2721,20 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         lines.append(
             f"Есть залежавшиеся остатки: {_to_int((money_losses or {}).get('frozen_stock_sku_count'))} SKU без нормального движения"
         )
-    if logistic_loss > 0:
-        lines.append(f"Есть риск дорогой логистики: ~{_rub_short(logistic_loss)} ₽ потерь за период")
+    if monthly_logistics_loss > 0:
+        lines.append(f"Есть риск дорогой логистики: ~{_rub_short(monthly_logistics_loss)} ₽ потерь в месяц")
     elif regions_over_150_count > 0:
         lines.append(f"Есть дорогая логистика: {regions_over_150_count} регионов с повышенным коэффициентом")
-    if frozen_stock_value <= 0 and logistic_loss <= 0 and regions_over_150_count <= 0:
+    if frozen_stock_value <= 0 and monthly_logistics_loss <= 0 and regions_over_150_count <= 0:
         lines.append("Критичные риски по остаткам и логистике по текущим данным не выявлены.")
     lines.append("")
 
     lines.append("## 🎯 Главный вывод")
-    if monthly_loss > 0:
+    if ads_loss_monthly > 0:
         main_problem = "слив бюджета на рекламе"
     elif frozen_stock_value > 0:
         main_problem = "замороженные деньги в остатках"
-    elif logistic_loss > 0 or regions_over_150_count > 0:
+    elif monthly_logistics_loss > 0 or regions_over_150_count > 0:
         main_problem = "дорогая логистика"
     else:
         main_problem = "критичных потерь не выявлено"
