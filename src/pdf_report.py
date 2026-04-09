@@ -14,7 +14,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
-from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Flowable, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +23,16 @@ FONT_REGULAR_NAME = f"{FONT_FAMILY_NAME}-Regular"
 FONT_BOLD_NAME = f"{FONT_FAMILY_NAME}-Bold"
 
 _REGISTERED_FONTS: Dict[str, str] | None = None
+
+# PDF-safe palette (stable with ReportLab).
+COLOR_PRIMARY_BLUE = colors.HexColor("#1F4E79")
+COLOR_SUCCESS_GREEN = colors.HexColor("#2E7D32")
+COLOR_DANGER_RED = colors.HexColor("#C62828")
+COLOR_WARNING_ORANGE = colors.HexColor("#EF6C00")
+COLOR_LIGHT_GRAY_BG = colors.HexColor("#F3F5F7")
+COLOR_DARK_TEXT = colors.HexColor("#1F2937")
+COLOR_BORDER_GRAY = colors.HexColor("#D3D8DE")
+COLOR_WHITE = colors.white
 
 # Preferred unicode font families with Cyrillic support.
 _FONT_FILE_CANDIDATES: tuple[tuple[str, str], ...] = (
@@ -282,15 +292,157 @@ def _esc(text: str) -> str:
     return value
 
 
+def _strip_visual_prefix(text: str) -> str:
+    value = _coerce_text(text).strip()
+    # Remove unstable decorative prefixes (emoji/symbol markers) that render as boxes in PDF.
+    value = re.sub(
+        r"^\s*[\u200b\ufe0f\u2022\u25a0\u25aa\u25ab\u25cf\u25c6\u25c7\u2605\u2606\u27a4\u25b6\u2713\u2714\u2717\u2716■▪▫●◆◇★☆➤▶✓✔✗✖⚠️💸📈🎯💡📊💰📦]+\s*",
+        "",
+        value,
+    )
+    value = re.sub(r"^\s*[-*]+\s*", "", value)
+    return value.strip()
+
+
+def _semantic_color(text: str) -> colors.Color:
+    key = _normalize_heading_key(_strip_visual_prefix(text))
+    if any(token in key for token in ("потер", "проблем", "критич", "убыт", "loss")):
+        return COLOR_DANGER_RED
+    if ("точк" in key and "рост" in key) or any(token in key for token in ("эффектив", "сильн", "profit", "growth")):
+        return COLOR_SUCCESS_GREEN
+    if any(token in key for token in ("риск", "вниман", "warning", "провер")):
+        return COLOR_WARNING_ORANGE
+    return COLOR_PRIMARY_BLUE
+
+
+def _semantic_bg(color: colors.Color) -> colors.Color:
+    if color == COLOR_DANGER_RED:
+        return colors.HexColor("#FDECEC")
+    if color == COLOR_SUCCESS_GREEN:
+        return colors.HexColor("#EAF6EC")
+    if color == COLOR_WARNING_ORANGE:
+        return colors.HexColor("#FFF3E8")
+    return COLOR_LIGHT_GRAY_BG
+
+
+def _clean_list_text(text: str) -> str:
+    value = _coerce_text(text).strip()
+    value = re.sub(r"^\s*[-*\u2022]+\s*", "", value)
+    return _strip_visual_prefix(value)
+
+
+def _colorize_key_figures(text: str, color: colors.Color) -> str:
+    raw = _coerce_text(text)
+    # Color common money/percent fragments only; keep the rest neutral.
+    patterns = (
+        r"(\d[\d\s]*(?:[.,]\d+)?\s*₽)",
+        r"(\d[\d\s]*(?:[.,]\d+)?\s*RUB)",
+        r"(\d[\d\s]*(?:[.,]\d+)?\s*%)",
+    )
+    out = raw
+    for pattern in patterns:
+        out = re.sub(
+            pattern,
+            lambda m: f'<font color="{color.hexval()}"><b>{m.group(1)}</b></font>',
+            out,
+        )
+    return out
+
+
+class _SectionHeaderBar(Flowable):
+    def __init__(
+        self,
+        *,
+        text: str,
+        style: ParagraphStyle,
+        color: colors.Color,
+        width: float,
+    ) -> None:
+        super().__init__()
+        self._text = _strip_visual_prefix(text)
+        self._style = style
+        self._color = color
+        self._width = width
+        self._pad_x = 4.0 * mm
+        self._pad_y = 2.6 * mm
+        self._radius = 2.0 * mm
+        self._paragraph = Paragraph(_esc(self._text), self._style)
+        self._inner_width = max(20.0, self._width - (2 * self._pad_x))
+        _, p_height = self._paragraph.wrap(self._inner_width, 200 * mm)
+        self.height = p_height + (2 * self._pad_y)
+
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:
+        width = min(self._width, availWidth)
+        self._inner_width = max(20.0, width - (2 * self._pad_x))
+        _, p_height = self._paragraph.wrap(self._inner_width, max(10.0, availHeight))
+        self.height = p_height + (2 * self._pad_y)
+        return width, self.height
+
+    def draw(self) -> None:
+        self.canv.saveState()
+        self.canv.setFillColor(self._color)
+        self.canv.roundRect(0, 0, self._width, self.height, self._radius, stroke=0, fill=1)
+        self._paragraph.drawOn(self.canv, self._pad_x, self._pad_y)
+        self.canv.restoreState()
+
+
+def _build_callout_card(
+    *,
+    title: str,
+    lines: list[str],
+    color: colors.Color,
+    body_style: ParagraphStyle,
+    title_style: ParagraphStyle,
+    doc_width: float,
+) -> Table:
+    title_text = _strip_visual_prefix(title)
+    title_html = f'<font color="{COLOR_DARK_TEXT.hexval()}"><b>{_esc(title_text)}</b></font>'
+    content_lines = [line for line in (line.strip() for line in lines) if line]
+    if content_lines:
+        content_html = "<br/>".join(_colorize_key_figures(_esc(line), color) for line in content_lines)
+    else:
+        content_html = " "
+
+    inner_title = Paragraph(title_html, title_style)
+    inner_body = Paragraph(content_html, body_style)
+    inner = Table([[inner_title], [inner_body]], colWidths=[doc_width - 14])
+    inner.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), _semantic_bg(color)),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+
+    card = Table([[inner]], colWidths=[doc_width], hAlign="LEFT")
+    card.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), _semantic_bg(color)),
+                ("LINEBEFORE", (0, 0), (0, 0), 3.0, color),
+                ("BOX", (0, 0), (-1, -1), 0.5, COLOR_BORDER_GRAY),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    return card
+
+
 def _normalize_heading_key(text: str) -> str:
-    key = _coerce_text(text).strip().lower().replace("\u0451", "\u0435")
-    key = re.sub(r"^\s*[-*•]+\s*", "", key)
+    key = _strip_visual_prefix(_coerce_text(text)).strip().lower().replace("\u0451", "\u0435")
+    key = re.sub(r"^\s*[-*\u2022]+\s*", "", key)
     key = re.sub(r"^\s*\d+\.\s*", "", key)
     key = re.sub(r"\s*\.+\s*(\d+|\u043d/\u0434)\s*$", "", key)
-    key = key.replace("—", "-")
+    key = key.replace("\u2014", "-")
     key = re.sub(r"\s+", " ", key).strip(" .:-")
     return key
-
 
 def _is_toc_heading(title: str) -> bool:
     key = _normalize_heading_key(title)
@@ -298,13 +450,12 @@ def _is_toc_heading(title: str) -> bool:
 
 
 def _extract_toc_entry_title(line: str) -> str | None:
-    match = re.match(r"^\s*[-*•]\s+(.*)$", line)
+    match = re.match(r"^\s*[-*\u2022]\s+(.*)$", line)
     if not match:
         return None
-    title = _coerce_text(match.group(1)).strip()
+    title = _strip_visual_prefix(_coerce_text(match.group(1)).strip())
     title = re.sub(r"\s*\.+\s*(\d+|\u043d/\u0434)\s*$", "", title)
     return title.strip()
-
 
 def _format_toc_entry(title: str, page: int | None) -> str:
     clean_title = _coerce_text(title).strip()
@@ -435,6 +586,7 @@ def _build_story(
     h1: ParagraphStyle,
     h2: ParagraphStyle,
     h3: ParagraphStyle,
+    callout_title: ParagraphStyle,
     body: ParagraphStyle,
     font_info: dict[str, str],
     toc_pages: dict[str, int] | None = None,
@@ -442,18 +594,45 @@ def _build_story(
 ) -> list[Any]:
     story: list[Any] = []
     in_toc_section = False
+    in_exec_summary = False
+    active_exec_card: dict[str, Any] | None = None
 
     def _append_page_break() -> None:
+        _flush_exec_card()
         if not story:
             return
         if isinstance(story[-1], PageBreak):
             return
         story.append(PageBreak())
 
-    def _attach_heading_key(paragraph: Paragraph, heading_text: str) -> Paragraph:
+    def _attach_heading_key(flowable: Any, heading_text: str) -> Any:
         if capture_headings:
-            paragraph._wb_heading_key = _normalize_heading_key(heading_text)  # type: ignore[attr-defined]
-        return paragraph
+            flowable._wb_heading_key = _normalize_heading_key(heading_text)  # type: ignore[attr-defined]
+        return flowable
+
+    def _append_heading_bar(heading_text: str, *, level: int) -> None:
+        clean_heading = _strip_visual_prefix(heading_text)
+        color = _semantic_color(clean_heading)
+        style = h1 if level == 1 else h2
+        bar = _SectionHeaderBar(text=clean_heading, style=style, color=color, width=doc.width)
+        story.append(_attach_heading_key(bar, clean_heading))
+        story.append(Spacer(1, 4))
+
+    def _flush_exec_card() -> None:
+        nonlocal active_exec_card
+        if not isinstance(active_exec_card, dict):
+            return
+        card = _build_callout_card(
+            title=str(active_exec_card.get("title") or ""),
+            lines=[str(x) for x in (active_exec_card.get("lines") or [])],
+            color=active_exec_card.get("color") or COLOR_PRIMARY_BLUE,
+            body_style=body,
+            title_style=callout_title,
+            doc_width=doc.width,
+        )
+        story.append(card)
+        story.append(Spacer(1, 5))
+        active_exec_card = None
 
     for block in _split_blocks(markdown_text):
         if block.strip() == "---PAGEBREAK---":
@@ -474,9 +653,10 @@ def _build_story(
                         ("FONTNAME", (0, 1), (-1, -1), font_info["regular_name"]),
                         ("FONTSIZE", (0, 0), (-1, -1), 9.5),
                         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
-                        ("LINEBELOW", (0, 0), (-1, 0), 1, colors.grey),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), COLOR_WHITE),
+                        ("GRID", (0, 0), (-1, -1), 0.4, COLOR_BORDER_GRAY),
+                        ("BACKGROUND", (0, 0), (-1, 0), COLOR_PRIMARY_BLUE),
+                        ("LINEBELOW", (0, 0), (-1, 0), 0.6, COLOR_PRIMARY_BLUE),
                         ("LEFTPADDING", (0, 0), (-1, -1), 6),
                         ("RIGHTPADDING", (0, 0), (-1, -1), 6),
                         ("TOPPADDING", (0, 0), (-1, -1), 4),
@@ -485,7 +665,9 @@ def _build_story(
                 )
                 for row_index in range(1, len(tbl_data)):
                     if row_index % 2 == 0:
-                        table_style.add("BACKGROUND", (0, row_index), (-1, row_index), colors.HexColor("#FAFAFA"))
+                        table_style.add("BACKGROUND", (0, row_index), (-1, row_index), COLOR_LIGHT_GRAY_BG)
+                    else:
+                        table_style.add("BACKGROUND", (0, row_index), (-1, row_index), COLOR_WHITE)
                 table.setStyle(table_style)
 
                 story.append(table)
@@ -498,25 +680,52 @@ def _build_story(
                 _append_page_break()
                 continue
             if not line.strip():
-                story.append(Spacer(1, 6))
+                if isinstance(active_exec_card, dict):
+                    active_exec_card.setdefault("lines", []).append("")
+                else:
+                    story.append(Spacer(1, 6))
                 continue
 
             if line.startswith("# "):
-                heading_text = line[2:].strip()
+                _flush_exec_card()
+                heading_text = _strip_visual_prefix(line[2:].strip())
+                heading_key = _normalize_heading_key(heading_text)
+                in_exec_summary = bool(
+                    "краткий итог по кабинету" in heading_key
+                    or "executive summary" in heading_key
+                )
                 in_toc_section = False
-                para = Paragraph(_esc(heading_text), h1)
-                story.append(_attach_heading_key(para, heading_text))
+                _append_heading_bar(heading_text, level=1)
                 continue
 
             if line.startswith("## "):
-                heading_text = line[3:].strip()
+                _flush_exec_card()
+                heading_text = _strip_visual_prefix(line[3:].strip())
                 in_toc_section = _is_toc_heading(heading_text)
-                para = Paragraph(_esc(heading_text), h2)
-                story.append(_attach_heading_key(para, heading_text))
+                heading_key = _normalize_heading_key(heading_text)
+                if in_exec_summary and heading_key in {"потери", "точки роста", "риски", "главный вывод"}:
+                    active_exec_card = {
+                        "title": heading_text,
+                        "color": _semantic_color(heading_text),
+                        "lines": [],
+                    }
+                    continue
+                _append_heading_bar(heading_text, level=2)
                 continue
 
             if line.startswith("### "):
-                story.append(Paragraph(_esc(line[4:].strip()), h3))
+                _flush_exec_card()
+                h3_title = _strip_visual_prefix(line[4:].strip())
+                h3_card = _build_callout_card(
+                    title=h3_title,
+                    lines=[],
+                    color=_semantic_color(h3_title),
+                    body_style=body,
+                    title_style=callout_title,
+                    doc_width=doc.width,
+                )
+                story.append(h3_card)
+                story.append(Spacer(1, 4))
                 continue
 
             if in_toc_section:
@@ -557,17 +766,43 @@ def _build_story(
                     story.append(Spacer(1, 1))
                     continue
 
-            bullet_match = re.match(r"^\s*[-*•]\s+(.*)$", line)
-            if bullet_match:
-                story.append(Paragraph(f"• {_esc(bullet_match.group(1).strip())}", body))
+            if isinstance(active_exec_card, dict):
+                active_exec_card.setdefault("lines", []).append(_clean_list_text(line))
                 continue
 
-            story.append(Paragraph(_esc(line), body))
+            semantic_line = _strip_visual_prefix(line)
+            semantic_match = re.match(
+                r"^(Потери|Точки роста|Риски|Главный вывод)\s*:?\s*(.*)$",
+                semantic_line,
+                flags=re.IGNORECASE,
+            )
+            if semantic_match:
+                semantic_title = semantic_match.group(1).strip()
+                semantic_body = semantic_match.group(2).strip()
+                semantic_card = _build_callout_card(
+                    title=semantic_title,
+                    lines=[semantic_body] if semantic_body else [],
+                    color=_semantic_color(semantic_title),
+                    body_style=body,
+                    title_style=callout_title,
+                    doc_width=doc.width,
+                )
+                story.append(semantic_card)
+                story.append(Spacer(1, 4))
+                continue
 
+            bullet_match = re.match(r"^\s*[-*\u2022]\s+(.*)$", line)
+            if bullet_match:
+                bullet_text = _clean_list_text(bullet_match.group(1).strip())
+                story.append(Paragraph(f"- {_esc(bullet_text)}", body))
+                continue
+
+            story.append(Paragraph(_esc(_strip_visual_prefix(line)), body))
+
+        _flush_exec_card()
         story.append(Spacer(1, 4))
 
     return story
-
 
 class _PageNumberCanvas(canvas.Canvas):
     def __init__(
@@ -668,20 +903,22 @@ def markdown_to_simple_pdf(
         "H1",
         parent=styles["Heading1"],
         fontName=font_info["bold_name"],
-        fontSize=16,
-        leading=20,
-        spaceBefore=6,
-        spaceAfter=10,
+        fontSize=13.5,
+        leading=16.5,
+        textColor=COLOR_WHITE,
+        spaceBefore=4,
+        spaceAfter=6,
         keepWithNext=True,
     )
     h2 = ParagraphStyle(
         "H2",
         parent=styles["Heading2"],
         fontName=font_info["bold_name"],
-        fontSize=13,
-        leading=16,
-        spaceBefore=10,
-        spaceAfter=6,
+        fontSize=11.8,
+        leading=14.5,
+        textColor=COLOR_WHITE,
+        spaceBefore=4,
+        spaceAfter=5,
         keepWithNext=True,
     )
     h3 = ParagraphStyle(
@@ -690,9 +927,20 @@ def markdown_to_simple_pdf(
         fontName=font_info["bold_name"],
         fontSize=11.5,
         leading=14,
+        textColor=COLOR_DARK_TEXT,
         spaceBefore=8,
         spaceAfter=4,
         keepWithNext=True,
+    )
+    callout_title = ParagraphStyle(
+        "CalloutTitle",
+        parent=styles["Heading3"],
+        fontName=font_info["bold_name"],
+        fontSize=10.8,
+        leading=13,
+        textColor=COLOR_DARK_TEXT,
+        spaceBefore=0,
+        spaceAfter=1,
     )
     body = ParagraphStyle(
         "Body",
@@ -700,6 +948,7 @@ def markdown_to_simple_pdf(
         fontName=font_info["regular_name"],
         fontSize=10.5,
         leading=14,
+        textColor=COLOR_DARK_TEXT,
         spaceBefore=0,
         spaceAfter=3,
     )
@@ -724,6 +973,7 @@ def markdown_to_simple_pdf(
             h1=h1,
             h2=h2,
             h3=h3,
+            callout_title=callout_title,
             body=body,
             font_info=font_info,
             toc_pages=toc_pages if toc_pages else None,
@@ -753,6 +1003,7 @@ def markdown_to_simple_pdf(
         h1=h1,
         h2=h2,
         h3=h3,
+        callout_title=callout_title,
         body=body,
         font_info=font_info,
         toc_pages=toc_pages,

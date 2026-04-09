@@ -108,3 +108,15 @@ def test_fit_text_to_width_shortens_when_needed() -> None:
         font_size=10.0,
     )
     assert fitted.endswith("...")
+
+
+def test_strip_visual_prefix_removes_square_and_emoji_markers() -> None:
+    assert pdf_report._strip_visual_prefix("■ KPI и инсайты") == "KPI и инсайты"
+    assert pdf_report._strip_visual_prefix("⚠️ Риски") == "Риски"
+
+
+def test_semantic_color_mapping() -> None:
+    assert pdf_report._semantic_color("Потери") == pdf_report.COLOR_DANGER_RED
+    assert pdf_report._semantic_color("Точки роста") == pdf_report.COLOR_SUCCESS_GREEN
+    assert pdf_report._semantic_color("Риски") == pdf_report.COLOR_WARNING_ORANGE
+    assert pdf_report._semantic_color("KPI и инсайты") == pdf_report.COLOR_PRIMARY_BLUE
