@@ -947,6 +947,7 @@ def _local_orders_section_lines(local_orders_insights: dict[str, Any], *, total_
 
     by_region = local_orders_insights.get("by_region") or []
     recommendations = local_orders_insights.get("recommendations") or []
+    diagnostics = local_orders_insights.get("diagnostics") if isinstance(local_orders_insights.get("diagnostics"), dict) else {}
 
     lines.append("### Сводка по локальному спросу")
     lines.append("Распределение по регионам рассчитывается от выкупов.")
@@ -958,6 +959,9 @@ def _local_orders_section_lines(local_orders_insights: dict[str, Any], *, total_
         region_buyouts_total = max(_to_int(total_buyouts), 0)
     lines.append(f"Всего выкупов: {region_buyouts_total}")
     lines.append("")
+    buyouts_without_geo = _to_int(diagnostics.get("buyout_rows_without_geo"))
+    if buyouts_without_geo > 0:
+        lines.append(f"- Строк выкупов без региона: {buyouts_without_geo} (не учтены в распределении; см. diagnostics).")
     if by_region:
         rows: list[list[Any]] = []
         for item in by_region[:12]:

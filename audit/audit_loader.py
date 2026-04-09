@@ -152,6 +152,23 @@ def _to_int(x: Any) -> int:
         return 0
 
 
+def _to_bool(x: Any) -> bool:
+    if isinstance(x, bool):
+        return x
+    if x is None:
+        return False
+    if isinstance(x, (int, float)):
+        return float(x) != 0.0
+    text = _norm(x)
+    if not text:
+        return False
+    if text in {"1", "true", "yes", "y", "да", "д", "выкуп", "выкуплен", "доставлен"}:
+        return True
+    if text in {"0", "false", "no", "n", "нет", "не", "не выкуплен", "cancelled", "canceled"}:
+        return False
+    return False
+
+
 def _to_sku_token(x: Any) -> str:
     if x is None:
         return ""
@@ -871,6 +888,10 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
     warehouse_col = _lookup_col_name(first_row, warehouse_aliases)
     city_col = _lookup_col_name(first_row, city_aliases)
     qty_col = _lookup_col_name(first_row, qty_aliases)
+    buyout_qty_aliases = ("buyoutCount", "buyouts", "buys", "Выкупили, шт", "Выкупы")
+    buyout_flag_aliases = ("buyout", "is_buyout", "buyout_flag", "Выкуп", "Выкуплен", "Статус выкупа")
+    buyout_qty_col = _lookup_col_name(first_row, buyout_qty_aliases)
+    buyout_flag_col = _lookup_col_name(first_row, buyout_flag_aliases)
 
     missing_columns: list[str] = []
     if not sku_col and not seller_col:
@@ -884,6 +905,10 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
     parsed_rows = 0
     skipped_rows = 0
     geo_rows = 0
+    buyout_rows_total = 0
+    buyout_rows_without_geo = 0
+    buyout_units_total = 0
+    buyout_units_without_geo = 0
     for _, r in df.iterrows():
         parsed_rows += 1
         row = dict(r)
@@ -909,10 +934,6 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
             if _norm(city).startswith("unnamed"):
                 city = ""
 
-        if not region and not city:
-            skipped_rows += 1
-            continue
-
         if region or city:
             geo_rows += 1
 
@@ -920,6 +941,17 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
         qty = _to_int(qty_raw)
         if qty <= 0:
             qty = 1
+        buyout_qty = _to_int(_lookup(row, buyout_qty_aliases))
+        buyout_flag = _to_bool(_lookup(row, buyout_flag_aliases))
+        if buyout_qty <= 0 and buyout_flag:
+            buyout_qty = 1
+
+        if buyout_qty > 0:
+            buyout_rows_total += 1
+            buyout_units_total += int(buyout_qty)
+            if not region and not city:
+                buyout_rows_without_geo += 1
+                buyout_units_without_geo += int(buyout_qty)
 
         rows.append(
             {
@@ -933,6 +965,9 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
                 "warehouse": warehouse,
                 "orders": int(max(qty, 1)),
                 "quantity": int(max(qty, 1)),
+                "buyout": bool(buyout_flag or buyout_qty > 0),
+                "buyoutCount": int(max(buyout_qty, 0)),
+                "buyouts": int(max(buyout_qty, 0)),
             }
         )
 
@@ -958,7 +993,13 @@ def parse_orders_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
             "warehouse": warehouse_col,
             "city": city_col,
             "orders": qty_col,
+            "buyout_count": buyout_qty_col,
+            "buyout_flag": buyout_flag_col,
         },
+        "buyouts_rows_total": int(buyout_rows_total),
+        "buyouts_rows_without_geo": int(buyout_rows_without_geo),
+        "buyouts_units_total": int(buyout_units_total),
+        "buyouts_units_without_geo": int(buyout_units_without_geo),
         "missing_columns": missing_columns,
     }
 

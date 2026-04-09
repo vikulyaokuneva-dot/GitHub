@@ -51,9 +51,9 @@ def test_parse_orders_feed_extracts_sku_geo_orders_and_date(tmp_path: Path) -> N
 
 def test_local_orders_insights_uses_orders_feed_geo_when_available() -> None:
     orders_rows = [
-        {"nmId": 405933491, "region": "Центральный", "city": "Москва", "orders": 3},
-        {"nmId": 405933491, "region": "Центральный", "city": "Москва", "orders": 2},
-        {"nmId": 810239842, "region": "Приволжский", "city": "Казань", "orders": 1},
+        {"nmId": 405933491, "region": "Центральный", "city": "Москва", "orders": 3, "buyoutCount": 3},
+        {"nmId": 405933491, "region": "Центральный", "city": "Москва", "orders": 2, "buyoutCount": 2},
+        {"nmId": 810239842, "region": "Приволжский", "city": "Казань", "orders": 1, "buyoutCount": 1},
     ]
     funnel_rows = [
         {"nmId": 405933491, "orderCount": 99, "region": "Уральский"},

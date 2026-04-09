@@ -275,6 +275,21 @@ def _to_int(value: Any) -> int:
         return 0
 
 
+def _to_bool_flag(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, (int, float)):
+        return float(value) != 0.0
+    text = _norm_text(value)
+    if text in {"1", "true", "yes", "y", "да", "д", "выкуп", "выкуплен", "доставлен"}:
+        return True
+    if text in {"0", "false", "no", "n", "нет", "не", "не выкуплен", "cancelled", "canceled"}:
+        return False
+    return False
+
+
 def _norm_text(value: Any) -> str:
     text = str(value or "").replace("\xa0", " ").strip().lower()
     return " ".join(text.split())
@@ -2080,6 +2095,11 @@ def _build_local_orders_insights(
     route_rows_non_local = 0
     orders_rows_scanned = 0
     orders_rows_with_geo = 0
+    buyout_rows_scanned = 0
+    buyout_rows_with_geo = 0
+    buyout_rows_without_geo = 0
+    buyout_units_scanned = 0
+    buyout_units_without_geo = 0
     for row in raw_orders_rows:
         if not isinstance(row, dict):
             continue
@@ -2087,12 +2107,21 @@ def _build_local_orders_insights(
         sku = _to_int(row.get("nmId") or row.get("nm_id") or row.get("sku"))
         orders = _to_int(row.get("orderCount") or row.get("orders") or row.get("quantity"))
         buyouts = _to_int(row.get("buyoutCount") or row.get("buyouts") or row.get("buys"))
+        buyout_flag = _to_bool_flag(row.get("buyout") or row.get("is_buyout") or row.get("buyout_flag"))
+        if buyouts <= 0 and buyout_flag:
+            buyouts = 1
         if orders <= 0 and preferred_orders_source == "orders_feed":
             orders = 1
+        if buyouts > 0:
+            buyout_rows_scanned += 1
+            buyout_units_scanned += int(buyouts)
         geo = _geo_label(row)
         if sku <= 0 or (orders <= 0 and buyouts <= 0):
             continue
         if not geo:
+            if buyouts > 0:
+                buyout_rows_without_geo += 1
+                buyout_units_without_geo += int(buyouts)
             continue
         orders_rows_with_geo += 1
         if orders > 0:
@@ -2101,6 +2130,7 @@ def _build_local_orders_insights(
             total_orders_by_region[geo] += orders
         if buyouts > 0:
             total_buyouts_by_region[geo] += buyouts
+            buyout_rows_with_geo += 1
 
         origin_region = ""
         destination_region = ""
@@ -2160,27 +2190,29 @@ def _build_local_orders_insights(
                 "orders_rows_scanned": int(orders_rows_scanned),
                 "orders_rows_with_geo": int(orders_rows_with_geo),
                 "orders_geo_source": preferred_orders_source,
+                "buyout_rows_scanned": int(buyout_rows_scanned),
+                "buyout_rows_with_geo": int(buyout_rows_with_geo),
+                "buyout_rows_without_geo": int(buyout_rows_without_geo),
+                "buyout_units_scanned": int(buyout_units_scanned),
+                "buyout_units_without_geo": int(buyout_units_without_geo),
                 "route_rows_with_origin_destination": int(route_rows_with_origin_destination),
                 "route_rows_non_local": int(route_rows_non_local),
                 "stock_rows_scanned": int(stock_rows_scanned),
                 "stock_rows_with_geo": int(stock_rows_with_geo),
                 "required_fields": [
                     "SKU (nmId)",
-                    "region/city/warehouse for orders",
-                    "buyouts quantity",
+                    "region/city/warehouse for buyouts",
+                    "buyout flag or buyout quantity",
                 ],
                 "required_source_hint": "WB выгрузка заказов с географией доставки (регион/город) по SKU за период.",
             },
         }
 
     by_region = []
-    region_keys = set(total_orders_by_region.keys()) | set(total_buyouts_by_region.keys())
+    region_keys = set(total_buyouts_by_region.keys())
     sorted_regions = sorted(
         region_keys,
-        key=lambda region: (
-            int(total_buyouts_by_region.get(region) or 0),
-            int(total_orders_by_region.get(region) or 0),
-        ),
+        key=lambda region: int(total_buyouts_by_region.get(region) or 0),
         reverse=True,
     )
     for region in sorted_regions:
@@ -2204,6 +2236,8 @@ def _build_local_orders_insights(
                 else None,
             }
         )
+    region_buyouts_sum = sum(int((item or {}).get("buyouts") or 0) for item in by_region if isinstance(item, dict))
+    region_buyouts_match_total = int(region_buyouts_sum) == int(total_buyouts)
 
     by_sku = []
     orders_with_geo: list[dict[str, Any]] = []
@@ -2363,6 +2397,13 @@ def _build_local_orders_insights(
             "orders_rows_scanned": int(orders_rows_scanned),
             "orders_rows_with_geo": int(orders_rows_with_geo),
             "orders_geo_source": preferred_orders_source,
+            "buyout_rows_scanned": int(buyout_rows_scanned),
+            "buyout_rows_with_geo": int(buyout_rows_with_geo),
+            "buyout_rows_without_geo": int(buyout_rows_without_geo),
+            "buyout_units_scanned": int(buyout_units_scanned),
+            "buyout_units_without_geo": int(buyout_units_without_geo),
+            "region_buyouts_sum": int(region_buyouts_sum),
+            "region_buyouts_match_total": bool(region_buyouts_match_total),
             "route_rows_with_origin_destination": int(route_rows_with_origin_destination),
             "route_rows_non_local": int(route_rows_non_local),
             "stock_rows_scanned": int(stock_rows_scanned),
@@ -3938,6 +3979,9 @@ def _parse_many_orders(files: list[str]) -> tuple[list[dict[str, Any]], dict[str
             "warehouse_region",
             "warehouse",
             "orders",
+            "buyout",
+            "buyoutCount",
+            "buyouts",
         ),
     )
     return deduped, {
