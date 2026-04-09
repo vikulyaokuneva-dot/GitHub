@@ -63,6 +63,8 @@ def estimate_loss_per_order(
     item_price: float | None,
     warehouse_coef: float = 1.0,
     localization_share_pct: float | None,
+    forced_localization_index: float | None = None,
+    forced_sales_distribution_index_pct: float | None = None,
 ) -> dict[str, Any]:
     volume = _to_float_or_none(volume_liters)
     price = _to_float_or_none(item_price)
@@ -71,14 +73,25 @@ def estimate_loss_per_order(
         coef = coef / 100.0
 
     localization_share = _to_float_or_none(localization_share_pct)
-    localization_index, sales_distribution_index_pct = localization_indices_by_share(localization_share)
+    localization_index = _to_float_or_none(forced_localization_index)
+    sales_distribution_index_pct = _to_float_or_none(forced_sales_distribution_index_pct)
+    if localization_index is None or sales_distribution_index_pct is None:
+        mapped_localization_index, mapped_sales_distribution_index_pct = localization_indices_by_share(localization_share)
+        if localization_index is None:
+            localization_index = mapped_localization_index
+        if sales_distribution_index_pct is None:
+            sales_distribution_index_pct = mapped_sales_distribution_index_pct
 
     missing_inputs: list[str] = []
     if volume is None or volume <= 0:
         missing_inputs.append("volume_liters")
     if price is None or price <= 0:
         missing_inputs.append("item_price")
-    if localization_share is None:
+    if (
+        localization_share is None
+        and localization_index is None
+        and sales_distribution_index_pct is None
+    ):
         missing_inputs.append("localization_share_pct")
 
     current_delivery_cost = None
@@ -134,6 +147,8 @@ def estimate_total_localization_loss_for_sku(
     item_price: float | None = None,
     warehouse_coef: float = 1.0,
     avg_price_fallback: float | None = None,
+    forced_localization_index: float | None = None,
+    forced_sales_distribution_index_pct: float | None = None,
 ) -> dict[str, Any]:
     sku_id = _to_int(sku)
     orders = max(_to_int(orders_count), 0)
@@ -141,9 +156,16 @@ def estimate_total_localization_loss_for_sku(
     volume = _to_float_or_none(volume_liters)
     price = _to_float_or_none(item_price)
     fallback_price = _to_float_or_none(avg_price_fallback)
+    il = _to_float_or_none(forced_localization_index)
+    irp = _to_float_or_none(forced_sales_distribution_index_pct)
+    if il is None or irp is None:
+        mapped_il, mapped_irp = localization_indices_by_share(share)
+        if il is None:
+            il = mapped_il
+        if irp is None:
+            irp = mapped_irp
 
     if orders <= 0:
-        il, irp = localization_indices_by_share(share)
         return {
             "sku": sku_id,
             "orders": 0,
@@ -172,10 +194,9 @@ def estimate_total_localization_loss_for_sku(
     if volume is None or volume <= 0:
         rub_mode = "score_only"
         missing_inputs.append("volume_liters")
-    if share is None:
+    if share is None and il is None and irp is None:
         missing_inputs.append("localization_share_pct")
 
-    il, irp = localization_indices_by_share(share)
     score_price = price_for_calc if price_for_calc is not None else fallback_price
     price_weight = _clamp((float(score_price or 0.0) / 5000.0), 0.0, 1.0)
     orders_weight = _clamp((float(orders) / 100.0), 0.0, 1.0)
@@ -191,6 +212,8 @@ def estimate_total_localization_loss_for_sku(
             item_price=price_for_calc,
             warehouse_coef=warehouse_coef,
             localization_share_pct=share,
+            forced_localization_index=il,
+            forced_sales_distribution_index_pct=irp,
         )
         loss_per_order = _to_float_or_none(loss.get("loss_per_order_rub"))
         if loss_per_order is None:
@@ -245,6 +268,8 @@ def estimate_total_localization_loss(
     default_item_price: float | None,
     warehouse_coef: float = 1.0,
     revenue_total: float | None = None,
+    forced_localization_index: float | None = None,
+    forced_sales_distribution_index_pct: float | None = None,
 ) -> dict[str, Any]:
     rows = sku_rows if isinstance(sku_rows, list) else []
     global_share = _to_float_or_none(localization_share_pct)
@@ -288,6 +313,8 @@ def estimate_total_localization_loss(
             item_price=row_price,
             warehouse_coef=warehouse_coef,
             avg_price_fallback=default_price,
+            forced_localization_index=forced_localization_index,
+            forced_sales_distribution_index_pct=forced_sales_distribution_index_pct,
         )
         sku_results.append(sku_result)
 

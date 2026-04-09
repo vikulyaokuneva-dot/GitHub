@@ -45,7 +45,10 @@ WB_TIMEZONE = ZoneInfo(os.getenv("WB_TIMEZONE", "Europe/Moscow"))
 REQUIRED_TYPES = ("finance", "funnel", "stocks")
 OPTIONAL_TYPES = ("ads", "search", "orders", "cogs")
 LOCAL_MOVE_MIN_BATCH = int(os.getenv("WB_LOCAL_MOVE_MIN_BATCH", "5"))
-LOGISTICS_CONFIG_REL_PATH = os.path.join("logist", "logistics_config.xlsx")
+LOGISTICS_CONFIG_FILE_NAME = "logistics_config.xlsx"
+LOGISTICS_CONFIG_REL_PATH = LOGISTICS_CONFIG_FILE_NAME
+LOGISTICS_CONFIG_LEGACY_REL_PATH = os.path.join("logist", LOGISTICS_CONFIG_FILE_NAME)
+PREFERRED_LOGISTICS_CONFIG_SHEET = "Остатки по дням"
 LOGISTICS_CONFIG_UPDATE_FREQUENCY_DAYS = 14
 LOCAL_COST_PER_ORDER = 50.0
 NON_LOCAL_COST_PER_ORDER = 120.0
@@ -322,7 +325,9 @@ def _parse_localization_pct(value: Any) -> float | None:
 
 
 def _norm_key_like(value: Any) -> str:
-    return _norm_text(value).replace("ё", "е")
+    text = _norm_text(value)
+    text = text.replace("ё", "е")
+    return text
 
 
 def _is_localization_key(value: Any) -> bool:
@@ -374,17 +379,172 @@ def _extract_localization_pct_from_df(df: pd.DataFrame) -> float | None:
     return None
 
 
+def _parse_numeric_from_config_value(value: Any) -> tuple[float | None, bool]:
+    if value is None:
+        return None, False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value), False
+    text = str(value or "").replace("\xa0", " ").strip()
+    if not text:
+        return None, False
+    has_percent_sign = "%" in text
+    cleaned = text.replace(",", ".")
+    cleaned = re.sub(r"[^0-9.+\-]", "", cleaned)
+    if cleaned in {"", ".", "+", "-", "+.", "-."}:
+        return None, has_percent_sign
+    if cleaned.count(".") > 1:
+        parts = cleaned.split(".")
+        cleaned = parts[0] + "." + "".join(parts[1:])
+    try:
+        return float(cleaned), has_percent_sign
+    except Exception:
+        return None, has_percent_sign
+
+
+def _normalize_local_order_share(value: Any) -> float | None:
+    parsed, has_percent_sign = _parse_numeric_from_config_value(value)
+    if parsed is None:
+        return None
+    share = float(parsed)
+    if has_percent_sign or share > 1.0:
+        share = share / 100.0
+    share = min(max(share, 0.0), 1.0)
+    return round(share, 4)
+
+
+def _normalize_locality_index(value: Any) -> float | None:
+    parsed, _ = _parse_numeric_from_config_value(value)
+    if parsed is None:
+        return None
+    return round(float(parsed), 4)
+
+
+def _normalize_irp_share(value: Any) -> float | None:
+    parsed, has_percent_sign = _parse_numeric_from_config_value(value)
+    if parsed is None:
+        return None
+    irp_share = float(parsed)
+    # Config may provide IRP as percent points (0.99 / 2.15 / 0.99%) or as already normalized share (0.0099).
+    if has_percent_sign or irp_share > 1.0 or irp_share >= 0.1:
+        irp_share = irp_share / 100.0
+    irp_share = max(irp_share, 0.0)
+    return round(irp_share, 6)
+
+
+def _is_local_order_share_key(key: str) -> bool:
+    if not key:
+        return False
+    aliases = (
+        "процент локальных заказов",
+        "локализация",
+        "процент локализации",
+        "доля локализации",
+        "localization",
+        "local share",
+        "local_order_share",
+    )
+    return any(alias in key for alias in aliases)
+
+
+def _is_locality_index_key(key: str) -> bool:
+    if not key:
+        return False
+    compact = re.sub(r"[^a-zа-я0-9]+", " ", key, flags=re.IGNORECASE).strip()
+    return compact in {
+        "ил",
+        "индекс локализации",
+        "locality index",
+        "locality_index",
+    }
+
+
+def _is_irp_key(key: str) -> bool:
+    if not key:
+        return False
+    compact = re.sub(r"[^a-zа-я0-9]+", " ", key, flags=re.IGNORECASE).strip()
+    return compact in {"ирп", "irp", "sales distribution index"}
+
+
+def _extract_logistics_config_from_df(df: pd.DataFrame) -> dict[str, float | None]:
+    result: dict[str, float | None] = {
+        "local_order_share": None,
+        "locality_index": None,
+        "irp": None,
+    }
+    if df is None or df.empty:
+        return result
+
+    work = df.fillna("")
+    row_count = min(int(work.shape[0]), 400)
+    col_count = int(work.shape[1])
+    if col_count <= 0:
+        return result
+
+    for row_idx in range(row_count):
+        raw_key = work.iat[row_idx, 0]
+        raw_value = work.iat[row_idx, 1] if col_count > 1 else None
+        key = _norm_key_like(raw_key)
+        if not key:
+            continue
+
+        if result["local_order_share"] is None and _is_local_order_share_key(key):
+            value = _normalize_local_order_share(raw_value)
+            if value is not None:
+                result["local_order_share"] = value
+
+        if result["locality_index"] is None and _is_locality_index_key(key):
+            value = _normalize_locality_index(raw_value)
+            if value is not None:
+                result["locality_index"] = value
+
+        if result["irp"] is None and _is_irp_key(key):
+            value = _normalize_irp_share(raw_value)
+            if value is not None:
+                result["irp"] = value
+
+        if all(result.get(field) is not None for field in ("local_order_share", "locality_index", "irp")):
+            break
+
+    return result
+
+
+def _pick_logistics_config_file_path(input_dir: str) -> str | None:
+    candidates = [
+        os.path.join(input_dir, LOGISTICS_CONFIG_REL_PATH),
+        os.path.join(input_dir, LOGISTICS_CONFIG_LEGACY_REL_PATH),
+    ]
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def _pick_logistics_sheet(workbook: dict[str, pd.DataFrame]) -> tuple[str | None, pd.DataFrame | None]:
+    if not isinstance(workbook, dict) or not workbook:
+        return None, None
+
+    target_key = _norm_key_like(PREFERRED_LOGISTICS_CONFIG_SHEET)
+    for sheet_name, sheet_df in workbook.items():
+        if _norm_key_like(sheet_name) == target_key:
+            return str(sheet_name), sheet_df
+
+    first_sheet_name = next(iter(workbook.keys()))
+    return str(first_sheet_name), workbook.get(first_sheet_name)
+
+
 def _load_logistics_config(input_dir: str) -> dict[str, Any]:
-    source = os.path.join(input_dir, LOGISTICS_CONFIG_REL_PATH).replace("\\", "/")
     payload = {
+        "local_order_share": None,
+        "locality_index": None,
+        "irp": None,
         "localization_pct": None,
-        "source": source,
+        "source": LOGISTICS_CONFIG_FILE_NAME,
         "scope": "cabinet",
         "update_frequency_days": LOGISTICS_CONFIG_UPDATE_FREQUENCY_DAYS,
     }
 
-    source_path = os.path.join(input_dir, LOGISTICS_CONFIG_REL_PATH)
-    if not os.path.isfile(source_path):
+    source_path = _pick_logistics_config_file_path(input_dir)
+    if not source_path:
         return payload
 
     try:
@@ -392,11 +552,23 @@ def _load_logistics_config(input_dir: str) -> dict[str, Any]:
     except Exception:
         return payload
 
-    for _, sheet_df in (workbook or {}).items():
-        pct = _extract_localization_pct_from_df(sheet_df)
-        if pct is not None:
-            payload["localization_pct"] = pct
-            return payload
+    selected_sheet, sheet_df = _pick_logistics_sheet(workbook or {})
+    if sheet_df is None:
+        return payload
+
+    extracted = _extract_logistics_config_from_df(sheet_df)
+    local_order_share = _to_float_or_none(extracted.get("local_order_share"))
+    locality_index = _to_float_or_none(extracted.get("locality_index"))
+    irp = _to_float_or_none(extracted.get("irp"))
+
+    payload["source"] = os.path.basename(source_path).strip() or LOGISTICS_CONFIG_FILE_NAME
+    payload["source_path"] = source_path.replace("\\", "/")
+    payload["sheet"] = selected_sheet
+    payload["local_order_share"] = round(float(local_order_share), 4) if local_order_share is not None else None
+    payload["locality_index"] = round(float(locality_index), 4) if locality_index is not None else None
+    payload["irp"] = round(float(irp), 6) if irp is not None else None
+    if local_order_share is not None:
+        payload["localization_pct"] = round(float(local_order_share) * 100.0, 2)
     return payload
 
 
@@ -432,7 +604,14 @@ def _build_cabinet_logistics_summary(
     financial_summary: dict[str, Any],
     logistics_config: dict[str, Any],
 ) -> dict[str, Any]:
-    localization_pct = _to_float_or_none(logistics_config.get("localization_pct"))
+    local_order_share = _to_float_or_none(logistics_config.get("local_order_share"))
+    if local_order_share is None:
+        localization_pct = _to_float_or_none(logistics_config.get("localization_pct"))
+        if localization_pct is not None:
+            local_order_share = max(0.0, min(1.0, float(localization_pct) / 100.0))
+    else:
+        local_order_share = max(0.0, min(1.0, float(local_order_share)))
+    localization_pct = round(float(local_order_share) * 100.0, 2) if local_order_share is not None else None
     orders_count = _cabinet_orders_count(funnel_summary, financial_summary)
 
     avg_logistics_cost_est: float | None = None
@@ -441,8 +620,8 @@ def _build_cabinet_logistics_summary(
     delta_vs_target_per_order: float | None = None
     potential_overpay_due_localization: float | None = None
 
-    if localization_pct is not None:
-        local_share = max(0.0, min(1.0, float(localization_pct) / 100.0))
+    if local_order_share is not None:
+        local_share = float(local_order_share)
         avg_logistics_cost_est = (
             local_share * LOCAL_COST_PER_ORDER + (1.0 - local_share) * NON_LOCAL_COST_PER_ORDER
         )
@@ -466,6 +645,7 @@ def _build_cabinet_logistics_summary(
         irp = (float(revenue) - float(logistics_used) - float(cogs) - float(commission)) / float(revenue)
 
     return {
+        "local_order_share": round(float(local_order_share), 4) if local_order_share is not None else None,
         "localization_pct": round(float(localization_pct), 2) if localization_pct is not None else None,
         "orders_count": int(orders_count),
         "avg_logistics_cost_est": round(float(avg_logistics_cost_est), 2) if avg_logistics_cost_est is not None else None,
@@ -1069,6 +1249,18 @@ def _build_localization_loss_payload(
     logistics_formula_model: dict[str, Any],
 ) -> dict[str, Any]:
     localization_share_pct = _to_float_or_none(logistics_formula_model.get("localization_share_pct"))
+    assumptions = []
+    diagnostics = logistics_formula_model.get("diagnostics")
+    if isinstance(diagnostics, dict) and isinstance(diagnostics.get("assumptions"), list):
+        assumptions = [str(x) for x in (diagnostics.get("assumptions") or [])]
+
+    force_locality_index = "localization_index_from_config" in assumptions
+    force_irp = "sales_distribution_index_pct_from_config" in assumptions
+    forced_localization_index = _to_float_or_none(logistics_formula_model.get("localization_index")) if force_locality_index else None
+    forced_sales_distribution_index_pct = (
+        _to_float_or_none(logistics_formula_model.get("sales_distribution_index_pct")) if force_irp else None
+    )
+
     non_local_orders_share = _estimate_non_local_orders_share(
         funnel_rows=funnel_rows,
         local_orders_insights=local_orders_insights,
@@ -1089,6 +1281,8 @@ def _build_localization_loss_payload(
         default_item_price=_to_float_or_none(logistics_formula_model.get("item_price")),
         warehouse_coef=_to_float_or_none(logistics_formula_model.get("warehouse_coef")) or 1.0,
         revenue_total=revenue_total,
+        forced_localization_index=forced_localization_index,
+        forced_sales_distribution_index_pct=forced_sales_distribution_index_pct,
     )
     payload["localization_share_pct"] = localization_share_pct
     return payload
@@ -4008,15 +4202,40 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             },
         }
 
+    config_local_order_share = _to_float_or_none(logistics_config.get("local_order_share"))
     config_localization_pct = _to_float_or_none(logistics_config.get("localization_pct"))
-    if isinstance(logistics_formula_model, dict) and config_localization_pct is not None:
-        logistics_formula_model["localization_share_pct"] = round(float(config_localization_pct), 2)
+    if config_localization_pct is None and config_local_order_share is not None:
+        config_localization_pct = round(max(0.0, min(1.0, float(config_local_order_share))) * 100.0, 2)
+    config_locality_index = _to_float_or_none(logistics_config.get("locality_index"))
+    config_irp_share = _to_float_or_none(logistics_config.get("irp"))
+    config_sales_distribution_index_pct = (
+        round(float(config_irp_share) * 100.0, 4) if config_irp_share is not None else None
+    )
+
+    has_logistics_config_override = any(
+        value is not None
+        for value in (
+            config_localization_pct,
+            config_locality_index,
+            config_sales_distribution_index_pct,
+        )
+    )
+
+    if isinstance(logistics_formula_model, dict) and has_logistics_config_override:
+        if config_localization_pct is not None:
+            logistics_formula_model["localization_share_pct"] = round(float(config_localization_pct), 2)
+
         input_candidates = (
             logistics_formula_model.get("input_candidates")
             if isinstance(logistics_formula_model.get("input_candidates"), dict)
             else {}
         )
-        input_candidates["localization_share_pct"] = round(float(config_localization_pct), 2)
+        if config_localization_pct is not None:
+            input_candidates["localization_share_pct"] = round(float(config_localization_pct), 2)
+        if config_locality_index is not None:
+            input_candidates["localization_index"] = round(float(config_locality_index), 4)
+        if config_sales_distribution_index_pct is not None:
+            input_candidates["sales_distribution_index_pct"] = round(float(config_sales_distribution_index_pct), 4)
         logistics_formula_model["input_candidates"] = input_candidates
 
         inputs_available = (
@@ -4024,14 +4243,21 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             if isinstance(logistics_formula_model.get("inputs_available"), dict)
             else {}
         )
-        inputs_available["localization_share_pct"] = True
+        if config_localization_pct is not None:
+            inputs_available["localization_share_pct"] = True
+        if config_locality_index is not None:
+            inputs_available["localization_index"] = True
+        if config_sales_distribution_index_pct is not None:
+            inputs_available["sales_distribution_index_pct"] = True
         logistics_formula_model["inputs_available"] = inputs_available
 
         recalculated = compute_wb_logistics_estimate(
             volume_liters=_to_float_or_none(logistics_formula_model.get("volume_liters")),
             item_price=_to_float_or_none(logistics_formula_model.get("item_price")),
             warehouse_coef=_to_float_or_none(logistics_formula_model.get("warehouse_coef")) or 1.0,
-            localization_share_pct=float(config_localization_pct),
+            localization_share_pct=float(config_localization_pct) if config_localization_pct is not None else None,
+            localization_index_override=config_locality_index,
+            sales_distribution_index_pct_override=config_sales_distribution_index_pct,
             supply_type=SUPPLY_TYPE_BOX,
             is_sgt=False,
             is_courier_wb=False,
@@ -4056,12 +4282,17 @@ def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") ->
             if key in recalculated:
                 logistics_formula_model[key] = recalculated.get(key)
 
-        if float(config_localization_pct) >= 70.0:
-            logistics_formula_model["risk_level"] = "low"
-        elif float(config_localization_pct) >= 40.0:
-            logistics_formula_model["risk_level"] = "medium"
-        else:
-            logistics_formula_model["risk_level"] = "high"
+        if config_irp_share is not None:
+            logistics_formula_model["sales_distribution_index_share"] = round(float(config_irp_share), 6)
+
+        effective_localization_pct = _to_float_or_none(logistics_formula_model.get("localization_share_pct"))
+        if effective_localization_pct is not None:
+            if float(effective_localization_pct) >= 70.0:
+                logistics_formula_model["risk_level"] = "low"
+            elif float(effective_localization_pct) >= 40.0:
+                logistics_formula_model["risk_level"] = "medium"
+            else:
+                logistics_formula_model["risk_level"] = "high"
 
         has_delivery = _to_float_or_none(logistics_formula_model.get("estimated_delivery_cost")) is not None
         has_volume = bool((logistics_formula_model.get("inputs_available") or {}).get("volume_liters"))

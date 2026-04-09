@@ -241,25 +241,39 @@ def test_parse_localization_pct_handles_supported_formats() -> None:
 
 def test_load_logistics_config_reads_localization_from_xlsx(tmp_path: Path) -> None:
     input_dir = tmp_path
-    logist_dir = input_dir / "logist"
-    logist_dir.mkdir(parents=True, exist_ok=True)
-    config_file = logist_dir / "logistics_config.xlsx"
+    config_file = input_dir / "logistics_config.xlsx"
 
-    ru_key = "\u041f\u0440\u043e\u0446\u0435\u043d\u0442 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0445 \u0437\u0430\u043a\u0430\u0437\u043e\u0432"
-    df = pd.DataFrame([[ru_key, "40%"]])
-    df.to_excel(config_file, index=False, header=False)
+    ru_share_key = "\u041f\u0440\u043e\u0446\u0435\u043d\u0442 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0445 \u0437\u0430\u043a\u0430\u0437\u043e\u0432"
+    ru_il_key = "\u0418\u041b"
+    ru_irp_key = "\u0418\u0420\u041f"
+
+    with pd.ExcelWriter(config_file) as writer:
+        pd.DataFrame([["junk", "999"]]).to_excel(writer, sheet_name="fallback", index=False, header=False)
+        pd.DataFrame([[ru_share_key, "40%"], [ru_il_key, "1,12"], [ru_irp_key, "0,99"]]).to_excel(
+            writer,
+            sheet_name="\u041e\u0441\u0442\u0430\u0442\u043a\u0438 \u043f\u043e \u0434\u043d\u044f\u043c",
+            index=False,
+            header=False,
+        )
 
     cfg = _load_logistics_config(str(input_dir))
+    assert cfg["local_order_share"] == 0.4
+    assert cfg["locality_index"] == 1.12
+    assert cfg["irp"] == 0.0099
     assert cfg["localization_pct"] == 40.0
     assert cfg["scope"] == "cabinet"
     assert cfg["update_frequency_days"] == 14
-    assert cfg["source"].endswith("logist/logistics_config.xlsx")
+    assert cfg["sheet"] == "\u041e\u0441\u0442\u0430\u0442\u043a\u0438 \u043f\u043e \u0434\u043d\u044f\u043c"
+    assert cfg["source"] == "logistics_config.xlsx"
 
 
 def test_load_logistics_config_returns_null_when_file_missing(tmp_path: Path) -> None:
     cfg = _load_logistics_config(str(tmp_path))
     assert cfg["localization_pct"] is None
-    assert cfg["source"].endswith("logist/logistics_config.xlsx")
+    assert cfg["local_order_share"] is None
+    assert cfg["locality_index"] is None
+    assert cfg["irp"] is None
+    assert cfg["source"] == "logistics_config.xlsx"
     assert cfg["scope"] == "cabinet"
 
 
@@ -283,3 +297,23 @@ def test_build_cabinet_logistics_summary_uses_config_and_calculates_irp() -> Non
     assert summary["target_localization_pct"] == 70.0
     assert summary["potential_overpay_due_localization"] == 210.0
     assert summary["irp"] == 0.608
+
+
+def test_load_logistics_config_falls_back_to_first_sheet_when_preferred_missing(tmp_path: Path) -> None:
+    input_dir = tmp_path
+    config_file = input_dir / "logistics_config.xlsx"
+
+    with pd.ExcelWriter(config_file) as writer:
+        pd.DataFrame(
+            [
+                ["\u041b\u043e\u043a\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f", "40"],
+                ["\u0418\u041b", "1,12"],
+                ["\u0418\u0420\u041f", "0.99%"],
+            ]
+        ).to_excel(writer, sheet_name="Config", index=False, header=False)
+
+    cfg = _load_logistics_config(str(input_dir))
+    assert cfg["sheet"] == "Config"
+    assert cfg["local_order_share"] == 0.4
+    assert cfg["locality_index"] == 1.12
+    assert cfg["irp"] == 0.0099

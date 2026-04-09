@@ -128,3 +128,17 @@ def test_estimate_total_loss_for_sku_score_only():
     )
     assert row["mode"] == "score_only"
     assert row["risk_level"] in {"medium", "high", "critical", "unknown"}
+
+
+def test_loss_per_order_respects_forced_il_irp_from_config() -> None:
+    row = estimate_loss_per_order(
+        volume_liters=1.0,
+        item_price=1000.0,
+        warehouse_coef=1.0,
+        localization_share_pct=None,
+        forced_localization_index=1.12,
+        forced_sales_distribution_index_pct=0.99,
+    )
+    assert row["localization_index"] == 1.12
+    assert row["sales_distribution_index_pct"] == 0.99
+    assert row["loss_per_order_rub"] == 13.74

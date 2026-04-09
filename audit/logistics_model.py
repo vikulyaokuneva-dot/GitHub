@@ -165,6 +165,8 @@ def compute_wb_logistics_estimate(
     item_price: float | None,
     warehouse_coef: float = 1.0,
     localization_share_pct: float | None = None,
+    localization_index_override: float | None = None,
+    sales_distribution_index_pct_override: float | None = None,
     supply_type: str = SUPPLY_TYPE_BOX,
     is_sgt: bool = False,
     is_courier_wb: bool = False,
@@ -180,11 +182,24 @@ def compute_wb_logistics_estimate(
         missing_inputs.append("volume_liters")
     if price is None or price <= 0:
         missing_inputs.append("item_price")
-    if localization_share is None:
+    forced_localization_index = _to_float_or_none(localization_index_override)
+    forced_sales_distribution_index_pct = _to_float_or_none(sales_distribution_index_pct_override)
+
+    if (
+        localization_share is None
+        and forced_localization_index is None
+        and forced_sales_distribution_index_pct is None
+    ):
         missing_inputs.append("localization_share_pct")
 
     localization_index, sales_distribution_index_pct = localization_indices_by_share(localization_share)
     assumptions: list[str] = []
+    if forced_localization_index is not None:
+        localization_index = forced_localization_index
+        assumptions.append("localization_index_from_config")
+    if forced_sales_distribution_index_pct is not None:
+        sales_distribution_index_pct = forced_sales_distribution_index_pct
+        assumptions.append("sales_distribution_index_pct_from_config")
     if localization_index is None:
         localization_index = 1.0
         assumptions.append("localization_index_assumed_1_0")
@@ -262,7 +277,11 @@ def compute_wb_logistics_estimate(
             "volume_liters": volume is not None and volume > 0,
             "item_price": price is not None and price > 0,
             "warehouse_coef": True,
-            "localization_share_pct": localization_share is not None,
+            "localization_share_pct": (
+                localization_share is not None
+                or forced_localization_index is not None
+                or forced_sales_distribution_index_pct is not None
+            ),
             "supply_type": bool(supply_kind),
         },
         "missing_inputs": missing_inputs,
