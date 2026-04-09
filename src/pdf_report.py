@@ -349,6 +349,111 @@ def _colorize_key_figures(text: str, color: colors.Color) -> str:
     return out
 
 
+def _parse_numeric_cell(value: str) -> float | None:
+    text = _coerce_text(value).strip()
+    if not text or text in {"-", "н/д", "n/a", "N/A"}:
+        return None
+    text = text.replace("\u2212", "-")
+    text = text.replace("₽", "").replace("RUB", "").replace("rub", "")
+    text = text.replace("%", "")
+    text = re.sub(r"\s+", "", text)
+    text = re.sub(r"[^0-9,.\-]", "", text)
+    if not text or text in {"-", ".", ",", "-.", "-,"}:
+        return None
+
+    if "," in text and "." in text:
+        text = text.replace(",", "")
+    elif "," in text:
+        text = text.replace(",", ".")
+
+    if text.count(".") > 1:
+        parts = text.split(".")
+        text = "".join(parts[:-1]) + "." + parts[-1]
+
+    try:
+        return float(text)
+    except Exception:
+        return None
+
+
+def _parse_percent_ratio(value: str) -> float | None:
+    parsed = _parse_numeric_cell(value)
+    if parsed is None:
+        return None
+    raw = _coerce_text(value)
+    if "%" in raw:
+        return parsed / 100.0
+    if abs(parsed) > 1.0:
+        return parsed / 100.0
+    return parsed
+
+
+def _table_cell_metric_color(headers: list[str], *, col_index: int, value: str) -> colors.Color | None:
+    if col_index < 0 or col_index >= len(headers):
+        return None
+    key = _normalize_heading_key(headers[col_index])
+    if not key:
+        return None
+
+    if "чистая прибыль" in key or ("прибыл" in key and "чист" in key):
+        metric = _parse_numeric_cell(value)
+        if metric is None:
+            return None
+        if metric > 0:
+            return COLOR_SUCCESS_GREEN
+        if metric < 0:
+            return COLOR_DANGER_RED
+        return None
+
+    if "roi" in key:
+        metric = _parse_numeric_cell(value)
+        if metric is None:
+            return None
+        if metric > 0:
+            return COLOR_SUCCESS_GREEN
+        if metric < 0:
+            return COLOR_DANGER_RED
+        return None
+
+    if "дрр" in key or "drr" in key:
+        ratio = _parse_percent_ratio(value)
+        if ratio is None:
+            return None
+        if ratio <= 0.10:
+            return COLOR_SUCCESS_GREEN
+        if ratio >= 0.25:
+            return COLOR_DANGER_RED
+        return None
+
+    if key == "ctr":
+        ratio = _parse_percent_ratio(value)
+        if ratio is None:
+            return None
+        if ratio >= 0.03:
+            return COLOR_SUCCESS_GREEN
+        if ratio <= 0.01:
+            return COLOR_DANGER_RED
+        return None
+
+    if key.startswith("cr ") or "cr (" in key:
+        ratio = _parse_percent_ratio(value)
+        if ratio is None:
+            return None
+        if "заказ->выкуп" in key or "order->buyout" in key:
+            if ratio >= 0.80:
+                return COLOR_SUCCESS_GREEN
+            if ratio <= 0.60:
+                return COLOR_DANGER_RED
+            return None
+        if ratio >= 0.10:
+            return COLOR_SUCCESS_GREEN
+        if ratio <= 0.03:
+            return COLOR_DANGER_RED
+        return None
+
+    return None
+
+
 class _SectionHeaderBar(Flowable):
     def __init__(
         self,
@@ -668,6 +773,16 @@ def _build_story(
                         table_style.add("BACKGROUND", (0, row_index), (-1, row_index), COLOR_LIGHT_GRAY_BG)
                     else:
                         table_style.add("BACKGROUND", (0, row_index), (-1, row_index), COLOR_WHITE)
+
+                if rows:
+                    headers = rows[0]
+                    for row_index in range(1, len(rows)):
+                        for col_index, raw_value in enumerate(rows[row_index]):
+                            cell_color = _table_cell_metric_color(headers, col_index=col_index, value=raw_value)
+                            if cell_color is None:
+                                continue
+                            table_style.add("TEXTCOLOR", (col_index, row_index), (col_index, row_index), cell_color)
+                            table_style.add("FONTNAME", (col_index, row_index), (col_index, row_index), font_info["bold_name"])
                 table.setStyle(table_style)
 
                 story.append(table)

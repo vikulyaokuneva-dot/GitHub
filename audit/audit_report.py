@@ -1832,6 +1832,253 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
 
     return lines
 
+
+def _safe_ratio(numerator: Any, denominator: Any) -> float | None:
+    numerator_value = _to_float(numerator)
+    denominator_value = _to_float(denominator)
+    if numerator_value is None or denominator_value is None or denominator_value <= 0:
+        return None
+    return float(numerator_value) / float(denominator_value)
+
+
+def _count_or_dash(value: Any) -> str:
+    if value is None or value == "":
+        return "-"
+    return str(max(_to_int(value), 0))
+
+
+def _percent_or_dash(ratio: float | None) -> str:
+    if ratio is None:
+        return "-"
+    return f"{float(ratio) * 100.0:.1f}%"
+
+
+def _money_int_rub_or_dash(value: Any) -> str:
+    parsed = _to_float(value)
+    if parsed is None:
+        return "-"
+    rounded = int(round(float(parsed)))
+    return f"{rounded:,} ₽".replace(",", " ")
+
+
+def _ratio_or_dash(value: float | None, *, digits: int = 2) -> str:
+    if value is None:
+        return "-"
+    token = f"{float(value):.{digits}f}".rstrip("0").rstrip(".")
+    return token if token else "0"
+
+
+def _extract_sku_from_item(row: dict[str, Any]) -> int:
+    if not isinstance(row, dict):
+        return 0
+    product = row.get("product")
+    if isinstance(product, dict):
+        product_sku = _to_int(product.get("nmId") or product.get("nm_id") or product.get("nmID") or product.get("sku"))
+        if product_sku > 0:
+            return product_sku
+    return _to_int(row.get("nmId") or row.get("nm_id") or row.get("nmID") or row.get("sku"))
+
+
+def _pick_funnel_stat_item(row: dict[str, Any]) -> dict[str, Any]:
+    statistic = row.get("statistic")
+    if isinstance(statistic, dict):
+        selected = statistic.get("selected") or statistic.get("current") or statistic.get("now")
+        if isinstance(selected, dict):
+            return selected
+    return row
+
+
+def _funnel_sku_metrics(funnel_raw: Any) -> dict[int, dict[str, int]]:
+    rows = funnel_raw if isinstance(funnel_raw, list) else []
+    out: dict[int, dict[str, int]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        sku = _extract_sku_from_item(row)
+        if sku <= 0:
+            continue
+        stat = _pick_funnel_stat_item(row)
+        node = out.setdefault(
+            sku,
+            {
+                "impressions": 0,
+                "views": 0,
+                "add_to_cart": 0,
+                "orders": 0,
+                "buyouts": 0,
+            },
+        )
+        node["impressions"] += max(_to_int(stat.get("impressions") or stat.get("shows")), 0)
+        node["views"] += max(_to_int(stat.get("views") or stat.get("openCount") or stat.get("openCardCount")), 0)
+        node["add_to_cart"] += max(_to_int(stat.get("add_to_cart") or stat.get("cartCount") or stat.get("addToCartCount")), 0)
+        node["orders"] += max(_to_int(stat.get("orders") or stat.get("orderCount")), 0)
+        node["buyouts"] += max(_to_int(stat.get("buys") or stat.get("buyoutCount")), 0)
+    return out
+
+
+def _search_sku_metrics(search: dict[str, Any]) -> dict[int, dict[str, int]]:
+    out: dict[int, dict[str, int]] = {}
+    if not isinstance(search, dict):
+        return out
+    base_rows = search.get("base_rows") if isinstance(search.get("base_rows"), list) else []
+    for row in base_rows:
+        if not isinstance(row, dict):
+            continue
+        sku = _extract_sku_from_item(row)
+        if sku <= 0:
+            continue
+        node = out.setdefault(
+            sku,
+            {
+                "impressions": 0,
+                "clicks": 0,
+                "add_to_cart": 0,
+                "orders": 0,
+                "buyouts": 0,
+            },
+        )
+        node["impressions"] += max(_to_int(row.get("impressions")), 0)
+        node["clicks"] += max(_to_int(row.get("clicks")), 0)
+        node["add_to_cart"] += max(_to_int(row.get("add_to_cart")), 0)
+        node["orders"] += max(_to_int(row.get("orders")), 0)
+        node["buyouts"] += max(_to_int(row.get("buyouts")), 0)
+    return out
+
+
+def _first_non_zero(primary: Any, fallback: Any) -> Any:
+    primary_value = _to_int(primary)
+    fallback_value = _to_int(fallback)
+    if primary not in (None, "") and primary_value > 0:
+        return primary_value
+    if fallback not in (None, "") and fallback_value > 0:
+        return fallback_value
+    if primary not in (None, ""):
+        return primary_value
+    if fallback not in (None, ""):
+        return fallback_value
+    return None
+
+
+def _sku_efficiency_section_lines(*, facts: dict[str, Any]) -> list[str]:
+    lines: list[str] = ["## Эффективность товаров"]
+    sku_profit = facts.get("sku_profit") if isinstance(facts.get("sku_profit"), list) else []
+    if not sku_profit:
+        lines.append("- Недостаточно данных для построения таблицы по SKU.")
+        lines.append("")
+        return lines
+
+    sku_rows = [row for row in sku_profit if isinstance(row, dict) and _to_int(row.get("sku")) > 0]
+    if not sku_rows:
+        lines.append("- Нет валидных SKU в источнике `sku_profit`.")
+        lines.append("")
+        return lines
+
+    sorted_by_profit = sorted(sku_rows, key=lambda row: (_to_float(row.get("profit")) or 0.0), reverse=True)
+
+    ab_skus: set[int] = set()
+    for row in sku_rows:
+        category = _text(row.get("abc")).upper()
+        sku = _to_int(row.get("sku"))
+        if sku > 0 and category in {"A", "B"}:
+            ab_skus.add(sku)
+
+    if ab_skus:
+        selected = [row for row in sorted_by_profit if _to_int(row.get("sku")) in ab_skus]
+        selection_note = "- В таблицу включены SKU категорий A и B (ABC-анализ)."
+    else:
+        selected = sorted_by_profit
+        selection_note = "- ABC-анализ недоступен: выбраны TOP SKU по прибыли."
+
+    selected = selected[:20]
+    if not selected:
+        lines.append("- Для выбранного набора SKU нет данных.")
+        lines.append("")
+        return lines
+
+    funnel_metrics = _funnel_sku_metrics(facts.get("funnel_raw"))
+    search_metrics = _search_sku_metrics(facts.get("search_insights") if isinstance(facts.get("search_insights"), dict) else {})
+
+    table_rows: list[tuple[float, list[Any]]] = []
+    for row in selected:
+        sku = _to_int(row.get("sku"))
+        if sku <= 0:
+            continue
+        search_row = search_metrics.get(sku) or {}
+        funnel_row = funnel_metrics.get(sku) or {}
+
+        impressions = _first_non_zero(search_row.get("impressions"), funnel_row.get("impressions"))
+        clicks = _first_non_zero(search_row.get("clicks"), funnel_row.get("views"))
+        add_to_cart = _first_non_zero(search_row.get("add_to_cart"), funnel_row.get("add_to_cart"))
+
+        orders = _to_int(row.get("orders"))
+        if orders <= 0:
+            orders = _to_int(_first_non_zero(funnel_row.get("orders"), search_row.get("orders")))
+
+        buyouts = _to_int(row.get("buyouts"))
+        if buyouts <= 0:
+            buyouts = _to_int(_first_non_zero(funnel_row.get("buyouts"), search_row.get("buyouts")))
+
+        revenue = _to_float(row.get("revenue"))
+        ad_spend = _to_float(row.get("ad_spend"))
+        profit = _to_float(row.get("profit"))
+
+        ctr = _safe_ratio(clicks, impressions)
+        cr_click_to_cart = _safe_ratio(add_to_cart, clicks)
+        cr_cart_to_order = _safe_ratio(orders, add_to_cart)
+        cr_order_to_buyout = _safe_ratio(buyouts, orders)
+        drr = _safe_ratio(ad_spend, revenue)
+        roi = _safe_ratio(profit, ad_spend)
+
+        formatted = [
+            sku,
+            _count_or_dash(impressions),
+            _count_or_dash(clicks),
+            _percent_or_dash(ctr),
+            _count_or_dash(add_to_cart),
+            _percent_or_dash(cr_click_to_cart),
+            _count_or_dash(orders),
+            _percent_or_dash(cr_cart_to_order),
+            _count_or_dash(buyouts),
+            _percent_or_dash(cr_order_to_buyout),
+            _percent_or_dash(drr),
+            _money_int_rub_or_dash(profit),
+            _ratio_or_dash(roi, digits=2),
+        ]
+        table_rows.append((float(profit or 0.0), formatted))
+
+    table_rows = sorted(table_rows, key=lambda item: item[0], reverse=True)[:20]
+    if not table_rows:
+        lines.append("- Не удалось сформировать строки для таблицы SKU.")
+        lines.append("")
+        return lines
+
+    headers = [
+        "Артикул",
+        "Показы",
+        "Клики",
+        "CTR",
+        "В корзину (шт)",
+        "CR (клик->корзина)",
+        "Заказы (шт)",
+        "CR (корзина->заказ)",
+        "Выкупы (шт)",
+        "CR (заказ->выкуп)",
+        "ДРР",
+        "Чистая прибыль (руб)",
+        "ROI",
+    ]
+    _append_markdown_table(
+        lines,
+        headers,
+        [row for _, row in table_rows],
+        align_right=set(range(1, len(headers))),
+    )
+    lines.append(selection_note)
+    lines.append("- Источники: funnel, sku_profit, search (если есть).")
+    lines.append("")
+    return lines
+
+
 def _profit_view(finance: dict[str, Any], ads: dict[str, Any]) -> dict[str, Any]:
     revenue = _to_float(finance.get("gross_revenue")) or 0.0
     commission = _to_float(finance.get("commission")) or 0.0
@@ -2906,6 +3153,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         lines.append("- SKU со сниженной маржинальностью не выявлены.")
         lines.append("")
 
+    lines.extend(_sku_efficiency_section_lines(facts=facts))
     lines.extend(_top5_unit_economics_section_lines(facts))
     lines.append("")
 
