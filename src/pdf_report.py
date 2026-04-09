@@ -47,6 +47,21 @@ TOC_CLEAN_ENTRIES: tuple[str, ...] = (
     "План действий",
 )
 
+MAIN_SECTION_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("kpi", ("kpi", "инсайт", "insight")),
+    ("finance", ("финанс", "finance")),
+    ("funnel", ("воронк", "funnel")),
+    ("ads", ("реклам", "ads")),
+    ("stocks", ("остатк", "stock")),
+    ("assortment", ("ассортимент / sku",)),
+    ("top_sku", ("top sku", "top-5 sku", "топ sku", "топ-5 sku")),
+    ("logistics", ("логист",)),
+    ("losses", ("потер", "loss")),
+    ("localization", ("локализ", "локальн")),
+    ("search", ("поисков", "search")),
+    ("actions", ("план", "что делать", "action")),
+)
+
 # Preferred unicode font families with Cyrillic support.
 _FONT_FILE_CANDIDATES: tuple[tuple[str, str], ...] = (
     ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"),
@@ -609,9 +624,20 @@ def _normalize_heading_key(text: str) -> str:
     key = re.sub(r"^\s*[-*\u2022]+\s*", "", key)
     key = re.sub(r"^\s*\d+\.\s*", "", key)
     key = re.sub(r"\s*\.+\s*(\d+|\u043d/\u0434)\s*$", "", key)
-    key = key.replace("\u2014", "-")
+    key = re.sub(r"[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]", "-", key)
     key = re.sub(r"\s+", " ", key).strip(" .:-")
     return key
+
+
+def _match_main_section(heading_text: str) -> str | None:
+    key = _normalize_heading_key(heading_text)
+    if not key:
+        return None
+    for section_id, needles in MAIN_SECTION_RULES:
+        if any(needle in key for needle in needles):
+            return section_id
+    return None
+
 
 def _is_toc_heading(title: str) -> bool:
     key = _normalize_heading_key(title)
@@ -735,17 +761,37 @@ def _logical_page_number(physical_page: int, *, skip_first_page_numbering: bool)
 
 
 class _TrackingDocTemplate(SimpleDocTemplate):
-    def __init__(self, *args: Any, heading_pages: dict[str, int], **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *args: Any,
+        heading_pages: dict[str, int],
+        section_headings: dict[str, tuple[str, int]] | None = None,
+        section_order: list[str] | None = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self._heading_pages = heading_pages
+        self._section_headings = section_headings
+        self._section_order = section_order
 
     def afterFlowable(self, flowable: Any) -> None:  # noqa: N802
+        page_number = int(self.canv.getPageNumber())
+
         section_key = getattr(flowable, "_wb_heading_key", "")
-        if not section_key:
-            return
-        if section_key in self._heading_pages:
-            return
-        self._heading_pages[section_key] = int(self.canv.getPageNumber())
+        if section_key and section_key not in self._heading_pages:
+            self._heading_pages[section_key] = page_number
+
+        section_id = getattr(flowable, "_wb_section_id", "")
+        section_title = getattr(flowable, "_wb_section_title", "")
+        if (
+            section_id
+            and section_title
+            and isinstance(self._section_headings, dict)
+            and section_id not in self._section_headings
+        ):
+            self._section_headings[section_id] = (str(section_title), page_number)
+            if isinstance(self._section_order, list):
+                self._section_order.append(section_id)
 
 
 def _build_story(
@@ -759,6 +805,7 @@ def _build_story(
     body: ParagraphStyle,
     font_info: dict[str, str],
     toc_pages: dict[str, int] | None = None,
+    toc_entries: list[tuple[str, int | None]] | None = None,
     capture_headings: bool = False,
 ) -> list[Any]:
     story: list[Any] = []
@@ -767,19 +814,67 @@ def _build_story(
     in_exec_summary = False
     active_exec_card: dict[str, Any] | None = None
     last_heading_key = ""
+    current_main_section: str | None = None
+
+    def _last_non_spacer_flowable() -> Any | None:
+        for flowable in reversed(story):
+            if isinstance(flowable, Spacer):
+                continue
+            return flowable
+        return None
+
+    def _is_at_page_start() -> bool:
+        last_non_spacer = _last_non_spacer_flowable()
+        return isinstance(last_non_spacer, PageBreak)
+
+    def _append_spacer(height: float) -> None:
+        if height <= 0:
+            return
+        if _is_at_page_start():
+            return
+        story.append(Spacer(1, height))
 
     def _append_page_break() -> None:
         _flush_exec_card()
         if not story:
             return
-        if isinstance(story[-1], PageBreak):
+        if _is_at_page_start():
             return
         story.append(PageBreak())
 
     def _attach_heading_key(flowable: Any, heading_text: str) -> Any:
         if capture_headings:
-            flowable._wb_heading_key = _normalize_heading_key(heading_text)  # type: ignore[attr-defined]
+            clean_heading = _clean_pdf_text(_strip_visual_prefix(heading_text))
+            flowable._wb_heading_key = _normalize_heading_key(clean_heading)  # type: ignore[attr-defined]
+            section_id = _match_main_section(clean_heading)
+            if section_id:
+                flowable._wb_section_id = section_id  # type: ignore[attr-defined]
+                flowable._wb_section_title = clean_heading  # type: ignore[attr-defined]
         return flowable
+
+    def _maybe_page_break_for_main_heading(heading_text: str) -> None:
+        nonlocal current_main_section
+        if not _coerce_text(heading_text).strip():
+            return
+        heading_key = _normalize_heading_key(heading_text)
+        force_new_page = (
+            ("top-5 sku" in heading_key)
+            or ("топ-5 sku" in heading_key)
+            or ("итог" in heading_key and "что делать" in heading_key)
+        )
+        if force_new_page:
+            _append_page_break()
+
+        section_key = _match_main_section(heading_text)
+        if not section_key:
+            return
+        if current_main_section is None:
+            current_main_section = section_key
+            return
+        if section_key == current_main_section:
+            return
+        _append_page_break()
+        current_main_section = section_key
 
     def _append_heading_bar(heading_text: str, *, level: int) -> None:
         clean_heading = _clean_pdf_text(_strip_visual_prefix(heading_text))
@@ -787,7 +882,7 @@ def _build_story(
         style = h1 if level == 1 else h2
         bar = _SectionHeaderBar(text=clean_heading, style=style, color=color, width=doc.width)
         story.append(_attach_heading_key(bar, clean_heading))
-        story.append(Spacer(1, 4))
+        _append_spacer(4)
 
     def _flush_exec_card() -> None:
         nonlocal active_exec_card
@@ -802,7 +897,7 @@ def _build_story(
             doc_width=doc.width,
         )
         story.append(card)
-        story.append(Spacer(1, 5))
+        _append_spacer(5)
         active_exec_card = None
 
     for block in _split_blocks(markdown_text):
@@ -852,7 +947,7 @@ def _build_story(
                 table.setStyle(table_style)
 
                 story.append(table)
-                story.append(Spacer(1, 8))
+                _append_spacer(8)
                 continue
 
         for raw_line in block.splitlines():
@@ -864,7 +959,7 @@ def _build_story(
                 if isinstance(active_exec_card, dict):
                     active_exec_card.setdefault("lines", []).append("")
                 else:
-                    story.append(Spacer(1, 6))
+                    _append_spacer(6)
                 continue
 
             if line.startswith("# "):
@@ -880,6 +975,7 @@ def _build_story(
                 )
                 in_toc_section = False
                 toc_rendered = False
+                _maybe_page_break_for_main_heading(heading_text)
                 _append_heading_bar(heading_text, level=1)
                 continue
 
@@ -900,6 +996,7 @@ def _build_story(
                         "lines": [],
                     }
                     continue
+                _maybe_page_break_for_main_heading(heading_text)
                 _append_heading_bar(heading_text, level=2)
                 continue
 
@@ -910,6 +1007,9 @@ def _build_story(
                 if h3_key and h3_key == last_heading_key:
                     continue
                 last_heading_key = h3_key
+                h3_section_key = _match_main_section(h3_title)
+                if h3_section_key in {"top_sku", "actions"}:
+                    _maybe_page_break_for_main_heading(h3_title)
                 h3_card = _build_callout_card(
                     title=h3_title,
                     lines=[],
@@ -919,14 +1019,21 @@ def _build_story(
                     doc_width=doc.width,
                 )
                 story.append(h3_card)
-                story.append(Spacer(1, 4))
+                _append_spacer(4)
                 continue
 
             if in_toc_section:
                 if not toc_rendered:
-                    for index, title in enumerate(TOC_CLEAN_ENTRIES, start=1):
-                        toc_title = f"{index}. {title}"
-                        page = _resolve_toc_page(toc_title, toc_pages or {}) if toc_pages else None
+                    if toc_entries:
+                        entries_to_render = list(toc_entries)
+                    else:
+                        entries_to_render = []
+                        for index, title in enumerate(TOC_CLEAN_ENTRIES, start=1):
+                            toc_title = f"{index}. {title}"
+                            page = _resolve_toc_page(toc_title, toc_pages or {}) if toc_pages else None
+                            entries_to_render.append((toc_title, page))
+
+                    for toc_title, page in entries_to_render:
                         page_token = "\u043d/\u0434" if page is None else str(page)
                         page_col_width = max(
                             12 * mm,
@@ -958,7 +1065,7 @@ def _build_story(
                             )
                         )
                         story.append(toc_table)
-                        story.append(Spacer(1, 1))
+                        _append_spacer(1)
                     toc_rendered = True
                 continue
 
@@ -984,7 +1091,7 @@ def _build_story(
                     doc_width=doc.width,
                 )
                 story.append(semantic_card)
-                story.append(Spacer(1, 4))
+                _append_spacer(4)
                 continue
 
             bullet_match = re.match(r"^\s*[-*\u2022]\s+(.*)$", line)
@@ -996,7 +1103,7 @@ def _build_story(
             story.append(Paragraph(_esc(_clean_pdf_text(_strip_visual_prefix(line))), body))
 
         _flush_exec_card()
-        story.append(Spacer(1, 4))
+        _append_spacer(4)
 
     return story
 
@@ -1150,7 +1257,8 @@ def markdown_to_simple_pdf(
     )
 
     toc_pages: dict[str, int] = {}
-    previous_snapshot: tuple[tuple[str, int], ...] | None = None
+    toc_entries: list[tuple[str, int | None]] = []
+    previous_snapshot: tuple[tuple[str, str, int], ...] | None = None
 
     # Two-pass stabilization:
     # 1) collect section start pages;
@@ -1158,9 +1266,13 @@ def markdown_to_simple_pdf(
     # if TOC text slightly shifts pages, one extra probe pass updates mapping.
     for _ in range(2):
         heading_pages_physical: dict[str, int] = {}
+        section_headings_physical: dict[str, tuple[str, int]] = {}
+        section_order: list[str] = []
         probe_doc = _TrackingDocTemplate(
             BytesIO(),
             heading_pages=heading_pages_physical,
+            section_headings=section_headings_physical,
+            section_order=section_order,
             **base_doc_args,
         )
         probe_story = _build_story(
@@ -1173,6 +1285,7 @@ def markdown_to_simple_pdf(
             body=body,
             font_info=font_info,
             toc_pages=toc_pages if toc_pages else None,
+            toc_entries=toc_entries if toc_entries else None,
             capture_headings=True,
         )
         probe_doc.build(probe_story)
@@ -1183,11 +1296,28 @@ def markdown_to_simple_pdf(
                 physical_page,
                 skip_first_page_numbering=skip_first_page_numbering,
             )
-            if logical_page is not None:
-                computed_toc_pages[section_key] = logical_page
+            resolved_page = logical_page if logical_page is not None else int(physical_page)
+            computed_toc_pages[section_key] = resolved_page
 
-        snapshot = tuple(sorted(computed_toc_pages.items()))
+        computed_toc_entries: list[tuple[str, int | None]] = []
+        snapshot_items: list[tuple[str, str, int]] = []
+        for section_id in section_order:
+            section_info = section_headings_physical.get(section_id)
+            if not section_info:
+                continue
+            section_title, physical_page = section_info
+            logical_page = _logical_page_number(
+                physical_page,
+                skip_first_page_numbering=skip_first_page_numbering,
+            )
+            resolved_page = logical_page if logical_page is not None else int(physical_page)
+            computed_toc_entries.append((section_title, resolved_page))
+            snapshot_items.append((section_id, section_title, resolved_page))
+            computed_toc_pages[_normalize_heading_key(section_title)] = resolved_page
+
+        snapshot = tuple(snapshot_items)
         toc_pages = computed_toc_pages
+        toc_entries = computed_toc_entries
         if snapshot == previous_snapshot:
             break
         previous_snapshot = snapshot
@@ -1203,6 +1333,7 @@ def markdown_to_simple_pdf(
         body=body,
         font_info=font_info,
         toc_pages=toc_pages,
+        toc_entries=toc_entries,
         capture_headings=False,
     )
 
