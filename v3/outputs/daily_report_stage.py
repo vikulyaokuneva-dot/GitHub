@@ -7,7 +7,19 @@ from typing import Any, Dict, List
 from ..pdf_render import normalize_pdf_text, repair_mojibake, write_daily_bi_pdf
 from ..pipeline.daily_stage_support import sync_from_entry
 from .email_sender_orchestrator import build_daily_email_body, build_daily_email_subject
-from .render_policy import format_int_or_unknown, format_money_or_unknown, format_pct_or_unknown, is_missing_value
+from .render_policy import (
+    SECTION_STATE_COMPACT_NOTE,
+    SECTION_STATE_FULL,
+    SECTION_STATE_HIDDEN,
+    SECTION_STATE_PARTIAL,
+    build_kpi_display_payload,
+    build_section_display_state,
+    format_int_or_unknown,
+    format_money_or_unknown,
+    format_pct_or_unknown,
+    is_missing_value,
+    normalize_section_state,
+)
 
 
 def _safe_float_local(value: Any) -> float | None:
@@ -210,7 +222,6 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             else "raw_reports_fallback"
         )
     non_api_mode = bool(data.get("non_api_mode", data_mode != "api"))
-    non_api_label = "недостаточно данных (non-API mode)"
     non_api_notice = (
         "Отчет собран в ограниченном режиме по raw-отчетам WB, "
         "часть метрик может быть недоступна до подключения API"
@@ -360,7 +371,15 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         except (TypeError, ValueError):
             return None
 
+    def _first_number_early(*items: Any) -> float | None:
+        for item in items:
+            number = _safe_float_local(item)
+            if number is not None:
+                return number
+        return None
+
     orders_count_value = render_kpi.get("orders_count", data.get("daily_orders_count"))
+    orders_count_raw_value = orders_count_value
     orders_amount_value = render_kpi.get("orders_amount", data.get("daily_orders_amount"))
     buyouts_count_value = render_kpi.get("buyouts_count", data.get("daily_buyouts_count"))
     buyouts_amount_value = render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount"))
@@ -370,22 +389,19 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     margin_pct_value = render_kpi.get("margin_pct", data.get("margin_pct_total"))
     profitability_pct_value = render_kpi.get("profitability_pct", data.get("profitability_pct_total"))
 
-    if non_api_mode:
-        orders_count_value = None
-        orders_amount_value = None
-        buyouts_count_value = None
-        buyouts_amount_value = None
-        avg_check_value = None
-        margin_pct_value = None
-        profitability_pct_value = None
-
     funnel = cabinet_funnel.get("funnel", {}) if isinstance(cabinet_funnel, dict) else {}
     if not isinstance(funnel, dict):
         funnel = {}
+    if is_missing_value(orders_count_value):
+        orders_count_value = _first_number_early(
+            funnel.get("orders"),
+            daily_kpi.get("daily_orders_count"),
+            data.get("daily_orders_count"),
+            data.get("orders"),
+            data.get("sales_activity_qty"),
+        )
 
     conversion_value = funnel.get("view_to_order_conversion", funnel.get("click_to_order_conversion_pct"))
-    if non_api_mode:
-        conversion_value = None
 
     ads_efficiency_mode = str(
         portfolio_ads_summary.get("analysis_mode", advertising_efficiency.get("analysis_mode", "disabled"))
@@ -406,18 +422,6 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         top_profitable_queries_ads = []
     top_unprofitable_queries_ads = portfolio_ads_summary.get("top_unprofitable_queries", []) if isinstance(portfolio_ads_summary, dict) else []
     if not isinstance(top_unprofitable_queries_ads, list):
-        top_unprofitable_queries_ads = []
-
-    if non_api_mode:
-        portfolio_orders_from_ads = None
-        portfolio_buyouts_from_ads = None
-        portfolio_revenue_from_ads = None
-        portfolio_profit_from_ads = None
-        portfolio_romi = None
-        portfolio_drr = None
-        portfolio_cpo = None
-        cpo_value = None
-        top_profitable_queries_ads = []
         top_unprofitable_queries_ads = []
 
     def _safe_text(value: Any) -> str:
@@ -1149,9 +1153,6 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not _component_available("net_profit"):
         net_profit_visual = None
 
-    if non_api_mode:
-        orders_visual = None
-
     def _nz(value: Any) -> float:
         return float(value) if value is not None else 0.0
 
@@ -1197,10 +1198,43 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         and financial_finality_status == "final"
         and float(data.get("financial_completeness_pct", 0.0) or 0.0) >= 95.0
     )
+    net_profit_exact_visual = net_profit_visual if net_profit_reliable else None
     if not net_profit_reliable:
         net_profit_visual = None
         explained_net_profit = None
         net_profit_explain_delta = None
+    operating_profit_without_cogs: float | None = None
+    if revenue_visual is not None:
+        operating_components = (
+            commission_visual,
+            acquiring_visual,
+            pvz_service_visual,
+            logistics_visual,
+            storage_visual,
+            penalties_visual,
+            deductions_visual,
+            loyalty_program_visual,
+            loyalty_points_visual,
+            other_adjustments_visual,
+            ad_spend_visual,
+            tax_visual,
+        )
+        if any(component is not None for component in operating_components):
+            operating_profit_without_cogs = (
+                _nz(revenue_visual)
+                - _nz(commission_visual)
+                - _nz(acquiring_visual)
+                - _nz(pvz_service_visual)
+                - _nz(logistics_visual)
+                - _nz(storage_visual)
+                - _nz(penalties_visual)
+                - _nz(deductions_visual)
+                - _nz(loyalty_program_visual)
+                - _nz(loyalty_points_visual)
+                - _nz(other_adjustments_visual)
+                - _nz(ad_spend_visual)
+                - _nz(tax_visual)
+            )
     loyalty_total_visual = (
         _nz(loyalty_program_visual) + _nz(loyalty_points_visual)
         if (loyalty_program_visual is not None or loyalty_points_visual is not None)
@@ -1469,18 +1503,18 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     views_for_problem = _first_number_local(funnel.get("views"), funnel.get("impressions"))
     orders_for_problem = _first_number_local(funnel.get("orders"), orders_visual)
     buyouts_for_problem = _first_number_local(funnel.get("buyouts"), buyouts_count_value)
+    ads_orders_for_problem = _first_number_local(portfolio_orders_from_ads, portfolio_buyouts_from_ads)
     traffic_data_sufficient = bool(views_for_problem is not None and views_for_problem > 0)
     conversion_data_sufficient = bool(
-        traffic_data_sufficient and orders_for_problem is not None and orders_for_problem > 0
+        (traffic_data_sufficient and orders_for_problem is not None and orders_for_problem > 0)
+        or (orders_for_problem is not None and orders_for_problem > 0 and buyouts_for_problem is not None)
     )
     ads_data_sufficient = bool(
         int(data.get("ads_rows_count", 0) or 0) > 0
         or (ad_spend_visual is not None and abs(float(ad_spend_visual)) > 1e-9)
+        or (portfolio_revenue_from_ads is not None and abs(float(portfolio_revenue_from_ads)) > 1e-9)
+        or (ads_orders_for_problem is not None and abs(float(ads_orders_for_problem)) > 1e-9)
     )
-    if non_api_mode:
-        traffic_data_sufficient = False
-        conversion_data_sufficient = False
-        ads_data_sufficient = False
 
     key_problem_reasons: Dict[str, str] = {}
     key_problem_data_status: Dict[str, str] = {}
@@ -1493,14 +1527,14 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         key_problem_data_status["low_traffic"] = "sufficient"
         if not low_traffic_skus:
             key_problem_reasons["low_traffic"] = "Сигналы низкого трафика не выявлены"
+    elif orders_for_problem is not None and orders_for_problem > 0:
+        low_traffic_skus = []
+        key_problem_data_status["low_traffic"] = "partial"
+        key_problem_reasons["low_traffic"] = "Признак низкого трафика: есть продажи, но недостаточно данных по просмотрам"
     else:
         low_traffic_skus = []
         key_problem_data_status["low_traffic"] = "insufficient"
-        key_problem_reasons["low_traffic"] = (
-            "недостаточно данных (non-API mode): нет подтвержденных просмотров"
-            if non_api_mode
-            else "недостаточно данных: нет подтвержденных просмотров"
-        )
+        key_problem_reasons["low_traffic"] = "Нет данных по просмотрам за период"
 
     if conversion_data_sufficient:
         conversion_drop_skus = _merge_sku_lists(
@@ -1511,14 +1545,16 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         key_problem_data_status["conversion_drop"] = "sufficient"
         if not conversion_drop_skus:
             key_problem_reasons["conversion_drop"] = "Сигналы падения конверсии не выявлены"
+    elif orders_for_problem is not None and orders_for_problem > 0:
+        conversion_drop_skus = []
+        key_problem_data_status["conversion_drop"] = "partial"
+        key_problem_reasons["conversion_drop"] = (
+            "Признак проблем с конверсией: есть заказы, но неполные данные по верхним этапам воронки"
+        )
     else:
         conversion_drop_skus = []
         key_problem_data_status["conversion_drop"] = "insufficient"
-        key_problem_reasons["conversion_drop"] = (
-            "недостаточно данных (non-API mode): нет согласованных просмотров/заказов за единый период"
-            if non_api_mode
-            else "недостаточно данных: нет согласованных просмотров/заказов за единый период"
-        )
+        key_problem_reasons["conversion_drop"] = "Нет полной воронки за период"
 
     if ads_data_sufficient:
         inefficient_ads_skus = _merge_sku_lists(
@@ -1527,16 +1563,23 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             limit=10,
         )
         key_problem_data_status["inefficient_ads"] = "sufficient"
-        if not inefficient_ads_skus:
+        if not inefficient_ads_skus and ad_spend_visual is not None and ad_spend_visual > 0:
+            key_problem_data_status["inefficient_ads"] = "partial"
+            key_problem_reasons["inefficient_ads"] = (
+                "Признак проблем с рекламой: расход есть, подтвержденных заказов по рекламе недостаточно"
+            )
+        elif not inefficient_ads_skus:
             key_problem_reasons["inefficient_ads"] = "Сигналы неэффективной рекламы не выявлены"
+    elif ad_spend_visual is not None and ad_spend_visual > 0:
+        inefficient_ads_skus = []
+        key_problem_data_status["inefficient_ads"] = "partial"
+        key_problem_reasons["inefficient_ads"] = (
+            "Признак проблем с рекламой: расход есть, подтвержденных заказов по рекламе недостаточно"
+        )
     else:
         inefficient_ads_skus = []
         key_problem_data_status["inefficient_ads"] = "insufficient"
-        key_problem_reasons["inefficient_ads"] = (
-            "недостаточно данных (non-API mode): рекламные данные отсутствуют или равны нулю"
-            if non_api_mode
-            else "недостаточно данных: рекламные данные отсутствуют или равны нулю"
-        )
+        key_problem_reasons["inefficient_ads"] = "Нет связки расход → заказ/выкуп для оценки рекламы"
 
     liquidation_skus = _merge_sku_lists(
         _sku_list_local(liquidation_problem_rows, limit=12),
@@ -1553,6 +1596,67 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "inefficient_ads": inefficient_ads_skus,
         "liquidation_skus": liquidation_skus,
     }
+
+    key_problem_cards: List[Dict[str, Any]] = []
+    missing_problem_checks: List[str] = []
+
+    def _append_problem_card(title: str, key: str) -> None:
+        state = normalize_section_state(
+            key_problem_data_status.get(key, "insufficient"),
+            default=SECTION_STATE_COMPACT_NOTE,
+        )
+        reason = _sanitize_client_text(key_problem_reasons.get(key) or "")
+        skus = key_problems_payload.get(key, [])
+        if skus:
+            key_problem_cards.append(
+                {
+                    "title": title,
+                    "key": key,
+                    "state": SECTION_STATE_FULL,
+                    "skus": skus[:8],
+                    "reason": reason,
+                }
+            )
+            return
+        if state == SECTION_STATE_PARTIAL and reason:
+            key_problem_cards.append(
+                {
+                    "title": title,
+                    "key": key,
+                    "state": SECTION_STATE_PARTIAL,
+                    "skus": [],
+                    "reason": reason,
+                }
+            )
+            return
+        if state in {"insufficient", SECTION_STATE_COMPACT_NOTE} and reason:
+            missing_problem_checks.append(f"{title}: {reason}")
+
+    _append_problem_card("Низкий трафик", "low_traffic")
+    _append_problem_card("Падение конверсии", "conversion_drop")
+    _append_problem_card("Неэффективная реклама", "inefficient_ads")
+    if liquidation_skus:
+        key_problem_cards.append(
+            {
+                "title": "SKU в зоне ликвидации",
+                "key": "liquidation_skus",
+                "state": SECTION_STATE_FULL,
+                "skus": liquidation_skus[:8],
+                "reason": _sanitize_client_text(key_problem_reasons.get("liquidation_skus") or ""),
+            }
+        )
+
+    if missing_problem_checks:
+        key_problem_cards.append(
+            {
+                "title": "Что не удалось проверить",
+                "key": "missing_checks",
+                "state": SECTION_STATE_COMPACT_NOTE,
+                "skus": [],
+                "reason": "Нужны дополнительные источники данных:",
+                "notes": missing_problem_checks[:4],
+            }
+        )
 
     def _action_ru_local(raw_action: Any, group: str) -> str:
         token = str(raw_action or "").strip().lower().replace("_", " ")
@@ -1573,6 +1677,48 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         }
         return defaults.get(group, "Р”РµР№СЃС‚РІРёРµ РїРѕ SKU")
 
+    def _is_non_actionable_reason(reason_text: str) -> bool:
+        token = _sanitize_client_text(reason_text).lower()
+        if not token:
+            return True
+        weak_markers = (
+            "недостаточно данных",
+            "insufficient data",
+            "non-api",
+            "нет данных",
+            "данные отсутствуют",
+            "not enough data",
+        )
+        return any(marker in token for marker in weak_markers)
+
+    def _business_reason_from_row(row: Dict[str, Any]) -> str:
+        ad_spend_num = _first_number_local(row.get("ads_spend"), row.get("ad_spend"), row.get("ads_cost"))
+        ad_orders_num = _first_number_local(row.get("ads_orders"), row.get("orders_from_ads"))
+        orders_num = _first_number_local(row.get("orders"), row.get("orders_count"))
+        revenue_num = _first_number_local(row.get("revenue"), row.get("orders_amount"), row.get("buyouts_amount"))
+        profit_num = _first_number_local(row.get("profit"), row.get("net_profit"))
+        stock_num = _first_number_local(
+            row.get("stock"),
+            row.get("stock_left"),
+            row.get("stock_qty"),
+            row.get("inventory"),
+        )
+        funnel_issue_type = str(row.get("funnel_issue_type") or "").strip().lower()
+        health_tier = str(row.get("health_tier") or "").strip().lower()
+        if ad_spend_num is not None and ad_spend_num > 0 and (ad_orders_num is None or ad_orders_num <= 0):
+            return "Расходы на рекламу есть, подтвержденных заказов недостаточно"
+        if stock_num is not None and stock_num > 0 and (orders_num is None or orders_num <= 0):
+            return "Риск зависших остатков"
+        if stock_num is not None and stock_num > 0 and orders_num is not None and orders_num > 0 and stock_num > orders_num * 5:
+            return "Низкая динамика продаж относительно остатков"
+        if profit_num is not None and profit_num <= 0 and (revenue_num is None or revenue_num >= 0):
+            return "Низкий вклад SKU в прибыль"
+        if funnel_issue_type in {"traffic_drop", "low_traffic", "conversion_drop", "insufficient_data"}:
+            return "Товар требует проверки карточки и трафика"
+        if health_tier in {"risk", "unstable", "liquidate", "liquidation"}:
+            return "Товар требует проверки карточки и трафика"
+        return ""
+
     def _recommendation_rows(rows: List[Dict[str, Any]], *, group: str, limit: int = 10) -> List[Dict[str, str]]:
         result: List[Dict[str, str]] = []
         seen: set[str] = set()
@@ -1583,7 +1729,12 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             if not sku or sku in seen:
                 continue
             seen.add(sku)
-            reason = _reason_local(row, "РўСЂРµР±СѓРµС‚СЃСЏ РґРµР№СЃС‚РІРёРµ РїРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р°Рј AI-Р°РЅР°Р»РёР·Р°")
+            reason = _reason_local(row, "")
+            if _is_non_actionable_reason(reason):
+                reason = _business_reason_from_row(row)
+            reason = _sanitize_client_text(reason)
+            if not reason:
+                continue
             result.append(
                 {
                     "action": _action_ru_local(row.get("action"), group),
@@ -1701,6 +1852,221 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             if len(financial_events_payload) >= 36:
                 break
 
+    orders_exact_value = _first_number_local(orders_count_raw_value, order_kpi.get("orders_count"))
+    orders_surrogate_value = _first_number_local(
+        funnel.get("orders"),
+        daily_kpi.get("daily_orders_count"),
+        data.get("daily_orders_count"),
+        data.get("orders"),
+        data.get("sales_activity_qty"),
+        funnel.get("buyouts"),
+        buyouts_count_value,
+    )
+    orders_kpi_payload = build_kpi_display_payload(
+        value=orders_exact_value,
+        fallback_value=orders_surrogate_value,
+        missing_reason="Нет подтвержденного источника заказов за период",
+        label="Заказы",
+        fallback_label="Заказы (оценка)",
+        value_type="int",
+    )
+    orders_visual = _first_number_local(orders_exact_value, orders_surrogate_value)
+
+    profit_missing_reason = (
+        "Нет себестоимости для точного расчета прибыли"
+        if cost_price_visual is None
+        else "Нет данных для расчета чистой прибыли"
+    )
+    profit_kpi_payload = build_kpi_display_payload(
+        value=net_profit_exact_visual,
+        fallback_value=operating_profit_without_cogs,
+        missing_reason=profit_missing_reason,
+        label="Чистая прибыль",
+        fallback_label="Прибыль без себестоимости",
+        value_type="money",
+    )
+    payout_kpi_payload = build_kpi_display_payload(
+        value=revenue_visual,
+        missing_reason="Нет подтвержденной суммы к перечислению продавцу",
+        label="К перечислению продавцу",
+        value_type="money",
+    )
+    ads_kpi_payload = build_kpi_display_payload(
+        value=ad_spend_visual,
+        missing_reason="Нет данных по расходам на рекламу",
+        label="Расход на рекламу",
+        value_type="money",
+    )
+
+    kpi_cards_payload: List[Dict[str, Any]] = []
+    for item in (payout_kpi_payload, profit_kpi_payload, ads_kpi_payload, orders_kpi_payload):
+        state = normalize_section_state(item.get("state"), default=SECTION_STATE_HIDDEN)
+        if state == SECTION_STATE_HIDDEN:
+            continue
+        card_payload = {
+            "label": str(item.get("label") or item.get("base_label") or ""),
+            "value": item.get("value"),
+            "value_type": str(item.get("value_type") or "int"),
+            "state": state,
+        }
+        reason_text = _sanitize_client_text(item.get("reason") or "")
+        if reason_text:
+            card_payload["reason"] = reason_text
+        kpi_cards_payload.append(card_payload)
+
+    funnel_views = _first_number_local(funnel.get("views"), funnel.get("impressions"))
+    funnel_clicks = _first_number_local(funnel.get("clicks"), data.get("ads_clicks"))
+    funnel_add_to_cart = _first_number_local(funnel.get("add_to_cart"), funnel.get("cart_count"))
+    funnel_orders = _first_number_local(funnel.get("orders"), orders_visual)
+    funnel_buyouts = _first_number_local(funnel.get("buyouts"), buyouts_count_value)
+    funnel_stage_rows = [
+        {"key": "views", "label": "Показы", "value": funnel_views},
+        {"key": "clicks", "label": "Клики", "value": funnel_clicks},
+        {"key": "add_to_cart", "label": "Корзина", "value": funnel_add_to_cart},
+        {"key": "orders", "label": "Заказы", "value": funnel_orders},
+        {"key": "buyouts", "label": "Выкупы", "value": funnel_buyouts},
+    ]
+    funnel_present_rows = [row for row in funnel_stage_rows if row.get("value") is not None]
+    funnel_full = len([row for row in funnel_stage_rows if row.get("value") not in {None, 0}]) >= 4
+    funnel_partial = bool(funnel_present_rows)
+    funnel_note = (
+        ""
+        if funnel_full
+        else (
+            "Воронка построена частично по доступным данным"
+            if funnel_partial
+            else "Нет полной воронки за период"
+        )
+    )
+    funnel_state_payload = build_section_display_state(
+        has_full_data=funnel_full,
+        has_partial_data=funnel_partial,
+        note=funnel_note,
+        allow_hidden=False,
+    )
+    funnel_visual_payload = {
+        "state": normalize_section_state(funnel_state_payload.get("state"), default=SECTION_STATE_COMPACT_NOTE),
+        "note": _sanitize_client_text(funnel_state_payload.get("note") or ""),
+        "views": funnel_views,
+        "clicks": funnel_clicks,
+        "add_to_cart": funnel_add_to_cart,
+        "orders": funnel_orders,
+        "buyouts": funnel_buyouts,
+        "stages": funnel_stage_rows,
+        "table_rows": [row for row in funnel_stage_rows if row.get("value") is not None],
+        "order_to_buyout_over_100": bool(funnel.get("order_to_buyout_over_100", False)),
+        "order_to_buyout_note": _sanitize_client_text(str(funnel.get("order_to_buyout_note") or "")),
+    }
+
+    ads_revenue_visual = _first_number_local(portfolio_revenue_from_ads, data.get("ads_revenue"), email_summary_payload.get("ads_revenue"))
+    ads_orders_visual = _first_number_local(portfolio_orders_from_ads, portfolio_buyouts_from_ads, funnel_orders)
+    ads_problem_skus = _merge_sku_lists(
+        _sku_list_local([row for row in ad_ineff_rows if isinstance(row, dict)], limit=12),
+        _alert_sku_list({"ad_inefficiency"}, limit=12),
+        limit=8,
+    )
+    ads_spend_share_pct = None
+    if ad_spend_visual is not None and revenue_visual is not None and abs(float(revenue_visual)) > 1e-9:
+        ads_spend_share_pct = round(float(ad_spend_visual) / float(revenue_visual) * 100.0, 2)
+    ads_summary_rows: List[Dict[str, Any]] = []
+    if ad_spend_visual is not None:
+        ads_summary_rows.append({"metric": "Расход на рекламу", "value": ad_spend_visual, "value_type": "money"})
+    if ads_orders_visual is not None:
+        ads_summary_rows.append({"metric": "Заказы из рекламы", "value": ads_orders_visual, "value_type": "int"})
+    if ads_revenue_visual is not None:
+        ads_summary_rows.append({"metric": "Выручка от рекламы", "value": ads_revenue_visual, "value_type": "money"})
+    if ads_spend_share_pct is not None:
+        ads_summary_rows.append(
+            {
+                "metric": "Доля рекламных расходов в перечислении",
+                "value": ads_spend_share_pct,
+                "value_type": "pct",
+            }
+        )
+    if ads_problem_skus:
+        ads_summary_rows.append(
+            {
+                "metric": "Проблемные SKU по рекламе",
+                "value": ", ".join(ads_problem_skus[:5]),
+                "value_type": "text",
+            }
+        )
+    ads_table_rows: List[Dict[str, Any]] = []
+    for row in (top_unprofitable_queries_ads + top_profitable_queries_ads):
+        if not isinstance(row, dict):
+            continue
+        query = _sanitize_client_text(row.get("query") or row.get("name") or "")
+        if not query:
+            continue
+        ads_table_rows.append(
+            {
+                "query": query,
+                "spend": _first_number_local(row.get("ad_spend"), row.get("spend"), row.get("cost")),
+                "orders": _first_number_local(row.get("orders"), row.get("orders_from_ads")),
+                "revenue": _first_number_local(row.get("revenue"), row.get("revenue_from_ads")),
+            }
+        )
+        if len(ads_table_rows) >= 8:
+            break
+    ads_full = bool(ad_spend_visual is not None and ads_revenue_visual is not None and ad_spend_visual > 0 and ads_revenue_visual > 0)
+    ads_partial = bool(ads_summary_rows or ads_table_rows)
+    ads_note = (
+        ""
+        if ads_full
+        else (
+            "Данные по рекламе доступны частично, вывод построен по доступным метрикам"
+            if ads_partial
+            else "Данных для оценки рекламы недостаточно: не найдено связки расход → заказ/выкуп"
+        )
+    )
+    ads_state_payload = build_section_display_state(
+        has_full_data=ads_full,
+        has_partial_data=ads_partial,
+        note=ads_note,
+        allow_hidden=False,
+    )
+    ads_visual_payload = {
+        "state": normalize_section_state(ads_state_payload.get("state"), default=SECTION_STATE_COMPACT_NOTE),
+        "note": _sanitize_client_text(ads_state_payload.get("note") or ""),
+        "ad_spend": ad_spend_visual,
+        "ad_revenue": ads_revenue_visual,
+        "orders_from_ads": ads_orders_visual,
+        "spend_share_pct": ads_spend_share_pct,
+        "summary_rows": ads_summary_rows,
+        "table_rows": ads_table_rows,
+        "problem_skus": ads_problem_skus,
+    }
+
+    recommendation_groups = {
+        "p1": p1_recommendations,
+        "p2": p2_recommendations,
+        "p3": p3_recommendations,
+    }
+    recommendation_full = any(recommendation_groups.get(group) for group in ("p1", "p2", "p3"))
+    recommendation_state = build_section_display_state(
+        has_full_data=recommendation_full,
+        has_partial_data=False,
+        note="Нет рекомендаций с достаточным уровнем сигнала за период",
+        allow_hidden=False,
+    )
+    key_problem_state = build_section_display_state(
+        has_full_data=any(card.get("state") == SECTION_STATE_FULL for card in key_problem_cards),
+        has_partial_data=bool(key_problem_cards),
+        note="",
+        allow_hidden=False,
+    )
+
+    section_states_payload = {
+        "ads_efficiency": normalize_section_state(ads_visual_payload.get("state"), default=SECTION_STATE_COMPACT_NOTE),
+        "funnel": normalize_section_state(funnel_visual_payload.get("state"), default=SECTION_STATE_COMPACT_NOTE),
+        "key_problems": normalize_section_state(key_problem_state.get("state"), default=SECTION_STATE_COMPACT_NOTE),
+        "recommendations": normalize_section_state(recommendation_state.get("state"), default=SECTION_STATE_COMPACT_NOTE),
+    }
+    section_confidence_payload = {
+        key: ("low" if non_api_mode else "medium")
+        for key in section_states_payload
+    }
+
     visual_payload: Dict[str, Any] = {
         "seller_id": seller_id_for_visual,
         "run_date": report_date_for_visual,
@@ -1709,40 +2075,28 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "non_api_mode": non_api_mode,
         "mode_notice": non_api_notice if non_api_mode else "",
         "preview_dir": out_dir,
-        "kpi_cards": [
-            {"label": "К перечислению продавцу", "value": revenue_visual, "value_type": "money"},
-            {"label": "Чистая прибыль", "value": net_profit_visual, "value_type": "money"},
-            {"label": "Расход на рекламу", "value": ad_spend_visual, "value_type": "money"},
-            {"label": "Заказы", "value": orders_visual, "value_type": "int"},
-        ],
+        "kpi_cards": kpi_cards_payload,
+        "kpi_display": {
+            "seller_payout": payout_kpi_payload,
+            "profit": profit_kpi_payload,
+            "ads_spend": ads_kpi_payload,
+            "orders": orders_kpi_payload,
+        },
+        "section_states": section_states_payload,
+        "section_confidence": section_confidence_payload,
         "expense_structure": expense_structure_payload,
         "financial_structure_day": financial_structure_day_payload,
-        "funnel": {
-            "views": None if non_api_mode else _first_number_local(funnel.get("views"), funnel.get("impressions")),
-            "add_to_cart": None if non_api_mode else _first_number_local(funnel.get("add_to_cart"), funnel.get("cart_count")),
-            "orders": None if non_api_mode else _first_number_local(funnel.get("orders"), orders_visual),
-            "buyouts": None if non_api_mode else _first_number_local(funnel.get("buyouts"), buyouts_count_value),
-            "order_to_buyout_over_100": False if non_api_mode else bool(funnel.get("order_to_buyout_over_100", False)),
-            "order_to_buyout_note": non_api_label if non_api_mode else str(funnel.get("order_to_buyout_note") or ""),
-        },
+        "funnel": funnel_visual_payload,
         "sku_status": sku_status_counts,
-        "ads_efficiency": {
-            "ad_spend": None if non_api_mode else ad_spend_visual,
-            "ad_revenue": (
-                None
-                if non_api_mode
-                else _first_number_local(portfolio_revenue_from_ads, data.get("ads_revenue"), email_summary_payload.get("ads_revenue"))
-            ),
-        },
+        "ads_efficiency": ads_visual_payload,
         "sku_health_rows": sku_health_rows[:36],
         "key_problems": key_problems_payload,
         "key_problem_reasons": key_problem_reasons,
         "key_problem_data_status": key_problem_data_status,
-        "ai_recommendations": {
-            "p1": p1_recommendations,
-            "p2": p2_recommendations,
-            "p3": p3_recommendations,
-        },
+        "key_problem_cards": key_problem_cards,
+        "ai_recommendations": recommendation_groups,
+        "recommendations_state": normalize_section_state(recommendation_state.get("state"), default=SECTION_STATE_COMPACT_NOTE),
+        "recommendations_note": _sanitize_client_text(recommendation_state.get("note") or ""),
         "sku_profit_rows": sku_profit_rows,
         "financial_events": financial_events_payload,
     }
@@ -1885,6 +2239,9 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "data_mode": data_mode,
         "non_api_mode": non_api_mode,
         "mode_notice": non_api_notice if non_api_mode else "",
+        "section_states": section_states_payload,
+        "section_confidence": section_confidence_payload,
+        "kpi_display": visual_payload.get("kpi_display", {}),
         "daily_commerce_kpi": {
             "daily_orders_count": _int_or_none(orders_count_value),
             "daily_orders_amount": _round_or_none(orders_amount_value),
@@ -1981,6 +2338,6 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     report_meta["page_previews"] = [{"page": page_idx + 1, "lines": page[:30]} for page_idx, page in enumerate(report_pages)]
 
     write_report_meta(out_dir=out_dir, report_meta=report_meta)
-    data.update({"job": job, "report_meta": report_meta})
+    data.update({"job": job, "report_meta": report_meta, "visual_payload": visual_payload})
     return data
 

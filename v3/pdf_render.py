@@ -8,6 +8,14 @@ from typing import Any, Dict, List, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
+from .outputs.render_policy import (
+    SECTION_STATE_COMPACT_NOTE,
+    SECTION_STATE_FULL,
+    SECTION_STATE_HIDDEN,
+    SECTION_STATE_PARTIAL,
+    normalize_section_state,
+)
+
 
 def _font_dirs() -> List[str]:
     here = os.path.dirname(__file__)
@@ -426,6 +434,22 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
                 draw_obj.text((cx1 + 8, y + 8), value, font=fonts["small"], fill=colors["text"])
             y += row_h
 
+    def _section_state(name: str, fallback: str = SECTION_STATE_FULL) -> str:
+        states = payload.get("section_states", {})
+        if isinstance(states, dict):
+            return normalize_section_state(states.get(name), default=fallback)
+        return fallback
+
+    def _draw_compact_note(
+        draw_obj: ImageDraw.ImageDraw,
+        box: Tuple[int, int, int, int],
+        title: str,
+        note: str,
+    ) -> None:
+        x1, y1, x2, y2 = box
+        text = normalize_pdf_text(note.strip() or title.strip())
+        draw_obj.text((x1, y1 + 8), _fit_text(draw_obj, text, fonts["body"], max(40, x2 - x1 - 8)), font=fonts["body"], fill=colors["muted"])
+
     not_enough = normalize_pdf_text("Недостаточно данных для визуализации")
 
     # Page 1: KPI cards
@@ -445,12 +469,20 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     kpi_cards = payload.get("kpi_cards", [])
     if not isinstance(kpi_cards, list):
         kpi_cards = []
+    visible_kpi_cards = [
+        card
+        for card in kpi_cards
+        if isinstance(card, dict) and normalize_section_state(card.get("state"), default=SECTION_STATE_FULL) != SECTION_STATE_HIDDEN
+    ][:4]
+    if not visible_kpi_cards:
+        visible_kpi_cards = [{"label": "Ключевые показатели", "value": None, "value_type": "text"}]
 
     card_y = margin + 182
     card_gap = 18
-    card_w = int((width_px - margin * 2 - card_gap * 3) / 4)
+    card_count = max(1, len(visible_kpi_cards))
+    card_w = int((width_px - margin * 2 - card_gap * (card_count - 1)) / card_count)
     card_h = 320
-    for idx, card in enumerate(kpi_cards[:4]):
+    for idx, card in enumerate(visible_kpi_cards):
         if not isinstance(card, dict):
             continue
         x = margin + idx * (card_w + card_gap)
@@ -479,11 +511,14 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         _draw_centered_text(draw_1, (x + 12, y + 40, x + card_w - 12, y + 120), label, fonts["kpi_label"], colors["muted"])
         _draw_centered_text(
             draw_1,
-            (x + 12, y + 128, x + card_w - 12, y + card_h - 48),
+            (x + 12, y + 128, x + card_w - 12, y + card_h - 86),
             normalize_pdf_text(value),
             value_font,
             colors["dark_blue"],
         )
+        reason = normalize_pdf_text(str(card.get("reason") or "").strip())
+        if reason:
+            draw_1.text((x + 12, y + card_h - 58), _fit_text(draw_1, reason, fonts["small"], card_w - 24), font=fonts["small"], fill=colors["muted"])
 
     draw_1.text(
         (margin, height_px - margin - 24),
@@ -562,8 +597,16 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         "Недостаточно данных для визуализации",
     )
 
+    ads = payload.get("ads_efficiency", {})
+    if not isinstance(ads, dict):
+        ads = {}
+    ads_state = normalize_section_state(ads.get("state"), default=_section_state("ads_efficiency", SECTION_STATE_FULL))
+    if ads_state == SECTION_STATE_HIDDEN:
+        ads_state = SECTION_STATE_COMPACT_NOTE
     bottom_panel_y = margin + 84 + top_panel_h + panel_gap
-    bottom_panel_h = height_px - bottom_panel_y - margin
+    available_bottom_h = height_px - bottom_panel_y - margin
+    target_bottom_h = 640 if ads_state == SECTION_STATE_FULL else (360 if ads_state == SECTION_STATE_PARTIAL else 230)
+    bottom_panel_h = max(200, min(available_bottom_h, target_bottom_h))
     ad_content = _draw_panel(
         draw_2,
         margin,
@@ -573,14 +616,16 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         "Эффективность рекламы",
     )
     left, top, right, bottom = ad_content
-    ads = payload.get("ads_efficiency", {})
-    if not isinstance(ads, dict):
-        ads = {}
     ad_spend = _as_number(ads.get("ad_spend"))
     ad_revenue = _as_number(ads.get("ad_revenue"))
-    if ad_spend is None and ad_revenue is None:
-        draw_2.text((left, top + 18), not_enough, font=fonts["body"], fill=colors["muted"])
-    else:
+    ads_note = normalize_pdf_text(str(ads.get("note") or "").strip())
+    summary_rows = ads.get("summary_rows", [])
+    if not isinstance(summary_rows, list):
+        summary_rows = []
+    table_rows = ads.get("table_rows", [])
+    if not isinstance(table_rows, list):
+        table_rows = []
+    if ads_state == SECTION_STATE_FULL and (ad_spend is not None or ad_revenue is not None):
         bars = [
             ("Расход на рекламу", abs(ad_spend) if ad_spend is not None else None, colors["red"]),
             ("Выручка от рекламы", abs(ad_revenue) if ad_revenue is not None else None, colors["dark_blue"]),
@@ -612,13 +657,99 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
                 )
                 draw_2.text((x, base_y - 40), "нет данных", font=fonts["body"], fill=colors["muted"])
             draw_2.text((x, base_y + 10), normalize_pdf_text(label), font=fonts["small"], fill=colors["text"])
+    elif table_rows:
+        ads_table: List[Dict[str, Any]] = []
+        for row in table_rows:
+            if not isinstance(row, dict):
+                continue
+            ads_table.append(
+                {
+                    "query": normalize_pdf_text(str(row.get("query") or "")),
+                    "spend": normalize_pdf_text(_format_money(_as_number(row.get("spend")))),
+                    "orders": normalize_pdf_text(_format_int(_as_number(row.get("orders")))),
+                    "revenue": normalize_pdf_text(_format_money(_as_number(row.get("revenue")))),
+                }
+            )
+        _draw_table(
+            draw_2,
+            ad_content,
+            [
+                ("Запрос", "query", 40),
+                ("Расход", "spend", 20),
+                ("Заказы", "orders", 16),
+                ("Выручка", "revenue", 24),
+            ],
+            ads_table,
+            ads_note or not_enough,
+        )
+    elif summary_rows:
+        summary_table: List[Dict[str, Any]] = []
+        for row in summary_rows:
+            if not isinstance(row, dict):
+                continue
+            value_type = str(row.get("value_type") or "text").strip().lower()
+            raw_value = row.get("value")
+            if value_type == "money":
+                value_text = _format_money(_as_number(raw_value))
+            elif value_type == "pct":
+                value_text = _format_pct(_as_number(raw_value))
+            elif value_type == "int":
+                value_text = _format_int(_as_number(raw_value))
+            else:
+                value_text = str(raw_value or "нет данных")
+            summary_table.append(
+                {
+                    "metric": normalize_pdf_text(str(row.get("metric") or "")),
+                    "value": normalize_pdf_text(value_text),
+                }
+            )
+        _draw_table(
+            draw_2,
+            ad_content,
+            [
+                ("Показатель", "metric", 62),
+                ("Значение", "value", 38),
+            ],
+            summary_table,
+            ads_note or not_enough,
+        )
+        if ads_note:
+            draw_2.text((left, bottom - 26), _fit_text(draw_2, ads_note, fonts["small"], right - left), font=fonts["small"], fill=colors["muted"])
+    else:
+        _draw_compact_note(draw_2, ad_content, "Нет данных для оценки рекламы", ads_note or "Нет данных для оценки рекламы")
     pages.append(page_2)
 
     # Page 3: Funnel + SKU donut
     page_3, draw_3 = _new_page()
     draw_3.text((margin, margin), normalize_pdf_text("Воронка и статус ассортимента"), font=fonts["h1"], fill=colors["title"])
 
-    funnel_panel_h = 900
+    funnel = payload.get("funnel", {})
+    if not isinstance(funnel, dict):
+        funnel = {}
+    funnel_state = normalize_section_state(funnel.get("state"), default=_section_state("funnel", SECTION_STATE_FULL))
+    funnel_note = normalize_pdf_text(str(funnel.get("note") or "").strip())
+    funnel_stages_raw = funnel.get("stages", [])
+    if not isinstance(funnel_stages_raw, list) or not funnel_stages_raw:
+        funnel_stages_raw = [
+            {"label": "Показы", "value": funnel.get("views")},
+            {"label": "Корзина", "value": funnel.get("add_to_cart")},
+            {"label": "Заказы", "value": funnel.get("orders")},
+            {"label": "Выкупы", "value": funnel.get("buyouts")},
+        ]
+    funnel_stages: List[Tuple[str, float | None]] = []
+    for row in funnel_stages_raw:
+        if not isinstance(row, dict):
+            continue
+        funnel_stages.append(
+            (
+                normalize_pdf_text(str(row.get("label") or "")),
+                _as_number(row.get("value")),
+            )
+        )
+    funnel_present_rows = [(label, value) for label, value in funnel_stages if value is not None]
+    positive_values = [value for _, value in funnel_present_rows if value is not None and value > 0]
+    should_draw_funnel_graph = len(positive_values) >= 2 and funnel_state in {SECTION_STATE_FULL, SECTION_STATE_PARTIAL}
+    funnel_panel_h = 900 if should_draw_funnel_graph else (420 if funnel_present_rows else 260)
     funnel_content = _draw_panel(
         draw_3,
         margin,
@@ -628,65 +759,80 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         "Воронка продаж",
     )
     left, top, right, bottom = funnel_content
-    funnel = payload.get("funnel", {})
-    if not isinstance(funnel, dict):
-        funnel = {}
-    funnel_stages = [
-        ("Просмотры", _as_number(funnel.get("views"))),
-        ("Добавления в корзину", _as_number(funnel.get("add_to_cart"))),
-        ("Заказы", _as_number(funnel.get("orders"))),
-        ("Выкупы", _as_number(funnel.get("buyouts"))),
-    ]
-    positive_values = [v for _, v in funnel_stages if v is not None and v > 0]
-    if len(positive_values) < 2:
-        draw_3.text((left, top + 18), not_enough, font=fonts["body"], fill=colors["muted"])
-    else:
-        max_val = max(positive_values)
-        min_w = 280
+    if should_draw_funnel_graph:
+        graph_rows = [(label, value) for label, value in funnel_present_rows if value is not None]
+        max_val = max(max(positive_values), 1.0)
+        min_w = 240
         max_w = right - left - 280
         if max_w < min_w:
             max_w = min_w + 60
-        heights = [130, 130, 130, 130]
-        stage_y = top + 24
+        rows_count = max(2, len(graph_rows))
+        stage_gap = 12
+        stage_h = max(64, int((bottom - top - 20 - stage_gap * (rows_count - 1)) / rows_count))
+        stage_y = top + 12
         cx = left + (max_w // 2) + 40
         widths: List[int] = []
-        for _, value in funnel_stages:
+        for _, value in graph_rows:
             if value is None or value <= 0:
                 widths.append(min_w)
             else:
                 ratio = (value / max_val) ** 0.65
                 widths.append(int(min_w + (max_w - min_w) * ratio))
-        stage_colors = [(119, 153, 194), (97, 136, 183), (73, 114, 166), (48, 90, 146)]
-        for idx, (label, value) in enumerate(funnel_stages):
+        palette = [(119, 153, 194), (97, 136, 183), (73, 114, 166), (48, 90, 146), (44, 79, 130)]
+        for idx, (label, value) in enumerate(graph_rows):
             top_w = widths[idx]
-            bottom_w = widths[idx + 1] if idx < len(widths) - 1 else max(int(widths[idx] * 0.88), min_w - 10)
-            h = heights[idx]
+            next_w_base = widths[idx + 1] if idx < len(widths) - 1 else widths[idx]
+            bottom_w = max(int(next_w_base * 0.92), min_w - 10)
             y1 = stage_y
-            y2 = stage_y + h
+            y2 = stage_y + stage_h
             polygon = [
                 (cx - top_w // 2, y1),
                 (cx + top_w // 2, y1),
                 (cx + bottom_w // 2, y2),
                 (cx - bottom_w // 2, y2),
             ]
-            draw_3.polygon(polygon, fill=stage_colors[idx], outline=(255, 255, 255))
-            value_text = _format_int(value) if value is not None else "нет данных"
-            draw_3.text((cx - top_w // 2 + 22, y1 + 42), normalize_pdf_text(f"{label}: {value_text}"), font=fonts["body"], fill=(255, 255, 255))
-            if idx < len(funnel_stages) - 1:
-                next_val = funnel_stages[idx + 1][1]
+            draw_3.polygon(polygon, fill=palette[idx % len(palette)], outline=(255, 255, 255))
+            value_text = _format_int(value)
+            draw_3.text((cx - top_w // 2 + 22, y1 + max(14, stage_h // 3)), normalize_pdf_text(f"{label}: {value_text}"), font=fonts["body"], fill=(255, 255, 255))
+            if idx < len(graph_rows) - 1:
+                next_val = graph_rows[idx + 1][1]
                 conversion = None
                 if value is not None and value > 0 and next_val is not None:
                     conversion = (next_val / value) * 100.0
                 conversion_text = _format_pct(conversion)
-                if idx == len(funnel_stages) - 2 and bool(funnel.get("order_to_buyout_over_100", False)):
+                if idx == len(graph_rows) - 2 and bool(funnel.get("order_to_buyout_over_100", False)):
                     conversion_text = "недостаточно данных (возможен лаг выкупа)"
                 draw_3.text(
-                    (cx + max_w // 2 + 26, y1 + 44),
+                    (cx + max_w // 2 + 26, y1 + max(14, stage_h // 3)),
                     normalize_pdf_text(f"Конверсия: {conversion_text}"),
                     font=fonts["small"],
                     fill=colors["text"],
                 )
-            stage_y = y2 + 18
+            stage_y = y2 + stage_gap
+        if funnel_note:
+            draw_3.text((left, bottom - 22), _fit_text(draw_3, funnel_note, fonts["small"], right - left), font=fonts["small"], fill=colors["muted"])
+    elif funnel_present_rows:
+        table_rows = [
+            {
+                "stage": normalize_pdf_text(label),
+                "value": normalize_pdf_text(_format_int(value)),
+            }
+            for label, value in funnel_present_rows
+        ]
+        _draw_table(
+            draw_3,
+            funnel_content,
+            [
+                ("Этап", "stage", 62),
+                ("Значение", "value", 38),
+            ],
+            table_rows,
+            funnel_note or not_enough,
+        )
+        if funnel_note:
+            draw_3.text((left, bottom - 22), _fit_text(draw_3, funnel_note, fonts["small"], right - left), font=fonts["small"], fill=colors["muted"])
+    else:
+        _draw_compact_note(draw_3, funnel_content, "Нет данных по воронке", funnel_note or "Нет полной воронки за период")
 
     donut_panel_y = margin + 84 + funnel_panel_h + panel_gap
     donut_panel_h = height_px - donut_panel_y - margin
@@ -797,6 +943,9 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     # Page 5: Key problems by SKU
     page_5, draw_5 = _new_page()
     draw_5.text((margin, margin), normalize_pdf_text("Ключевые проблемы"), font=fonts["h1"], fill=colors["title"])
+    key_problem_cards = payload.get("key_problem_cards", [])
+    if not isinstance(key_problem_cards, list):
+        key_problem_cards = []
     key_problems = payload.get("key_problems", {})
     if not isinstance(key_problems, dict):
         key_problems = {}
@@ -824,36 +973,78 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         reason = normalize_pdf_text(str(key_problem_reasons.get(key) or "").strip())
         return reason or normalize_pdf_text("нет данных")
 
-    problems_layout = [
-        ("Низкий трафик", "low_traffic", _problem_skus("low_traffic")),
-        ("Падение конверсии", "conversion_drop", _problem_skus("conversion_drop")),
-        ("Неэффективная реклама", "inefficient_ads", _problem_skus("inefficient_ads")),
-        ("SKU в зоне ликвидации", "liquidation_skus", _problem_skus("liquidation_skus")),
-    ]
+    if not key_problem_cards:
+        key_problem_cards = []
+        for title, key in (
+            ("Низкий трафик", "low_traffic"),
+            ("Падение конверсии", "conversion_drop"),
+            ("Неэффективная реклама", "inefficient_ads"),
+            ("SKU в зоне ликвидации", "liquidation_skus"),
+        ):
+            skus = _problem_skus(key)
+            reason = _problem_reason(key)
+            if not skus and not reason:
+                continue
+            key_problem_cards.append(
+                {
+                    "title": title,
+                    "key": key,
+                    "state": SECTION_STATE_FULL if skus else SECTION_STATE_COMPACT_NOTE,
+                    "skus": skus,
+                    "reason": reason,
+                }
+            )
 
     box_top = margin + 92
     area_h = height_px - box_top - margin
-    box_h = int((area_h - panel_gap) / 2)
-    box_w = int((width_px - margin * 2 - panel_gap) / 2)
+    visible_problem_cards = [card for card in key_problem_cards if isinstance(card, dict)][:4]
+    if not visible_problem_cards:
+        visible_problem_cards = [
+            {
+                "title": "Что не удалось проверить",
+                "state": SECTION_STATE_COMPACT_NOTE,
+                "skus": [],
+                "reason": "Нет достаточных сигналов по ключевым проблемам",
+                "notes": [],
+            }
+        ]
+    cols = 1 if len(visible_problem_cards) == 1 else 2
+    rows = int(math.ceil(len(visible_problem_cards) / cols))
+    box_h = int((area_h - panel_gap * max(0, rows - 1)) / rows)
+    box_w = int((width_px - margin * 2 - panel_gap * max(0, cols - 1)) / cols)
 
-    for idx, (title, problem_key, skus) in enumerate(problems_layout):
-        row = idx // 2
-        col = idx % 2
-        x = margin + col * (box_w + panel_gap)
-        y = box_top + row * (box_h + panel_gap)
+    for idx, card in enumerate(visible_problem_cards):
+        row_idx = idx // cols
+        col_idx = idx % cols
+        x = margin + col_idx * (box_w + panel_gap)
+        y = box_top + row_idx * (box_h + panel_gap)
+        title = normalize_pdf_text(str(card.get("title") or "Проблема"))
         content = _draw_panel(draw_5, x, y, box_w, box_h, title)
         cx1, cy1, cx2, cy2 = content
-        if not skus:
-            reason_text = _fit_text(draw_5, _problem_reason(problem_key), fonts["body"], cx2 - cx1 - 8)
-            draw_5.text((cx1, cy1 + 8), reason_text, font=fonts["body"], fill=colors["muted"])
-            continue
+        skus = card.get("skus", [])
+        if not isinstance(skus, list):
+            skus = []
+        notes = card.get("notes", [])
+        if not isinstance(notes, list):
+            notes = []
+        reason = normalize_pdf_text(str(card.get("reason") or "").strip())
+        if reason:
+            draw_5.text((cx1, cy1 + 2), _fit_text(draw_5, reason, fonts["small"], cx2 - cx1 - 8), font=fonts["small"], fill=colors["muted"])
         y_cursor = cy1 + 4
+        if reason:
+            y_cursor += 30
         for sku in skus:
             line = normalize_pdf_text(f"- SKU {sku}")
             draw_5.text((cx1, y_cursor), _fit_text(draw_5, line, fonts["body"], cx2 - cx1 - 8), font=fonts["body"], fill=colors["text"])
             y_cursor += 34
             if y_cursor > cy2 - 28:
                 break
+        for note in notes:
+            if y_cursor > cy2 - 28:
+                break
+            note_line = normalize_pdf_text(f"- {note}")
+            draw_5.text((cx1, y_cursor), _fit_text(draw_5, note_line, fonts["small"], cx2 - cx1 - 8), font=fonts["small"], fill=colors["text"])
+            y_cursor += 30
     pages.append(page_5)
 
     # Page 6: AI recommendations by priority
@@ -868,37 +1059,55 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         ("P2 — оптимизация", rec_payload.get("p2", [])),
         ("P3 — наблюдение", rec_payload.get("p3", [])),
     ]
+    visible_rec_sections: List[Tuple[str, List[Any]]] = []
+    for title, rows_raw in rec_sections:
+        rows = rows_raw if isinstance(rows_raw, list) else []
+        if rows:
+            visible_rec_sections.append((title, rows))
 
     section_top = margin + 92
-    section_h = int((height_px - section_top - margin - panel_gap * 2) / 3)
-    for idx, (title, rows_raw) in enumerate(rec_sections):
-        y = section_top + idx * (section_h + panel_gap)
-        content = _draw_panel(draw_6, margin, y, width_px - margin * 2, section_h, title)
-        cx1, cy1, cx2, cy2 = content
-        rows_formatted: List[Dict[str, Any]] = []
-        if isinstance(rows_raw, list):
-            for item in rows_raw:
-                if not isinstance(item, dict):
-                    continue
-                rows_formatted.append(
-                    {
-                        "action": normalize_pdf_text(str(item.get("action") or "")),
-                        "reason": normalize_pdf_text(str(item.get("reason") or "")),
-                        "sku": normalize_pdf_text(str(item.get("sku") or "")),
-                    }
-                )
-        _draw_table(
+    if not visible_rec_sections:
+        fallback_note = normalize_pdf_text(str(payload.get("recommendations_note") or "Нет рекомендаций с достаточным уровнем сигнала").strip())
+        content = _draw_panel(
             draw_6,
-            (cx1, cy1, cx2, cy2),
-            [
-                ("Действие", "action", 33),
-                ("Причина", "reason", 47),
-                ("SKU", "sku", 20),
-            ],
-            rows_formatted,
-            "Нет рекомендаций",
+            margin,
+            section_top,
+            width_px - margin * 2,
+            260,
+            "Рекомендации",
         )
-    pages.append(page_6)
+        _draw_compact_note(draw_6, content, "Рекомендации", fallback_note)
+        pages.append(page_6)
+    else:
+        section_h = int((height_px - section_top - margin - panel_gap * max(0, len(visible_rec_sections) - 1)) / len(visible_rec_sections))
+        for idx, (title, rows_raw) in enumerate(visible_rec_sections):
+            y = section_top + idx * (section_h + panel_gap)
+            content = _draw_panel(draw_6, margin, y, width_px - margin * 2, section_h, title)
+            cx1, cy1, cx2, cy2 = content
+            rows_formatted: List[Dict[str, Any]] = []
+            if isinstance(rows_raw, list):
+                for item in rows_raw:
+                    if not isinstance(item, dict):
+                        continue
+                    rows_formatted.append(
+                        {
+                            "action": normalize_pdf_text(str(item.get("action") or "")),
+                            "reason": normalize_pdf_text(str(item.get("reason") or "")),
+                            "sku": normalize_pdf_text(str(item.get("sku") or "")),
+                        }
+                    )
+            _draw_table(
+                draw_6,
+                (cx1, cy1, cx2, cy2),
+                [
+                    ("Действие", "action", 33),
+                    ("Причина", "reason", 47),
+                    ("SKU", "sku", 20),
+                ],
+                rows_formatted,
+                "Нет рекомендаций",
+            )
+        pages.append(page_6)
 
     # Page 7: Profit by SKU
     page_7, draw_7 = _new_page()
