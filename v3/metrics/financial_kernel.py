@@ -48,18 +48,14 @@ def _first_alias_value(row: Dict[str, Any], semantic_group: str, *extra_keys: st
 
 
 def _operation_label(row: Dict[str, Any]) -> str:
-    raw = (
-        _first_alias_value(row, "operation_name")
-        or row.get("operation")
-        or row.get("operationName")
-        or row.get("docTypeName")
-    )
+    # Keep parity with v2 calc_financial_metrics operation extraction order.
+    raw = row.get("supplier_oper_name") or row.get("operationTypeName") or row.get("doc_type_name")
     return _as_text(raw)
 
 
 def _is_sale(operation: str) -> bool:
-    # v2 parity: sale if contains "продаж/sale" and not return token.
-    return ("продаж" in operation or "sale" in operation) and ("возврат" not in operation and "return" not in operation)
+    # v2 parity: sale if contains "продаж" and does not contain "возврат".
+    return ("продаж" in operation) and ("возврат" not in operation)
 
 
 def _is_return(operation: str) -> bool:
@@ -67,11 +63,11 @@ def _is_return(operation: str) -> bool:
 
 
 def _is_logistics(operation: str) -> bool:
-    return ("логист" in operation) or ("logistic" in operation)
+    return "логист" in operation
 
 
 def _is_storage(operation: str) -> bool:
-    return ("хран" in operation) or ("storage" in operation)
+    return "хран" in operation
 
 
 def _is_penalty(operation: str) -> bool:
@@ -201,11 +197,17 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         )
         row_retail_price = _as_float(_first_alias_value(row, "retail_price"))
 
-        row_commission = _as_float(_first_alias_value(row, "wb_commission"))
+        row_commission = _as_float(
+            row.get("ppvz_sales_commission")
+            or row.get("ppvzSalesCommission")
+            or row.get("commission_amount")
+            or row.get("commissionAmount")
+            or 0
+        )
         row_base_commission = _as_float(row.get("wb_reward_before_agent"))
         if row_base_commission == 0:
             row_base_commission = row_commission if (not use_base_before_agent or row_commission != 0) else 0.0
-        row_pvz_compensation = _as_float(_first_alias_value(row, "pvz_compensation"))
+        row_pvz_compensation = _as_float(row.get("pvz_compensation"))
         row_payment_services_compensation = _as_float(row.get("payment_services_compensation"))
         row_payment_services_compensation_amount = _as_float(row.get("payment_services_compensation_amount"))
         row_commission_total = (
@@ -215,10 +217,16 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
             + float(row_payment_services_compensation_amount)
         )
 
-        row_logistics = _as_float(_first_alias_value(row, "logistics"))
-        row_storage = _as_float(_first_alias_value(row, "storage"))
-        row_penalty = _as_float(_first_alias_value(row, "penalties"))
-        row_payout = _as_float(_first_alias_value(row, "payout"))
+        row_logistics = _as_float(
+            row.get("delivery_rub")
+            or row.get("deliveryRub")
+            or row.get("logistics")
+            or row.get("logistics_cost")
+            or 0
+        )
+        row_storage = _as_float(row.get("storage_fee") or row.get("storageFee") or row.get("storage") or 0)
+        row_penalty = _as_float(row.get("penalty") or row.get("penaltyAmount") or row.get("fine") or 0)
+        row_payout = _as_float(row.get("ppvz_for_pay") or row.get("ppvzForPay") or row.get("to_pay") or row.get("toPay") or 0)
 
         if _is_sale(operation):
             if qty > 0:
