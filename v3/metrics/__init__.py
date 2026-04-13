@@ -8,6 +8,19 @@ from .sku_daily_dynamics_builder import build_sku_daily_dynamics
 from .sku_alerts_builder import build_sku_alerts
 from .sku_attention_score import calculate_attention_score
 from .sku_watchlists_builder import build_sku_watchlists
+from .financial_kernel import (
+    describe_financial_kernel_contract,
+    run_financial_kernel,
+    validate_financial_kernel_input,
+)
+from .financial_models import (
+    AccountFinancialTotals,
+    CommissionBreakdown,
+    FINANCIAL_ROW_FIELD_ALIASES,
+    FinancialKernelInput,
+    FinancialKernelOutput,
+    SKUFinancialRow,
+)
 
 __all__ = [
     "build_metrics_from_normalized",
@@ -21,4 +34,13 @@ __all__ = [
     "build_sku_alerts",
     "calculate_attention_score",
     "build_sku_watchlists",
+    "describe_financial_kernel_contract",
+    "run_financial_kernel",
+    "validate_financial_kernel_input",
+    "AccountFinancialTotals",
+    "CommissionBreakdown",
+    "FinancialKernelInput",
+    "FinancialKernelOutput",
+    "SKUFinancialRow",
+    "FINANCIAL_ROW_FIELD_ALIASES",
 ]
