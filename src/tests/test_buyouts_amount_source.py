@@ -51,10 +51,13 @@ def test_buyouts_amount_falls_back_to_funnel_when_finance_unavailable():
     facts = _base_facts()
     facts["financial_summary"]["rows_count"] = 0
     facts["financial_summary"]["gross_revenue"] = 0
+    facts["buyouts_count"] = None
+    facts["buyouts_revenue"] = None
     report = build_local_report_from_facts("2026-04-01", facts)
     markdown = report["pdf_markdown"]
 
-    assert markdown.count("10000 RUB") >= 2
+    assert markdown.count("10000 RUB") == 1
+    assert "Сумма выкупов: н/д" in markdown
 
 
 def test_buyouts_qty_uses_daily_detailed_sales_rows_when_finance_delayed():
@@ -91,3 +94,23 @@ def test_buyouts_qty_uses_daily_detailed_sales_rows_when_finance_delayed():
     buyouts_label = "\u0412\u044b\u043a\u0443\u043f\u044b"
     assert f"- {buyouts_label}: 1" in markdown
     assert f"- {buyouts_label}: 1" in enforced
+
+
+def test_report_returns_debug_sources_for_orders_and_buyouts():
+    facts = _base_facts()
+    facts["orders_count"] = 10
+    facts["orders_revenue"] = 10000
+    facts["buyouts_count"] = 5
+    facts["buyouts_revenue"] = 5000
+    facts["debug_sources"] = {
+        "orders_source": "analytics_api",
+        "buyouts_source": "finance_api",
+        "raw_orders": {"orders_count": 10, "orders_revenue": 10000},
+        "raw_buyouts": {"buyouts_count": 5, "buyouts_revenue": 5000},
+    }
+
+    report = build_local_report_from_facts("2026-04-01", facts)
+    debug = report.get("debug_sources") or {}
+
+    assert debug.get("orders_source") == "analytics_api"
+    assert debug.get("buyouts_source") == "finance_api"

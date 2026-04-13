@@ -9,6 +9,9 @@ import requests
 
 
 class WBClient:
+    SALES_FUNNEL_ENDPOINT = "/api/analytics/v3/sales-funnel/products"
+    REALIZATION_ENDPOINT = "/api/v5/supplier/reportDetailByPeriod"
+
     def __init__(self, token: Optional[str] = None, raw_dir: str = "out/raw"):
         self.token = (token or os.getenv("WB_API_TOKEN", "")).strip()
         if not self.token:
@@ -126,7 +129,7 @@ class WBClient:
             "offset": 0,
         }
         return self.post_json(
-            path="/api/analytics/v3/sales-funnel/products",
+            path=self.SALES_FUNNEL_ENDPOINT,
             body=body,
             name="funnel",
             base_url=self.analytics_url,
@@ -232,7 +235,7 @@ class WBClient:
     # ======================
     def fetch_realization_report(self, date_from: str, date_to: str) -> Any:
         return self.get_json(
-            path="/api/v5/supplier/reportDetailByPeriod",
+            path=self.REALIZATION_ENDPOINT,
             params={
                 "dateFrom": date_from,
                 "dateTo": date_to,

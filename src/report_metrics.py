@@ -68,6 +68,25 @@ def _pick_float(candidates: list[tuple[str, Any]]) -> tuple[float | None, str | 
     return None, None
 
 
+def _sum_sales_qty_from_sku_financials(financial_summary: dict[str, Any]) -> float | None:
+    sku_fin = (financial_summary or {}).get("sku_financials")
+    if not isinstance(sku_fin, dict):
+        return None
+    total = 0.0
+    has_values = False
+    for row in sku_fin.values():
+        if not isinstance(row, dict):
+            continue
+        qty = safe_float(row.get("sales_qty"))
+        if qty is None:
+            continue
+        total += qty
+        has_values = True
+    if not has_values:
+        return None
+    return total
+
+
 def derive_finance_status(orders: Any, financial_rows_count: Any) -> tuple[str, str, int, int]:
     orders_i = safe_int(orders) or 0
     rows_i = safe_int(financial_rows_count) or 0
@@ -87,17 +106,46 @@ def compute_report_metrics(facts: dict) -> dict:
     ads_block_key = "ad_summary" if isinstance(facts.get("ad_summary"), dict) else "ads_summary"
     ad_summary = facts.get(ads_block_key) or {}
 
-    orders, orders_source = _pick_int(
+    rows_count, rows_count_source = _pick_int(
+        [("financial_summary.rows_count", financial_summary.get("rows_count"))]
+    )
+    rows_count_i = rows_count or 0
+    finance_available = rows_count_i > 0
+
+    orders_count, orders_source = _pick_int(
         [
-            ("account_summary.orders", account_summary.get("orders")),
+            ("facts.orders_count", facts.get("orders_count")),
             ("funnel_summary.orders", funnel_summary.get("orders")),
+            ("account_summary.orders", account_summary.get("orders")),
         ]
     )
+    orders_revenue, orders_revenue_source = _pick_float(
+        [
+            ("facts.orders_revenue", facts.get("orders_revenue")),
+            ("funnel_summary.revenue_orders", funnel_summary.get("revenue_orders")),
+            ("account_summary.orders_revenue", account_summary.get("orders_revenue")),
+        ]
+    )
+
+    buyouts_count_candidates: list[tuple[str, Any]] = [("facts.buyouts_count", facts.get("buyouts_count"))]
+    buyouts_revenue_candidates: list[tuple[str, Any]] = [("facts.buyouts_revenue", facts.get("buyouts_revenue"))]
+    if finance_available:
+        buyouts_count_candidates.append(("financial_summary.sales_qty", financial_summary.get("sales_qty")))
+        sku_sales_qty = _sum_sales_qty_from_sku_financials(financial_summary)
+        if sku_sales_qty is not None:
+            buyouts_count_candidates.append(("financial_summary.sku_financials.sales_qty", sku_sales_qty))
+        buyouts_count_candidates.append(("account_summary.buyouts", account_summary.get("buyouts")))
+        buyouts_revenue_candidates.append(("financial_summary.gross_revenue", financial_summary.get("gross_revenue")))
+        buyouts_revenue_candidates.append(("account_summary.buyouts_revenue", account_summary.get("buyouts_revenue")))
+        buyouts_revenue_candidates.append(("account_summary.revenue", account_summary.get("revenue")))
+
+    buyouts_count, buyouts_source = _pick_int(buyouts_count_candidates)
+    buyouts_revenue, buyouts_revenue_source = _pick_float(buyouts_revenue_candidates)
+
     views, views_source = _pick_int([("funnel_summary.views", funnel_summary.get("views"))])
     add_to_cart, add_to_cart_source = _pick_int([("funnel_summary.add_to_cart", funnel_summary.get("add_to_cart"))])
-    revenue_orders, revenue_orders_source = _pick_float(
-        [("funnel_summary.revenue_orders", funnel_summary.get("revenue_orders"))]
-    )
+    revenue_orders = orders_revenue
+    revenue_orders_source = orders_revenue_source
 
     stock_units, stock_units_source = _pick_int([("stock_summary.stock_units", stock_summary.get("stock_units"))])
     sku_count, sku_count_source = _pick_int([("stock_summary.sku_count", stock_summary.get("sku_count"))])
@@ -116,12 +164,9 @@ def compute_report_metrics(facts: dict) -> dict:
         ]
     )
 
-    rows_count, rows_count_source = _pick_int(
-        [("financial_summary.rows_count", financial_summary.get("rows_count"))]
-    )
-
     cr_cart = safe_pct(add_to_cart, views)
-    cr_order = safe_pct(orders, add_to_cart)
+    cr_order = safe_pct(orders_count, add_to_cart)
+    buyout_rate_pct = safe_pct(buyouts_count, orders_count)
 
     roas = None
     roas_source = None
@@ -129,7 +174,7 @@ def compute_report_metrics(facts: dict) -> dict:
         roas = round(ad_attributed_revenue / ad_spend, 2)
         roas_source = "ad_attributed_revenue/ad_spend"
 
-    finance_status, finance_message, _, rows_count_i = derive_finance_status(orders, rows_count)
+    finance_status, finance_message, _, rows_count_i = derive_finance_status(orders_count, rows_count)
     finance_available = finance_status == "ok"
     ads_attribution_available = ad_attributed_revenue is not None
     ads_efficiency_limited = ad_spend is not None and ad_attributed_revenue is None
@@ -140,7 +185,12 @@ def compute_report_metrics(facts: dict) -> dict:
     no_sales_top5 = no_sales_with_stock[:5]
 
     return {
-        "orders": orders,
+        "orders": orders_count,
+        "orders_count": orders_count,
+        "orders_revenue": orders_revenue,
+        "buyouts_count": buyouts_count,
+        "buyouts_revenue": buyouts_revenue,
+        "buyout_rate_pct": buyout_rate_pct,
         "views": views,
         "add_to_cart": add_to_cart,
         "cr_cart": cr_cart,
@@ -160,6 +210,11 @@ def compute_report_metrics(facts: dict) -> dict:
         "no_sales_with_stock_top5": no_sales_top5,
         "sources": {
             "orders": orders_source,
+            "orders_count": orders_source,
+            "orders_revenue": orders_revenue_source,
+            "buyouts_count": buyouts_source,
+            "buyouts_revenue": buyouts_revenue_source,
+            "buyout_rate_pct": "buyouts_count/orders_count*100",
             "views": views_source,
             "add_to_cart": add_to_cart_source,
             "cr_cart": "add_to_cart/views*100",
@@ -173,13 +228,24 @@ def compute_report_metrics(facts: dict) -> dict:
             "financial_rows_count": rows_count_source,
         },
         "raw_values": {
+            "facts.orders_count": facts.get("orders_count"),
+            "facts.orders_revenue": facts.get("orders_revenue"),
+            "facts.buyouts_count": facts.get("buyouts_count"),
+            "facts.buyouts_revenue": facts.get("buyouts_revenue"),
             "account_summary.orders": account_summary.get("orders"),
+            "account_summary.buyouts": account_summary.get("buyouts"),
+            "account_summary.buyouts_revenue": account_summary.get("buyouts_revenue"),
+            "account_summary.revenue": account_summary.get("revenue"),
             "funnel_summary.orders": funnel_summary.get("orders"),
+            "funnel_summary.buys": funnel_summary.get("buys"),
+            "funnel_summary.revenue_buyouts": funnel_summary.get("revenue_buyouts"),
             "funnel_summary.views": funnel_summary.get("views"),
             "funnel_summary.add_to_cart": funnel_summary.get("add_to_cart"),
             "funnel_summary.cr_cart": funnel_summary.get("cr_cart"),
             "funnel_summary.cr_order": funnel_summary.get("cr_order"),
             "funnel_summary.revenue_orders": funnel_summary.get("revenue_orders"),
+            "financial_summary.sales_qty": financial_summary.get("sales_qty"),
+            "financial_summary.gross_revenue": financial_summary.get("gross_revenue"),
             "stock_summary.stock_units": stock_summary.get("stock_units"),
             "stock_summary.sku_count": stock_summary.get("sku_count"),
             f"{ads_block_key}.total_spend": ad_summary.get("total_spend"),

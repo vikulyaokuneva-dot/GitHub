@@ -203,12 +203,25 @@ def build_facts_json() -> Dict[str, Any]:
         # During finance lag we avoid dead-SKU-like conclusions based only on empty realization.
         no_sales_with_stock = []
 
+    # Unified API-level fields (single source of truth):
+    # - orders: analytics funnel
+    # - buyouts & money: finance realization
+    finance_rows_count = int(finance.get("rows_count", 0) or 0)
+    orders_count = int(funnel.get("orders", 0) or 0)
+    orders_revenue = float(funnel.get("revenue_orders", 0) or 0)
+    if finance_rows_count > 0:
+        buyouts_count = int(finance.get("sales_qty", 0) or 0)
+        buyouts_revenue = float(finance.get("gross_revenue", 0) or 0)
+    else:
+        buyouts_count = None
+        buyouts_revenue = None
+
     # KPI по кабинету
     ctr = float(ads.get("ctr", 0) or 0)
     cpc = float(ads.get("cpc", 0) or 0)
     cr_cart = float(funnel.get("cr_cart", 0) or 0)
     cr_order = float(funnel.get("cr_order", 0) or 0)
-    buyout_rate = float(funnel.get("buyout_rate", 0) or 0)
+    buyout_rate = (float(buyouts_count) / float(orders_count)) if (buyouts_count is not None and orders_count > 0) else 0.0
 
     alerts = []
 
@@ -338,12 +351,35 @@ def build_facts_json() -> Dict[str, Any]:
 
         "account_summary": {
             "revenue": float(finance.get("gross_revenue", 0) or 0),
-            "orders": int(funnel.get("orders", 0) or 0),
-            "buyouts": int(finance.get("sales_qty", 0) or 0),
+            "orders": int(orders_count or 0),
+            "orders_revenue": float(orders_revenue or 0),
+            "buyouts": (int(buyouts_count) if buyouts_count is not None else None),
+            "buyouts_revenue": (float(buyouts_revenue) if buyouts_revenue is not None else None),
             "buys_funnel": int(funnel.get("buys", 0) or 0),
             "returns": int(finance.get("returns_qty", 0) or 0),
             "profit": float(finance.get("profit", 0) or 0),
             "margin": float(finance.get("margin", 0) or 0),
+        },
+
+        "orders_count": int(orders_count or 0),
+        "orders_revenue": float(orders_revenue or 0),
+        "buyouts_count": (int(buyouts_count) if buyouts_count is not None else None),
+        "buyouts_revenue": (float(buyouts_revenue) if buyouts_revenue is not None else None),
+        "debug_sources": {
+            "orders_source": "analytics_api:/api/analytics/v3/sales-funnel/products",
+            "buyouts_source": "finance_api:/api/v5/supplier/reportDetailByPeriod",
+            "raw_orders": {
+                "orders_count": int(orders_count or 0),
+                "orders_revenue": float(orders_revenue or 0),
+                "funnel_items_count": int(funnel.get("items_count", 0) or 0),
+            },
+            "raw_buyouts": {
+                "buyouts_count": (int(buyouts_count) if buyouts_count is not None else None),
+                "buyouts_revenue": (float(buyouts_revenue) if buyouts_revenue is not None else None),
+                "finance_rows_count": int(finance_rows_count),
+                "finance_date_used": finance_meta.get("finance_date_used"),
+                "finance_lag_days": finance_meta.get("finance_lag_days"),
+            },
         },
 
         "cabinet_metrics": {

@@ -21,7 +21,7 @@ def test_cr_formulas_are_recomputed_from_base_fields():
     m = compute_report_metrics(facts)
 
     assert m["cr_cart"] == 2.55
-    assert m["cr_order"] == 16.67
+    assert m["cr_order"] == 1650.0
     assert m["sources"]["cr_cart"] == "add_to_cart/views*100"
     assert m["sources"]["cr_order"] == "orders/add_to_cart*100"
 
@@ -64,3 +64,52 @@ def test_ads_without_attribution_has_no_roas():
     assert m["ad_attributed_revenue"] is None
     assert m["roas"] is None
     assert m["ads_efficiency_limited"] is True
+
+
+def test_buyouts_and_buyouts_revenue_use_finance_sources_only():
+    facts = {
+        "orders_count": 9,
+        "orders_revenue": 9000,
+        "buyouts_count": 4,
+        "buyouts_revenue": 4000,
+        "account_summary": {"orders": 1, "buyouts": 1, "revenue": 1111},
+        "funnel_summary": {
+            "orders": 9,
+            "buys": 99,  # should not be used for buyouts_count
+            "revenue_orders": 9000,
+            "revenue_buyouts": 99999,  # should not be used for buyouts_revenue
+            "views": 100,
+            "add_to_cart": 20,
+        },
+        "financial_summary": {"rows_count": 10, "sales_qty": 4, "gross_revenue": 4000},
+        "stock_summary": {},
+        "ads_summary": {},
+        "sku_summary": {},
+    }
+
+    m = compute_report_metrics(facts)
+
+    assert m["orders_count"] == 9
+    assert m["orders_revenue"] == 9000.0
+    assert m["buyouts_count"] == 4
+    assert m["buyouts_revenue"] == 4000.0
+    assert m["sources"]["orders_count"] == "facts.orders_count"
+    assert m["sources"]["buyouts_count"] == "facts.buyouts_count"
+    assert m["sources"]["buyouts_revenue"] == "facts.buyouts_revenue"
+
+
+def test_buyouts_not_taken_from_funnel_when_finance_unavailable():
+    facts = {
+        "account_summary": {"orders": 5},
+        "funnel_summary": {"orders": 5, "buys": 77, "revenue_buyouts": 77000, "views": 10, "add_to_cart": 5},
+        "financial_summary": {"rows_count": 0, "sales_qty": 0, "gross_revenue": 0},
+        "stock_summary": {},
+        "ads_summary": {},
+        "sku_summary": {},
+    }
+
+    m = compute_report_metrics(facts)
+
+    assert m["finance_status"] == "delayed"
+    assert m["buyouts_count"] is None
+    assert m["buyouts_revenue"] is None

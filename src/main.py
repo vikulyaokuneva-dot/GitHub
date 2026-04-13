@@ -254,43 +254,20 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
 
     metrics = compute_report_metrics(facts)
 
-    orders = account_summary.get("orders")
+    orders = metrics.get("orders_count")
     if orders is None:
-        orders = funnel_summary.get("orders")
-
-    buyouts = account_summary.get("buyouts")
-    if buyouts is None:
-        buyouts = funnel_summary.get("buys")
+        orders = metrics.get("orders")
+    buyouts = metrics.get("buyouts_count")
 
     views = metrics.get("views")
     add_to_cart = metrics.get("add_to_cart")
     cr_cart = metrics.get("cr_cart")
     cr_order = metrics.get("cr_order")
 
-    revenue_orders = funnel_summary.get("revenue_orders")
+    revenue_orders = metrics.get("orders_revenue")
     if revenue_orders is None:
-        revenue_orders = account_summary.get("revenue_orders")
-
-    # Buyouts amount must come from realization-based finance first.
-    # Funnel buyout sum is used only as fallback when finance is unavailable.
-    revenue_buyouts = None
-    finance_rows_count = 0
-    try:
-        raw_rows = financial_summary.get("rows_count")
-        if raw_rows is not None and raw_rows != "":
-            finance_rows_count = int(float(raw_rows))
-    except Exception:
-        finance_rows_count = 0
-
-    if finance_rows_count > 0:
-        revenue_buyouts = financial_summary.get("gross_revenue")
-    if revenue_buyouts is None:
-        revenue_buyouts = funnel_summary.get("revenue_buyouts")
-    if revenue_buyouts is None:
-        revenue_buyouts = account_summary.get("revenue_buyouts")
-    print("DEBUG BUYOUTS financial_summary:", json.dumps(financial_summary, ensure_ascii=False, sort_keys=True))
-    print("DEBUG BUYOUTS rows_count:", financial_summary.get("rows_count"))
-    print("DEBUG BUYOUTS gross_revenue:", financial_summary.get("gross_revenue"))
+        revenue_orders = metrics.get("revenue_orders")
+    revenue_buyouts = metrics.get("buyouts_revenue")
 
     ad_spend = metrics.get("ad_spend")
     ad_attributed_revenue = metrics.get("ad_attributed_revenue")
@@ -351,30 +328,6 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
             return None
         return int(round(qty))
 
-    def _sum_buyouts_from_financial_summary() -> tuple[int | None, str | None]:
-        direct_sales_qty = _to_safe_buyouts_int(financial_summary.get("sales_qty"))
-        if direct_sales_qty is not None:
-            return direct_sales_qty, "financial_summary.sales_qty"
-
-        sku_fin = financial_summary.get("sku_financials")
-        if not isinstance(sku_fin, dict):
-            return None, None
-
-        total = 0.0
-        has_values = False
-        for row in sku_fin.values():
-            if not isinstance(row, dict):
-                continue
-            qty_i = _to_safe_qty(row.get("sales_qty"))
-            if qty_i is None:
-                continue
-            total += qty_i
-            has_values = True
-
-        if not has_values:
-            return None, "financial_summary.sku_financials.sales_qty"
-        return int(round(total)), "financial_summary.sku_financials.sales_qty"
-
     def _extract_buyouts_from_financial_summary() -> tuple[dict[int, float], bool]:
         qty = {}
         sku_fin = financial_summary.get("sku_financials")
@@ -390,101 +343,31 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
             qty[sku_i] = qty.get(sku_i, 0.0) + qty_i
         return qty, True
 
-    def _extract_buyouts_from_sku_rows() -> tuple[dict[int, float], bool]:
-        qty = {}
-        rows = (facts.get("sku_performance") or {}).get("rows")
-        if not isinstance(rows, list):
-            return qty, False
-
-        has_buyout_fields = False
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            sku_i = _to_safe_int(row.get("sku") or row.get("nmId") or row.get("nm_id"))
-            if sku_i is None:
-                continue
-
-            qty_i = None
-            for field in ("buyouts", "buys"):
-                if field in row and row.get(field) not in (None, ""):
-                    has_buyout_fields = True
-                qty_i = _to_safe_qty(row.get(field))
-                if qty_i is not None:
-                    break
-
-            if qty_i is None or qty_i <= 0:
-                continue
-            qty[sku_i] = qty.get(sku_i, 0.0) + qty_i
-
-        return qty, has_buyout_fields
-
     qty_source = None
     qty_by_sku, fin_qty_source_found = _extract_buyouts_from_financial_summary()
     if qty_by_sku:
         qty_source = "financial_summary.sku_financials.sales_qty"
 
-    sku_qty_source_found = False
-    if not qty_by_sku:
-        sku_qty_by_sku, sku_qty_source_found = _extract_buyouts_from_sku_rows()
-        if sku_qty_by_sku:
-            qty_by_sku = sku_qty_by_sku
-            qty_source = "sku_performance.rows.buyouts/buys"
-
-    qty_source_found = fin_qty_source_found or sku_qty_source_found
+    qty_source_found = fin_qty_source_found
 
     finance_status_norm = str(finance_status or "").strip().lower()
-    use_delayed_safeguards = int(rows_count or 0) == 0 or finance_status_norm == "delayed"
-
-    buyouts_source = None
-    financial_buyouts, financial_buyouts_source = _sum_buyouts_from_financial_summary()
-    if financial_buyouts is not None and not use_delayed_safeguards:
-        buyouts = financial_buyouts
-        buyouts_source = financial_buyouts_source
-    else:
-        detailed_buyouts = None
-        detailed_source = None
-        if use_delayed_safeguards:
-            detailed_buyouts, detailed_source = _extract_buyouts_from_daily_detailed_facts(facts)
-        if detailed_buyouts is not None:
-            buyouts = detailed_buyouts
-            buyouts_source = f"{detailed_source}.sale_qty" if detailed_source else "daily_detailed.sale_qty"
-        else:
-            buyouts_account = _to_safe_buyouts_int(account_summary.get("buyouts"))
-            if buyouts_account is not None:
-                buyouts = buyouts_account
-                buyouts_source = "account_summary.buyouts"
-            else:
-                buyouts_funnel = _to_safe_buyouts_int(funnel_summary.get("buys"))
-                if buyouts_funnel is not None:
-                    buyouts = buyouts_funnel
-                    buyouts_source = "funnel_summary.buys"
-                else:
-                    buyouts = None
-                    buyouts_source = "unavailable"
-
-    if use_delayed_safeguards and (_to_safe_int(orders) or 0) > 0:
-        buyouts_candidate = _to_safe_buyouts_int(buyouts)
-        if buyouts_candidate is None or buyouts_candidate == 0:
-            buyouts = None
-            buyouts_source = "delayed_unavailable"
-
-    if not use_delayed_safeguards:
-        revenue_buyouts = financial_summary.get("gross_revenue")
-        if revenue_buyouts is None:
-            revenue_buyouts = funnel_summary.get("revenue_buyouts")
-        if revenue_buyouts is None:
-            revenue_buyouts = account_summary.get("revenue_buyouts")
-    elif revenue_buyouts is None:
-        revenue_buyouts = funnel_summary.get("revenue_buyouts")
-        if revenue_buyouts is None:
-            revenue_buyouts = account_summary.get("revenue_buyouts")
-
-    if use_delayed_safeguards and (_to_safe_int(orders) or 0) > 0:
-        revenue_candidate = _to_safe_float(revenue_buyouts)
-        if revenue_candidate is None or revenue_candidate <= 0:
-            revenue_buyouts = None
+    metric_sources = metrics.get("sources") if isinstance(metrics.get("sources"), dict) else {}
+    buyouts_source = str(metric_sources.get("buyouts_count") or "unavailable")
+    revenue_buyouts_source = str(metric_sources.get("buyouts_revenue") or "unavailable")
 
     buyouts = _to_safe_buyouts_int(buyouts)
+    if finance_status_norm == "delayed" and (_to_safe_int(orders) or 0) > 0:
+        buyouts_candidate = _to_safe_buyouts_int(buyouts)
+        if buyouts_candidate is None or buyouts_candidate == 0:
+            detailed_buyouts, detailed_source = _extract_buyouts_from_daily_detailed_facts(facts)
+            if detailed_buyouts is not None:
+                buyouts = detailed_buyouts
+                buyouts_source = f"{detailed_source}.sale_qty" if detailed_source else "finance_daily_detailed.sale_qty"
+            else:
+                buyouts = None
+                buyouts_source = "finance_unavailable"
+
+    revenue_buyouts = _to_safe_float(revenue_buyouts)
 
     report_totals = facts.get("_report_totals")
     if not isinstance(report_totals, dict):
@@ -501,7 +384,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     account_summary_for_enforce["revenue_buyouts"] = revenue_buyouts
 
     print("DEBUG BUYOUTS selected_buyouts:", buyouts, "source:", buyouts_source)
-    print("DEBUG BUYOUTS selected_revenue_buyouts:", revenue_buyouts)
+    print("DEBUG BUYOUTS selected_revenue_buyouts:", revenue_buyouts, "source:", revenue_buyouts_source)
 
     buyouts_num = _to_safe_float(buyouts)
     revenue_buyouts_num = _to_safe_float(revenue_buyouts)
@@ -551,6 +434,9 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         )
 
     tax = None if revenue_buyouts_num is None else round(revenue_buyouts_num * 0.06, 2)
+    logistics_per_buyout = None
+    if logistics is not None and buyouts_num is not None and buyouts_num > 0:
+        logistics_per_buyout = round(float(logistics) / float(buyouts_num), 2)
 
     total_costs = None
     profit = None
@@ -614,6 +500,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
                 "roi": roi,
                 "cogs_qty_source": qty_source,
                 "buyouts_source": buyouts_source,
+                "revenue_buyouts_source": revenue_buyouts_source,
             },
             ensure_ascii=False,
             sort_keys=True,
@@ -672,6 +559,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         f"- Себестоимость: {_fmt_money(cogs_total) if cogs_total is not None else 'н/д'}",
         f"- Вознаграждение WB: {_fmt_money(wb_commission) if wb_commission is not None else 'н/д'}",
         f"- Логистика: {_fmt_money(logistics) if logistics is not None else 'н/д'}",
+        f"- Логистика на выкуп: {_fmt_money(logistics_per_buyout) if logistics_per_buyout is not None else 'н/д'}",
         f"- Хранение: {_fmt_money(storage) if storage is not None else 'н/д'}",
         f"- Налог: {_fmt_money(tax) if tax is not None else 'н/д'}",
         f"- Реклама: {_fmt_money(ad_spend_num) if ad_spend_num is not None else 'н/д'}",
@@ -736,6 +624,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         f"Себестоимость: {_fmt_money(cogs_total) if cogs_total is not None else 'н/д'}",
         f"Вознаграждение WB: {_fmt_money(wb_commission) if wb_commission is not None else 'н/д'}",
         f"Логистика: {_fmt_money(logistics) if logistics is not None else 'н/д'}",
+        f"Логистика на выкуп: {_fmt_money(logistics_per_buyout) if logistics_per_buyout is not None else 'н/д'}",
         f"Хранение: {_fmt_money(storage) if storage is not None else 'н/д'}",
         f"Налог: {_fmt_money(tax) if tax is not None else 'н/д'}",
         f"Реклама: {_fmt_money(ad_spend_num) if ad_spend_num is not None else 'н/д'}",
@@ -763,6 +652,22 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     if ads_efficiency_limited:
         email_lines.append("Оценка эффективности рекламы ограничена: есть расход, но нет атрибутированной выручки.")
 
+    report_debug_sources = facts.get("debug_sources") if isinstance(facts.get("debug_sources"), dict) else {}
+    if not report_debug_sources:
+        report_debug_sources = {
+            "orders_source": str(metric_sources.get("orders_count") or "analytics_api"),
+            "buyouts_source": buyouts_source,
+            "buyouts_revenue_source": revenue_buyouts_source,
+            "raw_orders": {
+                "orders_count": _to_safe_int(orders),
+                "orders_revenue": _to_safe_float(revenue_orders),
+            },
+            "raw_buyouts": {
+                "buyouts_count": _to_safe_int(buyouts),
+                "buyouts_revenue": _to_safe_float(revenue_buyouts),
+            },
+        }
+
     return {
         "email_text": "\n".join(email_lines),
         "pdf_markdown": "\n".join(markdown_lines),
@@ -770,6 +675,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
         "finance_status": finance_status,
         "finance_message": finance_message,
         "financial_rows_count": rows_count,
+        "debug_sources": report_debug_sources,
     }
 
 def build_fallback_json(report_date: str, facts_json: str) -> dict:
