@@ -291,6 +291,8 @@ def calc_financial_metrics(
     returns_qty = 0
 
     gross_revenue = 0.0
+    turnover_wb = 0.0
+    turnover_wb_rows_count = 0
     commission = 0.0
     base_commission = 0.0
     pvz_compensation = 0.0
@@ -352,6 +354,7 @@ def calc_financial_metrics(
             or r.get("retailPrice")
             or 0
         )
+        row_retail_price = f(r.get("retail_price") or r.get("retailPrice") or 0)
 
         row_commission = f(
             r.get("ppvz_sales_commission")
@@ -419,6 +422,10 @@ def calc_financial_metrics(
                         sku_seller_tokens.setdefault(sku_i, set()).add(seller_token)
 
             gross_revenue += row_amount if row_amount else unit_price * (qty if qty else 1)
+            # KPI "Оборот как в WB": строго сумма retail_price по операциям Продажа.
+            if row_retail_price:
+                turnover_wb += row_retail_price
+                turnover_wb_rows_count += 1
 
             commission += row_commission_total
             base_commission += row_base_commission
@@ -683,11 +690,20 @@ def calc_financial_metrics(
     elif storage_source_columns_seen:
         selected_storage_source_column = sorted(storage_source_columns_seen)[0]
 
+    turnover_wb_value: float | None
+    if turnover_wb_rows_count > 0:
+        turnover_wb_value = round(turnover_wb, 2)
+    else:
+        turnover_wb_value = None
+
     return {
         "rows_count": len(rows),
         "sales_qty": sales_qty,
         "returns_qty": returns_qty,
         "gross_revenue": round(gross_revenue, 2),
+        "turnover_wb": turnover_wb_value,
+        "turnover_wb_rows_count": int(turnover_wb_rows_count),
+        "turnover_wb_note": "Оборот — сумма продаж по полю retail_price (операции Продажа).",
         "commission": round(commission, 2),
         "commission_breakdown": {
             "base_commission": round(base_commission, 2),

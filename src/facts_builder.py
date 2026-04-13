@@ -215,6 +215,12 @@ def build_facts_json() -> Dict[str, Any]:
     else:
         buyouts_count = None
         buyouts_revenue = None
+    turnover_wb = finance.get("turnover_wb")
+    try:
+        if turnover_wb is not None:
+            turnover_wb = float(turnover_wb)
+    except Exception:
+        turnover_wb = None
 
     # KPI по кабинету
     ctr = float(ads.get("ctr", 0) or 0)
@@ -351,6 +357,7 @@ def build_facts_json() -> Dict[str, Any]:
 
         "account_summary": {
             "revenue": float(finance.get("gross_revenue", 0) or 0),
+            "turnover_wb": turnover_wb,
             "orders": int(orders_count or 0),
             "orders_revenue": float(orders_revenue or 0),
             "buyouts": (int(buyouts_count) if buyouts_count is not None else None),
@@ -365,6 +372,7 @@ def build_facts_json() -> Dict[str, Any]:
         "orders_revenue": float(orders_revenue or 0),
         "buyouts_count": (int(buyouts_count) if buyouts_count is not None else None),
         "buyouts_revenue": (float(buyouts_revenue) if buyouts_revenue is not None else None),
+        "turnover_wb": turnover_wb,
         "debug_sources": {
             "orders_source": "analytics_api:/api/analytics/v3/sales-funnel/products",
             "buyouts_source": "finance_api:/api/v5/supplier/reportDetailByPeriod",
@@ -376,6 +384,7 @@ def build_facts_json() -> Dict[str, Any]:
             "raw_buyouts": {
                 "buyouts_count": (int(buyouts_count) if buyouts_count is not None else None),
                 "buyouts_revenue": (float(buyouts_revenue) if buyouts_revenue is not None else None),
+                "turnover_wb": turnover_wb,
                 "finance_rows_count": int(finance_rows_count),
                 "finance_date_used": finance_meta.get("finance_date_used"),
                 "finance_lag_days": finance_meta.get("finance_lag_days"),

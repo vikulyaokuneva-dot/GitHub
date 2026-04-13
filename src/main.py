@@ -268,6 +268,11 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     if revenue_orders is None:
         revenue_orders = metrics.get("revenue_orders")
     revenue_buyouts = metrics.get("buyouts_revenue")
+    turnover_wb = _to_non_negative_float(facts.get("turnover_wb"))
+    if turnover_wb is None:
+        turnover_wb = _to_non_negative_float(financial_summary.get("turnover_wb"))
+    if turnover_wb is None:
+        turnover_wb = _to_non_negative_float(account_summary.get("turnover_wb"))
 
     ad_spend = metrics.get("ad_spend")
     ad_attributed_revenue = metrics.get("ad_attributed_revenue")
@@ -437,6 +442,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     logistics_per_buyout = None
     if logistics is not None and buyouts_num is not None and buyouts_num > 0:
         logistics_per_buyout = round(float(logistics) / float(buyouts_num), 2)
+    payout_total = _to_safe_float(financial_summary.get("payout"))
 
     total_costs = None
     profit = None
@@ -549,6 +555,12 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     markdown_lines = [
         f"# WB отчёт за {report_date}",
         "",
+        "## KPI",
+        f"- 💰 Оборот (как в WB): {_fmt_money(turnover_wb)}",
+        "Оборот — сумма продаж до удержаний (как в кабинете WB)",
+        f"- К перечислению: {_fmt_money(payout_total) if payout_total is not None else 'н/д'}",
+        f"- Чистая прибыль: {_fmt_money(profit) if profit is not None else 'н/д'}",
+        "",
         "## Продажи",
         f"- Заказы: {_fmt_int(orders)}",
         f"- Выкупы: {_fmt_int(buyouts)}",
@@ -614,6 +626,12 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
     email_lines = [
         f"WB отчёт за {report_date}",
         "",
+        "KPI:",
+        f"💰 Оборот (как в WB): {_fmt_money(turnover_wb)}",
+        "Оборот — сумма продаж до удержаний (как в кабинете WB)",
+        f"К перечислению: {_fmt_money(payout_total) if payout_total is not None else 'н/д'}",
+        f"Чистая прибыль: {_fmt_money(profit) if profit is not None else 'н/д'}",
+        "",
         "Продажи:",
         f"Заказы: {_fmt_int(orders)}",
         f"Выкупы: {_fmt_int(buyouts)}",
@@ -665,6 +683,7 @@ def build_local_report_from_facts(report_date: str, facts: dict) -> dict:
             "raw_buyouts": {
                 "buyouts_count": _to_safe_int(buyouts),
                 "buyouts_revenue": _to_safe_float(revenue_buyouts),
+                "turnover_wb": _to_safe_float(turnover_wb),
             },
         }
 
