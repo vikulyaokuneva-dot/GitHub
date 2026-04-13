@@ -93,10 +93,11 @@ class TestFinancialKernelAccountLevel(unittest.TestCase):
         self.assertAlmostEqual(breakdown.payment_services_compensation_amount, 8.00, places=2)
         self.assertAlmostEqual(breakdown.total_commission, 390.00, places=2)
 
-        self.assertEqual(result.kernel_status, "account_level_ported_partial")
+        self.assertEqual(result.kernel_status, "account_and_cogs_ported_partial")
         self.assertFalse(bool(result.sku_financials))
-        self.assertEqual(str(result.cogs_diagnostics.get("mode") or ""), "not_ported")
+        self.assertEqual(str(result.cogs_diagnostics.get("mode") or ""), "v2_parity_account_level")
         self.assertEqual(int(result.cogs_diagnostics.get("cogs_rows_loaded", 0) or 0), 1)
+        self.assertTrue(bool(result.cogs_diagnostics.get("cogs_ported")))
 
     def test_empty_rows_and_partial_port_warnings(self) -> None:
         result = run_financial_kernel(FinancialKernelInput(realization_rows=[], tax_rate=0.06))
@@ -105,9 +106,91 @@ class TestFinancialKernelAccountLevel(unittest.TestCase):
         self.assertIn("financial_kernel_rows_empty", warning_codes)
         self.assertIn("financial_kernel_input_missing_groups", warning_codes)
         self.assertIn("financial_kernel_partial_port", warning_codes)
-        self.assertEqual(result.kernel_status, "account_level_ported_partial")
+        self.assertEqual(result.kernel_status, "account_and_cogs_ported_partial")
         self.assertEqual(result.account_financial_totals.rows_count, 0)
         self.assertAlmostEqual(result.account_financial_totals.profit, 0.0, places=2)
+
+    def test_cogs_full_match_updates_cogs_total_and_profit(self) -> None:
+        sale = "\u041f\u0440\u043e\u0434\u0430\u0436\u0430"
+        rows = [
+            {"supplier_oper_name": sale, "nm_id": 1001, "quantity": 2, "retail_amount": 200.0},
+            {"supplier_oper_name": sale, "nm_id": 1002, "quantity": 1, "retail_amount": 100.0},
+        ]
+        result = run_financial_kernel(
+            FinancialKernelInput(
+                realization_rows=rows,
+                tax_rate=0.0,
+                cogs_rows=[
+                    {"sku": "1001", "cogs": 10.0},
+                    {"sku": "1002", "cogs": 20.0},
+                ],
+                cogs_file_found=True,
+            )
+        )
+        totals = result.account_financial_totals
+        warning_codes = {str(item.get("code") or "") for item in result.warnings if isinstance(item, dict)}
+
+        self.assertAlmostEqual(totals.gross_revenue, 300.0, places=2)
+        self.assertAlmostEqual(totals.cogs_total, 40.0, places=2)
+        self.assertAlmostEqual(totals.profit, 260.0, places=2)
+        self.assertEqual(str(result.cogs_diagnostics.get("cogs_status") or ""), "full_match")
+        self.assertAlmostEqual(float(result.cogs_diagnostics.get("coverage_ratio") or 0.0), 1.0, places=4)
+        self.assertNotIn("cogs_partial_matches", warning_codes)
+        self.assertNotIn("cogs_no_matches", warning_codes)
+
+    def test_cogs_partial_match_warning_and_coverage(self) -> None:
+        sale = "\u041f\u0440\u043e\u0434\u0430\u0436\u0430"
+        rows = [
+            {"supplier_oper_name": sale, "nm_id": 2001, "quantity": 2, "retail_amount": 200.0},
+            {"supplier_oper_name": sale, "nm_id": 2002, "quantity": 1, "retail_amount": 100.0},
+        ]
+        result = run_financial_kernel(
+            FinancialKernelInput(
+                realization_rows=rows,
+                tax_rate=0.0,
+                cogs_rows=[{"sku": "2001", "cogs": 10.0}],
+                cogs_file_found=True,
+            )
+        )
+        warning_codes = {str(item.get("code") or "") for item in result.warnings if isinstance(item, dict)}
+        totals = result.account_financial_totals
+
+        self.assertEqual(str(result.cogs_diagnostics.get("cogs_status") or ""), "partial_match")
+        self.assertIn("cogs_partial_matches", warning_codes)
+        self.assertAlmostEqual(totals.cogs_total, 20.0, places=2)
+        self.assertAlmostEqual(float(result.cogs_diagnostics.get("coverage_ratio") or 0.0), 0.5, places=4)
+
+    def test_cogs_file_missing_warning(self) -> None:
+        sale = "\u041f\u0440\u043e\u0434\u0430\u0436\u0430"
+        rows = [{"supplier_oper_name": sale, "nm_id": 3001, "quantity": 1, "retail_amount": 100.0}]
+        result = run_financial_kernel(
+            FinancialKernelInput(
+                realization_rows=rows,
+                tax_rate=0.0,
+                cogs_rows=None,
+                cogs_file_found=False,
+            )
+        )
+        warning_codes = {str(item.get("code") or "") for item in result.warnings if isinstance(item, dict)}
+        self.assertEqual(str(result.cogs_diagnostics.get("cogs_status") or ""), "file_not_found")
+        self.assertIn("cogs_file_missing", warning_codes)
+        self.assertAlmostEqual(result.account_financial_totals.cogs_total, 0.0, places=2)
+
+    def test_cogs_file_exists_but_empty_warning(self) -> None:
+        sale = "\u041f\u0440\u043e\u0434\u0430\u0436\u0430"
+        rows = [{"supplier_oper_name": sale, "nm_id": 4001, "quantity": 1, "retail_amount": 100.0}]
+        result = run_financial_kernel(
+            FinancialKernelInput(
+                realization_rows=rows,
+                tax_rate=0.0,
+                cogs_rows=[],
+                cogs_file_found=True,
+            )
+        )
+        warning_codes = {str(item.get("code") or "") for item in result.warnings if isinstance(item, dict)}
+        self.assertEqual(str(result.cogs_diagnostics.get("cogs_status") or ""), "file_found_not_read")
+        self.assertIn("cogs_rows_empty", warning_codes)
+        self.assertAlmostEqual(result.account_financial_totals.cogs_total, 0.0, places=2)
 
     def test_parity_against_v2_account_level_subset(self) -> None:
         sale = "\u041f\u0440\u043e\u0434\u0430\u0436\u0430"
@@ -185,6 +268,48 @@ class TestFinancialKernelAccountLevel(unittest.TestCase):
             places=2,
         )
         self.assertAlmostEqual(breakdown.total_commission, float(v2_breakdown.get("total_commission") or 0.0), places=2)
+
+    def test_parity_against_v2_with_cogs_matching(self) -> None:
+        sale = "\u041f\u0440\u043e\u0434\u0430\u0436\u0430"
+        rows = [
+            {
+                "supplier_oper_name": sale,
+                "nm_id": 5001,
+                "quantity": 2,
+                "retail_amount": 220.0,
+                "supplierArticle": "ABC-1",
+            },
+            {
+                "supplier_oper_name": sale,
+                "nm_id": 5002,
+                "quantity": 1,
+                "retail_amount": 140.0,
+                "supplierArticle": "XYZ-2",
+            },
+        ]
+        cogs_rows = [
+            {"sku_token": "5001", "cogs": 50.0},
+            {"seller_sku_token": "xyz-2", "cogs": 30.0},
+        ]
+
+        v2 = calc_financial_metrics(rows, tax_rate=0.06, cogs_rows=cogs_rows, cogs_file_found=True)
+        v3 = run_financial_kernel(
+            FinancialKernelInput(
+                realization_rows=rows,
+                tax_rate=0.06,
+                cogs_rows=cogs_rows,
+                cogs_file_found=True,
+            )
+        )
+        totals = v3.account_financial_totals
+        v2_diag = v2.get("cogs_diagnostics") if isinstance(v2.get("cogs_diagnostics"), dict) else {}
+        v3_diag = v3.cogs_diagnostics
+
+        self.assertAlmostEqual(totals.cogs_total, float(v2.get("cogs_total") or 0.0), places=2)
+        self.assertAlmostEqual(totals.profit, float(v2.get("profit") or 0.0), places=2)
+        self.assertEqual(str(v3_diag.get("cogs_status") or ""), str(v2.get("cogs_status") or ""))
+        self.assertEqual(int(v3_diag.get("cogs_rows_loaded") or 0), int(v2_diag.get("cogs_rows_loaded") or 0))
+        self.assertEqual(int(v3_diag.get("cogs_matched_sku") or 0), int(v2_diag.get("cogs_matched_sku") or 0))
 
 
 if __name__ == "__main__":

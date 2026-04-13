@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List
+
+from src.cogs import calc_cogs_for_rows
 
 from .financial_models import (
     AccountFinancialTotals,
@@ -35,6 +38,24 @@ def _as_int(value: Any) -> int:
 
 def _as_text(value: Any) -> str:
     return str(value or "").strip().lower()
+
+
+def _normalize_sku_token(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    cleaned = text.replace("\xa0", " ").replace(",", ".").strip()
+    try:
+        if re.match(r"^\d+(\.0+)?$", cleaned):
+            return str(int(float(cleaned)))
+    except Exception:
+        pass
+    return cleaned
+
+
+def _normalize_seller_token(value: Any) -> str:
+    text = str(value or "").replace("\xa0", " ").strip().lower()
+    return " ".join(text.split())
 
 
 def _first_alias_value(row: Dict[str, Any], semantic_group: str, *extra_keys: str) -> Any:
@@ -99,7 +120,7 @@ def describe_financial_kernel_contract() -> Dict[str, Any]:
             "kernel_status": "str",
         },
         "financial_row_aliases": FINANCIAL_ROW_FIELD_ALIASES,
-        "migration_mode": "account_level_formulas_ported_cogs_sku_pending",
+        "migration_mode": "account_level_and_cogs_ported_sku_pending",
     }
 
 
@@ -183,6 +204,8 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
     storage = 0.0
     penalties = 0.0
     payout = 0.0
+    qty_by_sku: Dict[int, int] = {}
+    sku_seller_tokens: Dict[int, set[str]] = {}
 
     use_base_before_agent = any(abs(_as_float(row.get("wb_reward_before_agent"))) > 1e-12 for row in rows)
 
@@ -227,10 +250,23 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         row_storage = _as_float(row.get("storage_fee") or row.get("storageFee") or row.get("storage") or 0)
         row_penalty = _as_float(row.get("penalty") or row.get("penaltyAmount") or row.get("fine") or 0)
         row_payout = _as_float(row.get("ppvz_for_pay") or row.get("ppvzForPay") or row.get("to_pay") or row.get("toPay") or 0)
+        sku = row.get("nm_id") or row.get("nmId") or row.get("nmID") or row.get("nm")
+        sku_i = _as_int(sku)
+        seller_token = _normalize_seller_token(
+            row.get("_supplier_article")
+            or row.get("supplierArticle")
+            or row.get("Артикул поставщика")
+            or row.get("Артикул продавца")
+            or ""
+        )
 
         if _is_sale(operation):
             if qty > 0:
                 sales_qty += qty
+                if sku_i:
+                    qty_by_sku[sku_i] = qty_by_sku.get(sku_i, 0) + qty
+                    if seller_token:
+                        sku_seller_tokens.setdefault(sku_i, set()).add(seller_token)
 
             gross_revenue += row_amount if row_amount else unit_price * (qty if qty else 1)
             if row_retail_price:
@@ -292,7 +328,87 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         payout += row_payout
 
     tax = gross_revenue * float(payload.tax_rate or 0.0)
-    cogs_total = 0.0  # not ported in this step by design
+
+    cogs_by_sku: Dict[int, float] = {}
+    missing_sku_qty: Dict[int, int] = {}
+    cogs_rows_loaded = 0
+    cogs_sku_total = 0
+    cogs_matched_sku = 0
+    cogs_unmatched_sku: List[int] = []
+    cogs_match_key = "nm_id|seller_article"
+
+    legacy_mode = payload.cogs_rows is None and payload.cogs_file_found is None
+    file_found = bool(payload.cogs_file_found) if payload.cogs_file_found is not None else bool(payload.cogs_rows is not None)
+    if legacy_mode:
+        cogs_total, cogs_by_sku, missing_sku_qty = calc_cogs_for_rows(qty_by_sku)
+        cogs_status = "legacy_static_map"
+        cogs_rows_loaded = int(len(cogs_by_sku))
+        cogs_sku_total = int(len(cogs_by_sku))
+        cogs_matched_sku = int(len(cogs_by_sku))
+        cogs_unmatched_sku = sorted(int(sku) for sku in missing_sku_qty.keys())[:200]
+    else:
+        cogs_total = 0.0
+        parsed_cogs_rows = [row for row in (payload.cogs_rows or []) if isinstance(row, dict)]
+        cogs_rows_loaded = int(len(parsed_cogs_rows))
+        cogs_by_sku_id: Dict[int, float] = {}
+        cogs_by_sku_token: Dict[str, float] = {}
+        cogs_by_seller_token: Dict[str, float] = {}
+        for item in parsed_cogs_rows:
+            cost = _as_float(item.get("cogs"))
+            if cost <= 0:
+                continue
+            sku_token = _normalize_sku_token(item.get("sku_token") or item.get("sku"))
+            seller_cogs_token = _normalize_seller_token(item.get("seller_sku_token") or item.get("seller_sku"))
+            if sku_token:
+                cogs_by_sku_token[sku_token] = float(cost)
+                try:
+                    sku_id = int(float(sku_token))
+                    if sku_id > 0:
+                        cogs_by_sku_id[sku_id] = float(cost)
+                except Exception:
+                    pass
+            if seller_cogs_token:
+                cogs_by_seller_token[seller_cogs_token] = float(cost)
+
+        cogs_sku_total = int(len(set(list(cogs_by_sku_token.keys()) + list(cogs_by_seller_token.keys()))))
+        for sku_i, qty in qty_by_sku.items():
+            if int(qty) <= 0:
+                continue
+            sku_cost = None
+            if sku_i in cogs_by_sku_id:
+                sku_cost = cogs_by_sku_id.get(sku_i)
+            if sku_cost is None:
+                sku_token = _normalize_sku_token(sku_i)
+                if sku_token and sku_token in cogs_by_sku_token:
+                    sku_cost = cogs_by_sku_token.get(sku_token)
+            if sku_cost is None:
+                for seller_token in sorted(sku_seller_tokens.get(sku_i) or []):
+                    if seller_token in cogs_by_seller_token:
+                        sku_cost = cogs_by_seller_token.get(seller_token)
+                        break
+            if sku_cost is None or float(sku_cost or 0.0) <= 0:
+                missing_sku_qty[int(sku_i)] = int(qty)
+                cogs_unmatched_sku.append(int(sku_i))
+                continue
+            sku_cost_total = float(sku_cost) * int(qty)
+            cogs_by_sku[int(sku_i)] = round(sku_cost_total, 2)
+            cogs_total += sku_cost_total
+
+        cogs_total = round(cogs_total, 2)
+        cogs_matched_sku = int(len(cogs_by_sku))
+        total_sku_with_qty = int(len([sku for sku, qty in qty_by_sku.items() if int(qty) > 0]))
+        cogs_unmatched_sku = sorted(set(cogs_unmatched_sku))[:200]
+        if not file_found:
+            cogs_status = "file_not_found"
+        elif cogs_rows_loaded <= 0:
+            cogs_status = "file_found_not_read"
+        elif total_sku_with_qty > 0 and cogs_matched_sku == 0:
+            cogs_status = "file_read_not_matched"
+        elif total_sku_with_qty > 0 and cogs_matched_sku < total_sku_with_qty:
+            cogs_status = "partial_match"
+        else:
+            cogs_status = "full_match"
+
     profit = gross_revenue - commission - logistics - storage - penalties - tax - cogs_total
     margin = _safe_div(profit, gross_revenue)
 
@@ -328,18 +444,40 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         total_commission=round(commission, 2),
     )
     cogs_diagnostics: Dict[str, Any] = {
-        "mode": "not_ported",
-        "cogs_rows_loaded": len(payload.cogs_rows or []),
-        "cogs_file_found": payload.cogs_file_found,
-        "formula_ported": False,
-        "cogs_ported": False,
+        "mode": "v2_parity_account_level",
+        "cogs_status": cogs_status,
+        "cogs_file_found": bool(file_found),
+        "cogs_rows_loaded": int(cogs_rows_loaded),
+        "cogs_sku_total": int(cogs_sku_total),
+        "cogs_matched_sku": int(cogs_matched_sku),
+        "cogs_unmatched_sku": cogs_unmatched_sku,
+        "cogs_match_key": cogs_match_key,
+        "cogs_total": round(cogs_total, 2),
+        "cogs_coverage_pct": round((float(cogs_matched_sku) / float(len(qty_by_sku)) * 100.0), 2) if len(qty_by_sku) > 0 else None,
+        # account-level aliases requested for quick coverage interpretation
+        "matched_rows": int(cogs_matched_sku),
+        "unmatched_rows": int(max(len(qty_by_sku) - cogs_matched_sku, 0)),
+        "matched_qty": int(sum(int(qty_by_sku.get(sku, 0)) for sku in cogs_by_sku.keys())),
+        "coverage_ratio": _safe_div(float(cogs_matched_sku), float(len(qty_by_sku))) if len(qty_by_sku) > 0 else None,
+        "missing_sku_qty": missing_sku_qty,
+        "formula_ported": True,
+        "cogs_ported": True,
         "sku_pnl_ported": False,
         "validation": validation,
     }
+    cogs_warning_by_status = {
+        "file_not_found": ("cogs_file_missing", "COGS file was not found; profit is calculated without COGS coverage."),
+        "file_found_not_read": ("cogs_rows_empty", "COGS source exists but no valid COGS rows were loaded."),
+        "file_read_not_matched": ("cogs_no_matches", "COGS rows loaded but none matched sold SKUs."),
+        "partial_match": ("cogs_partial_matches", "COGS rows matched only part of sold SKUs."),
+    }
+    if cogs_status in cogs_warning_by_status:
+        code, message = cogs_warning_by_status[cogs_status]
+        warnings.append({"code": code, "message": message})
     warnings.append(
         {
             "code": "financial_kernel_partial_port",
-            "message": "Account-level formulas are ported; COGS and SKU P&L are not ported yet.",
+            "message": "Account-level formulas and COGS are ported; SKU P&L is not ported yet.",
         }
     )
 
@@ -350,5 +488,5 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         cogs_diagnostics=cogs_diagnostics,
         warnings=warnings,
         source_meta=dict(payload.source_meta or {}),
-        kernel_status="account_level_ported_partial",
+        kernel_status="account_and_cogs_ported_partial",
     )
