@@ -22,6 +22,9 @@ except Exception:  # pragma: no cover
     send_email_with_pdf = None
 
 
+DEFAULT_SELLER_ID = "seller_001"
+
+
 def _build_email_text(facts: dict, actions: list[dict], source: str) -> str:
     decision = facts.get("decision_layer") or {}
     kpi = decision.get("kpi") or {}
@@ -59,19 +62,39 @@ def _safe_date_fragment(value: str) -> str:
     return text
 
 
+def _seller_scoped_paths(seller: str) -> tuple[str, str]:
+    seller_norm = str(seller or "").strip() or DEFAULT_SELLER_ID
+    base = os.path.join("cabinets", seller_norm)
+    return os.path.join(base, "input"), os.path.join(base, "artifacts")
+
+
+def _resolve_audit_paths(*, input_dir: str | None, out_dir: str | None, seller: str) -> tuple[str, str]:
+    default_input, default_out = _seller_scoped_paths(seller)
+    input_resolved = str(input_dir or "").strip() or default_input
+    out_resolved = str(out_dir or "").strip() or default_out
+    return input_resolved, out_resolved
+
+
 def run_audit_mode(
     *,
-    input_dir: str = "audit/input",
-    out_dir: str = "audit/output",
+    seller: str = DEFAULT_SELLER_ID,
+    input_dir: str = "",
+    out_dir: str = "",
     source: str = "wb",
     period: str = "",
     send_email: bool = False,
 ) -> dict:
+    input_dir, out_dir = _resolve_audit_paths(
+        input_dir=input_dir,
+        out_dir=out_dir,
+        seller=seller,
+    )
     os.makedirs(out_dir, exist_ok=True)
     source_norm = str(source or "wb").strip().lower()
     if source_norm not in {"wb", "ozon"}:
         raise ValueError(f"Unsupported audit source: {source}")
 
+    print(f"[audit] seller={str(seller or '').strip() or DEFAULT_SELLER_ID}")
     print(f"[audit] source={source_norm}")
     print(f"[audit] input_dir={input_dir}")
     print("[audit] scanning files...")
@@ -162,6 +185,7 @@ def run_audit_mode(
         "pdf_path": pdf_path,
         "actions_path": actions_path,
         "search_insights_path": search_insights_path,
+        "seller": str(seller or "").strip() or DEFAULT_SELLER_ID,
         "source": source_norm,
         "missing_required": missing_required,
         "missing_optional": missing_optional,
@@ -170,14 +194,16 @@ def run_audit_mode(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run offline audit from files.")
+    parser.add_argument("--seller", default=DEFAULT_SELLER_ID, help="Seller id for seller-scoped paths")
     parser.add_argument("--source", default="wb", help="Audit source: wb | ozon")
     parser.add_argument("--period", default="", help="Optional period label, e.g. 2026-03-01_2026-03-31")
-    parser.add_argument("--input_dir", default="audit/input")
-    parser.add_argument("--out_dir", default="audit/output")
+    parser.add_argument("--input_dir", default="", help="Optional input dir override")
+    parser.add_argument("--out_dir", default="", help="Optional output dir override")
     parser.add_argument("--send_email", action="store_true")
     args = parser.parse_args()
 
     run_audit_mode(
+        seller=args.seller,
         input_dir=args.input_dir,
         out_dir=args.out_dir,
         source=args.source,

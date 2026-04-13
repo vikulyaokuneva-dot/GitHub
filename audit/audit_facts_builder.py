@@ -1,4 +1,4 @@
-"""Build unified offline WB audit facts from audit/input files."""
+"""Build unified offline WB audit facts from file input directory."""
 
 from __future__ import annotations
 
@@ -4057,7 +4057,7 @@ def _parse_many_orders(files: list[str]) -> tuple[list[dict[str, Any]], dict[str
     }
 
 
-def build_audit_facts(input_dir: str = "audit/input", period_label: str = "") -> dict[str, Any]:
+def build_audit_facts(input_dir: str = "cabinets/seller_001/input", period_label: str = "") -> dict[str, Any]:
     tax_rate = float(os.getenv("WB_TAX_RATE", "0.06"))
     report_date = dt.datetime.now(WB_TIMEZONE).date()
 

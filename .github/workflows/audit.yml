@@ -3,6 +3,10 @@ name: WB Audit (offline)
 on:
   workflow_dispatch:
     inputs:
+      seller_id:
+        description: "Seller ID (default: seller_001)"
+        required: false
+        default: "seller_001"
       period:
         description: "Label for the audit period, e.g. 2026-02-23_2026-03-01"
         required: false
@@ -11,6 +15,8 @@ on:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    env:
+      WB_SELLER_ID: ${{ github.event.inputs.seller_id || 'seller_001' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,10 +36,11 @@ jobs:
           WB_TIMEZONE: "Europe/Moscow"
           PYTHONPATH: "."
         run: |
-          python audit/run_audit.py --period "${{ github.event.inputs.period }}" --input_dir audit/input --out_dir audit/artifacts
+          mkdir -p "cabinets/${WB_SELLER_ID}/input"
+          python audit/run_audit.py --seller "${WB_SELLER_ID}" --period "${{ github.event.inputs.period }}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wb-audit
-          path: audit/artifacts/*
+          name: wb-audit-${{ env.WB_SELLER_ID }}
+          path: cabinets/${{ env.WB_SELLER_ID }}/artifacts/*

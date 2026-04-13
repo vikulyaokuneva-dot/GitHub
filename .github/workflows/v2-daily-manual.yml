@@ -1,4 +1,4 @@
-name: V2 Daily Manual
+name: LEGACY V2 Daily Manual
 
 on:
   workflow_dispatch:
@@ -54,6 +54,7 @@ jobs:
       - name: Run V2 daily pipeline
         run: |
           set -euo pipefail
+          echo "[legacy] This workflow is deprecated. Production route: python -m v3.entry daily --seller <seller>"
           python -m src.main
 
       - name: Print output files

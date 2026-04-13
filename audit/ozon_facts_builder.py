@@ -504,7 +504,7 @@ def _build_actions(decision_layer: dict[str, Any]) -> list[dict[str, Any]]:
     return actions
 
 
-def build_ozon_audit_facts(input_dir: str = "audit/input/ozon", period_label: str = "") -> dict[str, Any]:
+def build_ozon_audit_facts(input_dir: str = "cabinets/seller_001/input", period_label: str = "") -> dict[str, Any]:
     root_input_dir = _resolve_ozon_input_root(input_dir)
     detected_files = scan_ozon_input_files(root_input_dir)
     selected_files = select_best_ozon_files(detected_files)

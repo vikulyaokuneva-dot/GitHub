@@ -167,7 +167,6 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     sync_from_entry(globals())
 
     cabinet_root(repo_root, seller_id, create=True)
-    reports_dir(repo_root, seller_id, create=True)
     seller_input_dir = input_dir(repo_root, seller_id, create=True)
     out_dir = artifacts_dir(repo_root, seller_id, create=True)
     cfg = load_seller_config(repo_root, seller_id)

@@ -5,6 +5,8 @@ import os
 from copy import deepcopy
 from typing import Any, Dict
 
+from .utils import load_simple_yaml
+
 
 def _default_config(seller_id: str) -> Dict[str, Any]:
     return {
@@ -50,20 +52,30 @@ def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
 
 def load_seller_config(repo_root: str, seller_id: str) -> Dict[str, Any]:
     """
-    Load cabinets/<seller_id>/config.json.
-    If file does not exist or cannot be parsed, return defaults.
+    Load seller config for active v3 daily contour.
+    Primary format: config.yaml
+    Legacy fallback: config.json
     """
     defaults = _default_config(seller_id)
-    path = os.path.join(repo_root, "cabinets", seller_id, "config.json")
-    if not os.path.exists(path):
-        return defaults
+    seller_dir = os.path.join(repo_root, "cabinets", seller_id)
+    yaml_path = os.path.join(seller_dir, "config.yaml")
+    json_path = os.path.join(seller_dir, "config.json")
 
-    try:
-        with open(path, "r", encoding="utf-8") as file:
-            payload = json.load(file)
-    except (OSError, json.JSONDecodeError):
-        return defaults
+    if os.path.exists(yaml_path):
+        try:
+            payload = load_simple_yaml(yaml_path)
+            if isinstance(payload, dict):
+                return _deep_merge(defaults, payload)
+        except Exception:
+            pass
 
-    if not isinstance(payload, dict):
-        return defaults
-    return _deep_merge(defaults, payload)
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, "r", encoding="utf-8") as file:
+                payload = json.load(file)
+            if isinstance(payload, dict):
+                return _deep_merge(defaults, payload)
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    return defaults

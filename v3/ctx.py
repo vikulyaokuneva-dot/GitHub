@@ -1,3 +1,10 @@
+"""LEGACY v3 skeleton context (reports/data layout).
+
+Deprecated for active production daily flow.
+Active route: `python -m v3.entry daily --seller <seller>`.
+Kept only for backward compatibility of legacy modules.
+"""
+
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional

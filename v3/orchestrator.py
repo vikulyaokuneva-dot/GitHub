@@ -24,7 +24,9 @@ def _is_valid_seller_cabinet(path: Path) -> bool:
     if path.name.startswith(".") or path.name.startswith("_"):
         return False
     file_markers = ("config.json", "config.yaml")
-    dir_markers = ("input", "data", "artifacts", "history")
+    # Active v3 seller scope should be based on API/input + artifacts/history/memory.
+    # Legacy "data" marker is intentionally excluded from active discovery.
+    dir_markers = ("input", "artifacts", "history", "memory")
     has_config = any((path / marker).is_file() for marker in file_markers)
     has_structure = any((path / marker).is_dir() for marker in dir_markers)
     return has_config or has_structure

@@ -52,7 +52,7 @@ from .outputs.facts_builder import (
     attach_decision_memory_summary_to_facts,
     build_daily_facts_base,
 )
-from .paths import artifacts_dir, cabinet_root, input_dir, reports_dir
+from .paths import artifacts_dir, cabinet_root, input_dir
 from .pdf_render import write_text_pdf
 from .pipeline.assembly_unpacker import (
     apply_input_debug_assembly_patches,

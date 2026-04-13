@@ -1,4 +1,4 @@
-name: V2 Audit Manual
+name: LEGACY V2 Audit Manual
 
 on:
   workflow_dispatch:
@@ -39,6 +39,7 @@ jobs:
       - name: Run V2 audit
         run: |
           set -euo pipefail
+          echo "[legacy] This workflow is deprecated. Preferred audit route is seller-scoped: python audit/run_audit.py --seller <seller>"
           python audit/run_audit.py \
             --period "${{ github.event.inputs.period }}" \
             --input_dir audit/input \
