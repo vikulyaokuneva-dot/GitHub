@@ -1873,6 +1873,111 @@ def _money_int_rub_or_dash(value: Any) -> str:
     return f"{rounded:,} ₽".replace(",", " ")
 
 
+def _unprofitable_reason(
+    *,
+    revenue_total: float | None,
+    wb_commission_total: float | None,
+    logistics_total: float | None,
+    margin: float | None,
+) -> str:
+    if revenue_total is not None and revenue_total > 0:
+        commission_pct = ((wb_commission_total or 0.0) / revenue_total) * 100.0
+        logistics_pct = ((logistics_total or 0.0) / revenue_total) * 100.0
+        if commission_pct > 30.0:
+            return "Высокая комиссия"
+        if logistics_pct > 25.0:
+            return "Дорогая логистика"
+    if margin is not None and margin < 0:
+        return "Низкая цена"
+    return "-"
+
+
+def _unprofitable_sku_rows(finance: dict[str, Any]) -> list[dict[str, Any]]:
+    sku_financials = finance.get("sku_financials") if isinstance(finance.get("sku_financials"), dict) else {}
+    rows: list[dict[str, Any]] = []
+
+    for raw_sku, raw_data in sku_financials.items():
+        if not isinstance(raw_data, dict):
+            continue
+        sku = _to_int(raw_sku)
+        if sku <= 0:
+            continue
+        profit = _to_float(raw_data.get("profit"))
+        if profit is None or profit >= 0:
+            continue
+
+        revenue_total = _to_float(raw_data.get("revenue_total"))
+        if revenue_total is None or revenue_total <= 0:
+            revenue_total = _to_float(raw_data.get("net_revenue"))
+        if revenue_total is None or revenue_total <= 0:
+            revenue_total = _to_float(raw_data.get("sales_revenue"))
+
+        cogs_total = _to_float(raw_data.get("cogs_total"))
+        if cogs_total is None:
+            cogs_total = _to_float(raw_data.get("cogs"))
+
+        wb_commission_total = _to_float(raw_data.get("wb_commission_total"))
+        if wb_commission_total is None:
+            wb_commission_total = _to_float(raw_data.get("commission"))
+
+        logistics_total = _to_float(raw_data.get("logistics_total"))
+        if logistics_total is None:
+            logistics_total = _to_float(raw_data.get("logistics"))
+
+        margin = _to_float(raw_data.get("margin"))
+        if margin is None and revenue_total is not None and revenue_total > 0:
+            margin = float(profit) / float(revenue_total)
+
+        rows.append(
+            {
+                "sku": int(sku),
+                "revenue_total": revenue_total,
+                "cogs_total": cogs_total,
+                "wb_commission_total": wb_commission_total,
+                "logistics_total": logistics_total,
+                "profit": float(profit),
+                "margin": margin,
+                "reason": _unprofitable_reason(
+                    revenue_total=revenue_total,
+                    wb_commission_total=wb_commission_total,
+                    logistics_total=logistics_total,
+                    margin=margin,
+                ),
+            }
+        )
+
+    return sorted(rows, key=lambda item: (float(item.get("profit") or 0.0), int(item.get("sku") or 0)))
+
+
+def _unprofitable_sku_section_lines(finance: dict[str, Any]) -> list[str]:
+    lines: list[str] = ["## 🚨 Убыточные SKU"]
+    rows = _unprofitable_sku_rows(finance)
+    if not rows:
+        lines.append("Убыточных SKU не выявлено")
+        lines.append("")
+        return lines
+
+    table_rows = [
+        [
+            row.get("sku"),
+            _money_int_rub_or_dash(row.get("revenue_total")),
+            _money_int_rub_or_dash(row.get("cogs_total")),
+            _money_int_rub_or_dash(row.get("wb_commission_total")),
+            _money_int_rub_or_dash(row.get("logistics_total")),
+            _money_int_rub_or_dash(row.get("profit")),
+            _text(row.get("reason") or "-"),
+        ]
+        for row in rows
+    ]
+    _append_markdown_table(
+        lines,
+        ["SKU", "Выручка", "Себестоимость", "Комиссии WB", "Логистика", "Прибыль", "Причина убытка"],
+        table_rows,
+        align_right={1, 2, 3, 4, 5},
+    )
+    return lines
+
+
 def _ratio_or_dash(value: float | None, *, digits: int = 2) -> str:
     if value is None:
         return "-"
@@ -2850,6 +2955,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         lines.append("")
 
     lines.extend(_where_money_lost_section_lines(decision=decision, abc_layer=abc_layer, facts=facts))
+    lines.extend(_unprofitable_sku_section_lines(finance))
 
     _page_break(lines)
 

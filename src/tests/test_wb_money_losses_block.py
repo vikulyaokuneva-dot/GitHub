@@ -142,3 +142,68 @@ def test_report_renders_money_losses_block_with_direct_and_risk_parts() -> None:
     assert "3 SKU" in md
     assert "5 SKU" in md
     assert "8 SKU" in md
+
+
+def test_report_renders_unprofitable_sku_section_after_kpi() -> None:
+    facts = _base_facts()
+    facts["financial_summary"]["sku_financials"] = {
+        "111": {
+            "net_revenue": 1000.0,
+            "cogs": 400.0,
+            "commission": 350.0,  # 35% -> Высокая комиссия
+            "logistics": 50.0,
+            "profit": -120.0,
+            "margin": -0.12,
+        },
+        "222": {
+            "net_revenue": 1200.0,
+            "cogs": 600.0,
+            "commission": 120.0,
+            "logistics": 360.0,  # 30% -> Дорогая логистика
+            "profit": -200.0,
+            "margin": -0.1667,
+        },
+        "333": {
+            "net_revenue": 1400.0,
+            "cogs": 600.0,
+            "commission": 150.0,
+            "logistics": 100.0,
+            "profit": -80.0,
+            "margin": -0.0571,  # fallback -> Низкая цена
+        },
+        "444": {
+            "net_revenue": 1000.0,
+            "cogs": 400.0,
+            "commission": 120.0,
+            "logistics": 100.0,
+            "profit": 10.0,
+            "margin": 0.01,
+        },
+    }
+
+    md = build_audit_markdown(facts)
+
+    kpi_pos = md.index("# 📊 KPI и инсайты")
+    unprofitable_pos = md.index("## 🚨 Убыточные SKU")
+    finance_pos = md.index("## 2. 💰 Финансы: сколько реально зарабатываете")
+    assert kpi_pos < unprofitable_pos < finance_pos
+
+    assert "| SKU | Выручка | Себестоимость | Комиссии WB | Логистика | Прибыль | Причина убытка |" in md
+    assert "| 222 | 1 200 ₽ | 600 ₽ | 120 ₽ | 360 ₽ | -200 ₽ | Дорогая логистика |" in md
+    assert "| 111 | 1 000 ₽ | 400 ₽ | 350 ₽ | 50 ₽ | -120 ₽ | Высокая комиссия |" in md
+    assert "| 333 | 1 400 ₽ | 600 ₽ | 150 ₽ | 100 ₽ | -80 ₽ | Низкая цена |" in md
+    assert "| 444 |" not in md
+
+    assert md.index("| 222 |") < md.index("| 111 |") < md.index("| 333 |")
+
+
+def test_report_unprofitable_sku_section_shows_empty_message() -> None:
+    facts = _base_facts()
+    facts["financial_summary"]["sku_financials"] = {
+        "111": {"net_revenue": 1000.0, "profit": 100.0},
+        "222": {"net_revenue": 500.0, "profit": 0.0},
+    }
+
+    md = build_audit_markdown(facts)
+    assert "## 🚨 Убыточные SKU" in md
+    assert "Убыточных SKU не выявлено" in md

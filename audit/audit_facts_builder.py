@@ -3287,6 +3287,55 @@ def _build_source_consistency_warnings(finance: dict[str, Any], funnel: dict[str
     return warnings
 
 
+def _extract_unprofitable_sku(finance: dict[str, Any], *, limit: int = 100) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    sku_financials = _as_sku_int_map((finance or {}).get("sku_financials"))
+
+    for sku, item in sku_financials.items():
+        if not isinstance(item, dict):
+            continue
+        profit = _to_float_or_none(item.get("profit"))
+        if profit is None or profit >= 0:
+            continue
+        margin = _to_float_or_none(item.get("margin"))
+        if margin is None:
+            revenue = _to_float_or_none(item.get("revenue_total"))
+            if revenue is None or revenue <= 0:
+                revenue = _to_float_or_none(item.get("net_revenue"))
+            if revenue is None or revenue <= 0:
+                revenue = _to_float_or_none(item.get("sales_revenue"))
+            if revenue is not None and revenue > 0:
+                margin = float(profit) / float(revenue)
+        rows.append(
+            {
+                "sku": int(sku),
+                "profit": round(float(profit), 2),
+                "margin": round(float(margin), 4) if margin is not None else None,
+            }
+        )
+
+    if not rows:
+        # Legacy fallback when sku_financials is incomplete.
+        for item in (finance.get("negative_margin_sku") or [])[: max(limit, 100)]:
+            if not isinstance(item, dict):
+                continue
+            sku = _to_int(item.get("sku"))
+            profit = _to_float_or_none(item.get("profit"))
+            if sku <= 0 or profit is None or profit >= 0:
+                continue
+            margin = _to_float_or_none(item.get("margin"))
+            rows.append(
+                {
+                    "sku": int(sku),
+                    "profit": round(float(profit), 2),
+                    "margin": round(float(margin), 4) if margin is not None else None,
+                }
+            )
+
+    rows_sorted = sorted(rows, key=lambda x: (_to_float(x.get("profit")), _to_int(x.get("sku"))))
+    return rows_sorted[: max(limit, 0)]
+
+
 def _build_decision_layer(
     *,
     finance: dict[str, Any],
@@ -3387,16 +3436,7 @@ def _build_decision_layer(
             }
         )
 
-    negative_margin_sku = finance.get("negative_margin_sku") or []
-    unprofitable_sku = [
-        {
-            "sku": int(x.get("sku") or 0),
-            "profit": round(_to_float(x.get("profit")), 2),
-            "margin": round(_to_float(x.get("margin")), 4),
-        }
-        for x in negative_margin_sku[:100]
-        if int(x.get("sku") or 0) > 0
-    ]
+    unprofitable_sku = _extract_unprofitable_sku(finance, limit=100)
 
     sku_without_sales = []
     dead_stock = []
@@ -3532,21 +3572,45 @@ def _build_money_losses(
                 ads_waste_count = 1
                 ads_waste_source = "ads_summary_fallback"
 
-    negative_profit_rows: list[dict[str, Any]] = []
+    stock_qty_by_sku: dict[int, int] = {}
     for row in sku_rows or []:
         if not isinstance(row, dict):
             continue
         sku = _to_int(row.get("sku"))
-        profit = _to_float_or_none(row.get("profit"))
-        if sku <= 0 or profit is None or profit >= 0:
+        if sku <= 0:
+            continue
+        stock_qty_by_sku[sku] = _to_int(row.get("stock_qty"))
+
+    negative_profit_rows: list[dict[str, Any]] = []
+    for item in _extract_unprofitable_sku(financial_summary, limit=10000):
+        sku = _to_int(item.get("sku"))
+        if sku <= 0:
             continue
         negative_profit_rows.append(
             {
                 "sku": int(sku),
-                "profit": round(float(profit), 2),
-                "stock_qty": _to_int(row.get("stock_qty")),
+                "profit": round(_to_float(item.get("profit")), 2),
+                "stock_qty": _to_int(stock_qty_by_sku.get(sku)),
             }
         )
+
+    # Backward-compatible fallback for tests and partial payloads where finance.sku_financials
+    # might be absent but sku_rows already contains per-SKU profit.
+    if not negative_profit_rows:
+        for row in sku_rows or []:
+            if not isinstance(row, dict):
+                continue
+            sku = _to_int(row.get("sku"))
+            profit = _to_float_or_none(row.get("profit"))
+            if sku <= 0 or profit is None or profit >= 0:
+                continue
+            negative_profit_rows.append(
+                {
+                    "sku": int(sku),
+                    "profit": round(float(profit), 2),
+                    "stock_qty": _to_int(row.get("stock_qty")),
+                }
+            )
     negative_profit_rub = round(sum(abs(_to_float(item.get("profit"))) for item in negative_profit_rows), 2)
     negative_profit_sku_count = len(negative_profit_rows)
 
