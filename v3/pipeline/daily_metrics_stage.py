@@ -880,7 +880,17 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     metrics_data_quality["territorial_analysis_enabled"] = bool(territorial_analysis_enabled and territorial_analysis_mode != "disabled")
     metrics_data_quality["territorial_actionable_enabled"] = territorial_actionable_enabled
     metrics_data_quality["territorial_analysis_mode"] = territorial_analysis_mode
+    metrics_data_quality["territorial_analysis_status"] = str(
+        territorial_summary.get("analysis_status", territorial_distribution.get("analysis_status", "blocked_by_data"))
+        if isinstance(territorial_distribution, dict)
+        else "blocked_by_data"
+    ).strip().lower()
     metrics_data_quality["territorial_recommendation_status"] = territorial_recommendation_status
+    metrics_data_quality["territorial_blocked_reasons"] = (
+        [str(reason) for reason in list(territorial_summary.get("blocked_reasons", [])) if str(reason).strip()]
+        if isinstance(territorial_summary.get("blocked_reasons"), list)
+        else []
+    )
     metrics_data_quality["territorial_confidence_level"] = territorial_confidence_level
     metrics_data_quality["territorial_suppressed_due_to_data_quality"] = territorial_suppressed_due_to_data_quality
     metrics["data_quality"] = metrics_data_quality
@@ -956,7 +966,13 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
                 "territorial_analysis_enabled": bool(metrics_data_quality.get("territorial_analysis_enabled", territorial_analysis_enabled)),
                 "territorial_actionable_enabled": bool(metrics_data_quality.get("territorial_actionable_enabled", False)),
                 "territorial_analysis_mode": str(metrics_data_quality.get("territorial_analysis_mode") or "disabled"),
+                "territorial_analysis_status": str(metrics_data_quality.get("territorial_analysis_status") or "blocked_by_data"),
                 "territorial_recommendation_status": str(metrics_data_quality.get("territorial_recommendation_status") or "blocked_by_data"),
+                "territorial_blocked_reasons": (
+                    [str(reason) for reason in list(metrics_data_quality.get("territorial_blocked_reasons", [])) if str(reason).strip()]
+                    if isinstance(metrics_data_quality.get("territorial_blocked_reasons"), list)
+                    else []
+                ),
                 "territorial_confidence_level": str(metrics_data_quality.get("territorial_confidence_level") or "low"),
                 "territorial_suppressed_due_to_data_quality": bool(metrics_data_quality.get("territorial_suppressed_due_to_data_quality", False)),
                 "profit_contribution_enabled": profit_contribution_enabled,

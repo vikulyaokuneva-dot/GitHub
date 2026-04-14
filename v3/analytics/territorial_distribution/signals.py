@@ -86,6 +86,9 @@ def build_distribution_signals(
             "minimum_sample_met": minimum_sample_met,
             "analysis_mode": analysis_mode,
             "recommendation_status": recommendation_status,
+            "analysis_status": str(row.get("analysis_status") or ""),
+            "blocked_reasons": list(row.get("blocked_reasons", [])) if isinstance(row.get("blocked_reasons"), list) else [],
+            "blocked_reason_details": row.get("blocked_reason_details", {}),
         }
 
         if (not valid_sku_attribution) or (not order_count_available) or (not demand_geography_available) or (not localization_known):
@@ -202,6 +205,8 @@ def build_distribution_signals(
                     "suppressed_due_to_data_quality": suppressed_due_to_data_quality,
                     "recommendation_status": recommendation_status,
                     "suppression_reasons": summary.get("suppression_reasons", []),
+                    "blocked_reason_counts": summary.get("blocked_reason_counts", {}),
+                    "blocked_reason_details": summary.get("blocked_reason_details", {}),
                 },
                 recommendation="Connect stock and demand geography sources to unlock actionable territorial recommendations.",
                 impact_score=max(15.0, min(40.0, 100.0 - coverage_pct)),

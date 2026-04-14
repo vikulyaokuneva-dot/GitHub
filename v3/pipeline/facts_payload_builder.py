@@ -220,8 +220,26 @@ def build_territorial_distribution_summary(territorial_summary: Dict[str, Any]) 
         "stock_coverage_pct": float(safe_summary.get("stock_coverage_pct", 0.0) or 0.0),
         "confidence_level": str(safe_summary.get("confidence_level") or "low"),
         "analysis_mode": str(safe_summary.get("analysis_mode") or "disabled"),
+        "analysis_status": str(safe_summary.get("analysis_status") or "blocked_by_data"),
         "recommendation_status": str(safe_summary.get("recommendation_status") or "blocked_by_data"),
+        "blocked_reasons": (
+            [str(value) for value in safe_summary.get("blocked_reasons", []) if str(value or "").strip()]
+            if isinstance(safe_summary.get("blocked_reasons"), list)
+            else []
+        ),
+        "blocked_reason_counts": (
+            {str(key): int(value or 0) for key, value in safe_summary.get("blocked_reason_counts", {}).items()}
+            if isinstance(safe_summary.get("blocked_reason_counts"), dict)
+            else {}
+        ),
         "suppressed_due_to_data_quality": bool(safe_summary.get("suppressed_due_to_data_quality", False)),
+        "recommendation_candidate_skus": int(safe_summary.get("recommendation_candidate_skus", 0) or 0),
+        "actionable_recommendation_skus": int(safe_summary.get("actionable_recommendation_skus", 0) or 0),
+        "top_demand_regions": (
+            [item for item in safe_summary.get("top_demand_regions", []) if isinstance(item, dict)][:7]
+            if isinstance(safe_summary.get("top_demand_regions"), list)
+            else []
+        ),
         "top_weak_localization_skus": (
             [item for item in safe_summary.get("top_weak_localization_skus", []) if isinstance(item, dict)][:5]
             if isinstance(safe_summary.get("top_weak_localization_skus"), list)

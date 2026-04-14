@@ -143,6 +143,123 @@ def _confidence_level(*, coverage_pct: float, demand_coverage_pct: float, stock_
     return "low"
 
 
+def _analysis_status_label(*, analysis_mode: str, recommendation_status: str) -> str:
+    mode = str(analysis_mode or "disabled").strip().lower()
+    recommendation = str(recommendation_status or "blocked_by_data").strip().lower()
+    if mode == "full" and recommendation == "actionable":
+        return "usable"
+    if mode == "preview" or recommendation == "watch":
+        return "preview"
+    if recommendation == "blocked_by_data":
+        return "blocked_by_data"
+    return "disabled"
+
+
+def _top_share_rows(values: Mapping[str, Any], *, key_name: str, top_n: int = 5) -> List[Dict[str, Any]]:
+    total = sum(_as_float(value) for value in values.values())
+    if total <= 0:
+        return []
+    rows: List[Dict[str, Any]] = []
+    for key, value in values.items():
+        amount = _as_float(value)
+        if amount <= 0:
+            continue
+        rows.append(
+            {
+                key_name: str(key),
+                "orders": round(amount, 6),
+                "share_pct": round(amount / total * 100.0, 4),
+            }
+        )
+    rows.sort(key=lambda item: (-_as_float(item.get("share_pct")), -_as_float(item.get("orders")), str(item.get(key_name) or "")))
+    return rows[: max(1, int(top_n))]
+
+
+def _aggregate_blocked_reason_counts(items: List[Dict[str, Any]]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for row in items:
+        if not isinstance(row, dict):
+            continue
+        for reason in list(row.get("blocked_reasons", [])):
+            token = str(reason or "").strip()
+            if not token:
+                continue
+            counts[token] = int(counts.get(token, 0) or 0) + 1
+    return counts
+
+
+def _portfolio_top_demand_regions(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    demand: Dict[str, float] = {}
+    for row in items:
+        if not isinstance(row, dict):
+            continue
+        demand_map = row.get("demand_by_region")
+        if not isinstance(demand_map, dict) or not demand_map:
+            demand_map = row.get("demand_by_warehouse")
+        if not isinstance(demand_map, dict):
+            continue
+        for region, qty in demand_map.items():
+            amount = _as_float(qty)
+            if amount <= 0:
+                continue
+            token = str(region or "").strip()
+            if not token:
+                continue
+            demand[token] = demand.get(token, 0.0) + amount
+    return _top_share_rows(demand, key_name="region", top_n=7)
+
+
+def _build_recommendation_candidates_for_row(row: Dict[str, Any]) -> List[Dict[str, Any]]:
+    if not isinstance(row, dict):
+        return []
+    demand_share = row.get("demand_share_by_region")
+    if not isinstance(demand_share, dict) or not demand_share:
+        demand_share = row.get("demand_share_by_warehouse")
+    if not isinstance(demand_share, dict):
+        return []
+    stock_share = row.get("stock_share_by_region")
+    if not isinstance(stock_share, dict) or not stock_share:
+        stock_share = row.get("stock_share_by_warehouse")
+    if not isinstance(stock_share, dict):
+        stock_share = {}
+    demand_values = row.get("demand_by_region")
+    if not isinstance(demand_values, dict) or not demand_values:
+        demand_values = row.get("demand_by_warehouse")
+    if not isinstance(demand_values, dict):
+        demand_values = {}
+
+    candidates: List[Dict[str, Any]] = []
+    for region, demand_share_value in demand_share.items():
+        demand_part = max(0.0, _as_float(demand_share_value))
+        if demand_part <= 0:
+            continue
+        stock_part = max(0.0, _as_float(stock_share.get(region)))
+        gap = round(demand_part - stock_part, 6)
+        if gap <= 0.05:
+            continue
+        demand_orders = max(0.0, _as_float(demand_values.get(region)))
+        priority = "high" if gap >= 0.2 else ("medium" if gap >= 0.1 else "low")
+        candidates.append(
+            {
+                "destination_region": str(region),
+                "demand_share_pct": round(demand_part * 100.0, 4),
+                "stock_share_pct": round(stock_part * 100.0, 4),
+                "gap_share_pct": round(gap * 100.0, 4),
+                "demand_orders": round(demand_orders, 6),
+                "priority": priority,
+                "reason": "non_local_demand_exceeds_supply_share",
+            }
+        )
+    candidates.sort(
+        key=lambda item: (
+            -_as_float(item.get("gap_share_pct")),
+            -_as_float(item.get("demand_orders")),
+            str(item.get("destination_region") or ""),
+        )
+    )
+    return candidates[:5]
+
+
 def _summary(items: List[Dict[str, Any]], cfg: Mapping[str, Any], sku_attribution_status: str) -> Dict[str, Any]:
     total_skus = len(items)
     known_rows = [
@@ -167,8 +284,11 @@ def _summary(items: List[Dict[str, Any]], cfg: Mapping[str, Any], sku_attributio
     full_analysis_skus = sum(1 for row in items if str(row.get("analysis_mode") or "") == "full")
     preview_analysis_skus = sum(1 for row in items if str(row.get("analysis_mode") or "") == "preview")
     disabled_analysis_skus = sum(1 for row in items if str(row.get("analysis_mode") or "") == "disabled")
+    usable_analysis_skus = sum(1 for row in items if str(row.get("analysis_status") or "") == "usable")
+    blocked_analysis_skus = sum(1 for row in items if str(row.get("analysis_status") or "") == "blocked_by_data")
     full_share_pct = round(full_analysis_skus / total_skus * 100.0, 2) if total_skus > 0 else 0.0
     unknown_share_pct = round(unknown_localization_skus / total_skus * 100.0, 2) if total_skus > 0 else 100.0
+    blocked_reason_counts = _aggregate_blocked_reason_counts(items)
 
     suppression_reasons: List[str] = []
     if str(sku_attribution_status or "ok").strip().lower() == "broken":
@@ -199,6 +319,7 @@ def _summary(items: List[Dict[str, Any]], cfg: Mapping[str, Any], sku_attributio
         analysis_mode = "full"
 
     recommendation_status = "actionable" if analysis_mode == "full" else ("watch" if analysis_mode == "preview" else "blocked_by_data")
+    analysis_status = _analysis_status_label(analysis_mode=analysis_mode, recommendation_status=recommendation_status)
     total_orders_known = sum(_as_float(row.get("total_orders")) for row in known_rows)
     weighted_localization_sum = sum(_as_float(row.get("localization_share")) * _as_float(row.get("total_orders")) for row in known_rows)
     weighted_localization = round(weighted_localization_sum / total_orders_known, 4) if total_orders_known > 0 else None
@@ -253,6 +374,22 @@ def _summary(items: List[Dict[str, Any]], cfg: Mapping[str, Any], sku_attributio
     else:
         portfolio_risk = "low"
 
+    recommendation_candidate_skus = sum(
+        1
+        for row in items
+        if isinstance(row, dict) and isinstance(row.get("recommendation_candidates"), list) and bool(row.get("recommendation_candidates"))
+    )
+    actionable_recommendation_skus = sum(
+        1
+        for row in items
+        if isinstance(row, dict)
+        and str(row.get("analysis_mode") or "").strip().lower() == "full"
+        and str(row.get("recommendation_status") or "").strip().lower() == "actionable"
+        and isinstance(row.get("recommendation_candidates"), list)
+        and bool(row.get("recommendation_candidates"))
+    )
+    top_demand_regions = _portfolio_top_demand_regions(items)
+
     return {
         "total_skus_analyzed": total_skus,
         "skus_with_irp_penalty": skus_with_irp_penalty,
@@ -284,13 +421,31 @@ def _summary(items: List[Dict[str, Any]], cfg: Mapping[str, Any], sku_attributio
         "confidence_level": confidence_level,
         "suppressed_due_to_data_quality": suppressed_due_to_data_quality,
         "suppression_reasons": suppression_reasons,
+        "blocked_reason_counts": blocked_reason_counts,
+        "blocked_reasons": list(sorted(blocked_reason_counts.keys())),
+        "blocked_reason_details": {
+            "min_portfolio_coverage_pct": float(cfg.get("min_portfolio_coverage_pct", 40.0)),
+            "min_demand_coverage_pct": float(cfg.get("min_demand_coverage_pct", 50.0)),
+            "min_stock_coverage_pct": float(cfg.get("min_stock_coverage_pct", 40.0)),
+            "max_unknown_share_pct": float(cfg.get("max_unknown_share_pct", 60.0)),
+            "actual_coverage_pct": coverage_pct,
+            "actual_demand_coverage_pct": demand_coverage_pct,
+            "actual_stock_coverage_pct": stock_coverage_pct,
+            "actual_unknown_share_pct": unknown_share_pct,
+        },
         "analysis_mode": analysis_mode,
+        "analysis_status": analysis_status,
         "data_quality_status": "ok" if analysis_mode == "full" else ("low_confidence" if analysis_mode == "preview" else "insufficient_data"),
         "recommendation_status": recommendation_status,
         "portfolio_territorial_risk": portfolio_risk,
         "full_analysis_skus": full_analysis_skus,
         "preview_analysis_skus": preview_analysis_skus,
         "disabled_analysis_skus": disabled_analysis_skus,
+        "usable_analysis_skus": usable_analysis_skus,
+        "blocked_analysis_skus": blocked_analysis_skus,
+        "recommendation_candidate_skus": recommendation_candidate_skus,
+        "actionable_recommendation_skus": actionable_recommendation_skus,
+        "top_demand_regions": top_demand_regions,
     }
 
 
@@ -339,8 +494,11 @@ def build_territorial_distribution(
         result = payload.to_dict()
         result.update({
             "analysis_mode": "disabled",
+            "analysis_status": "disabled",
             "data_quality_status": "insufficient_data",
             "recommendation_status": "blocked_by_data",
+            "blocked_reasons": ["engine_disabled_by_config"],
+            "blocked_reason_counts": {"engine_disabled_by_config": 1},
             "suppressed_due_to_data_quality": True,
             "coverage_pct": 0.0,
             "confidence_level": "low",
@@ -409,6 +567,17 @@ def build_territorial_distribution(
             "stock_by_warehouse": row.get("stock_by_warehouse", {}),
             "demand_share_by_warehouse": row.get("demand_share_by_warehouse", {}),
             "stock_share_by_warehouse": row.get("stock_share_by_warehouse", {}),
+            "demand_by_region": row.get("demand_by_region", {}),
+            "stock_by_region": row.get("stock_by_region", {}),
+            "demand_share_by_region": row.get("demand_share_by_region", {}),
+            "stock_share_by_region": row.get("stock_share_by_region", {}),
+            "top_demand_regions": row.get("top_demand_regions", []),
+            "top_supply_regions": row.get("top_supply_regions", []),
+            "non_local_orders_estimate": row.get("non_local_orders_estimate"),
+            "non_local_share_pct": row.get("non_local_share_pct"),
+            "analysis_status": row.get("analysis_status", "blocked_by_data"),
+            "blocked_reasons": row.get("blocked_reasons", []),
+            "blocked_reason_details": row.get("blocked_reason_details", {}),
             "dominant_demand_warehouses": row.get("dominant_demand_warehouses", []),
             "dominant_stock_warehouses": row.get("dominant_stock_warehouses", []),
             "reverse_logistics_modeling": "deferred_until_volume_fields_available",
@@ -456,6 +625,12 @@ def build_territorial_distribution(
         row["stock_by_warehouse"] = row.get("diagnostics", {}).get("stock_by_warehouse", {}) or {}
         row["demand_share_by_warehouse"] = row.get("diagnostics", {}).get("demand_share_by_warehouse", {}) or {}
         row["stock_share_by_warehouse"] = row.get("diagnostics", {}).get("stock_share_by_warehouse", {}) or {}
+        row["demand_by_region"] = row.get("diagnostics", {}).get("demand_by_region", {}) or {}
+        row["stock_by_region"] = row.get("diagnostics", {}).get("stock_by_region", {}) or {}
+        row["demand_share_by_region"] = row.get("diagnostics", {}).get("demand_share_by_region", {}) or {}
+        row["stock_share_by_region"] = row.get("diagnostics", {}).get("stock_share_by_region", {}) or {}
+        row["top_demand_regions"] = row.get("diagnostics", {}).get("top_demand_regions", []) or []
+        row["top_supply_regions"] = row.get("diagnostics", {}).get("top_supply_regions", []) or []
         row["dominant_demand_warehouses"] = row.get("diagnostics", {}).get("dominant_demand_warehouses") or sorted(
             [str(k) for k, v in row["demand_share_by_warehouse"].items() if _as_float(v) > 0.2],
             key=lambda k: -_as_float(row["demand_share_by_warehouse"].get(k)),
@@ -486,6 +661,38 @@ def build_territorial_distribution(
         row["demand_geography_available"] = bool(row.get("diagnostics", {}).get("demand_geography_available", False))
         row["stock_geography_available"] = bool(row.get("diagnostics", {}).get("stock_geography_available", False))
         row["minimum_sample_met"] = bool(row.get("diagnostics", {}).get("minimum_sample_met", False))
+        row["analysis_status"] = str(
+            row.get("diagnostics", {}).get(
+                "analysis_status",
+                _analysis_status_label(
+                    analysis_mode=str(row.get("analysis_mode") or "disabled"),
+                    recommendation_status=str(row.get("recommendation_status") or "blocked_by_data"),
+                ),
+            )
+        )
+        row["blocked_reasons"] = (
+            [str(reason) for reason in list(row.get("diagnostics", {}).get("blocked_reasons", [])) if str(reason).strip()]
+            if isinstance(row.get("diagnostics", {}).get("blocked_reasons", []), list)
+            else []
+        )
+        row["blocked_reason_details"] = row.get("diagnostics", {}).get("blocked_reason_details", {}) or {}
+        row["non_local_orders_estimate"] = row.get("diagnostics", {}).get("non_local_orders_estimate")
+        row["non_local_share_pct"] = row.get("diagnostics", {}).get("non_local_share_pct")
+        row["recommendation_candidates"] = _build_recommendation_candidates_for_row(row)
+        row["recommended_destination"] = (
+            str((row["recommendation_candidates"][0] or {}).get("destination_region") or "")
+            if row["recommendation_candidates"]
+            else ""
+        )
+        row["recommendation_ready"] = bool(
+            str(row.get("analysis_mode") or "").strip().lower() == "full"
+            and str(row.get("recommendation_status") or "").strip().lower() == "actionable"
+            and bool(row["recommendation_candidates"])
+        )
+        if str(row.get("analysis_mode") or "").strip().lower() == "full" and str(row.get("recommendation_status") or "").strip().lower() == "actionable" and not row["recommendation_candidates"]:
+            row["recommendation_notes"] = ["no_rebalance_candidate_detected"]
+        else:
+            row["recommendation_notes"] = []
         row["evidence_sources"] = row.get("diagnostics", {}).get("evidence_sources", {})
         row["known_facts"] = row.get("diagnostics", {}).get("known_facts", {})
         row["estimated_metrics"] = row.get("diagnostics", {}).get("estimated_metrics", {})
@@ -556,12 +763,30 @@ def build_territorial_distribution(
         signals=signals,
         sku_metrics=sku_items,
     ).to_dict()
+    payload["sku_metrics"] = list(items_dict)
+    payload["items"] = list(items_dict)
+    payload["skus"] = list(items_dict)
 
     payload["aggregate_estimated_irp_penalty_total"] = summary.get("aggregate_estimated_irp_penalty_total", 0.0)
     payload["distribution_efficiency_score"] = summary.get("distribution_efficiency_score", 0.0)
     payload["analysis_mode"] = str(summary.get("analysis_mode") or "preview")
+    payload["analysis_status"] = str(summary.get("analysis_status") or _analysis_status_label(
+        analysis_mode=str(summary.get("analysis_mode") or "disabled"),
+        recommendation_status=str(summary.get("recommendation_status") or "blocked_by_data"),
+    ))
     payload["data_quality_status"] = str(summary.get("data_quality_status") or "insufficient_data")
     payload["recommendation_status"] = str(summary.get("recommendation_status") or "blocked_by_data")
+    payload["blocked_reasons"] = [str(reason) for reason in list(summary.get("blocked_reasons", [])) if str(reason).strip()]
+    payload["blocked_reason_counts"] = (
+        dict(summary.get("blocked_reason_counts", {}))
+        if isinstance(summary.get("blocked_reason_counts"), dict)
+        else {}
+    )
+    payload["blocked_reason_details"] = (
+        dict(summary.get("blocked_reason_details", {}))
+        if isinstance(summary.get("blocked_reason_details"), dict)
+        else {}
+    )
     payload["coverage_pct"] = float(summary.get("coverage_pct", 0.0) or 0.0)
     payload["confidence_level"] = str(summary.get("confidence_level") or "low")
     payload["suppressed_due_to_data_quality"] = bool(summary.get("suppressed_due_to_data_quality", False))
@@ -572,6 +797,23 @@ def build_territorial_distribution(
         "known_localization_skus": summary.get("known_localization_skus", 0),
         "total_skus": summary.get("total_skus_analyzed", 0),
     }
+    payload["recommendation_candidates"] = [
+        {
+            "sku": str(row.get("sku") or ""),
+            "analysis_status": str(row.get("analysis_status") or ""),
+            "recommendation_candidates": list(row.get("recommendation_candidates", []))[:3],
+            "recommended_destination": str(row.get("recommended_destination") or ""),
+            "blocked_reasons": list(row.get("blocked_reasons", [])),
+            "non_local_orders_estimate": row.get("non_local_orders_estimate"),
+            "non_local_share_pct": row.get("non_local_share_pct"),
+        }
+        for row in items_dict
+        if isinstance(row, dict) and (
+            bool(row.get("recommendation_candidates"))
+            or bool(row.get("blocked_reasons"))
+            or _as_float(row.get("non_local_orders_estimate")) > 0
+        )
+    ][:20]
     payload["suppressed_recommendations"] = (
         ["rebalance_stock", "relocate_inventory", "warehouse_redistribution"]
         if str(summary.get("recommendation_status") or "blocked_by_data") != "actionable"
