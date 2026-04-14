@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+from collections import Counter
 import os
 import re
 from typing import Any, Dict, List
@@ -227,15 +228,30 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "часть метрик может быть недоступна до подключения API"
     )
     out_dir = str(data.get("out_dir") or "")
+    facts_payload = data.get("facts", {})
+    if not isinstance(facts_payload, dict):
+        facts_payload = {}
     daily_kpi = data.get("daily_kpi", {})
     if not isinstance(daily_kpi, dict):
         daily_kpi = {}
     territorial_summary = data.get("territorial_summary", {})
     if not isinstance(territorial_summary, dict):
         territorial_summary = {}
+    if not territorial_summary:
+        facts_territorial_summary = facts_payload.get("territorial_distribution_summary", {})
+        if isinstance(facts_territorial_summary, dict):
+            territorial_summary = facts_territorial_summary
     territorial_distribution = data.get("territorial_distribution", {})
     if not isinstance(territorial_distribution, dict):
         territorial_distribution = {}
+    if not territorial_distribution:
+        metrics_payload = data.get("metrics", {})
+        if isinstance(metrics_payload, dict) and isinstance(metrics_payload.get("territorial_distribution"), dict):
+            territorial_distribution = metrics_payload.get("territorial_distribution", {})
+    if not territorial_distribution:
+        analytics_payload = data.get("analytics", {})
+        if isinstance(analytics_payload, dict) and isinstance(analytics_payload.get("territorial_distribution"), dict):
+            territorial_distribution = analytics_payload.get("territorial_distribution", {})
     logistics_summary = data.get("logistics_summary", {})
     if not isinstance(logistics_summary, dict):
         logistics_summary = {}
@@ -2074,6 +2090,418 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "problem_skus": ads_problem_skus,
     }
 
+    def _territorial_status_meta(value: Any) -> Dict[str, str]:
+        token = str(value or "").strip().lower()
+        mapping = {
+            "usable": {
+                "label": "Данные достаточны",
+                "summary": "Можно использовать рекомендации по размещению товаров.",
+                "trust": "Высокая",
+                "state": SECTION_STATE_FULL,
+            },
+            "preview": {
+                "label": "Предварительный анализ",
+                "summary": "Рекомендации носят предварительный характер.",
+                "trust": "Средняя",
+                "state": SECTION_STATE_PARTIAL,
+            },
+            "blocked_by_data": {
+                "label": "Блокировано данными",
+                "summary": "Точные рекомендации пока невозможны из-за ограничений данных.",
+                "trust": "Низкая",
+                "state": SECTION_STATE_COMPACT_NOTE,
+            },
+            "disabled": {
+                "label": "Отключено",
+                "summary": "Анализ локализации не активирован в текущем режиме.",
+                "trust": "Низкая",
+                "state": SECTION_STATE_COMPACT_NOTE,
+            },
+        }
+        return mapping.get(
+            token,
+            {
+                "label": "Статус не определен",
+                "summary": "Статус локализации не распознан.",
+                "trust": "Низкая",
+                "state": SECTION_STATE_COMPACT_NOTE,
+            },
+        )
+
+    def _territorial_reason_text(value: Any) -> str:
+        token = str(value or "").strip().lower()
+        mapping = {
+            "missing_demand_geography": "Нет географии спроса по части SKU",
+            "missing_stock_geography": "Недостаточно данных по размещению остатков",
+            "insufficient_order_volume": "Недостаточно заказов для уверенной оценки",
+            "missing_order_count": "Нет подтвержденного количества заказов",
+            "localization_not_computable": "Локализация по SKU не вычисляется на текущих данных",
+            "low_localization_coverage": "Низкое покрытие SKU для расчета локализации",
+            "low_demand_geography_coverage": "Низкое покрытие географии спроса",
+            "low_stock_geography_coverage": "Низкое покрытие географии остатков",
+            "too_many_unknown_skus": "Слишком много SKU без определенной локализации",
+            "sku_attribution_broken": "Нарушена привязка строк к SKU",
+            "engine_disabled_by_config": "Аналитический блок отключен конфигурацией",
+            "minimum_sample_not_met": "Недостаточно заказов для actionable-режима",
+        }
+        if token in mapping:
+            return mapping[token]
+        if "_" in token:
+            return _sanitize_client_text(token.replace("_", " "))
+        return _sanitize_client_text(token)
+
+    def _territorial_priority_text(value: Any) -> str:
+        token = str(value or "").strip().lower()
+        return {
+            "high": "Высокий",
+            "medium": "Средний",
+            "low": "Низкий",
+        }.get(token, "Низкий")
+
+    def _territorial_comment_text(value: Any) -> str:
+        token = str(value or "").strip().lower()
+        if token == "non_local_demand_exceeds_supply_share":
+            return "Спрос в регионе выше доли текущих остатков"
+        return _territorial_reason_text(token) if token else ""
+
+    territorial_summary_payload = territorial_summary if isinstance(territorial_summary, dict) else {}
+    if not territorial_summary_payload and isinstance(territorial_distribution.get("summary"), dict):
+        territorial_summary_payload = territorial_distribution.get("summary", {})
+
+    territorial_items_raw = territorial_distribution.get("items", [])
+    if not isinstance(territorial_items_raw, list) or not territorial_items_raw:
+        territorial_items_raw = territorial_distribution.get("skus", [])
+    if not isinstance(territorial_items_raw, list) or not territorial_items_raw:
+        territorial_items_raw = territorial_distribution.get("sku_metrics", [])
+    if not isinstance(territorial_items_raw, list):
+        territorial_items_raw = []
+
+    territorial_has_payload = bool(territorial_summary_payload) or bool(territorial_distribution)
+    territorial_analysis_status = str(
+        territorial_summary_payload.get(
+            "analysis_status",
+            territorial_distribution.get("analysis_status", "disabled"),
+        )
+        or "disabled"
+    ).strip().lower()
+    territorial_recommendation_status = str(
+        territorial_summary_payload.get(
+            "recommendation_status",
+            territorial_distribution.get("recommendation_status", "blocked_by_data"),
+        )
+        or "blocked_by_data"
+    ).strip().lower()
+    territorial_confidence = str(
+        territorial_summary_payload.get(
+            "confidence_level",
+            territorial_distribution.get("confidence_level", "low"),
+        )
+        or "low"
+    ).strip().lower()
+    territorial_status_meta = _territorial_status_meta(territorial_analysis_status)
+
+    coverage_pct_value = _safe_float_local(
+        territorial_summary_payload.get("coverage_pct", territorial_distribution.get("coverage_pct"))
+    )
+    demand_coverage_pct_value = _safe_float_local(
+        territorial_summary_payload.get("demand_coverage_pct", territorial_distribution.get("demand_coverage_pct"))
+    )
+    stock_coverage_pct_value = _safe_float_local(
+        territorial_summary_payload.get("stock_coverage_pct", territorial_distribution.get("stock_coverage_pct"))
+    )
+    unknown_share_pct_value = _safe_float_local(
+        territorial_summary_payload.get("unknown_share_pct", territorial_distribution.get("unknown_share_pct"))
+    )
+
+    analyzed_skus_value = int(
+        territorial_summary_payload.get(
+            "total_skus_analyzed",
+            territorial_summary_payload.get("sku_total", len(territorial_items_raw)),
+        )
+        or len(territorial_items_raw)
+        or 0
+    )
+    blocked_skus_value = int(
+        territorial_summary_payload.get(
+            "blocked_analysis_skus",
+            sum(
+                1
+                for row in territorial_items_raw
+                if isinstance(row, dict) and str(row.get("analysis_status") or "") == "blocked_by_data"
+            ),
+        )
+        or 0
+    )
+    actionable_skus_value = int(
+        territorial_summary_payload.get(
+            "actionable_recommendation_skus",
+            0,
+        )
+        or 0
+    )
+    non_local_skus_value = sum(
+        1
+        for row in territorial_items_raw
+        if isinstance(row, dict) and (_safe_float_local(row.get("non_local_orders_estimate")) or 0.0) > 0
+    )
+    mismatch_skus_value = sum(
+        1
+        for row in territorial_items_raw
+        if isinstance(row, dict)
+        and (
+            (_safe_float_local(row.get("distribution_gap")) or 0.0) > 0.0
+            or bool(row.get("recommendation_candidates"))
+        )
+    )
+
+    blocked_reason_counts_payload = territorial_summary_payload.get(
+        "blocked_reason_counts",
+        territorial_distribution.get("blocked_reason_counts", {}),
+    )
+    if not isinstance(blocked_reason_counts_payload, dict):
+        blocked_reason_counts_payload = {}
+    blocked_reasons_payload = territorial_summary_payload.get(
+        "blocked_reasons",
+        territorial_distribution.get("blocked_reasons", []),
+    )
+    if not isinstance(blocked_reasons_payload, list):
+        blocked_reasons_payload = []
+    if not blocked_reason_counts_payload and blocked_reasons_payload:
+        blocked_reason_counts_payload = dict(Counter(str(item) for item in blocked_reasons_payload if str(item).strip()))
+    blocked_reason_rows = [
+        {
+            "reason": _sanitize_client_text(_territorial_reason_text(reason)),
+            "count": str(int(count or 0)),
+        }
+        for reason, count in sorted(
+            ((str(key), int(value or 0)) for key, value in blocked_reason_counts_payload.items() if str(key).strip()),
+            key=lambda item: (-item[1], item[0]),
+        )[:6]
+    ]
+
+    top_demand_regions_raw = territorial_summary_payload.get(
+        "top_demand_regions",
+        territorial_distribution.get("top_demand_regions", []),
+    )
+    if not isinstance(top_demand_regions_raw, list):
+        top_demand_regions_raw = []
+    top_demand_region_rows: List[Dict[str, str]] = []
+    for row in top_demand_regions_raw:
+        if not isinstance(row, dict):
+            continue
+        region_name = _sanitize_client_text(row.get("region") or row.get("warehouse") or row.get("name") or "")
+        if not region_name:
+            continue
+        top_demand_region_rows.append(
+            {
+                "region": region_name,
+                "orders": _int_text(row.get("orders"), missing_label=NO_DATA_LABEL),
+                "share": _pct_text(row.get("share_pct"), missing_label=NO_DATA_LABEL),
+            }
+        )
+        if len(top_demand_region_rows) >= 7:
+            break
+
+    recommendation_candidates_payload = territorial_distribution.get("recommendation_candidates", [])
+    if not isinstance(recommendation_candidates_payload, list):
+        recommendation_candidates_payload = []
+    recommendation_rows: List[Dict[str, str]] = []
+    for row in recommendation_candidates_payload:
+        if not isinstance(row, dict):
+            continue
+        sku_value = _sanitize_client_text(row.get("sku") or row.get("nm_id") or "")
+        row_candidates = row.get("recommendation_candidates", [])
+        if isinstance(row_candidates, list) and row_candidates:
+            for candidate in row_candidates:
+                if not isinstance(candidate, dict):
+                    continue
+                destination_region = _sanitize_client_text(
+                    candidate.get("destination_region") or candidate.get("region") or row.get("recommended_destination") or ""
+                )
+                if not destination_region:
+                    continue
+                recommendation_rows.append(
+                    {
+                        "sku": sku_value or "n/a",
+                        "region": destination_region,
+                        "demand_share": _pct_text(candidate.get("demand_share_pct"), missing_label=NO_DATA_LABEL),
+                        "stock_share": _pct_text(candidate.get("stock_share_pct"), missing_label=NO_DATA_LABEL),
+                        "gap": _pct_text(candidate.get("gap_share_pct"), missing_label=NO_DATA_LABEL),
+                        "priority": _territorial_priority_text(candidate.get("priority")),
+                        "comment": _sanitize_client_text(_territorial_comment_text(candidate.get("reason"))),
+                        "_priority_sort": str(candidate.get("priority") or "low").strip().lower(),
+                        "_gap_sort": _safe_float_local(candidate.get("gap_share_pct")) or 0.0,
+                    }
+                )
+
+    if not recommendation_rows:
+        for row in territorial_items_raw:
+            if not isinstance(row, dict):
+                continue
+            sku_value = _sanitize_client_text(row.get("sku") or row.get("nm_id") or "")
+            row_candidates = row.get("recommendation_candidates", [])
+            if not isinstance(row_candidates, list) or not row_candidates:
+                continue
+            candidate = row_candidates[0]
+            if not isinstance(candidate, dict):
+                continue
+            destination_region = _sanitize_client_text(
+                candidate.get("destination_region") or candidate.get("region") or row.get("recommended_destination") or ""
+            )
+            if not destination_region:
+                continue
+            recommendation_rows.append(
+                {
+                    "sku": sku_value or "n/a",
+                    "region": destination_region,
+                    "demand_share": _pct_text(candidate.get("demand_share_pct"), missing_label=NO_DATA_LABEL),
+                    "stock_share": _pct_text(candidate.get("stock_share_pct"), missing_label=NO_DATA_LABEL),
+                    "gap": _pct_text(candidate.get("gap_share_pct"), missing_label=NO_DATA_LABEL),
+                    "priority": _territorial_priority_text(candidate.get("priority")),
+                    "comment": _sanitize_client_text(_territorial_comment_text(candidate.get("reason"))),
+                    "_priority_sort": str(candidate.get("priority") or "low").strip().lower(),
+                    "_gap_sort": _safe_float_local(candidate.get("gap_share_pct")) or 0.0,
+                }
+            )
+
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    recommendation_rows = sorted(
+        recommendation_rows,
+        key=lambda row: (
+            priority_order.get(str(row.get("_priority_sort") or "low"), 3),
+            -float(row.get("_gap_sort") or 0.0),
+            str(row.get("sku") or ""),
+            str(row.get("region") or ""),
+        ),
+    )[:20]
+    for row in recommendation_rows:
+        row.pop("_priority_sort", None)
+        row.pop("_gap_sort", None)
+
+    recommendation_candidate_skus_value = int(
+        territorial_summary_payload.get(
+            "recommendation_candidate_skus",
+            len({str(row.get("sku") or "").strip() for row in recommendation_rows if str(row.get("sku") or "").strip()}),
+        )
+        or 0
+    )
+
+    sku_table_rows: List[Dict[str, Any]] = []
+    for row in territorial_items_raw:
+        if not isinstance(row, dict):
+            continue
+        sku_value = _sanitize_client_text(row.get("sku") or row.get("nm_id") or "")
+        if not sku_value:
+            continue
+        row_status_token = str(row.get("analysis_status") or "").strip().lower()
+        row_status_text = _territorial_status_meta(row_status_token).get("label", "Статус не определен")
+        top_demand_rows = row.get("top_demand_regions", [])
+        top_region_value = ""
+        if isinstance(top_demand_rows, list) and top_demand_rows:
+            top_region_value = _sanitize_client_text((top_demand_rows[0] or {}).get("region"))
+        if not top_region_value and isinstance(row.get("dominant_demand_warehouses"), list) and row.get("dominant_demand_warehouses"):
+            top_region_value = _sanitize_client_text(str(row.get("dominant_demand_warehouses")[0]))
+
+        recommendation_short = ""
+        row_candidates = row.get("recommendation_candidates", [])
+        if isinstance(row_candidates, list) and row_candidates:
+            first_candidate = row_candidates[0] if isinstance(row_candidates[0], dict) else {}
+            first_region = _sanitize_client_text(
+                first_candidate.get("destination_region") or first_candidate.get("region") or row.get("recommended_destination") or ""
+            )
+            if first_region:
+                recommendation_short = f"Сместить в {first_region}"
+        if not recommendation_short:
+            row_blocked_reasons = row.get("blocked_reasons", [])
+            if isinstance(row_blocked_reasons, list) and row_blocked_reasons:
+                recommendation_short = _territorial_reason_text(row_blocked_reasons[0])
+        if not recommendation_short:
+            row_rec_status = str(row.get("recommendation_status") or "").strip().lower()
+            if row_rec_status == "actionable":
+                recommendation_short = "Есть сигнал к перераспределению"
+            elif row_rec_status == "watch":
+                recommendation_short = "Сигнал предварительный"
+            else:
+                recommendation_short = "Недостаточно данных"
+
+        sku_table_rows.append(
+            {
+                "sku": sku_value,
+                "status": _sanitize_client_text(row_status_text),
+                "local_share": _pct_text(row.get("localization_share"), missing_label=NO_DATA_LABEL),
+                "non_local_orders": _int_text(row.get("non_local_orders_estimate"), missing_label=NO_DATA_LABEL),
+                "top_region": top_region_value or "нет данных",
+                "recommendation": _sanitize_client_text(recommendation_short),
+                "_sort_recommendation": 1 if isinstance(row.get("recommendation_candidates"), list) and bool(row.get("recommendation_candidates")) else 0,
+                "_sort_non_local": _safe_float_local(row.get("non_local_orders_estimate")) or 0.0,
+                "_sort_orders": _safe_float_local(row.get("total_orders")) or 0.0,
+            }
+        )
+    sku_table_rows = sorted(
+        sku_table_rows,
+        key=lambda row: (-int(row.get("_sort_recommendation", 0)), -float(row.get("_sort_non_local", 0.0)), -float(row.get("_sort_orders", 0.0)), str(row.get("sku") or "")),
+    )[:48]
+    for row in sku_table_rows:
+        row.pop("_sort_recommendation", None)
+        row.pop("_sort_non_local", None)
+        row.pop("_sort_orders", None)
+
+    territorial_quality_rows = [
+        {"metric": "Статус анализа", "value": _sanitize_client_text(territorial_status_meta.get("label", ""))},
+        {"metric": "Вывод", "value": _sanitize_client_text(territorial_status_meta.get("summary", ""))},
+        {"metric": "Доверие к рекомендациям", "value": _sanitize_client_text(territorial_status_meta.get("trust", ""))},
+        {"metric": "Покрытие локализации", "value": _pct_text(coverage_pct_value, missing_label=NO_DATA_LABEL)},
+        {"metric": "Покрытие географии спроса", "value": _pct_text(demand_coverage_pct_value, missing_label=NO_DATA_LABEL)},
+        {"metric": "Покрытие географии остатков", "value": _pct_text(stock_coverage_pct_value, missing_label=NO_DATA_LABEL)},
+        {"metric": "Доля SKU без локализации", "value": _pct_text(unknown_share_pct_value, missing_label=NO_DATA_LABEL)},
+        {"metric": "SKU в анализе", "value": _int_text(analyzed_skus_value)},
+        {"metric": "SKU blocked", "value": _int_text(blocked_skus_value)},
+        {"metric": "SKU actionable", "value": _int_text(actionable_skus_value)},
+    ]
+    territorial_summary_lines = [
+        _sanitize_client_text(territorial_status_meta.get("summary", "")),
+        _sanitize_client_text(
+            f"Покрытие локализации: {_pct_text(coverage_pct_value, missing_label=NO_DATA_LABEL)}; "
+            f"спрос: {_pct_text(demand_coverage_pct_value, missing_label=NO_DATA_LABEL)}; "
+            f"остатки: {_pct_text(stock_coverage_pct_value, missing_label=NO_DATA_LABEL)}."
+        ),
+        _sanitize_client_text(
+            f"SKU с non-local спросом: {non_local_skus_value}; SKU с признаками mismatch: {mismatch_skus_value}; "
+            f"SKU-кандидаты: {recommendation_candidate_skus_value}."
+        ),
+    ]
+    territorial_summary_lines = [line for line in territorial_summary_lines if line]
+
+    territorial_note = ""
+    if territorial_analysis_status == "preview":
+        territorial_note = "Доступна только предварительная версия рекомендаций."
+    elif territorial_analysis_status in {"blocked_by_data", "disabled"}:
+        territorial_note = "Секция показывает диагностику, пока данных недостаточно для точных рекомендаций."
+
+    territorial_visual_payload = {
+        "show": territorial_has_payload,
+        "state": normalize_section_state(
+            territorial_status_meta.get("state"),
+            default=SECTION_STATE_COMPACT_NOTE if territorial_has_payload else SECTION_STATE_HIDDEN,
+        ),
+        "analysis_status": territorial_analysis_status,
+        "analysis_status_label": _sanitize_client_text(territorial_status_meta.get("label", "")),
+        "recommendation_status": territorial_recommendation_status,
+        "confidence_level": territorial_confidence,
+        "summary_lines": territorial_summary_lines,
+        "note": _sanitize_client_text(territorial_note),
+        "quality_rows": territorial_quality_rows,
+        "blocked_reason_rows": blocked_reason_rows,
+        "top_demand_regions_rows": top_demand_region_rows,
+        "recommendation_rows": recommendation_rows,
+        "sku_rows": sku_table_rows,
+        "insight_counts": {
+            "non_local_skus": int(non_local_skus_value),
+            "mismatch_skus": int(mismatch_skus_value),
+            "candidate_skus": int(recommendation_candidate_skus_value),
+        },
+    }
+
     recommendation_groups = {
         "p1": p1_recommendations,
         "p2": p2_recommendations,
@@ -2098,11 +2526,18 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "funnel": normalize_section_state(funnel_visual_payload.get("state"), default=SECTION_STATE_COMPACT_NOTE),
         "key_problems": normalize_section_state(key_problem_state.get("state"), default=SECTION_STATE_COMPACT_NOTE),
         "recommendations": normalize_section_state(recommendation_state.get("state"), default=SECTION_STATE_COMPACT_NOTE),
+        "territorial_localization": normalize_section_state(
+            territorial_visual_payload.get("state"),
+            default=SECTION_STATE_HIDDEN,
+        ),
     }
     section_confidence_payload = {
         key: ("low" if non_api_mode else "medium")
         for key in section_states_payload
     }
+    section_confidence_payload["territorial_localization"] = (
+        territorial_confidence if territorial_visual_payload.get("show") else "low"
+    )
 
     visual_payload: Dict[str, Any] = {
         "seller_id": seller_id_for_visual,
@@ -2126,6 +2561,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "funnel": funnel_visual_payload,
         "sku_status": sku_status_counts,
         "ads_efficiency": ads_visual_payload,
+        "territorial_localization": territorial_visual_payload,
         "sku_health_rows": sku_health_rows[:36],
         "key_problems": key_problems_payload,
         "key_problem_reasons": key_problem_reasons,
@@ -2371,6 +2807,28 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         },
         "funnel_section_preview": funnel_section_lines,
         "sku_monitor_section_preview": sku_monitor_lines,
+        "territorial_section_preview": {
+            "analysis_status": str(
+                (visual_payload.get("territorial_localization", {}) if isinstance(visual_payload.get("territorial_localization"), dict) else {}).get("analysis_status")
+                or "disabled"
+            ),
+            "state": str(
+                (visual_payload.get("territorial_localization", {}) if isinstance(visual_payload.get("territorial_localization"), dict) else {}).get("state")
+                or "hidden"
+            ),
+            "blocked_reason_rows": (
+                (visual_payload.get("territorial_localization", {}) if isinstance(visual_payload.get("territorial_localization"), dict) else {}).get("blocked_reason_rows", [])
+            ),
+            "top_demand_regions_rows": (
+                (visual_payload.get("territorial_localization", {}) if isinstance(visual_payload.get("territorial_localization"), dict) else {}).get("top_demand_regions_rows", [])
+            ),
+            "recommendation_rows_count": len(
+                (visual_payload.get("territorial_localization", {}) if isinstance(visual_payload.get("territorial_localization"), dict) else {}).get("recommendation_rows", [])
+            ),
+            "sku_rows_count": len(
+                (visual_payload.get("territorial_localization", {}) if isinstance(visual_payload.get("territorial_localization"), dict) else {}).get("sku_rows", [])
+            ),
+        },
     }
     report_meta["page_previews"] = [{"page": page_idx + 1, "lines": page[:30]} for page_idx, page in enumerate(report_pages)]
 

@@ -1152,6 +1152,172 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     )
     pages.append(page_7)
 
+    territorial = payload.get("territorial_localization", {})
+    if not isinstance(territorial, dict):
+        territorial = {}
+    territorial_show = bool(territorial.get("show")) or bool(territorial)
+    if territorial_show:
+        # Page 8: Territorial status, data quality and recommendations
+        page_8, draw_8 = _new_page()
+        draw_8.text((margin, margin), normalize_pdf_text("Р›РѕРєР°Р»РёР·Р°С†РёСЏ СЃРїСЂРѕСЃР° Рё СЂР°Р·РјРµС‰РµРЅРёРµ РѕСЃС‚Р°С‚РєРѕРІ"), font=fonts["h1"], fill=colors["title"])
+
+        top_panel_h = 620
+        status_content = _draw_panel(
+            draw_8,
+            margin,
+            margin + 84,
+            width_px - margin * 2,
+            top_panel_h,
+            "РЎС‚Р°С‚СѓСЃ Р°РЅР°Р»РёР·Р° Рё РєР°С‡РµСЃС‚РІРѕ РґР°РЅРЅС‹С…",
+        )
+        sx1, sy1, sx2, sy2 = status_content
+        analysis_status_label = normalize_pdf_text(str(territorial.get("analysis_status_label") or "").strip())
+        summary_lines = territorial.get("summary_lines", [])
+        if not isinstance(summary_lines, list):
+            summary_lines = []
+        note_line = normalize_pdf_text(str(territorial.get("note") or "").strip())
+
+        y_cursor = sy1 + 2
+        if analysis_status_label:
+            draw_8.text(
+                (sx1, y_cursor),
+                _fit_text(draw_8, f"РЎС‚Р°С‚СѓСЃ: {analysis_status_label}", fonts["body"], sx2 - sx1 - 8),
+                font=fonts["body"],
+                fill=colors["text"],
+            )
+            y_cursor += 34
+        for line in summary_lines[:4]:
+            prepared = normalize_pdf_text(str(line or "").strip())
+            if not prepared:
+                continue
+            draw_8.text((sx1, y_cursor), _fit_text(draw_8, prepared, fonts["small"], sx2 - sx1 - 8), font=fonts["small"], fill=colors["text"])
+            y_cursor += 28
+        if note_line:
+            draw_8.text((sx1, y_cursor), _fit_text(draw_8, note_line, fonts["small"], sx2 - sx1 - 8), font=fonts["small"], fill=colors["muted"])
+            y_cursor += 28
+
+        quality_rows = territorial.get("quality_rows", [])
+        if not isinstance(quality_rows, list):
+            quality_rows = []
+        quality_box = (sx1, min(y_cursor + 10, sy2 - 260), sx2, sy2)
+        _draw_table(
+            draw_8,
+            quality_box,
+            [
+                ("РџРѕРєР°Р·Р°С‚РµР»СЊ", "metric", 60),
+                ("Р—РЅР°С‡РµРЅРёРµ", "value", 40),
+            ],
+            quality_rows,
+            "РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… РґР°РЅРЅС‹С… РїРѕ РєР°С‡РµСЃС‚РІСѓ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕРіРѕ Р°РЅР°Р»РёР·Р°",
+        )
+
+        bottom_panel_y = margin + 84 + top_panel_h + panel_gap
+        bottom_panel_h = height_px - bottom_panel_y - margin
+        insights_content = _draw_panel(
+            draw_8,
+            margin,
+            bottom_panel_y,
+            width_px - margin * 2,
+            bottom_panel_h,
+            "Р§С‚Рѕ СѓРґР°Р»РѕСЃСЊ РїРѕРЅСЏС‚СЊ Рё РєСѓРґР° СЃРјРѕС‚СЂРµС‚СЊ РґР°Р»СЊС€Рµ",
+        )
+        ix1, iy1, ix2, iy2 = insights_content
+        insight_counts = territorial.get("insight_counts", {})
+        if not isinstance(insight_counts, dict):
+            insight_counts = {}
+        counts_line = normalize_pdf_text(
+            "SKU СЃ non-local СЃРїСЂРѕСЃРѕРј: "
+            f"{int(insight_counts.get('non_local_skus', 0) or 0)} | "
+            "SKU СЃ РїСЂРёР·РЅР°РєР°РјРё mismatch: "
+            f"{int(insight_counts.get('mismatch_skus', 0) or 0)} | "
+            "SKU-РєР°РЅРґРёРґР°С‚С‹: "
+            f"{int(insight_counts.get('candidate_skus', 0) or 0)}"
+        )
+        draw_8.text((ix1, iy1 + 2), _fit_text(draw_8, counts_line, fonts["small"], ix2 - ix1 - 8), font=fonts["small"], fill=colors["text"])
+
+        split_mid = ix1 + int((ix2 - ix1) / 2)
+        upper_start = iy1 + 40
+        upper_end = min(iy1 + 300, iy2 - 210)
+
+        blocked_reason_rows = territorial.get("blocked_reason_rows", [])
+        if not isinstance(blocked_reason_rows, list):
+            blocked_reason_rows = []
+        _draw_table(
+            draw_8,
+            (ix1, upper_start, split_mid - 8, upper_end),
+            [
+                ("РџСЂРёС‡РёРЅР° РѕРіСЂР°РЅРёС‡РµРЅРёСЏ", "reason", 74),
+                ("SKU", "count", 26),
+            ],
+            blocked_reason_rows,
+            "РљСЂРёС‚РёС‡РЅС‹Рµ РѕРіСЂР°РЅРёС‡РµРЅРёСЏ РїРѕ РґР°РЅРЅС‹Рј РЅРµ РІС‹СЏРІР»РµРЅС‹",
+        )
+
+        top_region_rows = territorial.get("top_demand_regions_rows", [])
+        if not isinstance(top_region_rows, list):
+            top_region_rows = []
+        _draw_table(
+            draw_8,
+            (split_mid + 8, upper_start, ix2, upper_end),
+            [
+                ("Р РµРіРёРѕРЅ", "region", 46),
+                ("Р—Р°РєР°Р·С‹", "orders", 24),
+                ("Р”РѕР»СЏ", "share", 30),
+            ],
+            top_region_rows,
+            "РќРµС‚ РїРѕР»РЅРѕР№ РєР°СЂС‚РёРЅС‹ РїРѕ СЂРµРіРёРѕРЅР°Рј СЃРїСЂРѕСЃР°",
+        )
+
+        recommendation_rows = territorial.get("recommendation_rows", [])
+        if not isinstance(recommendation_rows, list):
+            recommendation_rows = []
+        _draw_table(
+            draw_8,
+            (ix1, upper_end + 16, ix2, iy2),
+            [
+                ("SKU", "sku", 10),
+                ("Р РµРіРёРѕРЅ СЃРїСЂРѕСЃР°", "region", 18),
+                ("Р”РѕР»СЏ СЃРїСЂРѕСЃР°", "demand_share", 13),
+                ("Р”РѕР»СЏ РѕСЃС‚Р°С‚РєРѕРІ", "stock_share", 13),
+                ("Р Р°Р·СЂС‹РІ", "gap", 12),
+                ("РџСЂРёРѕСЂРёС‚РµС‚", "priority", 10),
+                ("РљРѕРјРјРµРЅС‚Р°СЂРёР№", "comment", 24),
+            ],
+            recommendation_rows,
+            "РљР°РЅРґРёРґР°С‚С‹ РґР»СЏ РїРµСЂРµСЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РІ СЌС‚РѕС‚ РґРµРЅСЊ РЅРµ РІС‹РґРµР»РµРЅС‹",
+        )
+        pages.append(page_8)
+
+        # Page 9: SKU-level territorial table
+        page_9, draw_9 = _new_page()
+        draw_9.text((margin, margin), normalize_pdf_text("Р›РѕРєР°Р»РёР·Р°С†РёСЏ РїРѕ SKU"), font=fonts["h1"], fill=colors["title"])
+        sku_content = _draw_panel(
+            draw_9,
+            margin,
+            margin + 84,
+            width_px - margin * 2,
+            height_px - (margin + 84) - margin,
+            "SKU-РїСЂРѕС„РёР»СЊ: СЃРїСЂРѕСЃ РїСЂРѕС‚РёРІ СЂР°Р·РјРµС‰РµРЅРёСЏ",
+        )
+        sku_rows = territorial.get("sku_rows", [])
+        if not isinstance(sku_rows, list):
+            sku_rows = []
+        _draw_table(
+            draw_9,
+            sku_content,
+            [
+                ("SKU", "sku", 14),
+                ("РЎС‚Р°С‚СѓСЃ", "status", 19),
+                ("Р›РѕРєР°Р»РёР·Р°С†РёСЏ", "local_share", 14),
+                ("Non-local Р·Р°РєР°Р·С‹", "non_local_orders", 14),
+                ("РўРѕРї-СЂРµРіРёРѕРЅ", "top_region", 16),
+                ("Р РµРєРѕРјРµРЅРґР°С†РёСЏ", "recommendation", 23),
+            ],
+            sku_rows,
+            "РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… SKU-СЃС‚СЂРѕРє РґР»СЏ С‚РµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅРѕР№ С‚Р°Р±Р»РёС†С‹",
+        )
+        pages.append(page_9)
+
     os.makedirs(os.path.dirname(path), exist_ok=True)
     preview_paths: List[str] = []
     preview_dir = str(payload.get("preview_dir") or os.path.dirname(path))
