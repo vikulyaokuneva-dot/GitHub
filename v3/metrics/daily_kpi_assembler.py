@@ -4,9 +4,6 @@ from typing import Any, Dict, List
 
 from ..daily_kpi_resolver import (
     DAILY_SOURCE_FALLBACK,
-    DAILY_SOURCE_ORDERS_API,
-    DAILY_SOURCE_REALIZATION_API,
-    DAILY_SOURCE_SALES_API,
 )
 from ..domain.source_policy import SOURCE_UNKNOWN
 from ..domain.source_policy import resolve_source_policy
@@ -207,23 +204,46 @@ def assemble_daily_kpi(
     orders_sources = {data_sources["orders_count"], data_sources["orders_amount"]}
     buyouts_sources = {data_sources["buyouts_count"], data_sources["buyouts_amount"]}
     kpi_sources = {source for source in (orders_sources | buyouts_sources) if source}
-    api_sources = {
-        DAILY_SOURCE_ORDERS_API,
-        DAILY_SOURCE_SALES_API,
-        DAILY_SOURCE_REALIZATION_API,
-    }
-    if any(source in api_sources for source in kpi_sources):
+    orders_count_trace = safe_daily_kpi.get("trace_daily_orders_count", {})
+    buyouts_count_trace = safe_daily_kpi.get("trace_daily_buyouts_count", {})
+    orders_amount_trace = safe_daily_kpi.get("trace_daily_orders_amount", {})
+    buyouts_amount_trace = safe_daily_kpi.get("trace_daily_buyouts_amount", {})
+    trace_rows = [
+        orders_count_trace if isinstance(orders_count_trace, dict) else {},
+        buyouts_count_trace if isinstance(buyouts_count_trace, dict) else {},
+        orders_amount_trace if isinstance(orders_amount_trace, dict) else {},
+        buyouts_amount_trace if isinstance(buyouts_amount_trace, dict) else {},
+    ]
+
+    fallback_as_source_used = DAILY_SOURCE_FALLBACK in kpi_sources
+    fallback_trace_used = any(
+        bool(trace.get("fallback_used", False)) and str(trace.get("source") or "") == DAILY_SOURCE_FALLBACK
+        for trace in trace_rows
+    )
+    if fallback_as_source_used or fallback_trace_used:
         warning_additions.append(
             {
                 "code": "daily_kpi_fallback_used",
-                "message": "Supplier goods report not found, using API fallback.",
+                "message": "Daily KPI uses fallback source.",
             }
         )
-    if DAILY_SOURCE_FALLBACK in kpi_sources:
+
+    totals_hint_rejected = any(
+        any(
+            isinstance(rejected, dict) and str(rejected.get("reason") or "") == "totals_hint_debug_only"
+            for rejected in (
+                trace.get("rejected_candidates", [])
+                if isinstance(trace.get("rejected_candidates", []), list)
+                else []
+            )
+        )
+        for trace in trace_rows
+    )
+    if totals_hint_rejected:
         warning_additions.append(
             {
                 "code": "weak_kpi_source",
-                "message": "Daily KPI derived from metrics totals fallback.",
+                "message": "Metrics totals hints were rejected by source policy (debug-only).",
             }
         )
     if bool(safe_daily_kpi.get("quantity_fallback_blocked", False)):
@@ -250,8 +270,16 @@ def assemble_daily_kpi(
             }
         )
 
-    orders_unknown_reason = str(safe_daily_kpi.get("orders_count_unknown_reason") or "").strip()
-    buyouts_unknown_reason = str(safe_daily_kpi.get("buyouts_count_unknown_reason") or "").strip()
+    orders_unknown_reason = str(
+        safe_daily_kpi.get("orders_count_unknown_reason")
+        or (orders_count_trace.get("unknown_reason") if isinstance(orders_count_trace, dict) else "")
+        or ""
+    ).strip()
+    buyouts_unknown_reason = str(
+        safe_daily_kpi.get("buyouts_count_unknown_reason")
+        or (buyouts_count_trace.get("unknown_reason") if isinstance(buyouts_count_trace, dict) else "")
+        or ""
+    ).strip()
     if data_sources["orders_count"] == SOURCE_UNKNOWN:
         warning_additions.append(
             {

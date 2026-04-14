@@ -130,8 +130,10 @@ def build_input_debug(
 
     out["source_priority"] = {
         "sales": "local.daily_detailed -> api.realization -> local.sales",
-        "orders_kpi_count": "supplier_goods_confirmed_count -> api.orders -> api.sales -> unknown",
-        "buyouts_kpi_count": "supplier_goods_confirmed_count -> api.sales -> api.realization -> unknown",
+        "orders_kpi_count": "wb_api: api.orders only (strict); local_modes: supplier_goods -> api.orders -> api.sales",
+        "buyouts_kpi_count": "wb_api: api.sales -> api.realization (strict); local_modes: supplier_goods -> api.sales -> api.realization",
+        "orders_kpi_amount": "wb_api: api.orders monetary only (strict); local_modes: api.sales -> supplier_goods -> api.orders",
+        "buyouts_kpi_amount": "wb_api: api.sales -> api.realization (strict); local_modes: api.sales -> api.realization -> supplier_goods",
         "stocks": "api.stocks -> local.stocks",
         "funnel": "local.funnel_xlsx -> api.derived -> unknown",
         "ads": "api.ads_legacy -> local.ads",

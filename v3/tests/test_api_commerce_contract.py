@@ -206,6 +206,18 @@ class TestApiCommerceContract(unittest.TestCase):
         self.assertGreater(float(territorial_summary.get("demand_coverage_pct", 0.0) or 0.0), 0.0)
         self.assertGreater(int(daily_kpi.get("daily_orders_count", 0) or 0), 0)
         self.assertGreater(int(commerce_kpi.get("daily_buyouts_count", 0) or 0), 0)
+        self.assertIn("daily_orders_amount", daily_kpi)
+        self.assertIn("daily_buyouts_amount", daily_kpi)
+        self.assertIn("data_source_orders_count", daily_kpi)
+        self.assertIn("data_source_buyouts_count", daily_kpi)
+        self.assertIn("trace_daily_orders_count", daily_kpi)
+        self.assertIn("trace_daily_buyouts_count", daily_kpi)
+        self.assertIn("trace_daily_orders_amount", daily_kpi)
+        self.assertIn("trace_daily_buyouts_amount", daily_kpi)
+        self.assertIn("daily_orders_amount", commerce_kpi)
+        self.assertIn("daily_buyouts_amount", commerce_kpi)
+        self.assertIn("data_source_orders_amount", commerce_kpi)
+        self.assertIn("data_source_buyouts_amount", commerce_kpi)
 
 
 if __name__ == "__main__":
