@@ -432,7 +432,7 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             ]
     elif territorial_analysis_mode in {"preview", "disabled"} or territorial_suppressed:
         key_insights = list(key_insights) + [
-            "РўРµСЂСЂРёС‚РѕСЂРёР°Р»СЊРЅС‹Рµ РІС‹РІРѕРґС‹ РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅС‹Рµ: РґР»СЏ СѓРІРµСЂРµРЅРЅС‹С… СЂРµС€РµРЅРёР№ РЅСѓР¶РЅС‹ РїРѕРґС‚РІРµСЂР¶РґРµРЅРЅС‹Рµ РґР°РЅРЅС‹Рµ РїРѕ СЃРєР»Р°РґР°Рј Рё Р»РѕРіРёСЃС‚РёРєРµ."
+            "Территориальные выводы предварительные: для уверенных решений нужны подтвержденные данные по складам и логистике."
         ]
 
     if weighted_localization_share > 0:

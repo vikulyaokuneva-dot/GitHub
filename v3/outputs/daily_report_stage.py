@@ -60,15 +60,15 @@ def _funnel_delta(funnel_alerts: Dict[str, Any], metric: str, field: str) -> flo
 
 def _funnel_alert_summary(funnel_alerts: Dict[str, Any]) -> str:
     if not isinstance(funnel_alerts, dict) or not funnel_alerts:
-        return "РЅРµРёР·РІРµСЃС‚РЅРѕ"
+        return "неизвестно"
     summary = funnel_alerts.get("summary", {})
     if isinstance(summary, dict):
         warning_count = int(summary.get("warning_count", 0) or 0)
         critical_count = int(summary.get("critical_count", 0) or 0)
-        return f"РїСЂРµРґСѓРїСЂРµР¶РґРµРЅРёР№={warning_count}, РєСЂРёС‚РёС‡РµСЃРєРёС…={critical_count}"
+        return f"предупреждений={warning_count}, критических={critical_count}"
     alerts = funnel_alerts.get("alerts", [])
     if not isinstance(alerts, list):
-        return "РЅРµРёР·РІРµСЃС‚РЅРѕ"
+        return "неизвестно"
     warning_count = 0
     critical_count = 0
     for row in alerts:
@@ -79,62 +79,62 @@ def _funnel_alert_summary(funnel_alerts: Dict[str, Any]) -> str:
             warning_count += 1
         elif status == "critical":
             critical_count += 1
-    return f"РїСЂРµРґСѓРїСЂРµР¶РґРµРЅРёР№={warning_count}, РєСЂРёС‚РёС‡РµСЃРєРёС…={critical_count}"
+    return f"предупреждений={warning_count}, критических={critical_count}"
 
 
 def _bool_ru(value: bool) -> str:
-    return "РґР°" if bool(value) else "РЅРµС‚"
+    return "да" if bool(value) else "нет"
 
 
 def _contour_status_ru(value: str) -> str:
     token = str(value or "").strip().lower()
     mapping = {
-        "confirmed": "РїРѕРґС‚РІРµСЂР¶РґРµРЅ",
-        "final": "РїРѕРґС‚РІРµСЂР¶РґРµРЅ",
-        "ok": "РїРѕРґС‚РІРµСЂР¶РґРµРЅ",
-        "partial": "С‡Р°СЃС‚РёС‡РЅС‹Р№",
-        "preview": "С‡Р°СЃС‚РёС‡РЅС‹Р№",
-        "degraded": "С‡Р°СЃС‚РёС‡РЅС‹Р№",
-        "provisional": "С‡Р°СЃС‚РёС‡РЅС‹Р№",
-        "missing": "РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚",
-        "unavailable": "РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚",
-        "not_confirmed": "РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚",
-        "disabled": "РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚",
-        "unknown": "РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚",
+        "confirmed": "подтвержден",
+        "final": "подтвержден",
+        "ok": "подтвержден",
+        "partial": "частичный",
+        "preview": "частичный",
+        "degraded": "частичный",
+        "provisional": "частичный",
+        "missing": "отсутствует",
+        "unavailable": "отсутствует",
+        "not_confirmed": "отсутствует",
+        "disabled": "отсутствует",
+        "unknown": "отсутствует",
     }
-    return mapping.get(token, token or "РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚")
+    return mapping.get(token, token or "отсутствует")
 
 
 def _reliability_ru(value: str) -> str:
     token = str(value or "").strip().lower()
-    return {"high": "РІС‹СЃРѕРєР°СЏ", "medium": "СЃСЂРµРґРЅСЏСЏ", "low": "РЅРёР·РєР°СЏ"}.get(token, token or "РЅРёР·РєР°СЏ")
+    return {"high": "высокая", "medium": "средняя", "low": "низкая"}.get(token, token or "низкая")
 
 
 def _matrix_status_ru(value: str) -> str:
     token = str(value or "").strip().lower()
     mapping = {
-        "confirmed": "РїРѕРґС‚РІРµСЂР¶РґРµРЅ",
-        "partial": "С‡Р°СЃС‚РёС‡РЅС‹Р№",
-        "not_confirmed": "РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚",
-        "missing": "РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚",
-        "unavailable": "РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚",
-        "unknown": "РЅРµРёР·РІРµСЃС‚РЅРѕ",
+        "confirmed": "подтвержден",
+        "partial": "частичный",
+        "not_confirmed": "отсутствует",
+        "missing": "отсутствует",
+        "unavailable": "отсутствует",
+        "unknown": "неизвестно",
     }
-    return mapping.get(token, token or "РЅРµРёР·РІРµСЃС‚РЅРѕ")
+    return mapping.get(token, token or "неизвестно")
 
 
 
 def _sku_attribution_status_ru(value: str) -> str:
     token = str(value or "").strip().lower()
-    return {"ok": "РЅРѕСЂРјР°", "broken": "РѕС€РёР±РєР°"}.get(token, token or "РЅРµРёР·РІРµСЃС‚РЅРѕ")
+    return {"ok": "норма", "broken": "ошибка"}.get(token, token or "неизвестно")
 def _watchlist_groups_for_render() -> List[tuple[str, str]]:
     return [
-        ("top_growth", "Р РѕСЃС‚"),
-        ("top_risk", "Р РёСЃРє"),
-        ("dead_stock", "РќРµР»РёРєРІРёРґ"),
-        ("ad_inefficiency", "РќРµСЌС„С„РµРєС‚РёРІРЅР°СЏ СЂРµРєР»Р°РјР°"),
-        ("conversion_drop", "РџР°РґРµРЅРёРµ РєРѕРЅРІРµСЂСЃРёРё"),
-        ("logistics_risk", "Р›РѕРіРёСЃС‚РёС‡РµСЃРєРёР№ СЂРёСЃРє"),
+        ("top_growth", "Рост"),
+        ("top_risk", "Риск"),
+        ("dead_stock", "Неликвид"),
+        ("ad_inefficiency", "Неэффективная реклама"),
+        ("conversion_drop", "Падение конверсии"),
+        ("logistics_risk", "Логистический риск"),
     ]
 
 
@@ -160,14 +160,14 @@ def _watchlist_line(row: Dict[str, Any]) -> str:
     )
     delta_text = f", О”7d={format_pct_or_unknown(main_delta)}" if main_delta is not None else ""
     reason_text = f", {reason}" if reason else ""
-    return f"РўРѕРІР°СЂ {sku} | РїСЂРёРѕСЂРёС‚РµС‚ {attention}{delta_text}{reason_text}"
+    return f"Товар {sku} | приоритет {attention}{delta_text}{reason_text}"
 
 
 
 def _compact_sku_list_clean(values: List[str], limit: int = 8) -> str:
     cleaned = [str(v).strip() for v in values if str(v).strip()]
     if not cleaned:
-        return "вЂ”"
+        return "—"
     shown = cleaned[: max(1, int(limit))]
     suffix = f", +{len(cleaned) - len(shown)}" if len(cleaned) > len(shown) else ""
     return ", ".join(shown) + suffix
@@ -449,18 +449,18 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             return ""
 
         token_map = {
-            "unknown": "РґР°РЅРЅС‹Рµ РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹",
-            "degraded": "С‡Р°СЃС‚РёС‡РЅРѕ",
-            "partial": "С‡Р°СЃС‚РёС‡РЅРѕ",
-            "confirmed": "РїРѕРґС‚РІРµСЂР¶РґРµРЅРѕ",
-            "not_confirmed": "РґР°РЅРЅС‹Рµ РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹",
-            "attention_score": "РѕС†РµРЅРєР° РІРЅРёРјР°РЅРёСЏ",
-            "baseline": "Р±Р°Р·РѕРІС‹Р№ СѓСЂРѕРІРµРЅСЊ",
-            "traffic_problem": "РЅРёР·РєРёР№ С‚СЂР°С„РёРє",
-            "ads_efficiency_problem": "РЅРµСЌС„С„РµРєС‚РёРІРЅР°СЏ СЂРµРєР»Р°РјР°",
-            "monitor": "РЅР°Р±Р»СЋРґР°С‚СЊ",
-            "discount_or_remove": "СЃРЅРёР¶Р°С‚СЊ С†РµРЅСѓ РёР»Рё РІС‹РІРѕРґРёС‚СЊ",
-            "fallback": "СЂРµР·РµСЂРІРЅС‹Р№ РёСЃС‚РѕС‡РЅРёРє",
+            "unknown": "данные не подтверждены",
+            "degraded": "частично",
+            "partial": "частично",
+            "confirmed": "подтверждено",
+            "not_confirmed": "данные не подтверждены",
+            "attention_score": "оценка внимания",
+            "baseline": "базовый уровень",
+            "traffic_problem": "низкий трафик",
+            "ads_efficiency_problem": "неэффективная реклама",
+            "monitor": "наблюдать",
+            "discount_or_remove": "снижать цену или выводить",
+            "fallback": "резервный источник",
         }
 
         for source, target in token_map.items():
@@ -539,20 +539,20 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     def _action_ru(raw_action: Any) -> str:
         action = _sanitize_client_text(raw_action).lower()
         mapping = {
-            "increase ads": "СѓСЃРёР»РёС‚СЊ СЂРµРєР»Р°РјСѓ",
-            "improve listing": "СѓР»СѓС‡С€РёС‚СЊ РєР°СЂС‚РѕС‡РєСѓ",
-            "rebalance stock": "РїРµСЂРµСЂР°СЃРїСЂРµРґРµР»РёС‚СЊ РѕСЃС‚Р°С‚РєРё",
-            "monitor": "РЅР°Р±Р»СЋРґР°С‚СЊ",
-            "discount or remove": "СЃРЅРёР¶Р°С‚СЊ С†РµРЅСѓ РёР»Рё РІС‹РІРѕРґРёС‚СЊ",
-            "increase_ads": "СѓСЃРёР»РёС‚СЊ СЂРµРєР»Р°РјСѓ",
-            "improve_listing": "СѓР»СѓС‡С€РёС‚СЊ РєР°СЂС‚РѕС‡РєСѓ",
-            "rebalance_stock": "РїРµСЂРµСЂР°СЃРїСЂРµРґРµР»РёС‚СЊ РѕСЃС‚Р°С‚РєРё",
-            "discount_or_remove": "СЃРЅРёР¶Р°С‚СЊ С†РµРЅСѓ РёР»Рё РІС‹РІРѕРґРёС‚СЊ",
+            "increase ads": "усилить рекламу",
+            "improve listing": "улучшить карточку",
+            "rebalance stock": "перераспределить остатки",
+            "monitor": "наблюдать",
+            "discount or remove": "снижать цену или выводить",
+            "increase_ads": "усилить рекламу",
+            "improve_listing": "улучшить карточку",
+            "rebalance_stock": "перераспределить остатки",
+            "discount_or_remove": "снижать цену или выводить",
         }
         for key, translated in mapping.items():
             if key in action:
                 return translated
-        return _sanitize_client_text(raw_action) or "С‚СЂРµР±СѓРµС‚СЃСЏ СЂРµС€РµРЅРёРµ"
+        return _sanitize_client_text(raw_action) or "требуется решение"
 
     def _sku_lines(rows: Any, *, limit: int = 6) -> List[str]:
         if not isinstance(rows, list):
@@ -580,7 +580,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
                     (row.get("deltas") or {}).get("orders_vs_7d_pct") if isinstance(row.get("deltas"), dict) else None
                 )
             suffix = f", О”7d {_pct_text(delta_value, missing_label=INSUFFICIENT_DATA_LABEL)}" if delta_value is not None else ""
-            line = f"SKU {sku} вЂ” {reason}" if reason else f"SKU {sku}"
+            line = f"SKU {sku} — {reason}" if reason else f"SKU {sku}"
             result.append(_sanitize_client_text(line + suffix))
             if len(result) >= limit:
                 break
@@ -619,54 +619,54 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         limit=4,
     )
     if not summary_lines:
-        summary_lines = ["??????????? ??????? AI-????? ???????? ?? ?????? ????????? ??????."]
+        summary_lines = ["Ключевые выводы AI-аудита сформированы по данным текущего дня."]
 
     page_1: List[str] = [
-        "# AI-????? ???????? Wildberries",
-        f"### ???????: {str(data.get('seller_id') or '')}",
-        f"### ???? ???????: {str(data.get('run_date') or '')}",
-        f"### ?????????? ??????: {_reliability_ru(str(data_quality.get('report_reliability_level', data.get('confidence', 'medium'))))}",
+        "# AI-аудит кабинета Wildberries",
+        f"### Кабинет: {str(data.get('seller_id') or '')}",
+        f"### Дата анализа: {str(data.get('run_date') or '')}",
+        f"### Надежность данных: {_reliability_ru(str(data_quality.get('report_reliability_level', data.get('confidence', 'medium'))))}",
         "",
-        "## ??????? ??????",
+        "## Краткое резюме",
     ]
     page_1.extend(f"- {line}" for line in summary_lines)
     page_1.extend(
         [
             "",
-            "## KPI ????????",
-            "?????????? | ????????",
-            f"??????? | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
-            f"?????? ??????? | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
-            f"?????? ?? ??????? | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
-            f"?????? ??? ?????? | {_int_text(risk_sku_count)}",
+            "## KPI карточки",
+            "Показатель | Значение",
+            f"К перечислению продавцу | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
+            f"Чистая прибыль | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
+            f"Расход на рекламу | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
+            f"Товары под риском | {_int_text(risk_sku_count)}",
             "",
-            "## ??????? ????? AI",
-            _sanitize_client_text(str(data.get("ai_day_conclusion") or "????? ??????????? ?? ????????? ?????????????? ??????.")),
+            "## Главный вывод AI",
+            _sanitize_client_text(str(data.get("ai_day_conclusion") or "Вывод формируется по данным текущего дня.")),
         ]
     )
 
     page_2: List[str] = [
-        "# ??????? ? ???????",
-        "## ???????????? KPI",
-        "?????????? | ????????",
-        f"?????? | {_int_text(orders_count_value, missing_label=NO_DATA_LABEL)}",
-        f"?????? | {_int_text(buyouts_count_value, missing_label=NO_DATA_LABEL)}",
-        f"??????? ??? | {_money_text(avg_check_value, preliminary=not bool(daily_kpi.get('buyouts_amount_confirmed', False)), decimals=0)}",
-        f"????????? ???????? ? ????? | {_pct_text(cabinet_funnel.get('funnel', {}).get('view_to_order_conversion') if isinstance(cabinet_funnel.get('funnel', {}), dict) else None)}",
+        "# Финансы и реклама",
+        "## Коммерческие KPI",
+        "Показатель | Значение",
+        f"Заказы | {_int_text(orders_count_value, missing_label=NO_DATA_LABEL)}",
+        f"Выкупы | {_int_text(buyouts_count_value, missing_label=NO_DATA_LABEL)}",
+        f"Средний чек | {_money_text(avg_check_value, preliminary=not bool(daily_kpi.get('buyouts_amount_confirmed', False)), decimals=0)}",
+        f"Конверсия в заказ | {_pct_text(cabinet_funnel.get('funnel', {}).get('view_to_order_conversion') if isinstance(cabinet_funnel.get('funnel', {}), dict) else None)}",
         "",
-        "## ?????????? KPI",
-        "?????????? | ????????",
-        f"??????? | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
-        f"?????? ??????? | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
-        f"????? | {_pct_text(margin_pct_value, preliminary=financial_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
-        f"?????????????? | {_pct_text(profitability_pct_value, preliminary=financial_preliminary)}",
-        f"??????? ?????????? ?????? | {_pct_text(data.get('financial_completeness_pct'))}",
+        "## Финансовые KPI",
+        "Показатель | Значение",
+        f"К перечислению продавцу | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
+        f"Чистая прибыль | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
+        f"Маржа | {_pct_text(margin_pct_value, preliminary=financial_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
+        f"Рентабельность | {_pct_text(profitability_pct_value, preliminary=financial_preliminary)}",
+        f"Полнота финансовых данных | {_pct_text(data.get('financial_completeness_pct'))}",
         "",
-        "## ????????????? ???????",
-        "?????????? | ????????",
-        f"?????? ?? ??????? | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
-        f"??????? ?? ??????? | {_money_text(portfolio_revenue_from_ads, preliminary=ads_preliminary, decimals=0)}",
-        f"??????? ?? ??????? | {_money_text(portfolio_profit_from_ads, preliminary=ads_preliminary, decimals=0)}",
+        "## Эффективность рекламы",
+        "Показатель | Значение",
+        f"Расход на рекламу | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
+        f"Выручка из рекламы | {_money_text(portfolio_revenue_from_ads, preliminary=ads_preliminary, decimals=0)}",
+        f"Прибыль из рекламы | {_money_text(portfolio_profit_from_ads, preliminary=ads_preliminary, decimals=0)}",
         f"ROMI | {_pct_text(portfolio_romi, preliminary=ads_preliminary)}",
         f"DRR | {_pct_text(portfolio_drr, preliminary=ads_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
         f"CPO | {_money_text(cpo_value, preliminary=ads_preliminary, decimals=0, missing_label=INSUFFICIENT_DATA_LABEL)}",
@@ -683,14 +683,14 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(item, dict) and _sanitize_client_text(item.get("query"))
     ]
     if top_profitable_queries:
-        page_2.append("- ??? ??????????? ????????: " + "; ".join(top_profitable_queries))
+        page_2.append("- Топ прибыльных запросов: " + "; ".join(top_profitable_queries))
     if top_unprofitable_queries:
-        page_2.append("- ???? ????? ? ???????: " + "; ".join(top_unprofitable_queries))
+        page_2.append("- Топ убыточных запросов: " + "; ".join(top_unprofitable_queries))
 
     page_2.extend(
         [
             "",
-            "- ????? ?????????? ? ????????? ?????? ????? ??????????????? ???????? ??-?? ????????? ????????????? ??????.",
+            "- Часть финансовых и рекламных метрик носит предварительный характер из-за неполного подтверждения данных.",
         ]
     )
 
@@ -702,15 +702,15 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     liquidate_skus = _compact_sku_list_clean([str(row.get("sku") or "").strip() for row in liquidate_rows if isinstance(row, dict)], limit=8)
 
     page_3: List[str] = [
-        "# ???????? ????????",
-        "## ?????? ??????",
-        f"- SKU ? ?????????? ??????? ???????: {_int_text(low_traffic_count)}",
-        "## ??????? ?????????",
-        f"- SKU ? ????????? ?????????: {_int_text(conversion_drop_count)}",
-        "## ????????????? ???????",
-        f"- ???????????? ????????? ????????? ????: {_int_text(ads_ineff_count)}",
-        "## ?????? ? ???? ??????????",
-        f"- ??????? ? ???? ??????????: {_int_text(liquidate_count)}",
+        "# Ключевые проблемы",
+        "## Низкий трафик",
+        f"- SKU с признаками низкого трафика: {_int_text(low_traffic_count)}",
+        "## Падение конверсии",
+        f"- SKU с падением конверсии: {_int_text(conversion_drop_count)}",
+        "## Неэффективная реклама",
+        f"- Потенциально неэффективных рекламных зон: {_int_text(ads_ineff_count)}",
+        "## Товары в зоне ликвидации",
+        f"- Товаров в зоне ликвидации: {_int_text(liquidate_count)}",
         f"- SKU: {liquidate_skus}",
     ]
 
@@ -742,24 +742,24 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     not_confirmed_lines: List[str] = []
     if not bool(daily_kpi.get("orders_count_confirmed", False)):
-        not_confirmed_lines.append("Р—Р°РєР°Р·С‹ РґРЅСЏ: РґР°РЅРЅС‹Рµ РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹")
+        not_confirmed_lines.append("Заказы дня: данные не подтверждены")
     if not bool(daily_kpi.get("buyouts_count_confirmed", False)):
-        not_confirmed_lines.append("Р’С‹РєСѓРїС‹ РґРЅСЏ: РґР°РЅРЅС‹Рµ РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹")
+        not_confirmed_lines.append("Выкупы дня: данные не подтверждены")
     if not ads_analysis_enabled:
-        not_confirmed_lines.append("Р РµРєР»Р°РјРЅС‹Рµ РјРµС‚СЂРёРєРё: РґР°РЅРЅС‹Рµ РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹")
+        not_confirmed_lines.append("Рекламные метрики: данные не подтверждены")
     if financial_preliminary:
-        not_confirmed_lines.append("Р¤РёРЅР°РЅСЃРѕРІС‹Рµ РјРµС‚СЂРёРєРё: РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅС‹Рµ")
+        not_confirmed_lines.append("Финансовые метрики: предварительные")
     if not not_confirmed_lines:
-        not_confirmed_lines.append("Р’СЃРµ РєСЂРёС‚РёС‡РЅС‹Рµ РјРµС‚СЂРёРєРё РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹")
+        not_confirmed_lines.append("Все критичные метрики подтверждены")
 
     page_4: List[str] = [
-        "# ???????????? ??",
-        "## ??? ?????? ??????",
+        "# Рекомендации AI",
+        "## Что делать сейчас",
     ]
     page_4.extend(f"- {line}" for line in now_actions[:10])
-    page_4.extend(["", "## ??? ?????????"])
+    page_4.extend(["", "## Что наблюдать"])
     page_4.extend(f"- {line}" for line in watch_actions[:10])
-    page_4.extend(["", "## ??? ???? ?? ???????????? ? ??????? ????????????"])
+    page_4.extend(["", "## Что пока не подтверждено и требует перепроверки"])
     page_4.extend(f"- {line}" for line in not_confirmed_lines)
 
     growth_lines = _sku_lines(_watchlist_rows(sku_watchlists, "top_growth", limit=10), limit=10)
@@ -768,82 +768,82 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     liquidate_lines = _decision_lines(liquidate_rows, limit=10)
 
     if not growth_lines:
-        growth_lines = ["??? ?????????? SKU ????? ?? ??????? ??????."]
+        growth_lines = ["Нет кандидатов SKU роста на текущий день."]
     if not risk_lines:
-        risk_lines = ["??? ?????????? SKU ????? ?? ??????? ??????."]
+        risk_lines = ["Нет кандидатов SKU риска на текущий день."]
     if not watch_lines:
-        watch_lines = ["??? SKU ??? ?????? ??????????."]
+        watch_lines = ["Нет SKU для блока наблюдения."]
     if not liquidate_lines:
-        liquidate_lines = ["??? SKU ? ???? ??????????."]
+        liquidate_lines = ["Нет SKU в зоне ликвидации."]
 
     page_5: List[str] = [
-        "# ?????????? ???????",
-        "## ????",
+        "# Мониторинг товаров",
+        "## Рост",
     ]
     page_5.extend(f"- {line}" for line in growth_lines[:8])
-    page_5.extend(["", "## ????"])
+    page_5.extend(["", "## Риск"])
     page_5.extend(f"- {line}" for line in risk_lines[:8])
-    page_5.extend(["", "## ?????????"])
+    page_5.extend(["", "## Наблюдать"])
     page_5.extend(f"- {line}" for line in watch_lines[:8])
-    page_5.extend(["", "## ?????????????"])
+    page_5.extend(["", "## Ликвидировать"])
     page_5.extend(f"- {line}" for line in liquidate_lines[:8])
 
     confirmed_items: List[str] = []
     not_confirmed_items: List[str] = []
 
     if bool(data.get("ads_rows_count", 0) or portfolio_ad_spend):
-        confirmed_items.append("???????")
+        confirmed_items.append("реклама")
     else:
-        not_confirmed_items.append("???????")
+        not_confirmed_items.append("реклама")
 
     if float(data.get("financial_completeness_pct", 0.0) or 0.0) > 0:
-        confirmed_items.append("????? ?????????? ?????")
+        confirmed_items.append("часть финансовых строк")
     else:
-        not_confirmed_items.append("?????????? ??????")
+        not_confirmed_items.append("финансовые строки")
 
     if bool(daily_kpi.get("orders_count_confirmed", False)):
-        confirmed_items.append("?????? ???")
+        confirmed_items.append("заказы дня")
     else:
-        not_confirmed_items.append("?????? ???")
+        not_confirmed_items.append("заказы дня")
 
     if bool(daily_kpi.get("buyouts_count_confirmed", False)):
-        confirmed_items.append("?????? ???")
+        confirmed_items.append("выкупы дня")
     else:
-        not_confirmed_items.append("?????? ???")
+        not_confirmed_items.append("выкупы дня")
 
     influence_text = (
-        "?????? ?? ??????? ? ????????? ????????????? ????? ???????????? ??? ???????? ?? ??????? ????????????? ????????."
+        "Часть выводов по прибыли и рекламе требует перепроверки после финального подтверждения данных."
         if financial_preliminary or ads_preliminary
-        else "???????? ?????? ????? ???????????? ??? ???????????? ?????????? ?????????."
+        else "Текущих данных достаточно для формирования устойчивых управленческих решений."
     )
 
     page_6: List[str] = [
-        "# ???????? ??????",
-        "?????????? | ????????",
-        f"???????? ?????? (SKU) | {_int_text(data_quality.get('valid_sku_count', 0))}",
-        f"?????? ? ???????? | {_int_text(data_quality.get('invalid_sku_rows', 0))}",
-        f"?? ?????????????? ?????? | {_int_text(data_quality.get('unassigned_rows_true', data_quality.get('unassigned_rows', 0)))}",
-        f"??????? ?????????? ?????? | {_pct_text(data.get('financial_completeness_pct'))}",
-        f"?????? ??????????? ??????? | {_contour_status_ru(financial_finality_status)}",
-        f"?????????? ?????? | {_reliability_ru(str(data_quality.get('report_reliability_level', 'medium')))}",
+        "# Качество данных",
+        "Показатель | Значение",
+        f"Валидные товары (SKU) | {_int_text(data_quality.get('valid_sku_count', 0))}",
+        f"Строки с ошибками | {_int_text(data_quality.get('invalid_sku_rows', 0))}",
+        f"Не распределённые строки | {_int_text(data_quality.get('unassigned_rows_true', data_quality.get('unassigned_rows', 0)))}",
+        f"Полнота финансовых данных | {_pct_text(data.get('financial_completeness_pct'))}",
+        f"Статус финансового контура | {_contour_status_ru(financial_finality_status)}",
+        f"Надежность отчета | {_reliability_ru(str(data_quality.get('report_reliability_level', 'medium')))}",
         "",
-        "## ????????????",
+        "## Подтверждено",
     ]
     page_6.extend(f"- {_sanitize_client_text(item)}" for item in confirmed_items)
-    page_6.extend(["", "## ?? ????????????"])
+    page_6.extend(["", "## Не подтверждено"])
     page_6.extend(f"- {_sanitize_client_text(item)}" for item in not_confirmed_items)
-    page_6.extend(["", "## ??? ??? ?????? ?? ??????", f"- {influence_text}"])
+    page_6.extend(["", "## Как это влияет на выводы", f"- {influence_text}"])
 
     page_7: List[str] = [
-        "# ??? ????? AI ????????",
-        "- ????????? ??????????? ???????, ??????? ? ???????? ???????.",
-        "- ??????? ????? ????? ? ???? ?????? ?? SKU.",
-        "- ???????? ???????????? ????????: ???????, ?????????, ?????????, ?????????????.",
-        "- ???????????? ???????? ?????? ? ???????? ??????? ?????????? ???????.",
-        "- ????????? ???????? ???????????? ??? ???????????? ? ????????? ????????.",
+        "# Что умеет AI Директор",
+        "- Ежедневно анализирует финансы, рекламу и воронку продаж.",
+        "- Находит точки роста и зоны потерь по SKU.",
+        "- Формирует понятные рекомендации для владельца кабинета.",
+        "- Подсказывает приоритет действий и порядок внедрения гипотез.",
+        "- Помогает контролировать выполнение рекомендаций и динамику результатов.",
         "",
-        "## ???? ??? ???????",
-        "- ???? ??????????? ????? ?? ????? ?? ?????? ????????.",
+        "## Демо для клиента",
+        "- Могу подготовить такой же аудит по вашему кабинету.",
     ]
 
     def _ru(escaped: str) -> str:
@@ -871,80 +871,80 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         if _clean_client(x)
     ][:3]
     if not summary_lines_client:
-        summary_lines_client = [_ru("РљР»СЋС‡РµРІС‹Рµ РІС‹РІРѕРґС‹ СЃС„РѕСЂРјРёСЂРѕРІР°РЅС‹ РїРѕ РґРѕСЃС‚СѓРїРЅС‹Рј РґР°РЅРЅС‹Рј.")]
+        summary_lines_client = [_ru("Ключевые выводы сформированы по доступным данным.")]
 
     risk_count_client = len(fix_rows) + len(watch_rows) + len(liquidate_rows)
 
     page_1 = [
-        "# " + _ru("AI-Р°СѓРґРёС‚ РєР°Р±РёРЅРµС‚Р° Wildberries"),
-        f"### {_ru('РљР°Р±РёРЅРµС‚')}: {str(data.get('seller_id') or '')}",
-        f"### {_ru('Р”Р°С‚Р° Р°РЅР°Р»РёР·Р°')}: {str(data.get('run_date') or '')}",
-        f"### {_ru('РќР°РґРµР¶РЅРѕСЃС‚СЊ РґР°РЅРЅС‹С…')}: {_reliability_ru(str(data_quality.get('report_reliability_level', data.get('confidence', 'medium'))))}",
+        "# " + _ru("AI-аудит кабинета Wildberries"),
+        f"### {_ru('Кабинет')}: {str(data.get('seller_id') or '')}",
+        f"### {_ru('Дата анализа')}: {str(data.get('run_date') or '')}",
+        f"### {_ru('Надежность данных')}: {_reliability_ru(str(data_quality.get('report_reliability_level', data.get('confidence', 'medium'))))}",
         "",
-        "## " + _ru("РљСЂР°С‚РєРѕРµ СЂРµР·СЋРјРµ"),
+        "## " + _ru("Краткое резюме"),
     ]
     page_1.extend(f"- {_clean_client(line)}" for line in summary_lines_client)
     page_1.extend([
         "",
-        "## " + _ru("KPI РєР°СЂС‚РѕС‡РєРё"),
-        _ru("РџРѕРєР°Р·Р°С‚РµР»СЊ") + " | " + _ru("Р—РЅР°С‡РµРЅРёРµ"),
+        "## " + _ru("KPI карточки"),
+        _ru("Показатель") + " | " + _ru("Значение"),
         _ru("К перечислению продавцу") + f" | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
-        _ru("Р§РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ") + f" | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
-        _ru("Р Р°СЃС…РѕРґ РЅР° СЂРµРєР»Р°РјСѓ") + f" | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
-        _ru("РўРѕРІР°СЂС‹ РїРѕРґ СЂРёСЃРєРѕРј") + f" | {_int_text(risk_count_client)}",
+        _ru("Чистая прибыль") + f" | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
+        _ru("Расход на рекламу") + f" | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
+        _ru("Товары под риском") + f" | {_int_text(risk_count_client)}",
         "",
-        "## " + _ru("Р“Р»Р°РІРЅС‹Р№ РІС‹РІРѕРґ AI"),
-        _clean_client(str(data.get('ai_day_conclusion') or '')) or _ru("Р’С‹РІРѕРґ С„РѕСЂРјРёСЂСѓРµС‚СЃСЏ РїРѕ РґР°РЅРЅС‹Рј С‚РµРєСѓС‰РµРіРѕ РґРЅСЏ."),
+        "## " + _ru("Главный вывод AI"),
+        _clean_client(str(data.get('ai_day_conclusion') or '')) or _ru("Вывод формируется по данным текущего дня."),
     ])
 
     page_2 = [
-        "# " + _ru("Р¤РёРЅР°РЅСЃС‹ Рё СЂРµРєР»Р°РјР°"),
-        "## " + _ru("РљРѕРјРјРµСЂС‡РµСЃРєРёРµ KPI"),
-        _ru("РџРѕРєР°Р·Р°С‚РµР»СЊ") + " | " + _ru("Р—РЅР°С‡РµРЅРёРµ"),
-        _ru("Р—Р°РєР°Р·С‹") + f" | {_int_text(orders_count_value, missing_label=NO_DATA_LABEL)}",
-        _ru("Р’С‹РєСѓРїС‹") + f" | {_int_text(buyouts_count_value, missing_label=NO_DATA_LABEL)}",
-        _ru("РЎСЂРµРґРЅРёР№ С‡РµРє") + f" | {_money_text(avg_check_value, preliminary=not bool(daily_kpi.get('buyouts_amount_confirmed', False)), decimals=0)}",
-        _ru("РљРѕРЅРІРµСЂСЃРёСЏ РІ Р·Р°РєР°Р·") + f" | {_pct_text(conversion_value, missing_label=INSUFFICIENT_DATA_LABEL)}",
+        "# " + _ru("Финансы и реклама"),
+        "## " + _ru("Коммерческие KPI"),
+        _ru("Показатель") + " | " + _ru("Значение"),
+        _ru("Заказы") + f" | {_int_text(orders_count_value, missing_label=NO_DATA_LABEL)}",
+        _ru("Выкупы") + f" | {_int_text(buyouts_count_value, missing_label=NO_DATA_LABEL)}",
+        _ru("Средний чек") + f" | {_money_text(avg_check_value, preliminary=not bool(daily_kpi.get('buyouts_amount_confirmed', False)), decimals=0)}",
+        _ru("Конверсия в заказ") + f" | {_pct_text(conversion_value, missing_label=INSUFFICIENT_DATA_LABEL)}",
         "",
-        "## " + _ru("Р¤РёРЅР°РЅСЃРѕРІС‹Рµ KPI"),
-        _ru("РџРѕРєР°Р·Р°С‚РµР»СЊ") + " | " + _ru("Р—РЅР°С‡РµРЅРёРµ"),
+        "## " + _ru("Финансовые KPI"),
+        _ru("Показатель") + " | " + _ru("Значение"),
         _ru("К перечислению продавцу") + f" | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
-        _ru("Р§РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ") + f" | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
+        _ru("Чистая прибыль") + f" | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
         "Маржа" + f" | {_pct_text(margin_pct_value, preliminary=financial_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
-        _ru("РџРѕР»РЅРѕС‚Р° С„РёРЅР°РЅСЃРѕРІС‹С… РґР°РЅРЅС‹С…") + f" | {_pct_text(data.get('financial_completeness_pct'))}",
+        _ru("Полнота финансовых данных") + f" | {_pct_text(data.get('financial_completeness_pct'))}",
         "",
-        "## " + _ru("Р­С„С„РµРєС‚РёРІРЅРѕСЃС‚СЊ СЂРµРєР»Р°РјС‹"),
-        _ru("РџРѕРєР°Р·Р°С‚РµР»СЊ") + " | " + _ru("Р—РЅР°С‡РµРЅРёРµ"),
-        _ru("Р Р°СЃС…РѕРґ РЅР° СЂРµРєР»Р°РјСѓ") + f" | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
-        _ru("Р’С‹СЂСѓС‡РєР° РёР· СЂРµРєР»Р°РјС‹") + f" | {_money_text(portfolio_revenue_from_ads, preliminary=ads_preliminary, decimals=0)}",
-        _ru("РџСЂРёР±С‹Р»СЊ РёР· СЂРµРєР»Р°РјС‹") + f" | {_money_text(portfolio_profit_from_ads, preliminary=ads_preliminary, decimals=0)}",
+        "## " + _ru("Эффективность рекламы"),
+        _ru("Показатель") + " | " + _ru("Значение"),
+        _ru("Расход на рекламу") + f" | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
+        _ru("Выручка из рекламы") + f" | {_money_text(portfolio_revenue_from_ads, preliminary=ads_preliminary, decimals=0)}",
+        _ru("Прибыль из рекламы") + f" | {_money_text(portfolio_profit_from_ads, preliminary=ads_preliminary, decimals=0)}",
         f"ROMI | {_pct_text(portfolio_romi, preliminary=ads_preliminary)}",
         f"DRR | {_pct_text(portfolio_drr, preliminary=ads_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
         f"CPO | {_money_text(cpo_value, preliminary=ads_preliminary, decimals=0, missing_label=INSUFFICIENT_DATA_LABEL)}",
         "",
-        "- " + _ru("Р§Р°СЃС‚СЊ С„РёРЅР°РЅСЃРѕРІС‹С… Рё СЂРµРєР»Р°РјРЅС‹С… РјРµС‚СЂРёРє РЅРѕСЃРёС‚ РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅС‹Р№ С…Р°СЂР°РєС‚РµСЂ РёР·-Р·Р° РЅРµРїРѕР»РЅРѕРіРѕ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РґР°РЅРЅС‹С…."),
+        "- " + _ru("Часть финансовых и рекламных метрик носит предварительный характер из-за неполного подтверждения данных."),
     ]
 
     page_3 = [
-        "# " + _ru("РљР»СЋС‡РµРІС‹Рµ РїСЂРѕР±Р»РµРјС‹"),
-        "## " + _ru("РќРёР·РєРёР№ С‚СЂР°С„РёРє"),
-        f"- {_ru('РЎР»Р°Р±С‹Р№ С‚СЂР°С„РёРє Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅ Сѓ')} {_int_text(low_traffic_count)} SKU",
-        "## " + _ru("РџР°РґРµРЅРёРµ РєРѕРЅРІРµСЂСЃРёРё"),
-        f"- {_ru('РџСЂРѕР±Р»РµРјР° РєРѕРЅРІРµСЂСЃРёРё Сѓ')} {_int_text(conversion_drop_count)} SKU",
-        "## " + _ru("РќРµСЌС„С„РµРєС‚РёРІРЅР°СЏ СЂРµРєР»Р°РјР°"),
-        f"- {_ru('Р—РѕРЅС‹ СЂРёСЃРєР° РІ СЂРµРєР»Р°РјРµ')}: {_int_text(ads_ineff_count)}",
-        "## " + _ru("РўРѕРІР°СЂС‹ РІ Р·РѕРЅРµ Р»РёРєРІРёРґР°С†РёРё"),
-        f"- {_ru('Р’ Р·РѕРЅРµ Р»РёРєРІРёРґР°С†РёРё')}: {_int_text(liquidate_count)} SKU",
+        "# " + _ru("Ключевые проблемы"),
+        "## " + _ru("Низкий трафик"),
+        f"- {_ru('Слабый трафик зафиксирован у')} {_int_text(low_traffic_count)} SKU",
+        "## " + _ru("Падение конверсии"),
+        f"- {_ru('Проблема конверсии у')} {_int_text(conversion_drop_count)} SKU",
+        "## " + _ru("Неэффективная реклама"),
+        f"- {_ru('Зоны риска в рекламе')}: {_int_text(ads_ineff_count)}",
+        "## " + _ru("Товары в зоне ликвидации"),
+        f"- {_ru('В зоне ликвидации')}: {_int_text(liquidate_count)} SKU",
     ]
 
     page_4 = [
-        "# " + _ru("Р РµРєРѕРјРµРЅРґР°С†РёРё AI"),
-        "## " + _ru("Р§С‚Рѕ РґРµР»Р°С‚СЊ СЃРµР№С‡Р°СЃ"),
-        "- " + _ru("РЈСЃРёР»РёС‚СЊ СЂР°Р±РѕС‚Сѓ СЃ РєР°СЂС‚РѕС‡РєР°РјРё SKU СЃ СЃРЅРёР¶РµРЅРЅРѕР№ РєРѕРЅРІРµСЂСЃРёРµР№."),
-        "- " + _ru("РџРµСЂРµСЂР°СЃРїСЂРµРґРµР»РёС‚СЊ СЂРµРєР»Р°РјРЅС‹Р№ Р±СЋРґР¶РµС‚ РёР· СѓР±С‹С‚РѕС‡РЅС‹С… Р·Р°РїСЂРѕСЃРѕРІ."),
-        "## " + _ru("Р§С‚Рѕ РЅР°Р±Р»СЋРґР°С‚СЊ"),
-        "- " + _ru("РћС‚СЃР»РµР¶РёРІР°С‚СЊ РґРёРЅР°РјРёРєСѓ РІС‹РєСѓРїР° Рё РјР°СЂР¶Рё РїРѕ СЂРёСЃРєРѕРІС‹Рј SKU."),
-        "## " + _ru("Р§С‚Рѕ РїРѕРєР° РЅРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅРѕ Рё С‚СЂРµР±СѓРµС‚ РїРµСЂРµРїСЂРѕРІРµСЂРєРё"),
+        "# " + _ru("Рекомендации AI"),
+        "## " + _ru("Что делать сейчас"),
+        "- " + _ru("Усилить работу с карточками SKU с сниженной конверсией."),
+        "- " + _ru("Перераспределить рекламный бюджет из убыточных запросов."),
+        "## " + _ru("Что наблюдать"),
+        "- " + _ru("Отслеживать динамику выкупа и маржи по рисковым SKU."),
+        "## " + _ru("Что пока не подтверждено и требует перепроверки"),
     ]
     page_4.extend(f"- {_clean_client(line)}" for line in not_confirmed_lines)
 
@@ -957,47 +957,47 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         lines = ["## " + title_ru]
         clean = [s for s in skus if s]
         if not clean:
-            lines.append("- " + _ru("РќРµС‚ РґР°РЅРЅС‹С…"))
+            lines.append("- " + _ru("Нет данных"))
         else:
             lines.extend(f"- SKU {sku}" for sku in clean)
         return lines
 
-    page_5 = ["# " + _ru("РњРѕРЅРёС‚РѕСЂРёРЅРі С‚РѕРІР°СЂРѕРІ")]
-    page_5.extend(_sku_block(_ru("Р РѕСЃС‚"), growth_skus))
-    page_5.extend(_sku_block(_ru("Р РёСЃРє"), risk_skus))
-    page_5.extend(_sku_block(_ru("РќР°Р±Р»СЋРґР°С‚СЊ"), watch_skus))
-    page_5.extend(_sku_block(_ru("Р›РёРєРІРёРґРёСЂРѕРІР°С‚СЊ"), liquidate_skus))
+    page_5 = ["# " + _ru("Мониторинг товаров")]
+    page_5.extend(_sku_block(_ru("Рост"), growth_skus))
+    page_5.extend(_sku_block(_ru("Риск"), risk_skus))
+    page_5.extend(_sku_block(_ru("Наблюдать"), watch_skus))
+    page_5.extend(_sku_block(_ru("Ликвидировать"), liquidate_skus))
 
     page_6 = [
-        "# " + _ru("РљР°С‡РµСЃС‚РІРѕ РґР°РЅРЅС‹С…"),
-        _ru("РџРѕРєР°Р·Р°С‚РµР»СЊ") + " | " + _ru("Р—РЅР°С‡РµРЅРёРµ"),
-        _ru("Р’Р°Р»РёРґРЅС‹Рµ С‚РѕРІР°СЂС‹ (SKU)") + f" | {_int_text(data_quality.get('valid_sku_count', 0))}",
-        _ru("РЎС‚СЂРѕРєРё СЃ РѕС€РёР±РєР°РјРё") + f" | {_int_text(data_quality.get('invalid_sku_rows', 0))}",
-        _ru("РќРµ СЂР°СЃРїСЂРµРґРµР»С‘РЅРЅС‹Рµ СЃС‚СЂРѕРєРё") + f" | {_int_text(data_quality.get('unassigned_rows_true', data_quality.get('unassigned_rows', 0)))}",
-        _ru("РџРѕР»РЅРѕС‚Р° С„РёРЅР°РЅСЃРѕРІС‹С… РґР°РЅРЅС‹С…") + f" | {_pct_text(data.get('financial_completeness_pct'))}",
-        _ru("РЎС‚Р°С‚СѓСЃ С„РёРЅР°РЅСЃРѕРІРѕРіРѕ РєРѕРЅС‚СѓСЂР°") + f" | {_contour_status_ru(financial_finality_status)}",
-        _ru("РќР°РґРµР¶РЅРѕСЃС‚СЊ РѕС‚С‡РµС‚Р°") + f" | {_reliability_ru(str(data_quality.get('report_reliability_level', 'medium')))}",
+        "# " + _ru("Качество данных"),
+        _ru("Показатель") + " | " + _ru("Значение"),
+        _ru("Валидные товары (SKU)") + f" | {_int_text(data_quality.get('valid_sku_count', 0))}",
+        _ru("Строки с ошибками") + f" | {_int_text(data_quality.get('invalid_sku_rows', 0))}",
+        _ru("Не распределённые строки") + f" | {_int_text(data_quality.get('unassigned_rows_true', data_quality.get('unassigned_rows', 0)))}",
+        _ru("Полнота финансовых данных") + f" | {_pct_text(data.get('financial_completeness_pct'))}",
+        _ru("Статус финансового контура") + f" | {_contour_status_ru(financial_finality_status)}",
+        _ru("Надежность отчета") + f" | {_reliability_ru(str(data_quality.get('report_reliability_level', 'medium')))}",
         "",
-        "## " + _ru("РџРѕРґС‚РІРµСЂР¶РґРµРЅРѕ"),
-        "- " + _ru("СЂРµРєР»Р°РјР°"),
-        "- " + _ru("С‡Р°СЃС‚СЊ С„РёРЅР°РЅСЃРѕРІС‹С… СЃС‚СЂРѕРє"),
+        "## " + _ru("Подтверждено"),
+        "- " + _ru("реклама"),
+        "- " + _ru("часть финансовых строк"),
         "",
-        "## " + _ru("РќРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅРѕ"),
-        "- " + _ru("Р·Р°РєР°Р·С‹ РґРЅСЏ"),
-        "- " + _ru("РІС‹РєСѓРїС‹ РґРЅСЏ"),
+        "## " + _ru("Не подтверждено"),
+        "- " + _ru("заказы дня"),
+        "- " + _ru("выкупы дня"),
         "",
-        "## " + _ru("РљР°Рє СЌС‚Рѕ РІР»РёСЏРµС‚ РЅР° РІС‹РІРѕРґС‹"),
-        "- " + _ru("Р§Р°СЃС‚СЊ РІС‹РІРѕРґРѕРІ РїРѕ РїСЂРёР±С‹Р»Рё Рё СЂРµРєР»Р°РјРµ С‚СЂРµР±СѓРµС‚ РїРµСЂРµРїСЂРѕРІРµСЂРєРё РїРѕСЃР»Рµ С„РёРЅР°Р»СЊРЅРѕРіРѕ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РґР°РЅРЅС‹С…."),
+        "## " + _ru("Как это влияет на выводы"),
+        "- " + _ru("Часть выводов по прибыли и рекламе требует перепроверки после финального подтверждения данных."),
     ]
 
     page_7 = [
-        "# " + _ru("Р§С‚Рѕ СѓРјРµРµС‚ AI Р”РёСЂРµРєС‚РѕСЂ"),
-        "- " + _ru("Р•Р¶РµРґРЅРµРІРЅРѕ Р°РЅР°Р»РёР·РёСЂСѓРµС‚ С„РёРЅР°РЅСЃС‹, СЂРµРєР»Р°РјСѓ Рё РІРѕСЂРѕРЅРєСѓ РїСЂРѕРґР°Р¶."),
-        "- " + _ru("РќР°С…РѕРґРёС‚ С‚РѕС‡РєРё СЂРѕСЃС‚Р° Рё Р·РѕРЅС‹ РїРѕС‚РµСЂСЊ РїРѕ SKU."),
-        "- " + _ru("Р¤РѕСЂРјРёСЂСѓРµС‚ РїРѕРЅСЏС‚РЅС‹Рµ СЂРµРєРѕРјРµРЅРґР°С†РёРё РґР»СЏ РІР»Р°РґРµР»СЊС†Р° РєР°Р±РёРЅРµС‚Р°."),
+        "# " + _ru("Что умеет AI Директор"),
+        "- " + _ru("Ежедневно анализирует финансы, рекламу и воронку продаж."),
+        "- " + _ru("Находит точки роста и зоны потерь по SKU."),
+        "- " + _ru("Формирует понятные рекомендации для владельца кабинета."),
         "",
-        "## " + _ru("Р”РµРјРѕ РґР»СЏ РєР»РёРµРЅС‚Р°"),
-        "- " + _ru("РњРѕРіСѓ РїРѕРґРіРѕС‚РѕРІРёС‚СЊ С‚Р°РєРѕР№ Р¶Рµ Р°СѓРґРёС‚ РїРѕ РІР°С€РµРјСѓ РєР°Р±РёРЅРµС‚Сѓ."),
+        "## " + _ru("Демо для клиента"),
+        "- " + _ru("Могу подготовить такой же аудит по вашему кабинету."),
     ]
 
     funnel_section_lines = list(page_2)
@@ -1331,15 +1331,15 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     def _health_score_local(row: Dict[str, Any], status_ru: str) -> float:
         default_map = {
-            "Р РѕСЃС‚": 85.0,
-            "РќРѕСЂРјР°Р»СЊРЅРѕ": 70.0,
-            "Р РёСЃРє": 35.0,
-            "Р›РёРєРІРёРґР°С†РёСЏ": 15.0,
+            "Рост": 85.0,
+            "Нормально": 70.0,
+            "Риск": 35.0,
+            "Ликвидация": 15.0,
         }
         score = _first_number_local(row.get("health_score"), row.get("score")) if isinstance(row, dict) else None
         attention = _first_number_local(row.get("attention_score")) if isinstance(row, dict) else None
         if score is None and attention is not None:
-            if status_ru in {"Р РёСЃРє", "Р›РёРєРІРёРґР°С†РёСЏ"}:
+            if status_ru in {"Риск", "Ликвидация"}:
                 score = 100.0 - attention
             else:
                 score = 60.0 + (100.0 - attention) * 0.25
@@ -1353,14 +1353,14 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     def _status_from_health_token(token: Any) -> str:
         normalized = str(token or "").strip().lower()
         mapping = {
-            "strong": "Р РѕСЃС‚",
-            "healthy": "РќРѕСЂРјР°Р»СЊРЅРѕ",
-            "unstable": "Р РёСЃРє",
-            "risk": "Р РёСЃРє",
-            "liquidate": "Р›РёРєРІРёРґР°С†РёСЏ",
-            "liquidation": "Р›РёРєРІРёРґР°С†РёСЏ",
+            "strong": "Рост",
+            "healthy": "Нормально",
+            "unstable": "Риск",
+            "risk": "Риск",
+            "liquidate": "Ликвидация",
+            "liquidation": "Ликвидация",
         }
-        return mapping.get(normalized, "РќРѕСЂРјР°Р»СЊРЅРѕ")
+        return mapping.get(normalized, "Нормально")
 
     def _append_health_rows_from_payload(limit: int = 24) -> None:
         rows = health_payload.get("items", []) if isinstance(health_payload, dict) else []
@@ -1377,7 +1377,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             reasons = row.get("reasons", []) if isinstance(row.get("reasons"), list) else []
             reason_text = _sanitize_client_text(reasons[0] if reasons else row.get("reason") or "")
             if not reason_text:
-                reason_text = "РќСѓР¶РµРЅ РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Р№ РјРѕРЅРёС‚РѕСЂРёРЅРі РїРѕ SKU"
+                reason_text = "Нужен дополнительный мониторинг по SKU"
             sku_health_rows.append(
                 {
                     "sku": sku,
@@ -1409,13 +1409,13 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
                 break
 
     _append_health_rows_from_payload(limit=24)
-    _append_health_rows(top_growth_rows, "Р РѕСЃС‚", "РџРѕР»РѕР¶РёС‚РµР»СЊРЅР°СЏ РґРёРЅР°РјРёРєР° KPI")
-    _append_health_rows(top_risk_rows, "Р РёСЃРє", "РќСѓР¶РЅР° РѕРїС‚РёРјРёР·Р°С†РёСЏ РєР°СЂС‚РѕС‡РєРё Рё С†РµРЅС‹")
-    _append_health_rows(dead_stock_rows, "Р›РёРєРІРёРґР°С†РёСЏ", "РќРёР·РєР°СЏ РѕР±РѕСЂР°С‡РёРІР°РµРјРѕСЃС‚СЊ С‚РѕРІР°СЂР°")
+    _append_health_rows(top_growth_rows, "Рост", "Положительная динамика KPI")
+    _append_health_rows(top_risk_rows, "Риск", "Нужна оптимизация карточки и цены")
+    _append_health_rows(dead_stock_rows, "Ликвидация", "Низкая оборачиваемость товара")
     _append_health_rows(
         [row for row in liquidate_rows if isinstance(row, dict)],
-        "Р›РёРєРІРёРґР°С†РёСЏ",
-        "Р РµРєРѕРјРµРЅРґРѕРІР°РЅР° СѓСЃРєРѕСЂРµРЅРЅР°СЏ СЂР°СЃРїСЂРѕРґР°Р¶Р°",
+        "Ликвидация",
+        "Рекомендована ускоренная распродажа",
     )
 
     normal_target = 14
@@ -1430,9 +1430,9 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         sku_health_rows.append(
             {
                 "sku": sku,
-                "health_score": _health_score_local(row, "РќРѕСЂРјР°Р»СЊРЅРѕ"),
-                "status": "РќРѕСЂРјР°Р»СЊРЅРѕ",
-                "reason": _reason_local(row, "РЎС‚Р°Р±РёР»СЊРЅР°СЏ РґРёРЅР°РјРёРєР° РїРѕ SKU"),
+                "health_score": _health_score_local(row, "Нормально"),
+                "status": "Нормально",
+                "reason": _reason_local(row, "Стабильная динамика по SKU"),
             }
         )
         normal_added += 1
@@ -1682,21 +1682,21 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     def _action_ru_local(raw_action: Any, group: str) -> str:
         token = str(raw_action or "").strip().lower().replace("_", " ")
         if "increase ads" in token or "increase" in token:
-            return "РЈСЃРёР»РёС‚СЊ СЂРµРєР»Р°РјСѓ"
+            return "Усилить рекламу"
         if "improve listing" in token or "improve" in token:
-            return "Р”РѕСЂР°Р±РѕС‚Р°С‚СЊ РєР°СЂС‚РѕС‡РєСѓ"
+            return "Доработать карточку"
         if "rebalance stock" in token or "rebalance" in token:
-            return "РџРµСЂРµСЂР°СЃРїСЂРµРґРµР»РёС‚СЊ РѕСЃС‚Р°С‚РєРё"
+            return "Перераспределить остатки"
         if "discount" in token or "remove" in token:
-            return "РЎРЅРёР·РёС‚СЊ С†РµРЅСѓ РёР»Рё РІС‹РІРѕРґРёС‚СЊ С‚РѕРІР°СЂ"
+            return "Снизить цену или выводить товар"
         if "monitor" in token:
-            return "РќР°Р±Р»СЋРґР°С‚СЊ"
+            return "Наблюдать"
         defaults = {
-            "p1": "РЎСЂРѕС‡РЅР°СЏ РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєР° SKU",
-            "p2": "РћРїС‚РёРјРёР·Р°С†РёСЏ SKU",
-            "p3": "РњРѕРЅРёС‚РѕСЂРёРЅРі SKU",
+            "p1": "Срочная корректировка SKU",
+            "p2": "Оптимизация SKU",
+            "p3": "Мониторинг SKU",
         }
-        return defaults.get(group, "Р”РµР№СЃС‚РІРёРµ РїРѕ SKU")
+        return defaults.get(group, "Действие по SKU")
 
     def _is_non_actionable_reason(reason_text: str) -> bool:
         token = _sanitize_client_text(reason_text).lower()
@@ -1792,8 +1792,8 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     def _money_str_local(value: Any) -> str:
         number = _first_number_local(value)
         if number is None:
-            return "РЅРµС‚ РґР°РЅРЅС‹С…"
-        return f"{int(round(number)):,}".replace(",", " ") + " в‚Ѕ"
+            return "нет данных"
+        return f"{int(round(number)):,}".replace(",", " ") + " ₽"
 
     kernel_sku_financials_payload = data.get("kernel_sku_financials", {})
     if not isinstance(kernel_sku_financials_payload, dict):
@@ -2835,4 +2835,3 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     write_report_meta(out_dir=out_dir, report_meta=report_meta)
     data.update({"job": job, "report_meta": report_meta, "visual_payload": visual_payload})
     return data
-
