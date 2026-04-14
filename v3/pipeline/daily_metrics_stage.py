@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -35,6 +36,68 @@ def _safe_int_local(value: Any, default: int = 0) -> int:
         return int(float(value))
     except (TypeError, ValueError):
         return int(default)
+
+
+def _normalize_day_token(value: Any) -> str:
+    text = str(value or "").strip()
+    if len(text) >= 10 and text[4:5] == "-" and text[7:8] == "-":
+        try:
+            return datetime.strptime(text[:10], "%Y-%m-%d").date().isoformat()
+        except Exception:
+            return ""
+    return ""
+
+
+def _row_day_token(row: Dict[str, Any]) -> str:
+    if not isinstance(row, dict):
+        return ""
+    for key in (
+        "date",
+        "orderDate",
+        "saleDate",
+        "order_dt",
+        "sale_dt",
+        "lastChangeDate",
+        "create_dt",
+        "createdAt",
+    ):
+        token = _normalize_day_token(row.get(key))
+        if token:
+            return token
+    return ""
+
+
+def _sample_row_dates(rows: List[Dict[str, Any]], limit: int = 5) -> List[str]:
+    out: List[str] = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        day = _row_day_token(row)
+        if not day:
+            continue
+        out.append(day)
+        if len(out) >= max(1, int(limit)):
+            break
+    return out
+
+
+def _filter_rows_by_day(rows: List[Dict[str, Any]], target_date: str) -> List[Dict[str, Any]]:
+    if not isinstance(rows, list) or not rows:
+        return []
+    target_day = _normalize_day_token(target_date)
+    if not target_day:
+        return [row for row in rows if isinstance(row, dict)]
+
+    filtered: List[Dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        row_day = _row_day_token(row)
+        if not row_day:
+            continue
+        if row_day == target_day:
+            filtered.append(row)
+    return filtered
 
 
 def _kernel_row_to_dict(row: Any) -> Dict[str, Any]:
@@ -248,6 +311,49 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     api_debug = ctx.get("api_debug", {})
     if not isinstance(api_debug, dict):
         api_debug = {}
+
+    api_orders_rows_before_filter = len([row for row in api_orders_rows if isinstance(row, dict)])
+    api_sales_rows_before_filter = len([row for row in api_sales_rows if isinstance(row, dict)])
+    api_realization_rows_before_filter = len([row for row in api_realization_rows if isinstance(row, dict)])
+    orders_dates_before = _sample_row_dates(api_orders_rows)
+    sales_dates_before = _sample_row_dates(api_sales_rows)
+    realization_dates_before = _sample_row_dates(api_realization_rows)
+
+    api_orders_rows = _filter_rows_by_day(api_orders_rows, run_date)
+    api_sales_rows = _filter_rows_by_day(api_sales_rows, run_date)
+    api_realization_rows = _filter_rows_by_day(api_realization_rows, run_date)
+
+    api_orders_rows_after_filter = len([row for row in api_orders_rows if isinstance(row, dict)])
+    api_sales_rows_after_filter = len([row for row in api_sales_rows if isinstance(row, dict)])
+    api_realization_rows_after_filter = len([row for row in api_realization_rows if isinstance(row, dict)])
+    orders_dates_after = _sample_row_dates(api_orders_rows)
+    sales_dates_after = _sample_row_dates(api_sales_rows)
+    realization_dates_after = _sample_row_dates(api_realization_rows)
+
+    api_debug["daily_row_filter"] = {
+        "target_date": _normalize_day_token(run_date),
+        "orders_rows_before": api_orders_rows_before_filter,
+        "orders_rows_after": api_orders_rows_after_filter,
+        "sales_rows_before": api_sales_rows_before_filter,
+        "sales_rows_after": api_sales_rows_after_filter,
+        "realization_rows_before": api_realization_rows_before_filter,
+        "realization_rows_after": api_realization_rows_after_filter,
+        "orders_dates_sample_before": orders_dates_before,
+        "orders_dates_sample_after": orders_dates_after,
+        "sales_dates_sample_before": sales_dates_before,
+        "sales_dates_sample_after": sales_dates_after,
+        "realization_dates_sample_before": realization_dates_before,
+        "realization_dates_sample_after": realization_dates_after,
+    }
+    print(
+        "[daily_filter] "
+        f"target_date={_normalize_day_token(run_date) or 'invalid'} "
+        f"orders={api_orders_rows_before_filter}->{api_orders_rows_after_filter} "
+        f"sales={api_sales_rows_before_filter}->{api_sales_rows_after_filter} "
+        f"realization={api_realization_rows_before_filter}->{api_realization_rows_after_filter} "
+        f"orders_dates={orders_dates_after} sales_dates={sales_dates_after} realization_dates={realization_dates_after}"
+    )
+
     warnings_collector = ctx.get("warnings_collector")
     if not isinstance(warnings_collector, WarningsCollector):
         warnings_collector = WarningsCollector()

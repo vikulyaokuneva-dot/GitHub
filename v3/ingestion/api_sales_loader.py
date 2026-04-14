@@ -56,7 +56,7 @@ def load_sales_from_api(client: WBApiClient, date_from: str, date_to: str) -> Di
     rows: List[Dict[str, Any]] = []
     for index, row in enumerate(rows_raw):
         row_date = _row_date_iso(row)
-        if row_date and row_date > date_to:
+        if row_date and (row_date < date_from or row_date > date_to):
             continue
         nm_id = _pick_text(row, ("nmId", "nm_id", "nmid", "nmID"))
         sku = _as_sku(
