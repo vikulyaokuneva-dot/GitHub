@@ -109,6 +109,16 @@ def _build_financial_kpi_from_kernel(
     gross_profit = seller_payout - cost_price - commission
     margin_pct = (net_profit / seller_payout * 100.0) if abs(seller_payout) > 1e-9 else None
     profitability_pct = (net_profit / cost_price * 100.0) if abs(cost_price) > 1e-9 else None
+    validation = cogs_diagnostics.get("validation") if isinstance(cogs_diagnostics, dict) else {}
+    if not isinstance(validation, dict):
+        validation = {}
+    kernel_rows_total = _safe_int_local(validation.get("rows_total"), 0)
+    missing_required_groups = [
+        str(item).strip()
+        for item in list(validation.get("missing_required_groups", []))
+        if str(item).strip()
+    ]
+    semantic_mapping_missing = bool(kernel_rows_total > 0 and missing_required_groups)
 
     cogs_status = str(cogs_diagnostics.get("cogs_status") or "").strip().lower()
     cogs_coverage_pct = cogs_diagnostics.get("cogs_coverage_pct")
@@ -116,11 +126,17 @@ def _build_financial_kpi_from_kernel(
         cogs_coverage_pct,
         default=100.0 if _safe_int_local(account_totals.get("rows_count"), 0) > 0 else 0.0,
     )
+    if semantic_mapping_missing:
+        completeness_pct = min(completeness_pct, 50.0)
     cost_price_missing = cogs_status in {"file_not_found", "file_found_not_read", "file_read_not_matched"}
     expense_attribution_partial = cogs_status == "partial_match"
-    net_profit_partial = bool(cost_price_missing or expense_attribution_partial)
-    financial_status = "partial" if net_profit_partial else "ok"
-    financial_finality_status = "partial" if net_profit_partial else "final"
+    net_profit_partial = bool(cost_price_missing or expense_attribution_partial or semantic_mapping_missing)
+    if semantic_mapping_missing:
+        financial_status = "degraded"
+        financial_finality_status = "unavailable"
+    else:
+        financial_status = "partial" if net_profit_partial else "ok"
+        financial_finality_status = "partial" if net_profit_partial else "final"
     components = {
         "revenue": {"available": True},
         "seller_payout": {"available": True},
@@ -180,6 +196,8 @@ def _build_financial_kpi_from_kernel(
         "financial_status": financial_status,
         "is_partial": bool(net_profit_partial),
         "financial_partial": bool(net_profit_partial),
+        "kernel_semantic_mapping_missing": bool(semantic_mapping_missing),
+        "kernel_semantic_missing_groups": missing_required_groups,
         "basis": "kernel",
         "source_priority": {
             "revenue": "financial_kernel",
