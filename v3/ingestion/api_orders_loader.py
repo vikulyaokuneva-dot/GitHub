@@ -69,6 +69,9 @@ def load_orders_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
             or row.get("barcode")
         )
         order_id = _pick_text(row, ("srid", "odid", "orderId", "gNumber", "orderUID"))
+        seller_sku = _pick_text(row, ("supplierArticle", "supplier_article", "vendorCode", "sellerSku"))
+        sa_name = _pick_text(row, ("subject", "subjectName", "sa_name", "nmName"))
+        tech_size = _pick_text(row, ("techSize", "tech_size", "size", "tsName"))
         quantity = _as_float(
             row.get("quantity")
             or row.get("orderQty")
@@ -88,22 +91,56 @@ def load_orders_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
             default=0.0,
         )
         warehouse = _pick_text(row, ("warehouseName", "warehouse", "officeName", "oblastOkrugName"))
+        region = _pick_text(
+            row,
+            (
+                "regionName",
+                "region",
+                "oblastOkrugName",
+                "destinationRegion",
+                "countryName",
+            ),
+        )
+        destination = _pick_text(
+            row,
+            (
+                "destination",
+                "destinationRegion",
+                "destinationCountry",
+                "oblastOkrugName",
+                "address",
+            ),
+        )
+        demand_geography_available = bool(region or destination or warehouse)
 
         item: Dict[str, Any] = {
             "date": row_date,
             "sku": sku,
             "nm_id": nm_id,
+            "seller_sku": seller_sku,
+            "sa_name": sa_name,
+            "tech_size": tech_size,
             "order_id": order_id,
             "srid": order_id,
             "quantity": quantity,
             "price": round(price, 2),
             "warehouse": warehouse,
+            "warehouse_name": warehouse,
+            "region": region,
+            "destination": destination,
+            "demand_geography_available": demand_geography_available,
             "_sku_source_field": "nm_id" if sku and sku == _as_sku(nm_id) else "supplierArticle",
             "revenue": round(price, 2),
             "profit": 0.0,
             "orders": quantity,
             "buys": 0.0,
             "sales_count": 0.0,
+            "orders_count": quantity,
+            "order_amount": round(price, 2),
+            "buyouts_count": 0.0,
+            "buyout_amount": 0.0,
+            "funnel_stage": "order",
+            "funnel_lower_event": True,
             "cost_price": 0.0,
             "wb_commission": 0.0,
             "logistics": 0.0,

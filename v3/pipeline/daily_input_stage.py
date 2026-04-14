@@ -85,6 +85,20 @@ def _log_api_probe_metrics(metrics: Dict[str, Any]) -> None:
         print("API DATA MISSING")
 
 
+def _resolve_funnel_contour_source(
+    *,
+    local_funnel_found: bool,
+    api_ads_rows: List[Dict[str, Any]],
+    api_orders_rows: List[Dict[str, Any]],
+    api_sales_rows: List[Dict[str, Any]],
+) -> str:
+    if bool(local_funnel_found):
+        return "local_report"
+    if bool(api_ads_rows) or bool(api_orders_rows) or bool(api_sales_rows):
+        return "api"
+    return "missing"
+
+
 def _parse_iso_date(value: Any) -> date | None:
     text = str(value or "").strip()
     if not text:
@@ -462,7 +476,14 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
                 else ("api.realization" if api_realization_rows else "missing")
             )
         )
-        funnel_contour_source = "local_report" if local_funnel_found else ("api" if api_ads_rows else "missing")
+        funnel_contour_source = _resolve_funnel_contour_source(
+            local_funnel_found=bool(local_funnel_found),
+            api_ads_rows=api_ads_rows if isinstance(api_ads_rows, list) else [],
+            api_orders_rows=api_orders_rows if isinstance(api_orders_rows, list) else [],
+            api_sales_rows=api_sales_rows if isinstance(api_sales_rows, list) else [],
+        )
+        funnel_upper_available = bool(api_ads_rows)
+        funnel_lower_available = bool(api_orders_rows or api_sales_rows)
 
         api_debug = {
             "sales_rows": len(api_sales_rows),
@@ -481,6 +502,11 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "local_financial_fallback_used": local_financial_fallback_used,
             "financial_contour_source": financial_contour_source,
             "funnel_source": funnel_contour_source,
+            "funnel_upper_available": funnel_upper_available,
+            "funnel_lower_available": funnel_lower_available,
+            "funnel_degradation_mode": (
+                "upper_funnel_unavailable_from_api" if (funnel_lower_available and not funnel_upper_available) else "none"
+            ),
             "supplier_goods_daily_found": bool(supplier_goods_daily.get("found", False)),
             "local_funnel_report_found": bool(local_funnel_found),
             "local_funnel_source_file": local_funnel_source_file,

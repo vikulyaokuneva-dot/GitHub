@@ -300,6 +300,24 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
     if not isinstance(metrics_data_quality, dict):
         metrics_data_quality = {}
+    diagnostics_payload = metrics.get("diagnostics", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(diagnostics_payload, dict):
+        diagnostics_payload = {}
+    api_funnel_contract = diagnostics_payload.get("api_funnel_contract", {})
+    if not isinstance(api_funnel_contract, dict):
+        api_funnel_contract = {}
+    geo_completeness = api_funnel_contract.get("geo_completeness", {})
+    if not isinstance(geo_completeness, dict):
+        geo_completeness = {}
+    metrics_data_quality["funnel_contract_source"] = str(api_funnel_contract.get("source") or "missing")
+    metrics_data_quality["funnel_lower_available"] = bool(api_funnel_contract.get("lower_funnel_available", False))
+    metrics_data_quality["funnel_upper_available"] = bool(api_funnel_contract.get("upper_funnel_available", False))
+    metrics_data_quality["funnel_upper_unavailable_from_api"] = bool(
+        api_funnel_contract.get("upper_funnel_unavailable_from_api", False)
+    )
+    metrics_data_quality["orders_geo_coverage_pct"] = float(
+        geo_completeness.get("demand_geography_coverage_pct", 0.0) or 0.0
+    )
 
     totals_for_daily = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
     if not isinstance(totals_for_daily, dict):
@@ -790,7 +808,11 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
 
     if territorial_analysis_enabled:
         territorial_input: Dict[str, Any] = dict(metrics if isinstance(metrics, dict) else {})
-        territorial_input["sales_rows"] = sales_rows
+        orders_rows_from_api = metrics.get("orders_rows_from_api", []) if isinstance(metrics, dict) else []
+        if not isinstance(orders_rows_from_api, list):
+            orders_rows_from_api = []
+        territorial_input["sales_rows"] = orders_rows_from_api if orders_rows_from_api else sales_rows
+        territorial_input["orders_rows_from_api"] = orders_rows_from_api
         territorial_input["stocks_rows"] = stocks_rows
         territorial_distribution = build_territorial_distribution(
             territorial_input,

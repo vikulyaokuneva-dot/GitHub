@@ -57,6 +57,7 @@ def load_stocks_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
             or row.get("barcode")
         )
         warehouse = _pick_text(row, ("warehouseName", "warehouse", "officeName"))
+        region = _pick_text(row, ("regionName", "region", "oblastOkrugName"))
         quantity_full = _as_float(row.get("quantityFull") or row.get("quantity_full"), default=0.0)
         quantity = _as_float(row.get("quantity") or row.get("qty"), default=0.0)
         in_way_to_client = _as_float(row.get("inWayToClient"), default=0.0)
@@ -68,6 +69,8 @@ def load_stocks_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
             "nm_id": nm_id,
             "quantity": round(stock, 2),
             "warehouse": warehouse,
+            "warehouse_name": warehouse,
+            "region": region,
             "_sku_source_field": "nm_id" if sku and sku == _as_sku(nm_id) else "supplierArticle",
             "stock": round(stock, 2),
             "_raw_row_index": index,
