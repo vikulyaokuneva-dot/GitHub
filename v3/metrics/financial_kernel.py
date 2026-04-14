@@ -11,6 +11,7 @@ from .financial_models import (
     FINANCIAL_ROW_FIELD_ALIASES,
     FinancialKernelInput,
     FinancialKernelOutput,
+    SKUFinancialRow,
 )
 
 
@@ -120,7 +121,7 @@ def describe_financial_kernel_contract() -> Dict[str, Any]:
             "kernel_status": "str",
         },
         "financial_row_aliases": FINANCIAL_ROW_FIELD_ALIASES,
-        "migration_mode": "account_level_and_cogs_ported_sku_pending",
+        "migration_mode": "account_and_cogs_and_sku_pnl_ported_not_connected",
     }
 
 
@@ -164,8 +165,8 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
     """
     Skeleton entrypoint for future v2->v3 financial parity migration.
 
-    Current step intentionally does NOT port formulas.
-    It returns a structured placeholder output and diagnostics only.
+    Current step ports account-level formulas, COGS mapping, and SKU P&L
+    with parity-oriented behavior vs v2.
     """
 
     validation = validate_financial_kernel_input(payload)
@@ -206,6 +207,28 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
     payout = 0.0
     qty_by_sku: Dict[int, int] = {}
     sku_seller_tokens: Dict[int, set[str]] = {}
+    sku_map: Dict[int, Dict[str, float]] = {}
+
+    def _sku_bucket(sku_id: int) -> Dict[str, float]:
+        if sku_id not in sku_map:
+            sku_map[sku_id] = {
+                "sales_qty": 0.0,
+                "returns_qty": 0.0,
+                "sales_revenue": 0.0,
+                "returns_revenue_est": 0.0,
+                "commission": 0.0,
+                "logistics": 0.0,
+                "storage": 0.0,
+                "penalties": 0.0,
+                "payout": 0.0,
+            }
+        return sku_map[sku_id]
+
+    def _estimate_amount(row_amount_value: float, unit_price_value: float, qty_value: int) -> float:
+        qty_eff = abs(qty_value) if qty_value else 1
+        if row_amount_value:
+            return abs(row_amount_value)
+        return abs(unit_price_value) * qty_eff
 
     use_base_before_agent = any(abs(_as_float(row.get("wb_reward_before_agent"))) > 1e-12 for row in rows)
 
@@ -283,6 +306,20 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
             logistics += abs(row_logistics) if row_logistics else 0.0
             storage += abs(row_storage) if row_storage else 0.0
             penalties += abs(row_penalty) if row_penalty else 0.0
+
+            if sku_i:
+                sku_bucket = _sku_bucket(sku_i)
+                if qty > 0:
+                    sku_bucket["sales_qty"] += float(qty)
+                sku_bucket["sales_revenue"] += float(row_amount) if row_amount else float(unit_price) * float(qty if qty else 1)
+                sku_bucket["commission"] += float(row_commission_total)
+                sku_bucket["payout"] += float(row_payout)
+                if row_logistics:
+                    sku_bucket["logistics"] += float(abs(row_logistics))
+                if row_storage:
+                    sku_bucket["storage"] += float(abs(row_storage))
+                if row_penalty:
+                    sku_bucket["penalties"] += float(abs(row_penalty))
             continue
 
         if _is_return(operation):
@@ -298,6 +335,20 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
             storage += abs(row_storage) if row_storage else 0.0
             penalties += abs(row_penalty) if row_penalty else 0.0
             payout += row_payout
+
+            if sku_i:
+                sku_bucket = _sku_bucket(sku_i)
+                if qty != 0:
+                    sku_bucket["returns_qty"] += float(abs(qty))
+                sku_bucket["returns_revenue_est"] += float(_estimate_amount(row_amount, unit_price, qty))
+                sku_bucket["commission"] += float(row_commission_total)
+                if row_logistics:
+                    sku_bucket["logistics"] += float(abs(row_logistics))
+                if row_storage:
+                    sku_bucket["storage"] += float(abs(row_storage))
+                if row_penalty:
+                    sku_bucket["penalties"] += float(abs(row_penalty))
+                sku_bucket["payout"] += float(row_payout)
             continue
 
         if _is_logistics(operation):
@@ -305,16 +356,36 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
             rebill = _as_float(row.get("rebill_logistic_cost"))
             logistics += abs(rebill) if rebill else 0.0
             payout += row_payout
+
+            if sku_i:
+                sku_bucket = _sku_bucket(sku_i)
+                if row_logistics:
+                    sku_bucket["logistics"] += float(abs(row_logistics))
+                if rebill:
+                    sku_bucket["logistics"] += float(abs(rebill))
+                sku_bucket["payout"] += float(row_payout)
             continue
 
         if _is_storage(operation):
             storage += abs(row_storage) if row_storage else 0.0
             payout += row_payout
+
+            if sku_i:
+                sku_bucket = _sku_bucket(sku_i)
+                if row_storage:
+                    sku_bucket["storage"] += float(abs(row_storage))
+                sku_bucket["payout"] += float(row_payout)
             continue
 
         if _is_penalty(operation):
             penalties += abs(row_penalty) if row_penalty else 0.0
             payout += row_payout
+
+            if sku_i:
+                sku_bucket = _sku_bucket(sku_i)
+                if row_penalty:
+                    sku_bucket["penalties"] += float(abs(row_penalty))
+                sku_bucket["payout"] += float(row_payout)
             continue
 
         commission += row_commission_total
@@ -326,6 +397,17 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         storage += abs(row_storage) if row_storage else 0.0
         penalties += abs(row_penalty) if row_penalty else 0.0
         payout += row_payout
+
+        if sku_i:
+            sku_bucket = _sku_bucket(sku_i)
+            sku_bucket["commission"] += float(row_commission_total)
+            if row_logistics:
+                sku_bucket["logistics"] += float(abs(row_logistics))
+            if row_storage:
+                sku_bucket["storage"] += float(abs(row_storage))
+            if row_penalty:
+                sku_bucket["penalties"] += float(abs(row_penalty))
+            sku_bucket["payout"] += float(row_payout)
 
     tax = gross_revenue * float(payload.tax_rate or 0.0)
 
@@ -411,6 +493,40 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
 
     profit = gross_revenue - commission - logistics - storage - penalties - tax - cogs_total
     margin = _safe_div(profit, gross_revenue)
+    sku_financials: Dict[int, SKUFinancialRow] = {}
+    total_sku_sales_revenue = sum(float(bucket.get("sales_revenue", 0.0) or 0.0) for bucket in sku_map.values())
+    for sku_i, sku_metrics in sku_map.items():
+        sales_revenue = float(sku_metrics.get("sales_revenue", 0.0) or 0.0)
+        returns_revenue_est = float(sku_metrics.get("returns_revenue_est", 0.0) or 0.0)
+        net_revenue = sales_revenue - returns_revenue_est
+        sku_tax = (tax * (sales_revenue / total_sku_sales_revenue)) if total_sku_sales_revenue else 0.0
+        sku_cogs = float(cogs_by_sku.get(int(sku_i), 0.0) or 0.0)
+        sku_profit = (
+            net_revenue
+            - float(sku_metrics.get("commission", 0.0) or 0.0)
+            - float(sku_metrics.get("logistics", 0.0) or 0.0)
+            - float(sku_metrics.get("storage", 0.0) or 0.0)
+            - float(sku_metrics.get("penalties", 0.0) or 0.0)
+            - sku_tax
+            - sku_cogs
+        )
+        sku_margin = _safe_div(sku_profit, net_revenue)
+        sku_financials[int(sku_i)] = SKUFinancialRow(
+            sales_qty=int(round(float(sku_metrics.get("sales_qty", 0.0) or 0.0))),
+            returns_qty=int(round(float(sku_metrics.get("returns_qty", 0.0) or 0.0))),
+            sales_revenue=round(sales_revenue, 2),
+            returns_revenue_est=round(returns_revenue_est, 2),
+            net_revenue=round(net_revenue, 2),
+            commission=round(float(sku_metrics.get("commission", 0.0) or 0.0), 2),
+            logistics=round(float(sku_metrics.get("logistics", 0.0) or 0.0), 2),
+            storage=round(float(sku_metrics.get("storage", 0.0) or 0.0), 2),
+            penalties=round(float(sku_metrics.get("penalties", 0.0) or 0.0), 2),
+            payout=round(float(sku_metrics.get("payout", 0.0) or 0.0), 2),
+            tax_alloc=round(sku_tax, 2),
+            cogs=round(sku_cogs, 2),
+            profit=round(sku_profit, 2),
+            margin=round(float(sku_margin or 0.0), 4),
+        )
 
     turnover_wb_value: float | None
     if turnover_wb_rows_count > 0:
@@ -444,7 +560,7 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         total_commission=round(commission, 2),
     )
     cogs_diagnostics: Dict[str, Any] = {
-        "mode": "v2_parity_account_level",
+        "mode": "v2_parity_account_and_sku_pnl",
         "cogs_status": cogs_status,
         "cogs_file_found": bool(file_found),
         "cogs_rows_loaded": int(cogs_rows_loaded),
@@ -462,7 +578,7 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         "missing_sku_qty": missing_sku_qty,
         "formula_ported": True,
         "cogs_ported": True,
-        "sku_pnl_ported": False,
+        "sku_pnl_ported": True,
         "validation": validation,
     }
     cogs_warning_by_status = {
@@ -474,19 +590,13 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
     if cogs_status in cogs_warning_by_status:
         code, message = cogs_warning_by_status[cogs_status]
         warnings.append({"code": code, "message": message})
-    warnings.append(
-        {
-            "code": "financial_kernel_partial_port",
-            "message": "Account-level formulas and COGS are ported; SKU P&L is not ported yet.",
-        }
-    )
 
     return FinancialKernelOutput(
         account_financial_totals=totals,
-        sku_financials={},
+        sku_financials=sku_financials,
         commission_breakdown=commission_breakdown,
         cogs_diagnostics=cogs_diagnostics,
         warnings=warnings,
         source_meta=dict(payload.source_meta or {}),
-        kernel_status="account_and_cogs_ported_partial",
+        kernel_status="financial_kernel_ported_not_connected",
     )
