@@ -3543,39 +3543,36 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
         ads_diagnostics = {}
     ads_rows_count = int(ads_diagnostics.get("rows", 0) or 0)
     ads_spend_value = float(
-        totals.get("ads_spend_total", totals.get("ads_spend", ads_metrics.get("spend", 0.0))) or 0.0
+        financial_kpi.get("ads_spend", totals.get("ads_spend_total", totals.get("ads_spend", ads_metrics.get("spend", 0.0))))
+        or 0.0
     )
     ads_attribution_quality = str(
         ads_diagnostics.get("attribution_quality", ads_metrics.get("attribution_quality", "unknown")) or "unknown"
     )
     financial_kpi_payload = {
-        "revenue": float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))) or 0.0),
-        "gross_revenue": float(financial_kpi.get("gross_revenue", totals.get("gross_revenue", 0.0)) or 0.0),
-        "wb_realized_revenue": float(
-            financial_kpi.get("wb_realized_revenue", totals.get("wb_realized_revenue", 0.0)) or 0.0
-        ),
-        "seller_payout": float(financial_kpi.get("seller_payout", totals.get("seller_payout", totals.get("revenue", 0.0))) or 0.0),
-        "row_revenue_total": float(financial_kpi.get("row_revenue_total", totals.get("row_revenue_total", 0.0)) or 0.0),
-        "cost_price": float(financial_kpi.get("cost_price", totals.get("cost_price", 0.0)) or 0.0),
-        "wb_commission": float(financial_kpi.get("wb_commission", totals.get("wb_commission", 0.0)) or 0.0),
-        "acquiring": float(financial_kpi.get("acquiring", totals.get("acquiring", 0.0)) or 0.0),
-        "pvz_service": float(financial_kpi.get("pvz_service", totals.get("pvz_service", 0.0)) or 0.0),
-        "logistics": float(financial_kpi.get("logistics", totals.get("logistics", 0.0)) or 0.0),
-        "storage": float(financial_kpi.get("storage", totals.get("storage", 0.0)) or 0.0),
-        "penalties": float(financial_kpi.get("penalties", totals.get("penalties", 0.0)) or 0.0),
-        "deductions": float(financial_kpi.get("deductions", totals.get("deductions", 0.0)) or 0.0),
-        "loyalty_program": float(financial_kpi.get("loyalty_program", totals.get("loyalty_program", 0.0)) or 0.0),
-        "loyalty_points_withheld": float(
-            financial_kpi.get("loyalty_points_withheld", totals.get("loyalty_points_withheld", 0.0)) or 0.0
-        ),
-        "loyalty_total": float(financial_kpi.get("loyalty_total", totals.get("loyalty_total", 0.0)) or 0.0),
-        "other_adjustments": float(financial_kpi.get("other_adjustments", totals.get("other_adjustments", 0.0)) or 0.0),
-        "tax": float(financial_kpi.get("tax", totals.get("tax", 0.0)) or 0.0),
-        "ads_spend": float(financial_kpi.get("ads_spend", totals.get("ads_spend", 0.0)) or 0.0),
-        "gross_profit": float(financial_kpi.get("gross_profit", totals.get("gross_profit", 0.0)) or 0.0),
-        "net_profit": float(financial_kpi.get("net_profit", totals.get("net_profit", totals.get("total_profit", totals.get("profit", 0.0)))) or 0.0),
-        "margin_pct": float(financial_kpi.get("margin_pct", totals.get("margin_pct", 0.0)) or 0.0),
-        "profitability_pct": float(financial_kpi.get("profitability_pct", totals.get("profitability_pct", 0.0)) or 0.0),
+        "revenue": float(financial_kpi.get("revenue", 0.0) or 0.0),
+        "gross_revenue": float(financial_kpi.get("gross_revenue", 0.0) or 0.0),
+        "wb_realized_revenue": float(financial_kpi.get("wb_realized_revenue", 0.0) or 0.0),
+        "seller_payout": float(financial_kpi.get("seller_payout", 0.0) or 0.0),
+        "row_revenue_total": float(financial_kpi.get("row_revenue_total", 0.0) or 0.0),
+        "cost_price": float(financial_kpi.get("cost_price", 0.0) or 0.0),
+        "wb_commission": float(financial_kpi.get("wb_commission", 0.0) or 0.0),
+        "acquiring": float(financial_kpi.get("acquiring", 0.0) or 0.0),
+        "pvz_service": float(financial_kpi.get("pvz_service", 0.0) or 0.0),
+        "logistics": float(financial_kpi.get("logistics", 0.0) or 0.0),
+        "storage": float(financial_kpi.get("storage", 0.0) or 0.0),
+        "penalties": float(financial_kpi.get("penalties", 0.0) or 0.0),
+        "deductions": float(financial_kpi.get("deductions", 0.0) or 0.0),
+        "loyalty_program": float(financial_kpi.get("loyalty_program", 0.0) or 0.0),
+        "loyalty_points_withheld": float(financial_kpi.get("loyalty_points_withheld", 0.0) or 0.0),
+        "loyalty_total": float(financial_kpi.get("loyalty_total", 0.0) or 0.0),
+        "other_adjustments": float(financial_kpi.get("other_adjustments", 0.0) or 0.0),
+        "tax": float(financial_kpi.get("tax", 0.0) or 0.0),
+        "ads_spend": float(financial_kpi.get("ads_spend", 0.0) or 0.0),
+        "gross_profit": float(financial_kpi.get("gross_profit", 0.0) or 0.0),
+        "net_profit": float(financial_kpi.get("net_profit", 0.0) or 0.0),
+        "margin_pct": float(financial_kpi.get("margin_pct", 0.0) or 0.0),
+        "profitability_pct": float(financial_kpi.get("profitability_pct", 0.0) or 0.0),
         "cost_price_missing": bool(financial_kpi.get("cost_price_missing", False)),
         "wb_commission_missing": bool(financial_kpi.get("wb_commission_missing", False)),
         "expense_attribution_partial": bool(financial_kpi.get("expense_attribution_partial", False)),

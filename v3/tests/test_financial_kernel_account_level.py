@@ -93,9 +93,9 @@ class TestFinancialKernelAccountLevel(unittest.TestCase):
         self.assertAlmostEqual(breakdown.payment_services_compensation_amount, 8.00, places=2)
         self.assertAlmostEqual(breakdown.total_commission, 390.00, places=2)
 
-        self.assertEqual(result.kernel_status, "financial_kernel_ported_not_connected")
+        self.assertEqual(result.kernel_status, "financial_kernel_connected_active_pipeline")
         self.assertFalse(bool(result.sku_financials))
-        self.assertEqual(str(result.cogs_diagnostics.get("mode") or ""), "v2_parity_account_and_sku_pnl")
+        self.assertEqual(str(result.cogs_diagnostics.get("mode") or ""), "v2_parity_account_and_sku_pnl_connected")
         self.assertEqual(int(result.cogs_diagnostics.get("cogs_rows_loaded", 0) or 0), 1)
         self.assertTrue(bool(result.cogs_diagnostics.get("cogs_ported")))
         self.assertTrue(bool(result.cogs_diagnostics.get("sku_pnl_ported")))
@@ -106,7 +106,7 @@ class TestFinancialKernelAccountLevel(unittest.TestCase):
 
         self.assertIn("financial_kernel_rows_empty", warning_codes)
         self.assertIn("financial_kernel_input_missing_groups", warning_codes)
-        self.assertEqual(result.kernel_status, "financial_kernel_ported_not_connected")
+        self.assertEqual(result.kernel_status, "financial_kernel_connected_active_pipeline")
         self.assertEqual(result.account_financial_totals.rows_count, 0)
         self.assertAlmostEqual(result.account_financial_totals.profit, 0.0, places=2)
 

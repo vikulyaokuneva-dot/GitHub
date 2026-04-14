@@ -13,9 +13,186 @@ from ..domain.event_model import (
     build_render_kpi_values,
 )
 from ..analytics.sales_funnel import build_sales_funnel_metrics
+from ..metrics import FinancialKernelInput, run_financial_kernel
 from ..metrics.cabinet_funnel_builder import build_cabinet_funnel_core
 from ..metrics.sku_daily_dynamics_builder import build_sku_daily_dynamics
 from .daily_stage_support import sync_from_entry
+
+
+def _safe_float_local(value: Any, default: float = 0.0) -> float:
+    try:
+        if value is None or value == "":
+            return float(default)
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def _safe_int_local(value: Any, default: int = 0) -> int:
+    try:
+        if value is None or value == "":
+            return int(default)
+        return int(float(value))
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def _kernel_row_to_dict(row: Any) -> Dict[str, Any]:
+    if isinstance(row, dict):
+        return dict(row)
+    if hasattr(row, "__dict__"):
+        return dict(getattr(row, "__dict__", {}) or {})
+    return {}
+
+
+def _apply_kernel_totals_to_metrics_totals(
+    *,
+    base_totals: Dict[str, Any],
+    account_totals: Dict[str, Any],
+    ads_spend: float,
+) -> Dict[str, Any]:
+    out = dict(base_totals if isinstance(base_totals, dict) else {})
+    gross_revenue = _safe_float_local(account_totals.get("gross_revenue"))
+    payout = _safe_float_local(account_totals.get("payout"))
+    commission = _safe_float_local(account_totals.get("commission"))
+    logistics = _safe_float_local(account_totals.get("logistics"))
+    storage = _safe_float_local(account_totals.get("storage"))
+    penalties = _safe_float_local(account_totals.get("penalties"))
+    tax = _safe_float_local(account_totals.get("tax"))
+    cogs_total = _safe_float_local(account_totals.get("cogs_total"))
+    net_profit = _safe_float_local(account_totals.get("profit"))
+    margin = _safe_float_local(account_totals.get("margin"))
+    profitability_pct = (net_profit / cogs_total * 100.0) if abs(cogs_total) > 1e-9 else None
+
+    out.update(
+        {
+            "gross_revenue": round(gross_revenue, 2),
+            "wb_realized_revenue": round(gross_revenue, 2),
+            "seller_payout": round(payout, 2),
+            "total_revenue": round(payout, 2),
+            "revenue": round(payout, 2),
+            "row_revenue_total": round(gross_revenue, 2),
+            "cost_price": round(cogs_total, 2),
+            "cogs": round(cogs_total, 2),
+            "wb_commission": round(commission, 2),
+            "logistics": round(logistics, 2),
+            "storage": round(storage, 2),
+            "penalties": round(penalties, 2),
+            "tax": round(tax, 2),
+            "net_profit": round(net_profit, 2),
+            "profit": round(net_profit, 2),
+            "total_profit": round(net_profit, 2),
+            "margin_pct": round(margin * 100.0, 2),
+            "profitability_pct": round(profitability_pct, 2) if profitability_pct is not None else None,
+            "ads_spend": round(ads_spend, 2),
+            "ads_spend_total": round(ads_spend, 2),
+        }
+    )
+    return out
+
+
+def _build_financial_kpi_from_kernel(
+    *,
+    account_totals: Dict[str, Any],
+    cogs_diagnostics: Dict[str, Any],
+    ads_spend: float,
+) -> Dict[str, Any]:
+    gross_revenue = _safe_float_local(account_totals.get("gross_revenue"))
+    seller_payout = _safe_float_local(account_totals.get("payout"))
+    commission = _safe_float_local(account_totals.get("commission"))
+    logistics = _safe_float_local(account_totals.get("logistics"))
+    storage = _safe_float_local(account_totals.get("storage"))
+    penalties = _safe_float_local(account_totals.get("penalties"))
+    tax = _safe_float_local(account_totals.get("tax"))
+    cost_price = _safe_float_local(account_totals.get("cogs_total"))
+    net_profit = _safe_float_local(account_totals.get("profit"))
+    gross_profit = seller_payout - cost_price - commission
+    margin_pct = (net_profit / seller_payout * 100.0) if abs(seller_payout) > 1e-9 else None
+    profitability_pct = (net_profit / cost_price * 100.0) if abs(cost_price) > 1e-9 else None
+
+    cogs_status = str(cogs_diagnostics.get("cogs_status") or "").strip().lower()
+    cogs_coverage_pct = cogs_diagnostics.get("cogs_coverage_pct")
+    completeness_pct = _safe_float_local(
+        cogs_coverage_pct,
+        default=100.0 if _safe_int_local(account_totals.get("rows_count"), 0) > 0 else 0.0,
+    )
+    cost_price_missing = cogs_status in {"file_not_found", "file_found_not_read", "file_read_not_matched"}
+    expense_attribution_partial = cogs_status == "partial_match"
+    net_profit_partial = bool(cost_price_missing or expense_attribution_partial)
+    financial_status = "partial" if net_profit_partial else "ok"
+    financial_finality_status = "partial" if net_profit_partial else "final"
+    components = {
+        "revenue": {"available": True},
+        "seller_payout": {"available": True},
+        "gross_revenue": {"available": True},
+        "commission": {"available": True},
+        "acquiring": {"available": True},
+        "pvz_service": {"available": True},
+        "logistics": {"available": True},
+        "storage": {"available": True},
+        "penalties": {"available": True},
+        "deductions": {"available": True},
+        "loyalty_program": {"available": True},
+        "loyalty_points_withheld": {"available": True},
+        "other_adjustments": {"available": True},
+        "cost_price": {"available": not cost_price_missing},
+        "tax": {"available": True},
+        "ads_spend": {"available": True},
+        "net_profit": {"available": True},
+    }
+    available_components = sum(1 for value in components.values() if bool((value or {}).get("available")))
+    return {
+        "revenue": round(seller_payout, 2),
+        "gross_revenue": round(gross_revenue, 2),
+        "wb_realized_revenue": round(gross_revenue, 2),
+        "seller_payout": round(seller_payout, 2),
+        "row_revenue_total": round(gross_revenue, 2),
+        "revenue_basis": "seller_payout",
+        "cost_price": round(cost_price, 2),
+        "cogs": round(cost_price, 2),
+        "wb_commission": round(commission, 2),
+        "acquiring": 0.0,
+        "pvz_service": 0.0,
+        "logistics": round(logistics, 2),
+        "storage": round(storage, 2),
+        "penalties": round(penalties, 2),
+        "deductions": 0.0,
+        "loyalty_program": 0.0,
+        "loyalty_points_withheld": 0.0,
+        "loyalty_total": 0.0,
+        "other_adjustments": 0.0,
+        "tax": round(tax, 2),
+        "ads_spend": round(_safe_float_local(ads_spend), 2),
+        "gross_profit": round(gross_profit, 2),
+        "net_profit": round(net_profit, 2),
+        "margin_pct": round(margin_pct, 2) if margin_pct is not None else None,
+        "profitability_pct": round(profitability_pct, 2) if profitability_pct is not None else None,
+        "cost_price_missing": bool(cost_price_missing),
+        "wb_commission_missing": False,
+        "expense_attribution_partial": bool(expense_attribution_partial),
+        "net_profit_partial": bool(net_profit_partial),
+        "financial_margin_not_final": bool(net_profit_partial),
+        "completeness_pct": round(completeness_pct, 2),
+        "components": components,
+        "available_components": int(available_components),
+        "total_components": int(len(components)),
+        "financial_finality_status": financial_finality_status,
+        "financial_status": financial_status,
+        "is_partial": bool(net_profit_partial),
+        "financial_partial": bool(net_profit_partial),
+        "basis": "kernel",
+        "source_priority": {
+            "revenue": "financial_kernel",
+            "seller_payout": "financial_kernel",
+            "gross_revenue": "financial_kernel",
+            "wb_commission": "financial_kernel",
+            "logistics": "financial_kernel",
+            "storage": "financial_kernel",
+            "tax": "financial_kernel",
+            "net_profit": "financial_kernel",
+            "cost_price": "financial_kernel",
+        },
+    }
 
 
 def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
@@ -102,9 +279,99 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "api_realization_rows": len(raw_bundle.api_realization_rows),
         }
         input_debug["normalization_layer"] = normalized_bundle.debug if isinstance(normalized_bundle.debug, dict) else {}
+    metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(metrics_data_quality, dict):
+        metrics_data_quality = {}
+
     totals_for_daily = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
     if not isinstance(totals_for_daily, dict):
         totals_for_daily = {}
+
+    tax_rate = _safe_float_local(
+        cfg.get("tax_rate", cfg.get("financial_tax_rate", cfg.get("usn_tax_rate", 0.06))),
+        default=0.06,
+    )
+    if tax_rate < 0:
+        tax_rate = 0.0
+    cogs_rows = ctx.get("cogs_rows")
+    if not isinstance(cogs_rows, list):
+        cogs_rows = None
+    cogs_file_found_raw = ctx.get("cogs_file_found")
+    cogs_file_found = cogs_file_found_raw if isinstance(cogs_file_found_raw, bool) else None
+
+    kernel_output = run_financial_kernel(
+        FinancialKernelInput(
+            realization_rows=sales_rows if isinstance(sales_rows, list) else [],
+            tax_rate=tax_rate,
+            cogs_rows=cogs_rows,
+            cogs_file_found=cogs_file_found,
+            source_meta={
+                "seller_id": seller_id,
+                "run_date": run_date,
+                "source_mode": source_mode,
+                "financial_rows": len(sales_rows if isinstance(sales_rows, list) else []),
+            },
+        )
+    )
+    kernel_account_totals = _kernel_row_to_dict(getattr(kernel_output, "account_financial_totals", {}))
+    kernel_sku_financials = {
+        int(sku): _kernel_row_to_dict(row)
+        for sku, row in (getattr(kernel_output, "sku_financials", {}) or {}).items()
+    }
+    kernel_cogs_diagnostics = (
+        dict(getattr(kernel_output, "cogs_diagnostics", {}) or {})
+        if isinstance(getattr(kernel_output, "cogs_diagnostics", {}), dict)
+        else {}
+    )
+    kernel_warnings = [
+        item for item in (getattr(kernel_output, "warnings", []) or []) if isinstance(item, dict)
+    ]
+    if kernel_warnings:
+        warnings_collector.extend_warnings(kernel_warnings)
+
+    ads_spend_total = _safe_float_local(
+        totals_for_daily.get("ads_spend_total", totals_for_daily.get("ads_spend", 0.0))
+    )
+    totals_for_daily = _apply_kernel_totals_to_metrics_totals(
+        base_totals=totals_for_daily,
+        account_totals=kernel_account_totals,
+        ads_spend=ads_spend_total,
+    )
+    metrics["totals"] = totals_for_daily
+
+    financial_kpi = _build_financial_kpi_from_kernel(
+        account_totals=kernel_account_totals,
+        cogs_diagnostics=kernel_cogs_diagnostics,
+        ads_spend=ads_spend_total,
+    )
+    if not isinstance(financial_kpi, dict):
+        financial_kpi = {}
+    financial_assembly = {"financial_kpi": financial_kpi, "warning_additions": []}
+    metrics_data_quality.update(
+        {
+            "financial_status": str(financial_kpi.get("financial_status") or "degraded"),
+            "financial_partial": bool(financial_kpi.get("is_partial", True)),
+            "financial_finality_status": str(financial_kpi.get("financial_finality_status") or "unavailable"),
+            "financial_completeness_pct": float(financial_kpi.get("completeness_pct", 0.0) or 0.0),
+            "cost_price_missing": bool(financial_kpi.get("cost_price_missing", False)),
+            "wb_commission_missing": bool(financial_kpi.get("wb_commission_missing", False)),
+            "expense_attribution_partial": bool(financial_kpi.get("expense_attribution_partial", False)),
+            "net_profit_partial": bool(financial_kpi.get("net_profit_partial", False)),
+            "financial_margin_not_final": bool(financial_kpi.get("financial_margin_not_final", False)),
+            "financial_kernel_status": str(getattr(kernel_output, "kernel_status", "") or ""),
+        }
+    )
+    metrics["data_quality"] = metrics_data_quality
+    metrics["financial_kpi"] = financial_kpi
+    metrics["financial_kernel"] = {
+        "kernel_status": str(getattr(kernel_output, "kernel_status", "") or ""),
+        "account_financial_totals": kernel_account_totals,
+        "sku_financials": kernel_sku_financials,
+        "cogs_diagnostics": kernel_cogs_diagnostics,
+        "warnings": kernel_warnings,
+    }
+    metrics["sku_financials"] = kernel_sku_financials
+
     daily_kpi = resolve_daily_kpi(
         totals_for_daily,
         supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {},
@@ -112,17 +379,6 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         api_sales_rows if isinstance(api_sales_rows, list) else [],
         api_realization_rows if isinstance(api_realization_rows, list) else [],
     )
-    metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
-    if not isinstance(metrics_data_quality, dict):
-        metrics_data_quality = {}
-    financial_assembly = assemble_financial_kpi(
-        totals=totals_for_daily if isinstance(totals_for_daily, dict) else {},
-        data_quality=metrics_data_quality if isinstance(metrics_data_quality, dict) else {},
-    )
-    financial_kpi = financial_assembly.get("financial_kpi", {}) if isinstance(financial_assembly, dict) else {}
-    if not isinstance(financial_kpi, dict):
-        financial_kpi = {}
-    metrics["financial_kpi"] = financial_kpi
     ads_assembly = assemble_ads_summary(
         metrics=metrics if isinstance(metrics, dict) else {},
         input_debug=input_debug if isinstance(input_debug, dict) else {},
@@ -213,7 +469,9 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
         data_sources=data_sources if isinstance(data_sources, dict) else {},
     )
-    financial_kpi.update(financial_contract if isinstance(financial_contract, dict) else {})
+    if isinstance(financial_contract, dict):
+        financial_kpi["contract_date"] = financial_contract.get("date")
+        financial_kpi["confirmed"] = bool(financial_contract.get("confirmed", False))
 
     metrics = apply_metrics_assembly_patches(
         metrics=metrics if isinstance(metrics, dict) else {},
@@ -681,6 +939,8 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "api_debug": api_debug,
             "metrics": metrics,
             "financial_kpi": financial_kpi,
+            "financial_kernel": metrics.get("financial_kernel", {}) if isinstance(metrics, dict) else {},
+            "kernel_sku_financials": kernel_sku_financials,
             "ads_summary": ads_summary,
             "ads_diagnostics_summary": ads_diagnostics_summary,
             "ads_rows_count": ads_rows_count,

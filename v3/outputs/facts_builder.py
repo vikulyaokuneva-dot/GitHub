@@ -155,6 +155,32 @@ def build_daily_facts_base(
     facts["finance"] = _dict_or_empty(sections.get("finance"))
     facts["funnel"] = _dict_or_empty(sections.get("funnel"))
     facts["ads"] = _dict_or_empty(sections.get("ads"))
+    safe_financial_kpi = financial_kpi if isinstance(financial_kpi, dict) else {}
+    safe_daily_kpi = daily_kpi if isinstance(daily_kpi, dict) else {}
+    if safe_financial_kpi:
+        facts["financial_kpi"] = dict(safe_financial_kpi)
+        facts["kpi"] = {
+            "revenue": safe_financial_kpi.get("revenue"),
+            "profit": safe_financial_kpi.get("net_profit"),
+            "orders": safe_daily_kpi.get("daily_orders_count"),
+            "buyouts": safe_daily_kpi.get("daily_buyouts_count"),
+            "orders_amount": safe_daily_kpi.get("daily_orders_amount"),
+            "buyouts_amount": safe_daily_kpi.get("daily_buyouts_amount"),
+        }
+        facts["commerce_kpi"] = {
+            "daily_orders_count": safe_daily_kpi.get("daily_orders_count"),
+            "daily_orders_amount": safe_daily_kpi.get("daily_orders_amount"),
+            "daily_buyouts_count": safe_daily_kpi.get("daily_buyouts_count"),
+            "daily_buyouts_amount": safe_daily_kpi.get("daily_buyouts_amount"),
+            "data_source_orders_count": safe_daily_kpi.get("data_source_orders_count"),
+            "data_source_orders_amount": safe_daily_kpi.get("data_source_orders_amount"),
+            "data_source_buyouts_count": safe_daily_kpi.get("data_source_buyouts_count"),
+            "data_source_buyouts_amount": safe_daily_kpi.get("data_source_buyouts_amount"),
+            "orders_count_confirmed": bool(safe_daily_kpi.get("orders_count_confirmed", False)),
+            "buyouts_count_confirmed": bool(safe_daily_kpi.get("buyouts_count_confirmed", False)),
+            "orders_amount_confirmed": bool(safe_daily_kpi.get("orders_amount_confirmed", False)),
+            "buyouts_amount_confirmed": bool(safe_daily_kpi.get("buyouts_amount_confirmed", False)),
+        }
     if isinstance(sections.get("data_quality"), dict):
         facts["data_quality"] = dict(sections.get("data_quality") or {})
     return facts

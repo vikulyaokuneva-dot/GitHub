@@ -1070,7 +1070,11 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         financial_kpi_payload.get("wb_realized_revenue"),
         data.get("wb_realized_revenue_total"),
     )
-    revenue_visual = seller_payout_visual
+    revenue_visual = _first_number_local(
+        financial_kpi_payload.get("revenue"),
+        data.get("revenue_total"),
+        seller_payout_visual,
+    )
     net_profit_visual = _first_number_local(
         net_profit_value,
         data.get("net_profit"),
@@ -1152,12 +1156,13 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         ad_spend_visual = None
     if not _component_available("net_profit"):
         net_profit_visual = None
+    profit_base_visual = _first_number_local(gross_revenue_visual, revenue_visual)
 
     def _nz(value: Any) -> float:
         return float(value) if value is not None else 0.0
 
     explained_net_profit = (
-        _nz(revenue_visual)
+        _nz(profit_base_visual)
         - _nz(cost_price_visual)
         - _nz(commission_visual)
         - _nz(acquiring_visual)
@@ -1181,7 +1186,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     financial_structure_complete = all(
         component is not None
         for component in (
-            revenue_visual,
+            profit_base_visual,
             commission_visual,
             acquiring_visual,
             pvz_service_visual,
@@ -1204,7 +1209,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         explained_net_profit = None
         net_profit_explain_delta = None
     operating_profit_without_cogs: float | None = None
-    if revenue_visual is not None:
+    if profit_base_visual is not None:
         operating_components = (
             commission_visual,
             acquiring_visual,
@@ -1221,7 +1226,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         )
         if any(component is not None for component in operating_components):
             operating_profit_without_cogs = (
-                _nz(revenue_visual)
+                _nz(profit_base_visual)
                 - _nz(commission_visual)
                 - _nz(acquiring_visual)
                 - _nz(pvz_service_visual)
@@ -1774,26 +1779,58 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             return "РЅРµС‚ РґР°РЅРЅС‹С…"
         return f"{int(round(number)):,}".replace(",", " ") + " в‚Ѕ"
 
+    kernel_sku_financials_payload = data.get("kernel_sku_financials", {})
+    if not isinstance(kernel_sku_financials_payload, dict):
+        kernel_sku_financials_payload = {}
+    if not kernel_sku_financials_payload:
+        metrics_payload = data.get("metrics", {})
+        if isinstance(metrics_payload, dict):
+            financial_kernel_payload = metrics_payload.get("financial_kernel", {})
+            if isinstance(financial_kernel_payload, dict):
+                from_metrics = financial_kernel_payload.get("sku_financials", {})
+                if isinstance(from_metrics, dict):
+                    kernel_sku_financials_payload = from_metrics
+
     sku_profit_candidates: List[Dict[str, Any]] = []
-    for row in sku_metrics:
-        if not isinstance(row, dict):
-            continue
-        sku = _safe_sku_local(row)
-        if not sku:
-            continue
-        revenue_num = _first_number_local(row.get("revenue"), row.get("orders_amount"), row.get("buyouts_amount"))
-        ads_num = _first_number_local(row.get("ads_spend"), row.get("ad_spend"), row.get("ads_cost"))
-        profit_num = _first_number_local(row.get("profit"), row.get("net_profit"))
-        if revenue_num is None and ads_num is None and profit_num is None:
-            continue
-        sku_profit_candidates.append(
-            {
-                "sku": sku,
-                "revenue_num": revenue_num,
-                "ads_num": ads_num,
-                "profit_num": profit_num,
-            }
-        )
+    if isinstance(kernel_sku_financials_payload, dict) and kernel_sku_financials_payload:
+        for sku_key, row in kernel_sku_financials_payload.items():
+            if not isinstance(row, dict):
+                continue
+            sku = _safe_sku_local({"sku": sku_key})
+            if not sku:
+                continue
+            revenue_num = _first_number_local(row.get("payout"), row.get("net_revenue"), row.get("sales_revenue"))
+            profit_num = _first_number_local(row.get("profit"))
+            if revenue_num is None and profit_num is None:
+                continue
+            sku_profit_candidates.append(
+                {
+                    "sku": sku,
+                    "revenue_num": revenue_num,
+                    "ads_num": None,
+                    "profit_num": profit_num,
+                }
+            )
+    else:
+        for row in sku_metrics:
+            if not isinstance(row, dict):
+                continue
+            sku = _safe_sku_local(row)
+            if not sku:
+                continue
+            revenue_num = _first_number_local(row.get("revenue"), row.get("orders_amount"), row.get("buyouts_amount"))
+            ads_num = _first_number_local(row.get("ads_spend"), row.get("ad_spend"), row.get("ads_cost"))
+            profit_num = _first_number_local(row.get("profit"), row.get("net_profit"))
+            if revenue_num is None and ads_num is None and profit_num is None:
+                continue
+            sku_profit_candidates.append(
+                {
+                    "sku": sku,
+                    "revenue_num": revenue_num,
+                    "ads_num": ads_num,
+                    "profit_num": profit_num,
+                }
+            )
 
     sku_profit_candidates = sorted(
         sku_profit_candidates,

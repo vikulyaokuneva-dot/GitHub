@@ -76,24 +76,28 @@ def _operation_label(row: Dict[str, Any]) -> str:
 
 
 def _is_sale(operation: str) -> bool:
-    # v2 parity: sale if contains "продаж" and does not contain "возврат".
-    return ("продаж" in operation) and ("возврат" not in operation)
+    sale_markers = ("продаж", "реализац", "РїСЂРѕРґР°Р¶")
+    return_markers = ("возврат", "return", "refund", "сторно", "РІРѕР·РІСЂР°С‚")
+    return any(marker in operation for marker in sale_markers) and not any(
+        marker in operation for marker in return_markers
+    )
 
 
 def _is_return(operation: str) -> bool:
-    return ("возврат" in operation) or ("return" in operation)
+    return_markers = ("возврат", "return", "refund", "сторно", "РІРѕР·РІСЂР°С‚")
+    return any(marker in operation for marker in return_markers)
 
 
 def _is_logistics(operation: str) -> bool:
-    return "логист" in operation
+    return ("логист" in operation) or ("доставк" in operation) or ("Р»РѕРіРёСЃС‚" in operation)
 
 
 def _is_storage(operation: str) -> bool:
-    return "хран" in operation
+    return ("хран" in operation) or ("storage" in operation) or ("С…СЂР°РЅ" in operation)
 
 
 def _is_penalty(operation: str) -> bool:
-    return ("штраф" in operation) or ("penalty" in operation) or ("fine" in operation)
+    return ("штраф" in operation) or ("С€С‚СЂР°С„" in operation) or ("penalty" in operation) or ("fine" in operation)
 
 
 def describe_financial_kernel_contract() -> Dict[str, Any]:
@@ -121,7 +125,7 @@ def describe_financial_kernel_contract() -> Dict[str, Any]:
             "kernel_status": "str",
         },
         "financial_row_aliases": FINANCIAL_ROW_FIELD_ALIASES,
-        "migration_mode": "account_and_cogs_and_sku_pnl_ported_not_connected",
+        "migration_mode": "account_and_cogs_and_sku_pnl_ported_connected",
     }
 
 
@@ -560,7 +564,7 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         total_commission=round(commission, 2),
     )
     cogs_diagnostics: Dict[str, Any] = {
-        "mode": "v2_parity_account_and_sku_pnl",
+        "mode": "v2_parity_account_and_sku_pnl_connected",
         "cogs_status": cogs_status,
         "cogs_file_found": bool(file_found),
         "cogs_rows_loaded": int(cogs_rows_loaded),
@@ -598,5 +602,5 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         cogs_diagnostics=cogs_diagnostics,
         warnings=warnings,
         source_meta=dict(payload.source_meta or {}),
-        kernel_status="financial_kernel_ported_not_connected",
+        kernel_status="financial_kernel_connected_active_pipeline",
     )
