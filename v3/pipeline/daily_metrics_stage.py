@@ -414,6 +414,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         api_orders_rows if isinstance(api_orders_rows, list) else [],
         api_sales_rows if isinstance(api_sales_rows, list) else [],
         api_realization_rows if isinstance(api_realization_rows, list) else [],
+        source_mode=str(source_mode or ""),
     )
     ads_assembly = assemble_ads_summary(
         metrics=metrics if isinstance(metrics, dict) else {},

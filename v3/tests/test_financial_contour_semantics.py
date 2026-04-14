@@ -60,6 +60,82 @@ class TestFinancialContourSemantics(unittest.TestCase):
         self.assertTrue(bool(daily_kpi.get("buyouts_amount_confirmed", False)))
         self.assertAlmostEqual(float(daily_kpi.get("daily_buyouts_amount", 0.0) or 0.0), 458.42, places=2)
 
+    def test_wb_api_orders_amount_uses_orders_source_not_sales_source(self) -> None:
+        daily_kpi = resolve_daily_kpi(
+            totals={},
+            supplier_goods_daily={},
+            api_orders_rows=[
+                {"order_id": 1, "price": 1000.0},
+                {"order_id": 2, "price": 774.33},
+                {"order_id": 3, "price": 250.0},
+                {"order_id": 4, "price": 200.0},
+                {"order_id": 5, "price": 100.0},
+                {"order_id": 6, "price": 50.0},
+            ],
+            api_sales_rows=[
+                {"sale_id": 1, "price": 500.0},
+                {"sale_id": 2, "price": 700.0},
+                {"sale_id": 3, "price": 574.33},
+            ],
+            api_realization_rows=[],
+            source_mode="wb_api",
+        )
+        self.assertEqual(int(daily_kpi.get("daily_orders_count", 0) or 0), 6)
+        self.assertEqual(int(daily_kpi.get("daily_buyouts_count", 0) or 0), 3)
+        self.assertEqual(str(daily_kpi.get("data_source_orders_amount") or ""), "orders_api")
+        self.assertEqual(str(daily_kpi.get("data_source_buyouts_amount") or ""), "sales_api")
+        self.assertTrue(bool(daily_kpi.get("orders_amount_confirmed", False)))
+        self.assertTrue(bool(daily_kpi.get("buyouts_amount_confirmed", False)))
+        self.assertAlmostEqual(float(daily_kpi.get("daily_orders_amount", 0.0) or 0.0), 2374.33, places=2)
+        self.assertAlmostEqual(float(daily_kpi.get("daily_buyouts_amount", 0.0) or 0.0), 1774.33, places=2)
+        self.assertNotAlmostEqual(
+            float(daily_kpi.get("daily_orders_amount", 0.0) or 0.0),
+            float(daily_kpi.get("daily_buyouts_amount", 0.0) or 0.0),
+            places=2,
+        )
+
+    def test_wb_api_does_not_mix_supplier_goods_without_explicit_flag(self) -> None:
+        daily_kpi = resolve_daily_kpi(
+            totals={},
+            supplier_goods_daily={
+                "found": True,
+                "source_file": "supplier.xlsx",
+                "orders_count": 999,
+                "orders_amount": 99999.0,
+                "buyouts_count": 888,
+                "buyouts_amount": 88888.0,
+                "orders_count_confirmed": True,
+                "buyouts_count_confirmed": True,
+                "amounts_confirmed": True,
+            },
+            api_orders_rows=[{"order_id": 1, "price": 100.0}, {"order_id": 2, "price": 200.0}],
+            api_sales_rows=[{"sale_id": 1, "price": 150.0}],
+            api_realization_rows=[],
+            source_mode="wb_api",
+        )
+        self.assertTrue(bool(daily_kpi.get("supplier_goods_ignored_in_wb_api", False)))
+        self.assertEqual(str(daily_kpi.get("data_source_orders_count") or ""), "orders_api")
+        self.assertEqual(str(daily_kpi.get("data_source_orders_amount") or ""), "orders_api")
+        self.assertEqual(int(daily_kpi.get("daily_orders_count", 0) or 0), 2)
+        self.assertAlmostEqual(float(daily_kpi.get("daily_orders_amount", 0.0) or 0.0), 300.0, places=2)
+
+    def test_wb_api_orders_amount_stays_unknown_when_order_amount_signal_missing(self) -> None:
+        daily_kpi = resolve_daily_kpi(
+            totals={},
+            supplier_goods_daily={},
+            api_orders_rows=[{"order_id": 1}, {"order_id": 2}, {"order_id": 3}],
+            api_sales_rows=[{"sale_id": 1, "price": 500.0}, {"sale_id": 2, "price": 700.0}],
+            api_realization_rows=[],
+            source_mode="wb_api",
+        )
+        self.assertEqual(str(daily_kpi.get("data_source_orders_count") or ""), "orders_api")
+        self.assertEqual(str(daily_kpi.get("data_source_orders_amount") or ""), "unknown")
+        self.assertFalse(bool(daily_kpi.get("orders_amount_confirmed", False)))
+        self.assertAlmostEqual(float(daily_kpi.get("daily_orders_amount", 0.0) or 0.0), 0.0, places=2)
+        self.assertEqual(str(daily_kpi.get("data_source_buyouts_amount") or ""), "sales_api")
+        self.assertTrue(bool(daily_kpi.get("buyouts_amount_confirmed", False)))
+        self.assertAlmostEqual(float(daily_kpi.get("daily_buyouts_amount", 0.0) or 0.0), 1200.0, places=2)
+
 
 if __name__ == "__main__":
     unittest.main()
