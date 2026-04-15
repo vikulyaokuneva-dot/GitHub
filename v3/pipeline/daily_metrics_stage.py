@@ -102,6 +102,23 @@ def _filter_rows_by_day(rows: List[Dict[str, Any]], target_date: str) -> List[Di
     return filtered
 
 
+def _resolve_daily_filter_target_date(
+    *,
+    run_date: str,
+    event_date_model: Dict[str, Any],
+    api_debug: Dict[str, Any],
+) -> str:
+    safe_event_date_model = event_date_model if isinstance(event_date_model, dict) else {}
+    safe_api_debug = api_debug if isinstance(api_debug, dict) else {}
+    operational_date = _normalize_day_token(safe_event_date_model.get("operational_date"))
+    if operational_date:
+        return operational_date
+    api_date_from = _normalize_day_token(safe_api_debug.get("date_from"))
+    if api_date_from:
+        return api_date_from
+    return _normalize_day_token(run_date)
+
+
 def _kernel_row_to_dict(row: Any) -> Dict[str, Any]:
     if isinstance(row, dict):
         return dict(row)
@@ -313,6 +330,14 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     api_debug = ctx.get("api_debug", {})
     if not isinstance(api_debug, dict):
         api_debug = {}
+    event_date_model = ctx.get("event_date_model", {})
+    if not isinstance(event_date_model, dict):
+        event_date_model = {}
+    daily_filter_target_date = _resolve_daily_filter_target_date(
+        run_date=run_date,
+        event_date_model=event_date_model,
+        api_debug=api_debug,
+    )
 
     api_orders_rows_before_filter = len([row for row in api_orders_rows if isinstance(row, dict)])
     api_sales_rows_before_filter = len([row for row in api_sales_rows if isinstance(row, dict)])
@@ -321,9 +346,9 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     sales_dates_before = _sample_row_dates(api_sales_rows)
     realization_dates_before = _sample_row_dates(api_realization_rows)
 
-    api_orders_rows = _filter_rows_by_day(api_orders_rows, run_date)
-    api_sales_rows = _filter_rows_by_day(api_sales_rows, run_date)
-    api_realization_rows = _filter_rows_by_day(api_realization_rows, run_date)
+    api_orders_rows = _filter_rows_by_day(api_orders_rows, daily_filter_target_date)
+    api_sales_rows = _filter_rows_by_day(api_sales_rows, daily_filter_target_date)
+    api_realization_rows = _filter_rows_by_day(api_realization_rows, daily_filter_target_date)
 
     api_orders_rows_after_filter = len([row for row in api_orders_rows if isinstance(row, dict)])
     api_sales_rows_after_filter = len([row for row in api_sales_rows if isinstance(row, dict)])
@@ -336,7 +361,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     realization_rows_dropped_by_filter = max(api_realization_rows_before_filter - api_realization_rows_after_filter, 0)
 
     api_debug["daily_row_filter"] = {
-        "target_date": _normalize_day_token(run_date),
+        "target_date": _normalize_day_token(daily_filter_target_date),
         "orders_rows_before": api_orders_rows_before_filter,
         "orders_rows_after": api_orders_rows_after_filter,
         "orders_rows_dropped": orders_rows_dropped_by_filter,
@@ -355,7 +380,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     }
     print(
         "[daily_filter] "
-        f"target_date={_normalize_day_token(run_date) or 'invalid'} "
+        f"target_date={_normalize_day_token(daily_filter_target_date) or 'invalid'} "
         f"orders={api_orders_rows_before_filter}->{api_orders_rows_after_filter} "
         f"sales={api_sales_rows_before_filter}->{api_sales_rows_after_filter} "
         f"realization={api_realization_rows_before_filter}->{api_realization_rows_after_filter} "
@@ -531,6 +556,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         source_mode=str(source_mode or ""),
         input_debug=input_debug if isinstance(input_debug, dict) else {},
         api_debug=api_debug if isinstance(api_debug, dict) else {},
+        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
     )
     ads_assembly = assemble_ads_summary(
         metrics=metrics if isinstance(metrics, dict) else {},
@@ -601,7 +627,6 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data_sources, dict):
         data_sources = {}
 
-    event_date_model = ctx.get("event_date_model", {})
     if not isinstance(event_date_model, dict) or not event_date_model:
         event_date_model = build_event_date_model(
             run_date=run_date,

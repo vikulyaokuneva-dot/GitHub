@@ -1,6 +1,6 @@
 import unittest
 
-from v3.pipeline.daily_metrics_stage import _filter_rows_by_day
+from v3.pipeline.daily_metrics_stage import _filter_rows_by_day, _resolve_daily_filter_target_date
 
 
 class TestDailyMetricsRowFilter(unittest.TestCase):
@@ -31,6 +31,14 @@ class TestDailyMetricsRowFilter(unittest.TestCase):
         filtered = _filter_rows_by_day(rows, "2026-04-14")
         kept_ids = [str(row.get("id") or "") for row in filtered if isinstance(row, dict)]
         self.assertEqual(kept_ids, ["x1", "x2", "x3"])
+
+    def test_target_date_prefers_operational_date_over_run_date(self) -> None:
+        target = _resolve_daily_filter_target_date(
+            run_date="2026-04-15",
+            event_date_model={"report_date": "2026-04-15", "operational_date": "2026-04-14"},
+            api_debug={"date_from": "2026-04-13"},
+        )
+        self.assertEqual(target, "2026-04-14")
 
 
 if __name__ == "__main__":

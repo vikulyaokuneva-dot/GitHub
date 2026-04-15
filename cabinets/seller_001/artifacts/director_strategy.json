@@ -2,24 +2,10 @@
   "strategy": {
     "scale": [],
     "fix": [],
-    "watch": [
-      "1001",
-      "1002"
-    ],
+    "watch": [],
     "liquidate": []
   },
-  "tasks": [
-    {
-      "sku": "1001",
-      "task": "monitor",
-      "priority": "P3"
-    },
-    {
-      "sku": "1002",
-      "task": "monitor",
-      "priority": "P3"
-    }
-  ],
+  "tasks": [],
   "signals": [],
   "territorial_analysis_enabled": false,
   "territorial_actionable_enabled": false,

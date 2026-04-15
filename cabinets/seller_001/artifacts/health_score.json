@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-04-15T14:42:10Z",
+  "generated_at": "2026-04-15T15:49:06Z",
   "seller_id": "seller_001",
-  "date": "2026-04-01",
+  "date": "2026-04-15",
   "status": "ok",
   "warnings": [
-    "funnel_insufficient_data",
     "profit_missing",
-    "margin_missing"
+    "margin_missing",
+    "funnel_insufficient_data"
   ],
   "thresholds": {
     "orders_strong": 10.0,
@@ -29,28 +29,30 @@
   },
   "items": [
     {
-      "sku": "1002",
-      "health_score": 8.24,
+      "sku": "1001",
+      "health_score": 6.67,
       "health_status": "healthy",
       "status": "FIX",
       "scoring_status": "ok",
-      "confidence": "medium",
+      "confidence": "low",
       "factors": [
         "low_orders",
         "healthy_buyout_rate",
-        "strong_profitability",
-        "healthy_margin",
+        "profit_missing",
+        "margin_missing",
         "funnel_insufficient_data",
         "no_ads_activity"
       ],
       "warnings": [
+        "profit_missing",
+        "margin_missing",
         "funnel_insufficient_data"
       ],
       "reasons": [
         "low_orders",
         "healthy_buyout_rate",
-        "strong_profitability",
-        "healthy_margin",
+        "profit_missing",
+        "margin_missing",
         "funnel_insufficient_data",
         "no_ads_activity"
       ],
@@ -66,14 +68,14 @@
           "value": 1.0
         },
         "profit": {
-          "available": true,
+          "available": false,
           "weight": 2.5,
-          "value": 1.0
+          "value": 0.0
         },
         "margin": {
-          "available": true,
+          "available": false,
           "weight": 1.5,
-          "value": 1.0
+          "value": 0.0
         },
         "funnel": {
           "available": false,
@@ -105,28 +107,30 @@
       ]
     },
     {
-      "sku": "1001",
-      "health_score": 8.24,
+      "sku": "1002",
+      "health_score": 6.67,
       "health_status": "healthy",
       "status": "FIX",
       "scoring_status": "ok",
-      "confidence": "medium",
+      "confidence": "low",
       "factors": [
         "low_orders",
         "healthy_buyout_rate",
-        "strong_profitability",
-        "healthy_margin",
+        "profit_missing",
+        "margin_missing",
         "funnel_insufficient_data",
         "no_ads_activity"
       ],
       "warnings": [
+        "profit_missing",
+        "margin_missing",
         "funnel_insufficient_data"
       ],
       "reasons": [
         "low_orders",
         "healthy_buyout_rate",
-        "strong_profitability",
-        "healthy_margin",
+        "profit_missing",
+        "margin_missing",
         "funnel_insufficient_data",
         "no_ads_activity"
       ],
@@ -142,14 +146,14 @@
           "value": 1.0
         },
         "profit": {
-          "available": true,
+          "available": false,
           "weight": 2.5,
-          "value": 1.0
+          "value": 0.0
         },
         "margin": {
-          "available": true,
+          "available": false,
           "weight": 1.5,
-          "value": 1.0
+          "value": 0.0
         },
         "funnel": {
           "available": false,
@@ -270,7 +274,7 @@
       "healthy": 3,
       "strong": 0
     },
-    "average_health_score": 7.72,
+    "average_health_score": 6.67,
     "top_risk_sku": [],
     "top_strong_sku": [],
     "total_skus": 3,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
 DAILY_SOURCE_SUPPLIER_GOODS = "supplier_goods"
@@ -52,6 +53,50 @@ def _safe_int(value: Any) -> int:
         return int(round(float(value)))
     except (TypeError, ValueError):
         return 0
+
+
+def _normalize_day_token(value: Any) -> str:
+    text = str(value or "").strip()
+    if len(text) >= 10 and text[4:5] == "-" and text[7:8] == "-":
+        try:
+            return datetime.strptime(text[:10], "%Y-%m-%d").date().isoformat()
+        except Exception:
+            return ""
+    return ""
+
+
+def _row_day_token(row: Dict[str, Any]) -> str:
+    if not isinstance(row, dict):
+        return ""
+    for key in (
+        "date",
+        "orderDate",
+        "saleDate",
+        "order_dt",
+        "sale_dt",
+        "lastChangeDate",
+        "create_dt",
+        "createdAt",
+    ):
+        token = _normalize_day_token(row.get(key))
+        if token:
+            return token
+    return ""
+
+
+def _filter_rows_by_day(rows: List[Dict[str, Any]], target_date: str) -> List[Dict[str, Any]]:
+    if not isinstance(rows, list):
+        return []
+    target_day = _normalize_day_token(target_date)
+    if not target_day:
+        return [row for row in rows if isinstance(row, dict)]
+    out: List[Dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if _row_day_token(row) == target_day:
+            out.append(row)
+    return out
 
 
 def _row_price_fallback(row: Dict[str, Any]) -> float:
@@ -673,6 +718,7 @@ def resolve_daily_kpi(
     source_mode: str = "",
     input_debug: Dict[str, Any] | None = None,
     api_debug: Dict[str, Any] | None = None,
+    event_date_model: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     safe_totals = totals if isinstance(totals, dict) else {}
     safe_supplier = supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {}
@@ -681,6 +727,17 @@ def resolve_daily_kpi(
     safe_realization_rows = api_realization_rows if isinstance(api_realization_rows, list) else []
     safe_input_debug = input_debug if isinstance(input_debug, dict) else {}
     safe_api_debug = api_debug if isinstance(api_debug, dict) else {}
+    safe_event_date_model = event_date_model if isinstance(event_date_model, dict) else {}
+
+    target_date = _normalize_day_token(safe_event_date_model.get("operational_date"))
+    if not target_date:
+        target_date = _normalize_day_token(safe_api_debug.get("date_from"))
+    if not target_date:
+        target_date = _normalize_day_token(safe_api_debug.get("run_date_requested"))
+
+    safe_orders_rows = _filter_rows_by_day(safe_orders_rows, target_date)
+    safe_sales_rows = _filter_rows_by_day(safe_sales_rows, target_date)
+    safe_realization_rows = _filter_rows_by_day(safe_realization_rows, target_date)
 
     extracted = _extract_raw_daily_candidates(
         totals=safe_totals,

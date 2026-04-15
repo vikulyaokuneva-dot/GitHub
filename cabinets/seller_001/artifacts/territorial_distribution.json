@@ -1,6 +1,6 @@
 {
   "seller_id": "seller_001",
-  "report_date": "2026-04-01",
+  "report_date": "2026-04-15",
   "status": "insufficient_data",
   "warnings": [
     {
@@ -24,8 +24,8 @@
     "engine": "territorial_distribution_engine",
     "version": "2.1",
     "seller_id": "seller_001",
-    "run_date": "2026-04-01",
-    "generated_at": "2026-04-15T14:42:10Z",
+    "run_date": "2026-04-15",
+    "generated_at": "2026-04-15T15:49:06Z",
     "wb_irp_effective_date": "2026-03-23",
     "source_artifacts": [
       "metrics.json"

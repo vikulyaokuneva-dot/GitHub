@@ -1,18 +1,18 @@
 [
   {
-    "sku": "1002",
-    "revenue": 900.0,
-    "profit": 900.0,
-    "share": 0.529412,
-    "cumulative_share": 0.529412,
-    "abc_class": "A"
-  },
-  {
     "sku": "1001",
     "revenue": 800.0,
-    "profit": 800.0,
-    "share": 0.470588,
-    "cumulative_share": 1.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "1002",
+    "revenue": 900.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
     "abc_class": "C"
   },
   {
@@ -20,7 +20,7 @@
     "revenue": 880.0,
     "profit": 0.0,
     "share": 0.0,
-    "cumulative_share": 1.0,
+    "cumulative_share": 0.0,
     "abc_class": "C"
   }
 ]

@@ -5,65 +5,16 @@
   ],
   "summary": {
     "sku_count": 3,
-    "profit_sku_count": 2,
+    "profit_sku_count": 0,
     "loss_sku_count": 0,
-    "total_profit": 1700.0,
-    "top_profit_sku": [
-      {
-        "sku": "1002",
-        "revenue": 900.0,
-        "profit": 900.0,
-        "profit_share": 0.529412,
-        "profit_rank": 1,
-        "profit_group": "P1",
-        "status": "ok",
-        "warnings": [],
-        "cumulative_profit_share": 0.529412,
-        "class": "P1"
-      },
-      {
-        "sku": "1001",
-        "revenue": 800.0,
-        "profit": 800.0,
-        "profit_share": 0.470588,
-        "profit_rank": 2,
-        "profit_group": "P1",
-        "status": "ok",
-        "warnings": [],
-        "cumulative_profit_share": 1.0,
-        "class": "P1"
-      }
-    ],
+    "total_profit": 0,
+    "top_profit_sku": [],
     "top_loss_sku": [],
-    "profit_concentration": "low",
-    "top_20_profit_share": 0.529412,
+    "profit_concentration": "insufficient_data",
+    "top_20_profit_share": null,
     "status": "partial"
   },
   "items": [
-    {
-      "sku": "1002",
-      "revenue": 900.0,
-      "profit": 900.0,
-      "profit_share": 0.529412,
-      "profit_rank": 1,
-      "profit_group": "P1",
-      "status": "ok",
-      "warnings": [],
-      "cumulative_profit_share": 0.529412,
-      "class": "P1"
-    },
-    {
-      "sku": "1001",
-      "revenue": 800.0,
-      "profit": 800.0,
-      "profit_share": 0.470588,
-      "profit_rank": 2,
-      "profit_group": "P1",
-      "status": "ok",
-      "warnings": [],
-      "cumulative_profit_share": 1.0,
-      "class": "P1"
-    },
     {
       "sku": "1003",
       "revenue": 880.0,
@@ -75,36 +26,39 @@
       "warnings": [
         "profit_missing"
       ],
-      "cumulative_profit_share": 1.0,
+      "cumulative_profit_share": null,
       "class": "P3"
-    }
-  ],
-  "p1": [
+    },
     {
       "sku": "1002",
       "revenue": 900.0,
-      "profit": 900.0,
-      "profit_share": 0.529412,
-      "profit_rank": 1,
-      "profit_group": "P1",
-      "status": "ok",
-      "warnings": [],
-      "cumulative_profit_share": 0.529412,
-      "class": "P1"
+      "profit": null,
+      "profit_share": null,
+      "profit_rank": null,
+      "profit_group": "P3",
+      "status": "insufficient_data",
+      "warnings": [
+        "profit_missing"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
     },
     {
       "sku": "1001",
       "revenue": 800.0,
-      "profit": 800.0,
-      "profit_share": 0.470588,
-      "profit_rank": 2,
-      "profit_group": "P1",
-      "status": "ok",
-      "warnings": [],
-      "cumulative_profit_share": 1.0,
-      "class": "P1"
+      "profit": null,
+      "profit_share": null,
+      "profit_rank": null,
+      "profit_group": "P3",
+      "status": "insufficient_data",
+      "warnings": [
+        "profit_missing"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
     }
   ],
+  "p1": [],
   "p2": [],
   "p3": [
     {
@@ -118,39 +72,42 @@
       "warnings": [
         "profit_missing"
       ],
-      "cumulative_profit_share": 1.0,
+      "cumulative_profit_share": null,
       "class": "P3"
-    }
-  ],
-  "p4": [],
-  "top_profit_skus": [
+    },
     {
       "sku": "1002",
       "revenue": 900.0,
-      "profit": 900.0,
-      "profit_share": 0.529412,
-      "profit_rank": 1,
-      "profit_group": "P1",
-      "status": "ok",
-      "warnings": [],
-      "cumulative_profit_share": 0.529412,
-      "class": "P1"
+      "profit": null,
+      "profit_share": null,
+      "profit_rank": null,
+      "profit_group": "P3",
+      "status": "insufficient_data",
+      "warnings": [
+        "profit_missing"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
     },
     {
       "sku": "1001",
       "revenue": 800.0,
-      "profit": 800.0,
-      "profit_share": 0.470588,
-      "profit_rank": 2,
-      "profit_group": "P1",
-      "status": "ok",
-      "warnings": [],
-      "cumulative_profit_share": 1.0,
-      "class": "P1"
+      "profit": null,
+      "profit_share": null,
+      "profit_rank": null,
+      "profit_group": "P3",
+      "status": "insufficient_data",
+      "warnings": [
+        "profit_missing"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
     }
   ],
+  "p4": [],
+  "top_profit_skus": [],
   "meta": {
-    "total_profit": 1700.0,
+    "total_profit": 0,
     "sku_count": 3
   }
 }

@@ -145,7 +145,31 @@ class TestDailyKpiResolverRewrite(unittest.TestCase):
         self.assertEqual(str(daily_kpi.get("data_source_buyouts_count") or ""), "sales_api")
         self.assertEqual(str(daily_kpi.get("data_source_buyouts_amount") or ""), "sales_api")
 
+    def test_uses_operational_date_for_api_rows_filtering(self) -> None:
+        daily_kpi = resolve_daily_kpi(
+            totals={},
+            supplier_goods_daily={},
+            api_orders_rows=[
+                {"order_id": "o-prev", "date": "2026-04-13T10:00:00", "totalPrice": 777.0},
+                {"order_id": "o1", "date": "2026-04-14T10:00:00", "totalPrice": 1000.0},
+                {"order_id": "o2", "date": "2026-04-14T11:00:00", "totalPrice": 1200.0},
+                {"order_id": "o3", "date": "2026-04-14T12:00:00", "totalPrice": 1199.91},
+            ],
+            api_sales_rows=[
+                {"sale_id": "s-prev", "date": "2026-04-13T10:00:00", "priceWithDisc": 111.0},
+                {"sale_id": "s1", "date": "2026-04-14T10:00:00", "priceWithDisc": 800.0},
+                {"sale_id": "s2", "date": "2026-04-14T11:00:00", "priceWithDisc": 900.0},
+                {"sale_id": "s3", "date": "2026-04-14T12:00:00", "priceWithDisc": 880.0},
+            ],
+            api_realization_rows=[],
+            source_mode="wb_api",
+            event_date_model={"report_date": "2026-04-15", "operational_date": "2026-04-14"},
+        )
+        self.assertEqual(int(daily_kpi.get("daily_orders_count", 0) or 0), 3)
+        self.assertAlmostEqual(float(daily_kpi.get("daily_orders_amount", 0.0) or 0.0), 3399.91, places=2)
+        self.assertEqual(int(daily_kpi.get("daily_buyouts_count", 0) or 0), 3)
+        self.assertAlmostEqual(float(daily_kpi.get("daily_buyouts_amount", 0.0) or 0.0), 2580.0, places=2)
+
 
 if __name__ == "__main__":
     unittest.main()
-
