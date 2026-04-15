@@ -1,42 +1,4 @@
 {
-  "opportunities": [
-    {
-      "sku": "430679462",
-      "score": 1.706195,
-      "profit": 1971.18,
-      "margin_pct": 1.093715,
-      "abc_class": "A",
-      "health_status": "SCALE"
-    },
-    {
-      "sku": "452102417",
-      "score": 1.66841,
-      "profit": 2585.5,
-      "margin_pct": 1.069493,
-      "abc_class": "A",
-      "health_status": "SCALE"
-    },
-    {
-      "sku": "453526507",
-      "score": 0.950405,
-      "profit": 1371.72,
-      "margin_pct": 1.056006,
-      "abc_class": "B",
-      "health_status": "FIX"
-    },
-    {
-      "sku": "333615320",
-      "score": 0.720256,
-      "profit": 1631.98,
-      "margin_pct": 0.666904,
-      "abc_class": "A",
-      "health_status": "FIX"
-    }
-  ],
-  "top_opportunities": [
-    "430679462",
-    "452102417",
-    "453526507",
-    "333615320"
-  ]
+  "opportunities": [],
+  "top_opportunities": []
 }

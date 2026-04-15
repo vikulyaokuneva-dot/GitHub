@@ -1,87 +1,71 @@
 [
   {
     "code": "input_files_found",
-    "message": "Input files found: total=3, sales=1, ads=1, stocks=0, funnel=0, supplier_goods=1, unknown=1"
+    "message": "Input files found: total=0, sales=0, ads=0, stocks=0, funnel=0, supplier_goods=0, unknown=0"
   },
   {
-    "code": "input_file_unknown_type",
-    "message": "Unknown report type, skipped: 30-3-2026 23-29 с 23-03-2026 по 29-03-2026.xlsx"
+    "code": "input_files_missing",
+    "message": "No local input files found in cabinets/seller_001/input"
   },
   {
-    "code": "input_file_skipped",
-    "message": "Skipped 30-3-2026 23-29 с 23-03-2026 по 29-03-2026.xlsx: report type is unknown"
+    "code": "sales_report_missing",
+    "message": "No valid sales report found in input/."
   },
   {
-    "code": "input_file_detected_type",
-    "message": "Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx => sales (name)"
-  },
-  {
-    "code": "input_file_detected_type",
-    "message": "Статистика (15).xlsx => ads (ads_name_hint)"
-  },
-  {
-    "code": "primary_sales_source",
-    "message": "Primary sales source: Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx"
-  },
-  {
-    "code": "primary_sales_matched_columns",
-    "message": "Primary sales matched columns: sku=код_номенклатуры, revenue=к_перечислению_продавцу_за_реализованный_товар, profit=, orders=кол_во, buys=кол_во"
-  },
-  {
-    "code": "ads_file_loaded",
-    "message": "Ads report loaded from file: Статистика (15).xlsx"
+    "code": "ads_report_missing",
+    "message": "No valid ads report found in input/."
   },
   {
     "code": "stocks_report_missing",
     "message": "No valid stocks report found in input/."
   },
   {
-    "code": "supplier_goods_report_detected",
-    "message": "Supplier goods report detected: Еженедельный детализированный отчет №671553046_4297720 - 1.xlsx"
+    "code": "financial_kernel_input_missing_groups",
+    "message": "Missing required semantic groups: operation_name"
   },
   {
     "code": "sales_funnel_insufficient_data",
-    "message": "Insufficient funnel data for 5 SKU."
+    "message": "Insufficient funnel data for 3 SKU."
   },
   {
-    "code": "keyword_query_column_missing",
-    "message": "Rows skipped without query value: 1."
-  },
-  {
-    "code": "keyword_sku_missing",
-    "message": "Rows skipped without SKU value: 1."
+    "code": "keyword_source_rows_missing",
+    "message": "Keyword source rows are missing in the current daily input."
   },
   {
     "code": "keyword_monitoring_insufficient_data",
     "message": "Keyword monitoring has no query-level rows for analysis."
   },
   {
+    "code": "advertising_efficiency_disabled",
+    "message": "Advertising efficiency engine is disabled because ads data is missing."
+  },
+  {
+    "code": "advertising_efficiency_ads_missing",
+    "message": "Advertising efficiency analysis is disabled because ads data is missing."
+  },
+  {
     "code": "advertising_efficiency_query_missing",
     "message": "Query-level advertising rows are missing; query analysis is limited."
   },
   {
-    "code": "net_profit_partial",
-    "message": "Net profit is partial due to missing or partially attributed financial components."
+    "code": "profit_contribution_partial_data",
+    "message": "Profit contribution computed with status=partial."
   },
   {
-    "code": "financial_margin_not_final",
-    "message": "Financial margin is not final because net profit is partial."
-  },
-  {
-    "code": "ads_file_loaded",
-    "message": "Ads report loaded from file: Статистика (15).xlsx"
-  },
-  {
-    "code": "ads_spend_applied_to_profit",
-    "message": "Ads spend applied to net profit calculation."
-  },
-  {
-    "code": "net_profit_reduced_by_ads",
-    "message": "Net profit reduced by ads spend."
+    "code": "profit_concentration_high",
+    "message": "Top SKU contributes 0.5294 of total profit."
   },
   {
     "code": "territorial_distribution_stock_rows_missing",
     "message": "Stock rows are missing for robust localization estimation."
+  },
+  {
+    "code": "territorial_distribution_demand_geo_partial",
+    "message": "Demand geography is missing for 3 SKU rows."
+  },
+  {
+    "code": "territorial_distribution_stock_geo_partial",
+    "message": "Stock geography is missing for 3 SKU rows."
   },
   {
     "code": "territorial_distribution_suppressed_due_to_data_quality",
@@ -98,6 +82,10 @@
   {
     "code": "insufficient_warehouse_data",
     "message": "Insufficient warehouse-level data for full territorial analysis"
+  },
+  {
+    "code": "decision_memory_updated",
+    "message": "Decision memory updated: added 3 records."
   },
   {
     "code": "no_decisions_ready_for_outcome",

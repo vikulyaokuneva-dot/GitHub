@@ -1,84 +1,59 @@
 {
   "seller_id": "seller_001",
-  "seller_name": "seller_001",
+  "seller_name": "Sergey WB",
   "run_date": "2026-04-01",
-  "generated_at": "2026-04-01T18:16:57Z",
+  "generated_at": "2026-04-15T14:42:10Z",
   "data_confidence": "low",
-  "source_mode": "local_reports",
-  "daily_orders_count": 15,
-  "daily_orders_amount": 13417.0,
-  "daily_buyouts_count": 15,
-  "daily_buyouts_amount": 9166.6,
-  "data_source_orders": "fallback",
-  "data_source_buyouts": "fallback",
-  "data_source_orders_count": "fallback",
-  "data_source_orders_amount": "supplier_goods",
-  "data_source_buyouts_count": "fallback",
-  "data_source_buyouts_amount": "supplier_goods",
+  "source_mode": "wb_api",
+  "daily_orders_count": 3,
+  "daily_orders_amount": 3399.91,
+  "daily_buyouts_count": 3,
+  "daily_buyouts_amount": 2580.0,
+  "data_source_orders": "api",
+  "data_source_buyouts": "api",
+  "data_source_orders_count": "api",
+  "data_source_orders_amount": "api",
+  "data_source_buyouts_count": "api",
+  "data_source_buyouts_amount": "api",
   "orders_amount_confirmed": true,
   "buyouts_amount_confirmed": true,
-  "ads_rows": 1,
-  "ads_spend": 1005.19,
-  "ads_loaded_from_file": true,
-  "ads_source_file": "Статистика (15).xlsx",
-  "ads_attribution_quality": "direct_only",
+  "ads_rows": 0,
+  "ads_spend": 0.0,
+  "ads_loaded_from_file": false,
+  "ads_source_file": "",
+  "ads_attribution_quality": "unknown",
   "input_summary": {
-    "sales_files_found": 1,
-    "ads_files_found": 1,
+    "sales_files_found": 0,
+    "ads_files_found": 0,
     "stocks_files_found": 0,
-    "unknown_files_found": 1,
-    "source_mode": "local_reports",
+    "unknown_files_found": 0,
+    "source_mode": "wb_api",
     "confidence": "low"
   },
   "commerce_kpi": {
-    "daily_orders_count": 15,
-    "daily_orders_amount": 13417.0,
-    "daily_buyouts_count": 15,
-    "daily_buyouts_amount": 9166.6,
-    "avg_check": 611.11,
-    "data_source_orders_count": "fallback",
-    "data_source_orders_amount": "supplier_goods",
-    "data_source_buyouts_count": "fallback",
-    "data_source_buyouts_amount": "supplier_goods",
+    "daily_orders_count": 3,
+    "daily_orders_amount": 3399.91,
+    "daily_buyouts_count": 3,
+    "daily_buyouts_amount": 2580.0,
+    "data_source_orders_count": "api",
+    "data_source_orders_amount": "api",
+    "data_source_buyouts_count": "api",
+    "data_source_buyouts_amount": "api",
     "orders_count_confirmed": true,
     "buyouts_count_confirmed": true,
     "orders_amount_confirmed": true,
-    "buyouts_amount_confirmed": true,
-    "views": 2255,
-    "add_to_cart": null,
-    "orders": 15,
-    "buyouts": 15,
-    "view_to_order_conversion": 0.67,
-    "cart_rate": null,
-    "cart_to_order": null,
-    "buyout_rate": 100.0,
-    "ads_spend": 1005.19,
-    "cpo": 67.01,
-    "marketing_layer": {
-      "basis": "orders",
-      "orders": 15,
-      "ads_spend": 1005.19,
-      "cpo": 67.01
-    },
-    "financial_layer": {
-      "basis": "buyouts",
-      "buyouts": 15,
-      "revenue": 9166.6,
-      "commission": -668.58,
-      "logistics": 0.0,
-      "tax": 0.0,
-      "cogs": 0.0,
-      "profit": 8829.99
-    }
+    "buyouts_amount_confirmed": true
   },
   "financial_kpi": {
-    "revenue": 9166.6,
-    "gross_revenue": 13417.0,
-    "wb_realized_revenue": 8814.0,
-    "seller_payout": 9166.6,
+    "revenue": 0.0,
+    "gross_revenue": 0.0,
+    "wb_realized_revenue": 0.0,
+    "seller_payout": 0.0,
+    "row_revenue_total": 0.0,
     "revenue_basis": "seller_payout",
     "cost_price": 0.0,
-    "wb_commission": -668.58,
+    "cogs": 0.0,
+    "wb_commission": 0.0,
     "acquiring": 0.0,
     "pvz_service": 0.0,
     "logistics": 0.0,
@@ -90,10 +65,9 @@
     "loyalty_total": 0.0,
     "other_adjustments": 0.0,
     "tax": 0.0,
-    "cogs": 0.0,
-    "ads_spend": 1005.19,
-    "gross_profit": 9835.18,
-    "net_profit": 8829.99,
+    "ads_spend": 0.0,
+    "gross_profit": 0.0,
+    "net_profit": 0.0,
     "margin_pct": null,
     "profitability_pct": null,
     "cost_price_missing": false,
@@ -101,124 +75,102 @@
     "expense_attribution_partial": false,
     "net_profit_partial": true,
     "financial_margin_not_final": true,
-    "completeness_pct": 33.33,
+    "completeness_pct": 50.0,
     "components": {
       "revenue": {
-        "available": true,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": true
+        "available": true
+      },
+      "seller_payout": {
+        "available": true
+      },
+      "gross_revenue": {
+        "available": true
       },
       "commission": {
-        "available": true,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": true
+        "available": true
+      },
+      "acquiring": {
+        "available": true
+      },
+      "pvz_service": {
+        "available": true
       },
       "logistics": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
       },
       "storage": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
       },
       "penalties": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
       },
       "deductions": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
+      },
+      "loyalty_program": {
+        "available": true
+      },
+      "loyalty_points_withheld": {
+        "available": true
+      },
+      "other_adjustments": {
+        "available": true
       },
       "cost_price": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
       },
       "tax": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
       },
       "ads_spend": {
-        "available": true,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": true
+        "available": true
+      },
+      "net_profit": {
+        "available": true
       }
     },
-    "available_components": 3,
-    "total_components": 9,
-    "financial_finality_status": "partial",
+    "available_components": 17,
+    "total_components": 17,
+    "financial_finality_status": "unavailable",
+    "financial_status": "degraded",
     "is_partial": true,
-    "financial_status": "partial",
     "financial_partial": true,
-    "basis": "buyouts",
+    "kernel_semantic_mapping_missing": true,
+    "kernel_semantic_missing_groups": [
+      "operation_name"
+    ],
+    "basis": "kernel",
     "source_priority": {
-      "revenue": "fallback",
-      "seller_payout": "fallback",
-      "wb_commission": "fallback",
-      "logistics": "fallback",
-      "ads_spend": "fallback",
-      "net_profit": "fallback",
-      "acquiring": "fallback",
-      "pvz_service": "fallback",
-      "storage": "fallback",
-      "penalties": "fallback",
-      "deductions": "fallback",
-      "loyalty_program": "fallback",
-      "loyalty_points_withheld": "fallback",
-      "other_adjustments": "fallback",
-      "tax": "fallback"
+      "revenue": "financial_kernel",
+      "seller_payout": "financial_kernel",
+      "gross_revenue": "financial_kernel",
+      "wb_commission": "financial_kernel",
+      "logistics": "financial_kernel",
+      "storage": "financial_kernel",
+      "tax": "financial_kernel",
+      "net_profit": "financial_kernel",
+      "cost_price": "financial_kernel"
     },
-    "net_profit_formula": {
-      "revenue_basis": 9166.6,
-      "cost_price": 0.0,
-      "wb_commission": -668.58,
-      "acquiring": 0.0,
-      "pvz_service": 0.0,
-      "logistics": 0.0,
-      "storage": 0.0,
-      "penalties": 0.0,
-      "deductions": 0.0,
-      "loyalty_program": 0.0,
-      "loyalty_points_withheld": 0.0,
-      "other_adjustments": 0.0,
-      "ads_spend": 1005.19,
-      "tax": 0.0,
-      "net_profit": 8829.99
-    },
-    "date": "2026-04-01",
+    "contract_date": "2026-04-01",
     "confirmed": false
   },
   "kpi": {
-    "revenue": 9166.6,
-    "profit": 8829.99,
-    "orders": 15,
-    "buyouts": 15,
-    "orders_amount": 13417.0,
-    "buyouts_amount": 9166.6
+    "revenue": 0.0,
+    "profit": 0.0,
+    "orders": 3,
+    "buyouts": 3,
+    "orders_amount": 3399.91,
+    "buyouts_amount": 2580.0
   },
   "data_quality": {
-    "valid_sku_count": 6,
+    "valid_sku_count": 2,
     "invalid_sku_rows": 0,
     "invalid_sku_reason_counts": {},
     "unassigned_costs_present": false,
     "unassigned_rows": 0,
     "unassigned_profit": 0.0,
     "financial_status": "partial",
-    "ai_decision_reliability": "medium",
+    "ai_decision_reliability": "low",
     "sku_attribution_status": "ok",
     "invalid_sku_rows_parser_error": 0,
     "invalid_sku_rows_missing_field": 0,
@@ -226,44 +178,114 @@
     "attribution_guard_triggered": false,
     "zero_revenue_activity_sku_count": 0,
     "zero_revenue_activity_skus": [],
-    "ads_attribution_quality": "direct_only",
-    "cost_price_missing": true,
+    "ads_attribution_quality": "unknown",
+    "cost_price_missing": false,
     "wb_commission_missing": false,
     "expense_attribution_partial": false,
     "net_profit_partial": true,
     "financial_margin_not_final": true,
-    "financial_completeness_pct": 33.33,
-    "financial_finality_status": "partial",
+    "financial_completeness_pct": 50.0,
+    "financial_finality_status": "unavailable",
     "territorial_analysis_enabled": false,
     "profit_contribution_enabled": true,
-    "ads_analysis_enabled": true,
-    "report_reliability_level": "medium",
+    "ads_analysis_enabled": false,
+    "report_reliability_level": "low",
     "territorial_actionable_enabled": false,
     "territorial_analysis_mode": "disabled",
+    "territorial_analysis_status": "blocked_by_data",
     "territorial_recommendation_status": "blocked_by_data",
+    "territorial_blocked_reasons": [
+      "insufficient_order_volume",
+      "localization_not_computable",
+      "missing_demand_geography",
+      "missing_stock_geography"
+    ],
     "territorial_confidence_level": "low",
     "territorial_suppressed_due_to_data_quality": true,
-    "advertising_efficiency_enabled": true,
-    "advertising_efficiency_analysis_mode": "full"
+    "advertising_efficiency_enabled": false,
+    "advertising_efficiency_analysis_mode": "disabled"
   },
   "api_debug": {
-    "sales_rows": 0,
-    "orders_rows": 0,
-    "realization_rows": 0,
-    "financial_rows": 15,
+    "sales_rows": 3,
+    "orders_rows": 3,
+    "realization_rows": 2,
+    "financial_rows": 2,
     "ads_rows": 0,
     "stocks_rows": 0,
-    "endpoints": [],
+    "endpoints": [
+      {
+        "endpoint": "realization",
+        "success": true,
+        "fail": false,
+        "rows_loaded": 2,
+        "date_from": "2026-04-01",
+        "date_to": "2026-04-01",
+        "error_text": "",
+        "status_code": 200,
+        "attempts": 1,
+        "realization_lag_days": 0,
+        "realization_attempt_date_from": "2026-04-01",
+        "realization_attempt_date_to": "2026-04-01",
+        "realization_target_date": "2026-04-01"
+      },
+      {
+        "endpoint": "sales",
+        "success": true,
+        "fail": false,
+        "rows_loaded": 3,
+        "date_from": "2026-04-01",
+        "date_to": "2026-04-01",
+        "error_text": "",
+        "status_code": 200,
+        "attempts": 1
+      },
+      {
+        "endpoint": "orders",
+        "success": true,
+        "fail": false,
+        "rows_loaded": 3,
+        "date_from": "2026-04-01",
+        "date_to": "2026-04-01",
+        "error_text": "",
+        "status_code": 200,
+        "attempts": 1
+      },
+      {
+        "endpoint": "stocks",
+        "success": true,
+        "fail": false,
+        "rows_loaded": 0,
+        "date_from": "2026-03-02",
+        "date_to": "2026-04-01",
+        "error_text": "",
+        "status_code": 200,
+        "attempts": 1
+      },
+      {
+        "endpoint": "ads_legacy",
+        "success": true,
+        "fail": false,
+        "rows_loaded": 0,
+        "date_from": "2026-04-01",
+        "date_to": "2026-04-01",
+        "error_text": "",
+        "status_code": 200,
+        "attempts": 1
+      }
+    ],
     "date_from": "2026-04-01",
     "date_to": "2026-04-01",
     "run_date_requested": "2026-04-01",
     "timezone": "Europe/Moscow",
     "shifted_to_previous_day": false,
-    "input_files_detected": 3,
-    "local_financial_fallback_used": true,
-    "financial_contour_source": "local_report",
-    "funnel_source": "missing",
-    "supplier_goods_daily_found": true,
+    "input_files_detected": 0,
+    "local_financial_fallback_used": false,
+    "financial_contour_source": "api.realization",
+    "funnel_source": "api",
+    "funnel_upper_available": false,
+    "funnel_lower_available": true,
+    "funnel_degradation_mode": "upper_funnel_unavailable_from_api",
+    "supplier_goods_daily_found": false,
     "local_funnel_report_found": false,
     "local_funnel_source_file": "",
     "archive_scan": {
@@ -275,110 +297,135 @@
       "archive_errors": []
     },
     "probe_metrics": {
-      "orders_count": null,
-      "orders_amount": null,
-      "buyouts": null,
+      "orders_count": 3,
+      "orders_amount": 3399.91,
+      "buyouts": 3,
       "views": null,
       "add_to_cart": null,
       "ads_spend": null
     },
     "realization_target_date": "2026-04-01",
-    "realization_actual_source_date": null,
+    "realization_actual_source_date": "2026-04-01",
     "realization_fallback_used": false,
-    "realization_fallback_lag_days": 0
+    "realization_fallback_lag_days": 0,
+    "daily_row_filter": {
+      "target_date": "2026-04-01",
+      "orders_rows_before": 3,
+      "orders_rows_after": 3,
+      "sales_rows_before": 3,
+      "sales_rows_after": 3,
+      "realization_rows_before": 2,
+      "realization_rows_after": 2,
+      "orders_dates_sample_before": [
+        "2026-04-01",
+        "2026-04-01",
+        "2026-04-01"
+      ],
+      "orders_dates_sample_after": [
+        "2026-04-01",
+        "2026-04-01",
+        "2026-04-01"
+      ],
+      "sales_dates_sample_before": [
+        "2026-04-01",
+        "2026-04-01",
+        "2026-04-01"
+      ],
+      "sales_dates_sample_after": [
+        "2026-04-01",
+        "2026-04-01",
+        "2026-04-01"
+      ],
+      "realization_dates_sample_before": [
+        "2026-04-01",
+        "2026-04-01"
+      ],
+      "realization_dates_sample_after": [
+        "2026-04-01",
+        "2026-04-01"
+      ]
+    }
   },
-  "ads_file_candidates_found": 1,
-  "ads_file_detected": true,
-  "ads_sheet_found": "Статистика",
-  "ads_columns_detected": [
-    "ads_spend",
-    "avg_position",
-    "clicks",
-    "conversion_type",
-    "cpc",
-    "cpo",
-    "ctr",
-    "impressions",
-    "orders",
-    "revenue",
-    "sku"
-  ],
-  "ads_rows_raw": 2,
-  "ads_rows_usable": 1,
+  "ads_file_candidates_found": 0,
+  "ads_file_detected": false,
+  "ads_sheet_found": "",
+  "ads_columns_detected": [],
+  "ads_rows_raw": 0,
+  "ads_rows_usable": 0,
   "ads_loader_error": "",
   "orders_count_confirmed": true,
   "buyouts_count_confirmed": true,
-  "data_source_revenue": "supplier_goods",
-  "data_source_wb_commission": "supplier_goods",
-  "data_source_logistics": "supplier_goods",
-  "data_source_storage": "supplier_goods",
-  "data_source_ads_spend": "local_report",
-  "sku_activity_orders_hint": 15,
-  "sku_activity_buyouts_hint": 15,
+  "data_source_revenue": "api",
+  "data_source_wb_commission": "api",
+  "data_source_logistics": "api",
+  "data_source_storage": "api",
+  "data_source_ads_spend": "unknown",
+  "sku_activity_orders_hint": 2,
+  "sku_activity_buyouts_hint": 2,
   "commerce_activity": {
-    "item_qty": 15,
-    "sales_activity_qty": 15,
-    "sku_activity_count": 6,
-    "confirmed_daily_orders_count": 15,
-    "confirmed_daily_buyouts_count": 15,
-    "orders_gap_vs_activity": 0,
-    "buyouts_gap_vs_activity": 0
+    "item_qty": 2,
+    "sales_activity_qty": 2,
+    "sku_activity_count": 2,
+    "confirmed_daily_orders_count": 3,
+    "confirmed_daily_buyouts_count": 3,
+    "orders_gap_vs_activity": -1,
+    "buyouts_gap_vs_activity": -1
   },
   "orders_count_unknown_reason": "",
   "buyouts_count_unknown_reason": "",
   "source_flags": {
     "orders_count": {
-      "api": false,
+      "api": true,
       "supplier_goods": false,
       "local_report": false,
-      "fallback": true,
+      "fallback": false,
       "unknown": false
     },
     "buyouts_count": {
-      "api": false,
+      "api": true,
       "supplier_goods": false,
       "local_report": false,
-      "fallback": true,
+      "fallback": false,
       "unknown": false
     },
     "orders_amount": {
-      "api": false,
-      "supplier_goods": true,
+      "api": true,
+      "supplier_goods": false,
       "local_report": false,
       "fallback": false,
       "unknown": false
     },
     "buyouts_amount": {
-      "api": false,
-      "supplier_goods": true,
+      "api": true,
+      "supplier_goods": false,
       "local_report": false,
       "fallback": false,
       "unknown": false
     },
     "revenue": {
-      "api": false,
-      "supplier_goods": true,
+      "api": true,
+      "supplier_goods": false,
       "local_report": false,
       "fallback": false,
       "unknown": false
     },
     "wb_commission": {
-      "api": false,
-      "supplier_goods": true,
+      "api": true,
+      "supplier_goods": false,
       "local_report": false,
       "fallback": false,
       "unknown": false
     },
     "logistics": {
-      "api": false,
-      "supplier_goods": true,
+      "api": true,
+      "supplier_goods": false,
       "local_report": false,
       "fallback": false,
       "unknown": false
     },
     "storage": {
-      "api": false,
-      "supplier_goods": true,
+      "api": true,
+      "supplier_goods": false,
       "local_report": false,
       "fallback": false,
       "unknown": false
@@ -386,77 +433,77 @@
     "ads_spend": {
       "api": false,
       "supplier_goods": false,
-      "local_report": true,
+      "local_report": false,
       "fallback": false,
-      "unknown": false
+      "unknown": true
     }
   },
   "source_policy": {
     "policy_version": "wb_source_policy_v1",
     "sources": {
-      "orders_count": "fallback",
-      "buyouts_count": "fallback",
-      "orders_amount": "supplier_goods",
-      "buyouts_amount": "supplier_goods",
-      "revenue": "supplier_goods",
-      "wb_commission": "supplier_goods",
-      "logistics": "supplier_goods",
-      "storage": "supplier_goods",
-      "ads_spend": "local_report"
+      "orders_count": "api",
+      "buyouts_count": "api",
+      "orders_amount": "api",
+      "buyouts_amount": "api",
+      "revenue": "api",
+      "wb_commission": "api",
+      "logistics": "api",
+      "storage": "api",
+      "ads_spend": "unknown"
     },
     "source_flags": {
       "orders_count": {
-        "api": false,
+        "api": true,
         "supplier_goods": false,
         "local_report": false,
-        "fallback": true,
+        "fallback": false,
         "unknown": false
       },
       "buyouts_count": {
-        "api": false,
+        "api": true,
         "supplier_goods": false,
         "local_report": false,
-        "fallback": true,
+        "fallback": false,
         "unknown": false
       },
       "orders_amount": {
-        "api": false,
-        "supplier_goods": true,
+        "api": true,
+        "supplier_goods": false,
         "local_report": false,
         "fallback": false,
         "unknown": false
       },
       "buyouts_amount": {
-        "api": false,
-        "supplier_goods": true,
+        "api": true,
+        "supplier_goods": false,
         "local_report": false,
         "fallback": false,
         "unknown": false
       },
       "revenue": {
-        "api": false,
-        "supplier_goods": true,
+        "api": true,
+        "supplier_goods": false,
         "local_report": false,
         "fallback": false,
         "unknown": false
       },
       "wb_commission": {
-        "api": false,
-        "supplier_goods": true,
+        "api": true,
+        "supplier_goods": false,
         "local_report": false,
         "fallback": false,
         "unknown": false
       },
       "logistics": {
-        "api": false,
-        "supplier_goods": true,
+        "api": true,
+        "supplier_goods": false,
         "local_report": false,
         "fallback": false,
         "unknown": false
       },
       "storage": {
-        "api": false,
-        "supplier_goods": true,
+        "api": true,
+        "supplier_goods": false,
         "local_report": false,
         "fallback": false,
         "unknown": false
@@ -464,9 +511,9 @@
       "ads_spend": {
         "api": false,
         "supplier_goods": false,
-        "local_report": true,
+        "local_report": false,
         "fallback": false,
-        "unknown": false
+        "unknown": true
       }
     }
   },
@@ -481,27 +528,27 @@
   },
   "order_kpi": {
     "date": "2026-04-01",
-    "orders_count": 15,
-    "orders_amount": 13417.0,
+    "orders_count": 3,
+    "orders_amount": 3399.91,
     "orders_count_confirmed": true,
     "orders_amount_confirmed": true,
-    "source_count": "fallback",
-    "source_amount": "supplier_goods"
+    "source_count": "api",
+    "source_amount": "api"
   },
   "buyout_kpi": {
     "date": "2026-04-01",
-    "buyouts_count": 15,
-    "buyouts_amount": 9166.6,
+    "buyouts_count": 3,
+    "buyouts_amount": 2580.0,
     "buyouts_count_confirmed": true,
     "buyouts_amount_confirmed": true,
-    "source_count": "fallback",
-    "source_amount": "supplier_goods"
+    "source_count": "api",
+    "source_amount": "api"
   },
   "daily_status_matrix": {
     "orders": "confirmed",
     "buyouts": "confirmed",
     "financials": "partial",
-    "ads": "confirmed",
+    "ads": "missing",
     "ai_reliability": "low"
   },
   "event_ledger": {
@@ -511,53 +558,53 @@
       {
         "event_type": "orders_snapshot",
         "event_date": "2026-04-01",
-        "source": "fallback",
+        "source": "api.orders",
         "confirmed": true,
-        "rows": 0,
-        "amount": 13417.0
+        "rows": 3,
+        "amount": 3399.91
       },
       {
         "event_type": "buyouts_snapshot",
         "event_date": "2026-04-01",
-        "source": "fallback",
+        "source": "api.sales",
         "confirmed": true,
-        "rows": 0,
-        "amount": 9166.6
+        "rows": 3,
+        "amount": 2580.0
       },
       {
         "event_type": "financial_snapshot",
         "event_date": "2026-04-01",
-        "source": "local.supplier_goods",
+        "source": "api.realization",
         "confirmed": false,
-        "rows": 15,
+        "rows": 2,
         "amount": null
       }
     ]
   },
   "render_kpi": {
-    "orders_count": 15,
-    "orders_amount": 13417.0,
-    "buyouts_count": 15,
-    "buyouts_amount": 9166.6,
-    "avg_check": 611.11,
-    "revenue": 9166.6,
-    "gross_profit": 9835.18,
-    "net_profit": 8829.99,
+    "orders_count": 3,
+    "orders_amount": 3399.91,
+    "buyouts_count": 3,
+    "buyouts_amount": 2580.0,
+    "avg_check": 860.0,
+    "revenue": 0.0,
+    "gross_profit": 0.0,
+    "net_profit": 0.0,
     "margin_pct": null,
     "profitability_pct": null
   },
-  "conversion_view_to_order": 0.67,
+  "conversion_view_to_order": null,
   "buyout_rate": 100.0,
-  "CPO": 67.01,
+  "CPO": null,
   "sales_funnel": {
     "date": "2026-04-01",
     "funnel": {
-      "views": 2255,
+      "views": 0,
       "add_to_cart": null,
-      "orders": 15,
-      "buyouts": 15,
-      "view_to_order_conversion": 0.67,
-      "view_to_order": 0.67,
+      "orders": 3,
+      "buyouts": 3,
+      "view_to_order_conversion": null,
+      "view_to_order": null,
       "cart_rate": null,
       "cart_to_order": null,
       "buyout_rate": 100.0,
@@ -566,18 +613,18 @@
       "order_to_buyout_note": "",
       "orders_amount": null,
       "buyouts_amount": null,
-      "ads_spend": 1005.19,
-      "cpo": 67.01,
-      "impressions": 2255,
-      "clicks": 77,
-      "ctr": 3.41,
+      "ads_spend": null,
+      "cpo": null,
+      "impressions": 0,
+      "clicks": 0,
+      "ctr": null,
       "cart_count": null,
       "cart_conversion_pct": null,
       "cart_rate_pct": null,
-      "click_to_order_conversion_pct": 19.48,
+      "click_to_order_conversion_pct": null,
       "order_to_buyout_conversion_pct": 100.0,
       "conversion_rates": {
-        "view_to_order": 0.67,
+        "view_to_order": null,
         "cart_to_order": null,
         "order_to_buyout": 100.0,
         "order_to_buyout_over_100": false,
@@ -585,19 +632,19 @@
       },
       "marketing_layer": {
         "basis": "orders",
-        "orders": 15,
-        "ads_spend": 1005.19,
-        "cpo": 67.01
+        "orders": 3,
+        "ads_spend": null,
+        "cpo": null
       },
       "financial_layer": {
         "basis": "buyouts",
-        "buyouts": 15,
-        "revenue": 9166.6,
-        "commission": -668.58,
+        "buyouts": 3,
+        "revenue": 0.0,
+        "commission": 0.0,
         "logistics": 0.0,
         "tax": 0.0,
         "cogs": 0.0,
-        "profit": 8829.99
+        "profit": 0.0
       }
     },
     "data_sources": {
@@ -607,7 +654,7 @@
       "buyouts": "api",
       "orders_amount": "unknown",
       "buyouts_amount": "unknown",
-      "ads_spend": "local_report",
+      "ads_spend": "unknown",
       "cpo": "derived"
     },
     "status": {
@@ -617,26 +664,26 @@
     },
     "marketing_layer": {
       "basis": "orders",
-      "orders": 15,
-      "ads_spend": 1005.19,
-      "cpo": 67.01
+      "orders": 3,
+      "ads_spend": null,
+      "cpo": null
     },
     "financial_layer": {
       "basis": "buyouts",
-      "buyouts": 15,
-      "revenue": 9166.6,
-      "commission": -668.58,
+      "buyouts": 3,
+      "revenue": 0.0,
+      "commission": 0.0,
       "logistics": 0.0,
       "tax": 0.0,
       "cogs": 0.0,
-      "profit": 8829.99
+      "profit": 0.0
     },
     "sku_funnel": [
       {
         "views": 0,
         "add_to_cart": null,
-        "orders": 4,
-        "buyouts": 4,
+        "orders": 1,
+        "buyouts": 1,
         "view_to_order_conversion": null,
         "cart_rate": null,
         "cart_to_order": null,
@@ -647,114 +694,21 @@
         "cpo": 0.0,
         "marketing_layer": {
           "basis": "orders",
-          "orders": 4,
+          "orders": 1,
           "ads_spend": 0.0,
           "cpo": 0.0
         },
         "financial_layer": {
           "basis": "buyouts",
-          "buyouts": 4,
-          "revenue": 2417.5,
-          "commission": -168.0,
+          "buyouts": 1,
+          "revenue": 900.0,
+          "commission": 0.0,
           "logistics": 0.0,
           "tax": 0.0,
           "cogs": 0.0,
-          "profit": 2585.5
+          "profit": 900.0
         },
-        "sku": "452102417"
-      },
-      {
-        "views": 0,
-        "add_to_cart": null,
-        "orders": 3,
-        "buyouts": 3,
-        "view_to_order_conversion": null,
-        "cart_rate": null,
-        "cart_to_order": null,
-        "buyout_rate": 100.0,
-        "buyout_rate_over_100": false,
-        "buyout_rate_note": "",
-        "ads_spend": 0.0,
-        "cpo": 0.0,
-        "marketing_layer": {
-          "basis": "orders",
-          "orders": 3,
-          "ads_spend": 0.0,
-          "cpo": 0.0
-        },
-        "financial_layer": {
-          "basis": "buyouts",
-          "buyouts": 3,
-          "revenue": 1802.28,
-          "commission": -168.9,
-          "logistics": 0.0,
-          "tax": 0.0,
-          "cogs": 0.0,
-          "profit": 1971.18
-        },
-        "sku": "430679462"
-      },
-      {
-        "views": 2255,
-        "add_to_cart": null,
-        "orders": 4,
-        "buyouts": 4,
-        "view_to_order_conversion": 0.18,
-        "cart_rate": null,
-        "cart_to_order": null,
-        "buyout_rate": 100.0,
-        "buyout_rate_over_100": false,
-        "buyout_rate_note": "",
-        "ads_spend": 1005.19,
-        "cpo": 251.3,
-        "marketing_layer": {
-          "basis": "orders",
-          "orders": 4,
-          "ads_spend": 1005.19,
-          "cpo": 251.3
-        },
-        "financial_layer": {
-          "basis": "buyouts",
-          "buyouts": 4,
-          "revenue": 2447.1,
-          "commission": -190.07,
-          "logistics": 0.0,
-          "tax": 0.0,
-          "cogs": 0.0,
-          "profit": 1631.98
-        },
-        "sku": "333615320"
-      },
-      {
-        "views": 0,
-        "add_to_cart": null,
-        "orders": 2,
-        "buyouts": 2,
-        "view_to_order_conversion": null,
-        "cart_rate": null,
-        "cart_to_order": null,
-        "buyout_rate": 100.0,
-        "buyout_rate_over_100": false,
-        "buyout_rate_note": "",
-        "ads_spend": 0.0,
-        "cpo": 0.0,
-        "marketing_layer": {
-          "basis": "orders",
-          "orders": 2,
-          "ads_spend": 0.0,
-          "cpo": 0.0
-        },
-        "financial_layer": {
-          "basis": "buyouts",
-          "buyouts": 2,
-          "revenue": 1298.97,
-          "commission": -72.75,
-          "logistics": 0.0,
-          "tax": 0.0,
-          "cogs": 0.0,
-          "profit": 1371.72
-        },
-        "sku": "453526507"
+        "sku": "1002"
       },
       {
         "views": 0,
@@ -778,17 +732,17 @@
         "financial_layer": {
           "basis": "buyouts",
           "buyouts": 1,
-          "revenue": 610.78,
-          "commission": -40.83,
+          "revenue": 800.0,
+          "commission": 0.0,
           "logistics": 0.0,
           "tax": 0.0,
           "cogs": 0.0,
-          "profit": 651.61
+          "profit": 800.0
         },
-        "sku": "584904841"
+        "sku": "1001"
       },
       {
-        "views": 0,
+        "views": null,
         "add_to_cart": null,
         "orders": 1,
         "buyouts": 1,
@@ -809,14 +763,14 @@
         "financial_layer": {
           "basis": "buyouts",
           "buyouts": 1,
-          "revenue": 589.97,
-          "commission": -28.03,
-          "logistics": 0.0,
-          "tax": 0.0,
-          "cogs": 0.0,
-          "profit": 618.0
+          "revenue": 880.0,
+          "commission": null,
+          "logistics": null,
+          "tax": null,
+          "cogs": null,
+          "profit": null
         },
-        "sku": "590614192"
+        "sku": "1003"
       }
     ],
     "sku_diagnostics": {
@@ -834,79 +788,7 @@
       },
       "items": [
         {
-          "sku": "452102417",
-          "views": null,
-          "add_to_cart": null,
-          "orders": 4,
-          "buyouts": 4,
-          "ads_spend": 0.0,
-          "conversion": null,
-          "cart_rate": null,
-          "cart_to_order": null,
-          "buyout_rate": 1.0,
-          "has_views": false,
-          "has_cart": false,
-          "has_orders": true,
-          "has_buyouts": true,
-          "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
-        },
-        {
-          "sku": "430679462",
-          "views": null,
-          "add_to_cart": null,
-          "orders": 3,
-          "buyouts": 3,
-          "ads_spend": 0.0,
-          "conversion": null,
-          "cart_rate": null,
-          "cart_to_order": null,
-          "buyout_rate": 1.0,
-          "has_views": false,
-          "has_cart": false,
-          "has_orders": true,
-          "has_buyouts": true,
-          "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
-        },
-        {
-          "sku": "333615320",
-          "views": 2255,
-          "add_to_cart": null,
-          "orders": 4,
-          "buyouts": 4,
-          "ads_spend": 1005.19,
-          "conversion": 0.0018,
-          "cart_rate": null,
-          "cart_to_order": null,
-          "buyout_rate": 1.0,
-          "has_views": true,
-          "has_cart": false,
-          "has_orders": true,
-          "has_buyouts": true,
-          "issue_type": "ads_efficiency_problem",
-          "issue_reason_ru": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
-        },
-        {
-          "sku": "453526507",
-          "views": null,
-          "add_to_cart": null,
-          "orders": 2,
-          "buyouts": 2,
-          "ads_spend": 0.0,
-          "conversion": null,
-          "cart_rate": null,
-          "cart_to_order": null,
-          "buyout_rate": 1.0,
-          "has_views": false,
-          "has_cart": false,
-          "has_orders": true,
-          "has_buyouts": true,
-          "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
-        },
-        {
-          "sku": "584904841",
+          "sku": "1002",
           "views": null,
           "add_to_cart": null,
           "orders": 1,
@@ -924,7 +806,25 @@
           "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
         },
         {
-          "sku": "590614192",
+          "sku": "1001",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 1,
+          "buyouts": 1,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "1003",
           "views": null,
           "add_to_cart": null,
           "orders": 1,
@@ -943,88 +843,63 @@
         }
       ],
       "summary": {
-        "sku_count": 6,
-        "analyzed_sku_count": 1,
+        "sku_count": 3,
+        "analyzed_sku_count": 0,
         "issue_counts": {
           "traffic_problem": 0,
           "card_problem": 0,
           "price_or_offer_problem": 0,
           "buyout_problem": 0,
-          "ads_efficiency_problem": 1,
+          "ads_efficiency_problem": 0,
           "healthy_funnel": 0,
-          "insufficient_data": 5
+          "insufficient_data": 3
         },
-        "top_problem_groups": [
-          {
-            "issue_type": "ads_efficiency_problem",
-            "count": 1
-          }
-        ],
-        "top_problem_skus": [
-          {
-            "sku": "333615320",
-            "issue_type": "ads_efficiency_problem",
-            "reason": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
-          }
-        ]
+        "top_problem_groups": [],
+        "top_problem_skus": []
       },
       "warnings": [
         {
           "code": "sales_funnel_insufficient_data",
-          "message": "Insufficient funnel data for 5 SKU."
+          "message": "Insufficient funnel data for 3 SKU."
         }
       ]
     }
   },
   "sales_funnel_summary": {
-    "sku_count": 6,
-    "analyzed_sku_count": 1,
+    "sku_count": 3,
+    "analyzed_sku_count": 0,
     "issue_counts": {
       "traffic_problem": 0,
       "card_problem": 0,
       "price_or_offer_problem": 0,
       "buyout_problem": 0,
-      "ads_efficiency_problem": 1,
+      "ads_efficiency_problem": 0,
       "healthy_funnel": 0,
-      "insufficient_data": 5
+      "insufficient_data": 3
     },
-    "top_problem_groups": [
-      {
-        "issue_type": "ads_efficiency_problem",
-        "count": 1
-      }
-    ],
-    "top_problem_skus": [
-      {
-        "sku": "333615320",
-        "issue_type": "ads_efficiency_problem",
-        "reason": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
-      }
-    ]
+    "top_problem_groups": [],
+    "top_problem_skus": []
   },
   "sales_funnel_issue_counts": {
     "traffic_problem": 0,
     "card_problem": 0,
     "price_or_offer_problem": 0,
     "buyout_problem": 0,
-    "ads_efficiency_problem": 1,
+    "ads_efficiency_problem": 0,
     "healthy_funnel": 0,
-    "insufficient_data": 5
+    "insufficient_data": 3
   },
-  "sales_funnel_top_problem_groups": [
-    {
-      "issue_type": "ads_efficiency_problem",
-      "count": 1
-    }
-  ],
+  "sales_funnel_top_problem_groups": [],
   "finance": {
-    "revenue": 9166.6,
-    "gross_revenue": 13417.0,
-    "wb_realized_revenue": 8814.0,
-    "seller_payout": 9166.6,
+    "revenue": 0.0,
+    "gross_revenue": 0.0,
+    "wb_realized_revenue": 0.0,
+    "seller_payout": 0.0,
+    "row_revenue_total": 0.0,
     "revenue_basis": "seller_payout",
     "cost_price": 0.0,
-    "wb_commission": -668.58,
+    "cogs": 0.0,
+    "wb_commission": 0.0,
     "acquiring": 0.0,
     "pvz_service": 0.0,
     "logistics": 0.0,
@@ -1036,10 +911,9 @@
     "loyalty_total": 0.0,
     "other_adjustments": 0.0,
     "tax": 0.0,
-    "cogs": 0.0,
-    "ads_spend": 1005.19,
-    "gross_profit": 9835.18,
-    "net_profit": 8829.99,
+    "ads_spend": 0.0,
+    "gross_profit": 0.0,
+    "net_profit": 0.0,
     "margin_pct": null,
     "profitability_pct": null,
     "cost_price_missing": false,
@@ -1047,114 +921,92 @@
     "expense_attribution_partial": false,
     "net_profit_partial": true,
     "financial_margin_not_final": true,
-    "completeness_pct": 33.33,
+    "completeness_pct": 50.0,
     "components": {
       "revenue": {
-        "available": true,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": true
+        "available": true
+      },
+      "seller_payout": {
+        "available": true
+      },
+      "gross_revenue": {
+        "available": true
       },
       "commission": {
-        "available": true,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": true
+        "available": true
+      },
+      "acquiring": {
+        "available": true
+      },
+      "pvz_service": {
+        "available": true
       },
       "logistics": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
       },
       "storage": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
       },
       "penalties": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
       },
       "deductions": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
+      },
+      "loyalty_program": {
+        "available": true
+      },
+      "loyalty_points_withheld": {
+        "available": true
+      },
+      "other_adjustments": {
+        "available": true
       },
       "cost_price": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
       },
       "tax": {
-        "available": false,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": false
+        "available": true
       },
       "ads_spend": {
-        "available": true,
-        "confirmed": true,
-        "source": "fallback",
-        "trusted_for_final_reporting": true
+        "available": true
+      },
+      "net_profit": {
+        "available": true
       }
     },
-    "available_components": 3,
-    "total_components": 9,
-    "financial_finality_status": "partial",
+    "available_components": 17,
+    "total_components": 17,
+    "financial_finality_status": "unavailable",
+    "financial_status": "degraded",
     "is_partial": true,
-    "financial_status": "partial",
     "financial_partial": true,
-    "basis": "buyouts",
+    "kernel_semantic_mapping_missing": true,
+    "kernel_semantic_missing_groups": [
+      "operation_name"
+    ],
+    "basis": "kernel",
     "source_priority": {
-      "revenue": "fallback",
-      "seller_payout": "fallback",
-      "wb_commission": "fallback",
-      "logistics": "fallback",
-      "ads_spend": "fallback",
-      "net_profit": "fallback",
-      "acquiring": "fallback",
-      "pvz_service": "fallback",
-      "storage": "fallback",
-      "penalties": "fallback",
-      "deductions": "fallback",
-      "loyalty_program": "fallback",
-      "loyalty_points_withheld": "fallback",
-      "other_adjustments": "fallback",
-      "tax": "fallback"
+      "revenue": "financial_kernel",
+      "seller_payout": "financial_kernel",
+      "gross_revenue": "financial_kernel",
+      "wb_commission": "financial_kernel",
+      "logistics": "financial_kernel",
+      "storage": "financial_kernel",
+      "tax": "financial_kernel",
+      "net_profit": "financial_kernel",
+      "cost_price": "financial_kernel"
     },
-    "net_profit_formula": {
-      "revenue_basis": 9166.6,
-      "cost_price": 0.0,
-      "wb_commission": -668.58,
-      "acquiring": 0.0,
-      "pvz_service": 0.0,
-      "logistics": 0.0,
-      "storage": 0.0,
-      "penalties": 0.0,
-      "deductions": 0.0,
-      "loyalty_program": 0.0,
-      "loyalty_points_withheld": 0.0,
-      "other_adjustments": 0.0,
-      "ads_spend": 1005.19,
-      "tax": 0.0,
-      "net_profit": 8829.99
-    },
-    "date": "2026-04-01",
+    "contract_date": "2026-04-01",
     "confirmed": false
   },
   "funnel": {
-    "views": 2255,
+    "views": 0,
     "add_to_cart": null,
-    "orders": 15,
-    "buyouts": 15,
-    "view_to_order_conversion": 0.67,
-    "view_to_order": 0.67,
+    "orders": 3,
+    "buyouts": 3,
+    "view_to_order_conversion": null,
+    "view_to_order": null,
     "cart_rate": null,
     "cart_to_order": null,
     "buyout_rate": 100.0,
@@ -1163,18 +1015,18 @@
     "order_to_buyout_note": "",
     "orders_amount": null,
     "buyouts_amount": null,
-    "ads_spend": 1005.19,
-    "cpo": 67.01,
-    "impressions": 2255,
-    "clicks": 77,
-    "ctr": 3.41,
+    "ads_spend": null,
+    "cpo": null,
+    "impressions": 0,
+    "clicks": 0,
+    "ctr": null,
     "cart_count": null,
     "cart_conversion_pct": null,
     "cart_rate_pct": null,
-    "click_to_order_conversion_pct": 19.48,
+    "click_to_order_conversion_pct": null,
     "order_to_buyout_conversion_pct": 100.0,
     "conversion_rates": {
-      "view_to_order": 0.67,
+      "view_to_order": null,
       "cart_to_order": null,
       "order_to_buyout": 100.0,
       "order_to_buyout_over_100": false,
@@ -1182,62 +1034,59 @@
     },
     "marketing_layer": {
       "basis": "orders",
-      "orders": 15,
-      "ads_spend": 1005.19,
-      "cpo": 67.01
+      "orders": 3,
+      "ads_spend": null,
+      "cpo": null
     },
     "financial_layer": {
       "basis": "buyouts",
-      "buyouts": 15,
-      "revenue": 9166.6,
-      "commission": -668.58,
+      "buyouts": 3,
+      "revenue": 0.0,
+      "commission": 0.0,
       "logistics": 0.0,
       "tax": 0.0,
       "cogs": 0.0,
-      "profit": 8829.99
+      "profit": 0.0
     }
   },
   "ads": {
-    "spend": 1005.19,
-    "spend_total": 1005.19,
-    "impressions": 2255,
-    "impressions_total": 2255,
-    "clicks": 77,
-    "clicks_total": 77,
-    "ctr": 3.41,
-    "orders": 1,
-    "orders_total": 1,
-    "revenue": 900.0,
-    "revenue_total": 900.0,
-    "acos": 111.69,
-    "romi": -10.46,
-    "rows": 1,
-    "campaign_total_rows": 1,
-    "attribution_quality": "direct_only"
+    "spend": 0.0,
+    "spend_total": 0.0,
+    "impressions": 0,
+    "impressions_total": 0,
+    "clicks": 0,
+    "clicks_total": 0,
+    "ctr": 0.0,
+    "orders": 0,
+    "orders_total": 0,
+    "revenue": 0.0,
+    "revenue_total": 0.0,
+    "acos": 0.0,
+    "romi": 0.0,
+    "rows": 0,
+    "campaign_total_rows": 0,
+    "attribution_quality": "unknown"
   },
   "profit_contribution_summary": {
-    "p1_count": 4,
-    "p2_count": 2,
-    "p3_count": 0,
+    "p1_count": 2,
+    "p2_count": 0,
+    "p3_count": 1,
     "top_profit_skus": [
-      "452102417",
-      "430679462",
-      "333615320",
-      "453526507",
-      "584904841"
+      "1002",
+      "1001"
     ]
   },
   "territorial_distribution_summary": {
-    "sku_total": 6,
+    "sku_total": 3,
     "sku_with_ktr": 0,
     "balanced_count": 0,
     "moderate_mismatch_count": 0,
     "misallocated_count": 0,
-    "insufficient_distribution_data_count": 6,
-    "no_stock_data_count": 6,
-    "insufficient_total_count": 6,
+    "insufficient_distribution_data_count": 3,
+    "no_stock_data_count": 3,
+    "insufficient_total_count": 3,
     "avg_ktr": 0.0,
-    "total_skus_analyzed": 6,
+    "total_skus_analyzed": 3,
     "skus_with_irp_penalty": 0,
     "skus_below_60_localization": 0,
     "skus_below_40_localization": 0,
@@ -1246,31 +1095,55 @@
     "weighted_average_localization_share": 0.0,
     "distribution_efficiency_score": 0.0,
     "coverage_pct": 0.0,
-    "demand_coverage_pct": 100.0,
+    "demand_coverage_pct": 0.0,
     "stock_coverage_pct": 0.0,
+    "unknown_share_pct": 100.0,
+    "known_localization_skus": 0,
+    "unknown_localization_skus": 3,
+    "full_analysis_skus": 0,
+    "preview_analysis_skus": 0,
+    "disabled_analysis_skus": 3,
+    "usable_analysis_skus": 0,
+    "blocked_analysis_skus": 3,
     "confidence_level": "low",
     "analysis_mode": "disabled",
+    "analysis_status": "blocked_by_data",
     "recommendation_status": "blocked_by_data",
+    "blocked_reasons": [
+      "insufficient_order_volume",
+      "localization_not_computable",
+      "missing_demand_geography",
+      "missing_stock_geography"
+    ],
+    "blocked_reason_counts": {
+      "missing_demand_geography": 3,
+      "missing_stock_geography": 3,
+      "insufficient_order_volume": 3,
+      "localization_not_computable": 3
+    },
     "suppressed_due_to_data_quality": true,
+    "recommendation_candidate_skus": 0,
+    "actionable_recommendation_skus": 0,
+    "top_demand_regions": [],
     "top_weak_localization_skus": [],
     "top_irp_penalty_skus": [],
     "top_misaligned_skus": []
   },
   "logistics_ktr_summary": {
-    "sku_total": 6,
+    "sku_total": 3,
     "sku_with_ktr": 0,
     "efficient_count": 0,
     "acceptable_count": 0,
     "inefficient_count": 0,
     "critical_count": 0,
-    "low_confidence_count": 6,
+    "low_confidence_count": 3,
     "avg_ktr": 0.0,
     "avg_locality_score": 0.0,
     "top_critical_skus": []
   },
   "decision_memory_summary": {
-    "total_logged": 94,
-    "pending": 6,
+    "total_logged": 97,
+    "pending": 9,
     "success": 27,
     "fail": 36,
     "neutral": 25
