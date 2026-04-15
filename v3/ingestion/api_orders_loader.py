@@ -36,7 +36,7 @@ def _pick_text(row: Dict[str, Any], keys: Iterable[str]) -> str:
 
 
 def _row_date_iso(row: Dict[str, Any]) -> str:
-    for key in ("date", "lastChangeDate", "order_dt", "createdAt"):
+    for key in ("date", "orderDate", "saleDate", "lastChangeDate", "order_dt", "createdAt"):
         raw = str(row.get(key) or "").strip()
         if re.fullmatch(r"\d{4}-\d{2}-\d{2}.*", raw):
             return raw[:10]
@@ -56,6 +56,7 @@ def load_orders_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
     rows: List[Dict[str, Any]] = []
     for index, row in enumerate(rows_raw):
         row_date = _row_date_iso(row)
+        # Keep only rows inside [date_from, date_to] window.
         if row_date and (row_date < date_from or row_date > date_to):
             continue
         nm_id = _pick_text(row, ("nmId", "nm_id", "nmid", "nmID"))

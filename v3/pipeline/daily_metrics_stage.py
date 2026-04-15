@@ -51,10 +51,12 @@ def _normalize_day_token(value: Any) -> str:
 def _row_day_token(row: Dict[str, Any]) -> str:
     if not isinstance(row, dict):
         return ""
+    # Primary event date keys for daily exact-day parity.
+    for key in ("date", "orderDate", "saleDate"):
+        token = _normalize_day_token(row.get(key))
+        if token:
+            return token
     for key in (
-        "date",
-        "orderDate",
-        "saleDate",
         "order_dt",
         "sale_dt",
         "lastChangeDate",
@@ -329,15 +331,21 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     orders_dates_after = _sample_row_dates(api_orders_rows)
     sales_dates_after = _sample_row_dates(api_sales_rows)
     realization_dates_after = _sample_row_dates(api_realization_rows)
+    orders_rows_dropped_by_filter = max(api_orders_rows_before_filter - api_orders_rows_after_filter, 0)
+    sales_rows_dropped_by_filter = max(api_sales_rows_before_filter - api_sales_rows_after_filter, 0)
+    realization_rows_dropped_by_filter = max(api_realization_rows_before_filter - api_realization_rows_after_filter, 0)
 
     api_debug["daily_row_filter"] = {
         "target_date": _normalize_day_token(run_date),
         "orders_rows_before": api_orders_rows_before_filter,
         "orders_rows_after": api_orders_rows_after_filter,
+        "orders_rows_dropped": orders_rows_dropped_by_filter,
         "sales_rows_before": api_sales_rows_before_filter,
         "sales_rows_after": api_sales_rows_after_filter,
+        "sales_rows_dropped": sales_rows_dropped_by_filter,
         "realization_rows_before": api_realization_rows_before_filter,
         "realization_rows_after": api_realization_rows_after_filter,
+        "realization_rows_dropped": realization_rows_dropped_by_filter,
         "orders_dates_sample_before": orders_dates_before,
         "orders_dates_sample_after": orders_dates_after,
         "sales_dates_sample_before": sales_dates_before,
