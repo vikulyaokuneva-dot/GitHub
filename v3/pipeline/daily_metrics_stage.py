@@ -102,6 +102,58 @@ def _filter_rows_by_day(rows: List[Dict[str, Any]], target_date: str) -> List[Di
     return filtered
 
 
+def _filter_rows_by_day_with_window(
+    rows: List[Dict[str, Any]],
+    target_date: str,
+    *,
+    fallback_window_days: int,
+) -> List[Dict[str, Any]]:
+    exact_rows = _filter_rows_by_day(rows, target_date)
+    if exact_rows:
+        return exact_rows
+    window = max(0, int(fallback_window_days or 0))
+    if window <= 0:
+        return exact_rows
+    target_day = _normalize_day_token(target_date)
+    if not target_day:
+        return exact_rows
+    try:
+        target_dt = datetime.strptime(target_day, "%Y-%m-%d").date()
+    except Exception:
+        return exact_rows
+
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        row_day = _row_day_token(row)
+        if not row_day:
+            continue
+        grouped.setdefault(row_day, []).append(row)
+
+    selected_day = ""
+    selected_score: tuple[int, int, int] | None = None
+    for row_day in grouped.keys():
+        if row_day == target_day:
+            continue
+        try:
+            row_dt = datetime.strptime(row_day, "%Y-%m-%d").date()
+        except Exception:
+            continue
+        diff_days = (target_dt - row_dt).days
+        abs_diff = abs(diff_days)
+        if abs_diff > window:
+            continue
+        # Prefer nearest lagging/past day, then freshest date.
+        score = (abs_diff, 0 if diff_days >= 0 else 1, -int(row_dt.toordinal()))
+        if selected_score is None or score < selected_score:
+            selected_score = score
+            selected_day = row_day
+    if not selected_day:
+        return exact_rows
+    return list(grouped.get(selected_day, []))
+
+
 def _resolve_daily_filter_target_date(
     *,
     run_date: str,
@@ -394,13 +446,24 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     api_orders_rows_before_filter = len([row for row in api_orders_rows if isinstance(row, dict)])
     api_sales_rows_before_filter = len([row for row in api_sales_rows if isinstance(row, dict)])
     api_realization_rows_before_filter = len([row for row in api_realization_rows if isinstance(row, dict)])
+    api_orders_rows_raw_for_daily_kpi = list(api_orders_rows)
+    api_sales_rows_raw_for_daily_kpi = list(api_sales_rows)
+    api_realization_rows_raw_for_daily_kpi = list(api_realization_rows)
     orders_dates_before = _sample_row_dates(api_orders_rows)
     sales_dates_before = _sample_row_dates(api_sales_rows)
     realization_dates_before = _sample_row_dates(api_realization_rows)
 
+    realization_fallback_window_days = int(_safe_int_local(api_debug.get("realization_fallback_lag_days"), 0))
+    if realization_fallback_window_days < 0:
+        realization_fallback_window_days = 0
+
     api_orders_rows = _filter_rows_by_day(api_orders_rows, daily_filter_target_date)
     api_sales_rows = _filter_rows_by_day(api_sales_rows, daily_filter_target_date)
-    api_realization_rows = _filter_rows_by_day(api_realization_rows, daily_filter_target_date)
+    api_realization_rows = _filter_rows_by_day_with_window(
+        api_realization_rows,
+        daily_filter_target_date,
+        fallback_window_days=realization_fallback_window_days,
+    )
 
     api_orders_rows_after_filter = len([row for row in api_orders_rows if isinstance(row, dict)])
     api_sales_rows_after_filter = len([row for row in api_sales_rows if isinstance(row, dict)])
@@ -423,6 +486,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         "realization_rows_before": api_realization_rows_before_filter,
         "realization_rows_after": api_realization_rows_after_filter,
         "realization_rows_dropped": realization_rows_dropped_by_filter,
+        "realization_fallback_window_days": int(realization_fallback_window_days),
         "orders_dates_sample_before": orders_dates_before,
         "orders_dates_sample_after": orders_dates_after,
         "sales_dates_sample_before": sales_dates_before,
@@ -436,6 +500,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         f"orders={api_orders_rows_before_filter}->{api_orders_rows_after_filter} "
         f"sales={api_sales_rows_before_filter}->{api_sales_rows_after_filter} "
         f"realization={api_realization_rows_before_filter}->{api_realization_rows_after_filter} "
+        f"realization_window_days={int(realization_fallback_window_days)} "
         f"orders_dates={orders_dates_after} sales_dates={sales_dates_after} realization_dates={realization_dates_after}"
     )
 
@@ -602,9 +667,9 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     daily_kpi = resolve_daily_kpi(
         totals_for_daily,
         supplier_goods_daily if isinstance(supplier_goods_daily, dict) else {},
-        api_orders_rows if isinstance(api_orders_rows, list) else [],
-        api_sales_rows if isinstance(api_sales_rows, list) else [],
-        api_realization_rows if isinstance(api_realization_rows, list) else [],
+        api_orders_rows_raw_for_daily_kpi if isinstance(api_orders_rows_raw_for_daily_kpi, list) else [],
+        api_sales_rows_raw_for_daily_kpi if isinstance(api_sales_rows_raw_for_daily_kpi, list) else [],
+        api_realization_rows_raw_for_daily_kpi if isinstance(api_realization_rows_raw_for_daily_kpi, list) else [],
         source_mode=str(source_mode or ""),
         input_debug=input_debug if isinstance(input_debug, dict) else {},
         api_debug=api_debug if isinstance(api_debug, dict) else {},

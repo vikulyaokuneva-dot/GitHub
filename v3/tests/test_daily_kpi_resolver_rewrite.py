@@ -170,6 +170,62 @@ class TestDailyKpiResolverRewrite(unittest.TestCase):
         self.assertEqual(int(daily_kpi.get("daily_buyouts_count", 0) or 0), 3)
         self.assertAlmostEqual(float(daily_kpi.get("daily_buyouts_amount", 0.0) or 0.0), 2580.0, places=2)
 
+    def test_primary_valid_does_not_use_fallback(self) -> None:
+        daily_kpi = resolve_daily_kpi(
+            totals={},
+            supplier_goods_daily={},
+            api_orders_rows=[
+                {"order_id": "o-prev", "date": "2026-04-13T08:00:00", "totalPrice": 700.0},
+                {"order_id": "o-main", "date": "2026-04-14T09:00:00", "totalPrice": 1000.0},
+            ],
+            api_sales_rows=[],
+            api_realization_rows=[],
+            source_mode="wb_api",
+            event_date_model={"report_date": "2026-04-15", "operational_date": "2026-04-14"},
+        )
+        self.assertEqual(int(daily_kpi.get("daily_orders_count", 0) or 0), 1)
+        self.assertEqual(str(daily_kpi.get("data_source_orders_count") or ""), "orders_api")
+        trace = daily_kpi.get("trace_daily_orders_count", {})
+        self.assertFalse(bool((trace if isinstance(trace, dict) else {}).get("fallback_used", False)))
+        self.assertEqual(str((trace if isinstance(trace, dict) else {}).get("primary_status") or ""), "ok")
+
+    def test_empty_primary_uses_adjacent_day_fallback(self) -> None:
+        daily_kpi = resolve_daily_kpi(
+            totals={},
+            supplier_goods_daily={},
+            api_orders_rows=[
+                {"order_id": "o1", "date": "2026-04-13T10:00:00", "totalPrice": 500.0},
+                {"order_id": "o2", "date": "2026-04-13T11:00:00", "totalPrice": 700.0},
+            ],
+            api_sales_rows=[],
+            api_realization_rows=[],
+            source_mode="wb_api",
+            event_date_model={"report_date": "2026-04-15", "operational_date": "2026-04-14"},
+        )
+        self.assertEqual(int(daily_kpi.get("daily_orders_count", 0) or 0), 2)
+        self.assertEqual(str(daily_kpi.get("data_source_orders_count") or ""), "orders_api")
+        trace = daily_kpi.get("trace_daily_orders_count", {})
+        self.assertTrue(bool((trace if isinstance(trace, dict) else {}).get("fallback_used", False)))
+        self.assertEqual(str((trace if isinstance(trace, dict) else {}).get("primary_status") or ""), "lagged")
+
+    def test_wrong_entity_fallback_is_not_used_for_orders(self) -> None:
+        daily_kpi = resolve_daily_kpi(
+            totals={},
+            supplier_goods_daily={},
+            api_orders_rows=[],
+            api_sales_rows=[
+                {"sale_id": "s1", "date": "2026-04-13T10:00:00", "priceWithDisc": 100.0},
+                {"sale_id": "s2", "date": "2026-04-13T11:00:00", "priceWithDisc": 120.0},
+            ],
+            api_realization_rows=[],
+            source_mode="wb_api",
+            event_date_model={"report_date": "2026-04-15", "operational_date": "2026-04-14"},
+        )
+        self.assertEqual(int(daily_kpi.get("daily_orders_count", 0) or 0), 0)
+        self.assertEqual(str(daily_kpi.get("data_source_orders_count") or ""), "unknown")
+        self.assertEqual(int(daily_kpi.get("daily_buyouts_count", 0) or 0), 2)
+        self.assertEqual(str(daily_kpi.get("data_source_buyouts_count") or ""), "sales_api")
+
 
 if __name__ == "__main__":
     unittest.main()

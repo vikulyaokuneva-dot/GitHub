@@ -1,6 +1,10 @@
 import unittest
 
-from v3.pipeline.daily_metrics_stage import _filter_rows_by_day, _resolve_daily_filter_target_date
+from v3.pipeline.daily_metrics_stage import (
+    _filter_rows_by_day,
+    _filter_rows_by_day_with_window,
+    _resolve_daily_filter_target_date,
+)
 
 
 class TestDailyMetricsRowFilter(unittest.TestCase):
@@ -39,6 +43,16 @@ class TestDailyMetricsRowFilter(unittest.TestCase):
             api_debug={"date_from": "2026-04-13"},
         )
         self.assertEqual(target, "2026-04-14")
+
+    def test_window_filter_keeps_nearest_lagged_slice_when_exact_missing(self) -> None:
+        rows = [
+            {"id": "r1", "date": "2026-04-13T10:00:00"},
+            {"id": "r2", "date": "2026-04-13T12:00:00"},
+            {"id": "r3", "date": "2026-04-11T09:00:00"},
+        ]
+        filtered = _filter_rows_by_day_with_window(rows, "2026-04-14", fallback_window_days=1)
+        kept_ids = [str(row.get("id") or "") for row in filtered if isinstance(row, dict)]
+        self.assertEqual(kept_ids, ["r1", "r2"])
 
 
 if __name__ == "__main__":
