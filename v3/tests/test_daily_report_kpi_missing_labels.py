@@ -154,5 +154,75 @@ class TestDailyReportKpiMissingLabels(unittest.TestCase):
             self.assertTrue(all("недостаточно данных" not in str(row.get("reason", "")).lower() for row in rec_rows))
 
 
+    def test_funnel_upper_missing_shows_no_data_in_report_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            payload = {
+                "out_dir": tmp_dir,
+                "seller_id": "seller_001",
+                "run_date": "2026-04-14",
+                "job": {"email_summary": {"key_insights": ["ok"], "recommendations": ["ok"]}},
+                "daily_kpi": {
+                    "daily_orders_count": 3,
+                    "daily_buyouts_count": 3,
+                    "orders_count_confirmed": True,
+                    "buyouts_count_confirmed": True,
+                },
+                "render_kpi": {
+                    "orders_count": 3,
+                    "buyouts_count": 3,
+                },
+                "cabinet_funnel": {
+                    "funnel": {
+                        "views": None,
+                        "views_status": "missing",
+                        "views_source": "unavailable_from_api",
+                        "impressions": None,
+                        "impressions_status": "missing",
+                        "impressions_source": "unavailable_from_api",
+                        "clicks": None,
+                        "clicks_status": "missing",
+                        "clicks_source": "unavailable_from_api",
+                        "add_to_cart": None,
+                        "add_to_cart_status": "missing",
+                        "add_to_cart_source": "unavailable_from_api",
+                        "orders": 3,
+                        "orders_status": "confirmed",
+                        "orders_source": "api.orders",
+                        "buyouts": 3,
+                        "buyouts_status": "confirmed",
+                        "buyouts_source": "api.sales",
+                        "view_to_order_conversion": None,
+                        "order_to_buyout_conversion_pct": 100.0,
+                        "funnel_status": {
+                            "upper_funnel": "missing",
+                            "middle_funnel": "full",
+                            "lower_funnel": "full",
+                            "overall": "partial",
+                            "reason_codes": ["upper_funnel_unavailable_from_api"],
+                        },
+                    }
+                },
+            }
+            try:
+                out = run_daily_report_stage(payload)
+            except FileNotFoundError:
+                self.skipTest("TTF font for PDF is not available in this environment")
+                return
+
+            visual_funnel = out.get("visual_payload", {}).get("funnel", {})
+            self.assertEqual(str(visual_funnel.get("state") or ""), "partial")
+            self.assertIn("upper_funnel_unavailable_from_api", visual_funnel.get("reason_codes", []))
+            rows = visual_funnel.get("stages", []) if isinstance(visual_funnel.get("stages"), list) else []
+            rows_by_key = {
+                str(row.get("key") or ""): row
+                for row in rows
+                if isinstance(row, dict)
+            }
+            for key in ("views", "clicks", "add_to_cart"):
+                row = rows_by_key.get(key, {})
+                self.assertIsNone(row.get("value"))
+                self.assertEqual(str(row.get("display_value") or ""), "нет данных")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -794,20 +794,26 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
             {"label": "Заказы", "value": funnel.get("orders")},
             {"label": "Выкупы", "value": funnel.get("buyouts")},
         ]
-    funnel_stages: List[Tuple[str, float | None]] = []
+    funnel_stages: List[Dict[str, Any]] = []
     for row in funnel_stages_raw:
         if not isinstance(row, dict):
             continue
+        numeric_value = _as_number(row.get("value"))
+        status_token = str(row.get("status") or ("missing" if numeric_value is None else "confirmed")).strip().lower()
+        raw_display_value = str(row.get("display_value") or "").strip()
+        display_value = normalize_pdf_text(raw_display_value) if raw_display_value else normalize_pdf_text(_format_int(numeric_value))
         funnel_stages.append(
-            (
-                normalize_pdf_text(str(row.get("label") or "")),
-                _as_number(row.get("value")),
-            )
+            {
+                "label": normalize_pdf_text(str(row.get("label") or "")),
+                "value": numeric_value,
+                "status": status_token,
+                "display_value": display_value,
+            }
         )
-    funnel_present_rows = [(label, value) for label, value in funnel_stages if value is not None]
-    positive_values = [value for _, value in funnel_present_rows if value is not None and value > 0]
+    funnel_present_rows = [row for row in funnel_stages if row.get("value") is not None]
+    positive_values = [float(row.get("value")) for row in funnel_present_rows if row.get("value") is not None and float(row.get("value")) > 0]
     should_draw_funnel_graph = len(positive_values) >= 2 and funnel_state in {SECTION_STATE_FULL, SECTION_STATE_PARTIAL}
-    funnel_panel_h = 900 if should_draw_funnel_graph else (420 if funnel_present_rows else 260)
+    funnel_panel_h = 900 if should_draw_funnel_graph else (420 if funnel_stages else 260)
     funnel_content = _draw_panel(
         draw_3,
         margin,
@@ -818,7 +824,11 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     )
     left, top, right, bottom = funnel_content
     if should_draw_funnel_graph:
-        graph_rows = [(label, value) for label, value in funnel_present_rows if value is not None]
+        graph_rows = [
+            (str(row.get("label") or ""), float(row.get("value")))
+            for row in funnel_present_rows
+            if row.get("value") is not None
+        ]
         max_val = max(max(positive_values), 1.0)
         min_w = 240
         max_w = right - left - 280
@@ -869,13 +879,13 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
             stage_y = y2 + stage_gap
         if funnel_note:
             draw_3.text((left, bottom - 22), _fit_text(draw_3, funnel_note, fonts["small"], right - left), font=fonts["small"], fill=colors["muted"])
-    elif funnel_present_rows:
+    elif funnel_stages:
         table_rows = [
             {
-                "stage": normalize_pdf_text(label),
-                "value": normalize_pdf_text(_format_int(value)),
+                "stage": normalize_pdf_text(str(row.get("label") or "")),
+                "value": normalize_pdf_text(str(row.get("display_value") or _format_int(_as_number(row.get("value"))))),
             }
-            for label, value in funnel_present_rows
+            for row in funnel_stages
         ]
         _draw_table(
             draw_3,

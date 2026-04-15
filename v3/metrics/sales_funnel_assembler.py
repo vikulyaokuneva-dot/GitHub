@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Tuple
 
 
@@ -39,6 +40,57 @@ def _first_present(*values: Any) -> Any:
 
 def _source_is_known(value: Any) -> bool:
     return not _is_unknown_source(value)
+
+
+def _read_metric_from_dict(source: Dict[str, Any], keys: Tuple[str, ...], *, as_int: bool) -> Tuple[int | float | None, bool]:
+    if not isinstance(source, dict):
+        return None, False
+    for key in keys:
+        if key not in source:
+            continue
+        raw_value = source.get(key)
+        value = _to_int_or_none(raw_value) if as_int else _to_float_or_none(raw_value)
+        if value is None:
+            continue
+        return value, True
+    return None, False
+
+
+def _field_status(value: int | float | None, source: str) -> str:
+    if value is None:
+        return "missing"
+    if abs(float(value)) <= 1e-12:
+        return "confirmed_zero" if _source_is_known(source) else "missing"
+    return "confirmed" if _source_is_known(source) else "missing"
+
+
+def _resolve_conversion_status(
+    *,
+    value: float | None,
+    numerator: int | float | None,
+    denominator: int | float | None,
+    missing_code: str,
+    non_positive_code: str,
+    overridden_code: str = "",
+    is_overridden: bool = False,
+) -> Dict[str, str]:
+    if value is not None:
+        return {"status": "computed", "reason": ""}
+    if is_overridden and overridden_code:
+        return {"status": "insufficient_data", "reason": overridden_code}
+    if numerator is None or denominator is None:
+        return {"status": "insufficient_data", "reason": missing_code}
+    if float(denominator) <= 0:
+        return {"status": "insufficient_data", "reason": non_positive_code}
+    return {"status": "insufficient_data", "reason": missing_code}
+
+
+def _level_from_flags(*, has_all: bool, has_any: bool) -> str:
+    if has_all:
+        return "full"
+    if has_any:
+        return "partial"
+    return "missing"
 
 
 def _sanitize_count(value: Any, *, source: Any) -> int | None:
@@ -239,6 +291,9 @@ def assemble_sales_funnel(
     safe_data_sources = safe_metrics.get("data_sources", {})
     if not isinstance(safe_data_sources, dict):
         safe_data_sources = {}
+    safe_data_quality = safe_metrics.get("data_quality", {})
+    if not isinstance(safe_data_quality, dict):
+        safe_data_quality = {}
     safe_ads_diag = ads_diagnostics if isinstance(ads_diagnostics, dict) else {}
     selected_totals = safe_ads_diag.get("selected_totals", {})
     if not isinstance(selected_totals, dict):
@@ -247,6 +302,24 @@ def assemble_sales_funnel(
     funnel_xlsx_totals = safe_funnel_xlsx.get("cabinet_totals", {})
     if not isinstance(funnel_xlsx_totals, dict):
         funnel_xlsx_totals = {}
+    upper_flag_known = (
+        "funnel_upper_available" in safe_data_quality
+        or "funnel_upper_unavailable_from_api" in safe_data_quality
+    )
+    funnel_upper_available = bool(safe_data_quality.get("funnel_upper_available", False))
+    funnel_upper_unavailable_from_api = bool(
+        safe_data_quality.get("funnel_upper_unavailable_from_api", False)
+    )
+    funnel_contract_source = str(safe_data_quality.get("funnel_contract_source") or "missing")
+    if not upper_flag_known and "api_funnel_contract" in (safe_metrics.get("diagnostics", {}) if isinstance(safe_metrics.get("diagnostics", {}), dict) else {}):
+        diagnostics = safe_metrics.get("diagnostics", {})
+        api_contract = diagnostics.get("api_funnel_contract", {}) if isinstance(diagnostics, dict) else {}
+        if isinstance(api_contract, dict):
+            funnel_upper_available = bool(api_contract.get("upper_funnel_available", False))
+            funnel_upper_unavailable_from_api = bool(api_contract.get("upper_funnel_unavailable_from_api", False))
+            funnel_contract_source = str(api_contract.get("source") or funnel_contract_source)
+            upper_flag_known = True
+    allow_api_upper_fallback = bool(funnel_upper_available) if upper_flag_known else True
 
     orders_confirmed = bool(
         safe_commerce_kpi.get(
@@ -286,16 +359,8 @@ def assemble_sales_funnel(
         safe_daily_kpi.get("data_source_buyouts_count"),
         safe_daily_kpi.get("source_count"),
     )
-    traffic_source = _first_present(
-        safe_data_sources.get("views"),
-        safe_data_sources.get("orders_count"),
-        safe_daily_kpi.get("data_source_orders_count"),
-    )
-    add_to_cart_source = _first_present(
-        safe_data_sources.get("add_to_cart"),
-        safe_data_sources.get("orders_count"),
-        safe_daily_kpi.get("data_source_orders_count"),
-    )
+    traffic_source = _first_present(safe_data_sources.get("views"))
+    add_to_cart_source = _first_present(safe_data_sources.get("add_to_cart"))
 
     # Keep conversion metrics available when counts are present in known sources,
     # even if confirmation flags are not final yet.
@@ -320,39 +385,136 @@ def assemble_sales_funnel(
         api_source=str(buyouts_source or "unknown"),
     )
 
-    api_views = _to_int_or_none(
-        _first_present(
-            safe_commerce_kpi.get("views"),
-            safe_daily_kpi.get("views"),
-            safe_totals.get("views"),
-            safe_totals.get("card_views"),
-            selected_totals.get("ads_impressions"),
-            safe_totals.get("ads_impressions"),
+    views_xlsx_raw, views_xlsx_present = _read_metric_from_dict(
+        funnel_xlsx_totals,
+        ("views",),
+        as_int=True,
+    )
+    views_ads_raw, views_ads_present = _read_metric_from_dict(
+        selected_totals,
+        ("ads_impressions", "impressions", "views"),
+        as_int=True,
+    )
+    views_api_raw, views_api_present = _read_metric_from_dict(
+        safe_commerce_kpi,
+        ("views",),
+        as_int=True,
+    )
+    if not views_api_present:
+        views_api_raw, views_api_present = _read_metric_from_dict(
+            safe_daily_kpi,
+            ("views",),
+            as_int=True,
         )
-    )
-    views, views_source_final = _pick_priority_metric(
-        xlsx_value=funnel_xlsx_totals.get("views"),
-        api_value=api_views,
-        api_source=str(traffic_source or "unknown"),
-    )
+    if not views_api_present:
+        views_api_raw, views_api_present = _read_metric_from_dict(
+            safe_totals,
+            ("views", "card_views"),
+            as_int=True,
+        )
 
-    api_add_to_cart = _to_int_or_none(
-        _first_present(
-            safe_commerce_kpi.get("add_to_cart"),
-            safe_daily_kpi.get("add_to_cart"),
-            safe_totals.get("add_to_cart"),
-            safe_totals.get("cart_count"),
+    if views_xlsx_present:
+        views = int(views_xlsx_raw if views_xlsx_raw is not None else 0)
+        views_source_final = "funnel_xlsx"
+    elif views_ads_present:
+        views = int(views_ads_raw if views_ads_raw is not None else 0)
+        views_source_final = "analytics_api"
+    elif allow_api_upper_fallback and views_api_present:
+        views = int(views_api_raw if views_api_raw is not None else 0)
+        views_source_final = str(traffic_source or "metrics_totals")
+    else:
+        views = None
+        views_source_final = "unavailable_from_api" if funnel_upper_unavailable_from_api else "unknown"
+
+    add_to_cart_xlsx_raw, add_to_cart_xlsx_present = _read_metric_from_dict(
+        funnel_xlsx_totals,
+        ("add_to_cart",),
+        as_int=True,
+    )
+    add_to_cart_api_raw, add_to_cart_api_present = _read_metric_from_dict(
+        safe_commerce_kpi,
+        ("add_to_cart",),
+        as_int=True,
+    )
+    if not add_to_cart_api_present:
+        add_to_cart_api_raw, add_to_cart_api_present = _read_metric_from_dict(
+            safe_daily_kpi,
+            ("add_to_cart",),
+            as_int=True,
         )
+    if not add_to_cart_api_present:
+        add_to_cart_api_raw, add_to_cart_api_present = _read_metric_from_dict(
+            safe_totals,
+            ("add_to_cart", "cart_count"),
+            as_int=True,
+        )
+
+    if add_to_cart_xlsx_present:
+        add_to_cart = int(add_to_cart_xlsx_raw if add_to_cart_xlsx_raw is not None else 0)
+        add_to_cart_source_final = "funnel_xlsx"
+    elif allow_api_upper_fallback and add_to_cart_api_present:
+        add_to_cart = int(add_to_cart_api_raw if add_to_cart_api_raw is not None else 0)
+        add_to_cart_source_final = str(add_to_cart_source or "metrics_totals")
+    else:
+        add_to_cart = None
+        add_to_cart_source_final = "unavailable_from_api" if funnel_upper_unavailable_from_api else "unknown"
+
+    impressions_xlsx_raw, impressions_xlsx_present = _read_metric_from_dict(
+        funnel_xlsx_totals,
+        ("impressions",),
+        as_int=True,
     )
-    add_to_cart, add_to_cart_source_final = _pick_priority_metric(
-        xlsx_value=funnel_xlsx_totals.get("add_to_cart"),
-        api_value=api_add_to_cart,
-        api_source=str(add_to_cart_source or "unknown"),
+    impressions_ads_raw, impressions_ads_present = _read_metric_from_dict(
+        selected_totals,
+        ("ads_impressions", "impressions"),
+        as_int=True,
     )
-    clicks = _to_int_or_none(_first_present(selected_totals.get("ads_clicks"), safe_totals.get("ads_clicks")))
-    impressions = _to_int_or_none(
-        _first_present(selected_totals.get("ads_impressions"), safe_totals.get("ads_impressions"))
+    impressions_api_raw, impressions_api_present = _read_metric_from_dict(
+        safe_totals,
+        ("ads_impressions", "impressions"),
+        as_int=True,
     )
+    if impressions_xlsx_present:
+        impressions = int(impressions_xlsx_raw if impressions_xlsx_raw is not None else 0)
+        impressions_source_final = "funnel_xlsx"
+    elif impressions_ads_present:
+        impressions = int(impressions_ads_raw if impressions_ads_raw is not None else 0)
+        impressions_source_final = "analytics_api"
+    elif allow_api_upper_fallback and impressions_api_present:
+        impressions = int(impressions_api_raw if impressions_api_raw is not None else 0)
+        impressions_source_final = "metrics_totals"
+    else:
+        impressions = None
+        impressions_source_final = "unavailable_from_api" if funnel_upper_unavailable_from_api else "unknown"
+
+    clicks_xlsx_raw, clicks_xlsx_present = _read_metric_from_dict(
+        funnel_xlsx_totals,
+        ("clicks",),
+        as_int=True,
+    )
+    clicks_ads_raw, clicks_ads_present = _read_metric_from_dict(
+        selected_totals,
+        ("ads_clicks", "clicks"),
+        as_int=True,
+    )
+    clicks_api_raw, clicks_api_present = _read_metric_from_dict(
+        safe_totals,
+        ("ads_clicks", "clicks"),
+        as_int=True,
+    )
+    if clicks_xlsx_present:
+        clicks = int(clicks_xlsx_raw if clicks_xlsx_raw is not None else 0)
+        clicks_source_final = "funnel_xlsx"
+    elif clicks_ads_present:
+        clicks = int(clicks_ads_raw if clicks_ads_raw is not None else 0)
+        clicks_source_final = "analytics_api"
+    elif allow_api_upper_fallback and clicks_api_present:
+        clicks = int(clicks_api_raw if clicks_api_raw is not None else 0)
+        clicks_source_final = "metrics_totals"
+    else:
+        clicks = None
+        clicks_source_final = "unavailable_from_api" if funnel_upper_unavailable_from_api else "unknown"
+
     ctr = _pct(float(clicks) if clicks is not None else None, float(impressions) if impressions is not None else None)
 
     ads_spend = _to_float_or_none(
@@ -402,6 +564,85 @@ def assemble_sales_funnel(
         cogs=cogs,
         profit=profit,
     )
+    views_status = _field_status(views, views_source_final)
+    impressions_status = _field_status(impressions, impressions_source_final)
+    clicks_status = _field_status(clicks, clicks_source_final)
+    add_to_cart_status = _field_status(add_to_cart, add_to_cart_source_final)
+    orders_status = _field_status(cabinet_metrics.get("orders"), orders_source_final)
+    buyouts_status = _field_status(cabinet_metrics.get("buyouts"), buyouts_source_final)
+
+    upper_has_all = all(
+        status in {"confirmed", "confirmed_zero"}
+        for status in (views_status, impressions_status, clicks_status, add_to_cart_status)
+    )
+    upper_has_any = any(
+        status in {"confirmed", "confirmed_zero"}
+        for status in (views_status, impressions_status, clicks_status, add_to_cart_status)
+    )
+    upper_funnel_level = _level_from_flags(has_all=upper_has_all, has_any=upper_has_any)
+    middle_funnel_level = "full" if orders_status in {"confirmed", "confirmed_zero"} else "missing"
+    lower_funnel_level = "full" if buyouts_status in {"confirmed", "confirmed_zero"} else "missing"
+
+    reason_codes: List[str] = []
+    if upper_funnel_level == "missing" and funnel_upper_unavailable_from_api:
+        reason_codes.append("upper_funnel_unavailable_from_api")
+    if upper_funnel_level == "partial":
+        reason_codes.append("upper_funnel_partial_fields")
+    if middle_funnel_level == "missing":
+        reason_codes.append("orders_missing_or_unconfirmed")
+    if lower_funnel_level == "missing":
+        reason_codes.append("buyouts_missing_or_unconfirmed")
+
+    if upper_funnel_level == "full" and middle_funnel_level == "full" and lower_funnel_level == "full":
+        overall_level = "full"
+    elif (
+        upper_funnel_level == "missing"
+        and middle_funnel_level == "missing"
+        and lower_funnel_level == "missing"
+    ):
+        overall_level = "missing"
+    else:
+        overall_level = "partial"
+
+    conversion_status = {
+        "view_to_order": _resolve_conversion_status(
+            value=cabinet_metrics.get("view_to_order_conversion"),
+            numerator=cabinet_metrics.get("orders"),
+            denominator=cabinet_metrics.get("views"),
+            missing_code="views_or_orders_missing",
+            non_positive_code="views_non_positive",
+        ),
+        "cart_to_order": _resolve_conversion_status(
+            value=cabinet_metrics.get("cart_to_order"),
+            numerator=cabinet_metrics.get("orders"),
+            denominator=cabinet_metrics.get("add_to_cart"),
+            missing_code="add_to_cart_or_orders_missing",
+            non_positive_code="add_to_cart_non_positive",
+        ),
+        "order_to_buyout": _resolve_conversion_status(
+            value=cabinet_metrics.get("buyout_rate"),
+            numerator=cabinet_metrics.get("buyouts"),
+            denominator=cabinet_metrics.get("orders"),
+            missing_code="orders_or_buyouts_missing",
+            non_positive_code="orders_non_positive",
+            overridden_code="order_to_buyout_over_100_possible_date_shift",
+            is_overridden=bool(cabinet_metrics.get("buyout_rate_over_100", False)),
+        ),
+        "ctr": _resolve_conversion_status(
+            value=ctr,
+            numerator=clicks,
+            denominator=impressions,
+            missing_code="impressions_or_clicks_missing",
+            non_positive_code="impressions_non_positive",
+        ),
+        "cpo": _resolve_conversion_status(
+            value=cabinet_metrics.get("cpo"),
+            numerator=ads_spend,
+            denominator=cabinet_metrics.get("orders"),
+            missing_code="ads_spend_or_orders_missing",
+            non_positive_code="orders_non_positive",
+        ),
+    }
 
     sku_funnel: List[Dict[str, Any]] = []
     for row in safe_metrics.get("sku_metrics", []):
@@ -445,6 +686,8 @@ def assemble_sales_funnel(
 
     data_sources = {
         "views": views_source_final,
+        "impressions": impressions_source_final,
+        "clicks": clicks_source_final,
         "add_to_cart": add_to_cart_source_final,
         "orders": orders_source_final,
         "buyouts": buyouts_source_final,
@@ -453,23 +696,56 @@ def assemble_sales_funnel(
         "ads_spend": str(safe_data_sources.get("ads_spend") or "unknown"),
         "cpo": "derived",
     }
-    status = _build_status(views=views, add_to_cart=add_to_cart, orders=orders, buyouts=buyouts)
+    status = _build_status(
+        views=views,
+        add_to_cart=add_to_cart,
+        orders=cabinet_metrics.get("orders"),
+        buyouts=cabinet_metrics.get("buyouts"),
+    )
 
     order_to_buyout_over_100 = bool(cabinet_metrics.get("buyout_rate_over_100", False))
     order_to_buyout_note = str(cabinet_metrics.get("buyout_rate_note") or "")
     if order_to_buyout_over_100 and isinstance(status, dict):
         status["buyout_stage"] = "partial"
 
+    funnel_status = {
+        "upper_funnel": upper_funnel_level,
+        "middle_funnel": middle_funnel_level,
+        "lower_funnel": lower_funnel_level,
+        "overall": overall_level,
+        "reason_codes": reason_codes,
+    }
+
     funnel_payload = {
         "views": cabinet_metrics["views"],
+        "views_status": views_status,
+        "views_source": views_source_final,
+        "impressions": impressions,
+        "impressions_status": impressions_status,
+        "impressions_source": impressions_source_final,
+        "clicks": clicks,
+        "clicks_status": clicks_status,
+        "clicks_source": clicks_source_final,
         "add_to_cart": cabinet_metrics["add_to_cart"],
+        "add_to_cart_status": add_to_cart_status,
+        "add_to_cart_source": add_to_cart_source_final,
         "orders": cabinet_metrics["orders"],
+        "orders_status": orders_status,
+        "orders_source": orders_source_final,
         "buyouts": cabinet_metrics["buyouts"],
+        "buyouts_status": buyouts_status,
+        "buyouts_source": buyouts_source_final,
         "view_to_order_conversion": cabinet_metrics["view_to_order_conversion"],
+        "view_to_order_status": str((conversion_status.get("view_to_order") or {}).get("status") or ""),
+        "view_to_order_reason": str((conversion_status.get("view_to_order") or {}).get("reason") or ""),
         "view_to_order": cabinet_metrics["view_to_order_conversion"],
         "cart_rate": cabinet_metrics["cart_rate"],
         "cart_to_order": cabinet_metrics["cart_to_order"],
+        "cart_to_order_status": str((conversion_status.get("cart_to_order") or {}).get("status") or ""),
+        "cart_to_order_reason": str((conversion_status.get("cart_to_order") or {}).get("reason") or ""),
         "buyout_rate": cabinet_metrics["buyout_rate"],
+        "order_to_buyout_status": str((conversion_status.get("order_to_buyout") or {}).get("status") or ""),
+        "order_to_buyout_reason": str((conversion_status.get("order_to_buyout") or {}).get("reason") or ""),
         "order_to_buyout": cabinet_metrics["buyout_rate"],
         "order_to_buyout_over_100": order_to_buyout_over_100,
         "order_to_buyout_note": order_to_buyout_note,
@@ -477,10 +753,12 @@ def assemble_sales_funnel(
         "buyouts_amount": round(buyouts_amount, 2) if buyouts_amount is not None else None,
         "ads_spend": cabinet_metrics["ads_spend"],
         "cpo": cabinet_metrics["cpo"],
+        "cpo_status": str((conversion_status.get("cpo") or {}).get("status") or ""),
+        "cpo_reason": str((conversion_status.get("cpo") or {}).get("reason") or ""),
         # Backward-compatible aliases for existing report/email blocks.
-        "impressions": impressions if impressions is not None else views,
-        "clicks": clicks,
         "ctr": ctr,
+        "ctr_status": str((conversion_status.get("ctr") or {}).get("status") or ""),
+        "ctr_reason": str((conversion_status.get("ctr") or {}).get("reason") or ""),
         "cart_count": cabinet_metrics["add_to_cart"],
         "cart_conversion_pct": cabinet_metrics["cart_to_order"],
         "cart_rate_pct": cabinet_metrics["cart_rate"],
@@ -496,15 +774,45 @@ def assemble_sales_funnel(
             "order_to_buyout_over_100": order_to_buyout_over_100,
             "order_to_buyout_note": order_to_buyout_note,
         },
+        "conversion_status": conversion_status,
+        "funnel_status": funnel_status,
         "marketing_layer": cabinet_metrics["marketing_layer"],
         "financial_layer": cabinet_metrics["financial_layer"],
     }
+
+    print(
+        "[funnel_semantics] "
+        + json.dumps(
+            {
+                "target_date": str(run_date or ""),
+                "funnel_contract_source": funnel_contract_source,
+                "sources_checked_upper": [
+                    "funnel_xlsx",
+                    "ads_selected_totals",
+                    "api_upper_fallback" if allow_api_upper_fallback else "api_upper_fallback_blocked",
+                ],
+                "fields": {
+                    "views": {"status": views_status, "source": views_source_final, "value": views},
+                    "impressions": {"status": impressions_status, "source": impressions_source_final, "value": impressions},
+                    "clicks": {"status": clicks_status, "source": clicks_source_final, "value": clicks},
+                    "add_to_cart": {"status": add_to_cart_status, "source": add_to_cart_source_final, "value": add_to_cart},
+                },
+                "orders_source": orders_source_final,
+                "buyouts_source": buyouts_source_final,
+                "overall": overall_level,
+                "reason_codes": reason_codes,
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+    )
 
     return {
         "date": str(run_date or ""),
         "funnel": funnel_payload,
         "data_sources": data_sources,
         "status": status,
+        "funnel_status": funnel_status,
         "marketing_layer": cabinet_metrics["marketing_layer"],
         "financial_layer": cabinet_metrics["financial_layer"],
         "sku_funnel": sku_funnel,

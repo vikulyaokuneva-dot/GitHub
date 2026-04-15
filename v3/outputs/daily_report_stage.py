@@ -2138,30 +2138,86 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             card_payload["reason"] = reason_text
         kpi_cards_payload.append(card_payload)
 
-    funnel_views = _first_number_local(funnel.get("views"), funnel.get("impressions"))
-    funnel_clicks = _first_number_local(funnel.get("clicks"), data.get("ads_clicks"))
-    funnel_add_to_cart = _first_number_local(funnel.get("add_to_cart"), funnel.get("cart_count"))
-    funnel_orders = _first_number_local(funnel.get("orders"), orders_visual)
-    funnel_buyouts = _first_number_local(funnel.get("buyouts"), buyouts_count_value)
+    funnel_status_contract = funnel.get("funnel_status", {})
+    if not isinstance(funnel_status_contract, dict):
+        funnel_status_contract = {}
+    funnel_reason_codes = (
+        [str(item) for item in funnel_status_contract.get("reason_codes", []) if str(item or "").strip()]
+        if isinstance(funnel_status_contract.get("reason_codes"), list)
+        else []
+    )
+
+    def _funnel_field_value(key: str, *, fallback: Any = None) -> float | None:
+        status_token = str(funnel.get(f"{key}_status") or "").strip().lower()
+        if status_token == "missing":
+            return None
+        return _first_number_local(funnel.get(key), fallback)
+
+    funnel_views = _funnel_field_value("views")
+    if funnel_views is None:
+        impressions_status_token = str(funnel.get("impressions_status") or "").strip().lower()
+        if impressions_status_token in {"confirmed", "confirmed_zero"}:
+            funnel_views = _first_number_local(funnel.get("impressions"))
+    funnel_clicks = _funnel_field_value("clicks")
+    funnel_add_to_cart = _funnel_field_value("add_to_cart")
+    funnel_orders = _funnel_field_value("orders", fallback=orders_visual)
+    funnel_buyouts = _funnel_field_value("buyouts", fallback=buyouts_count_value)
     funnel_stage_rows = [
-        {"key": "views", "label": "Показы", "value": funnel_views},
-        {"key": "clicks", "label": "Клики", "value": funnel_clicks},
-        {"key": "add_to_cart", "label": "Корзина", "value": funnel_add_to_cart},
-        {"key": "orders", "label": "Заказы", "value": funnel_orders},
-        {"key": "buyouts", "label": "Выкупы", "value": funnel_buyouts},
+        {
+            "key": "views",
+            "label": "Показы",
+            "value": funnel_views,
+            "status": str(funnel.get("views_status") or "missing"),
+            "source": str(funnel.get("views_source") or "unknown"),
+            "display_value": _int_text(funnel_views, missing_label=NO_DATA_LABEL),
+        },
+        {
+            "key": "clicks",
+            "label": "Клики",
+            "value": funnel_clicks,
+            "status": str(funnel.get("clicks_status") or "missing"),
+            "source": str(funnel.get("clicks_source") or "unknown"),
+            "display_value": _int_text(funnel_clicks, missing_label=NO_DATA_LABEL),
+        },
+        {
+            "key": "add_to_cart",
+            "label": "Корзина",
+            "value": funnel_add_to_cart,
+            "status": str(funnel.get("add_to_cart_status") or "missing"),
+            "source": str(funnel.get("add_to_cart_source") or "unknown"),
+            "display_value": _int_text(funnel_add_to_cart, missing_label=NO_DATA_LABEL),
+        },
+        {
+            "key": "orders",
+            "label": "Заказы",
+            "value": funnel_orders,
+            "status": str(funnel.get("orders_status") or ("confirmed" if funnel_orders is not None else "missing")),
+            "source": str(funnel.get("orders_source") or "unknown"),
+            "display_value": _int_text(funnel_orders, missing_label=NO_DATA_LABEL),
+        },
+        {
+            "key": "buyouts",
+            "label": "Выкупы",
+            "value": funnel_buyouts,
+            "status": str(funnel.get("buyouts_status") or ("confirmed" if funnel_buyouts is not None else "missing")),
+            "source": str(funnel.get("buyouts_source") or "unknown"),
+            "display_value": _int_text(funnel_buyouts, missing_label=NO_DATA_LABEL),
+        },
     ]
     funnel_present_rows = [row for row in funnel_stage_rows if row.get("value") is not None]
-    funnel_full = len([row for row in funnel_stage_rows if row.get("value") not in {None, 0}]) >= 4
-    funnel_partial = bool(funnel_present_rows)
-    funnel_note = (
-        ""
-        if funnel_full
-        else (
-            "Воронка построена частично по доступным данным"
-            if funnel_partial
-            else "Нет полной воронки за период"
-        )
-    )
+    funnel_overall_status = str(funnel_status_contract.get("overall") or "").strip().lower()
+    if funnel_overall_status not in {"full", "partial", "missing"}:
+        funnel_overall_status = ""
+    funnel_full = bool(funnel_overall_status == "full")
+    funnel_partial = bool(funnel_overall_status == "partial" or (not funnel_overall_status and funnel_present_rows))
+    if "upper_funnel_unavailable_from_api" in funnel_reason_codes:
+        funnel_note = "Верх воронки недоступен: WB API не вернул показы/переходы за операционный день"
+    elif funnel_full:
+        funnel_note = ""
+    elif funnel_partial:
+        funnel_note = "Воронка построена частично по доступным данным"
+    else:
+        funnel_note = "Нет данных по воронке"
     funnel_state_payload = build_section_display_state(
         has_full_data=funnel_full,
         has_partial_data=funnel_partial,
@@ -2176,8 +2232,10 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "add_to_cart": funnel_add_to_cart,
         "orders": funnel_orders,
         "buyouts": funnel_buyouts,
+        "funnel_status": funnel_status_contract,
+        "reason_codes": funnel_reason_codes,
         "stages": funnel_stage_rows,
-        "table_rows": [row for row in funnel_stage_rows if row.get("value") is not None],
+        "table_rows": funnel_stage_rows,
         "order_to_buyout_over_100": bool(funnel.get("order_to_buyout_over_100", False)),
         "order_to_buyout_note": _sanitize_client_text(str(funnel.get("order_to_buyout_note") or "")),
     }
@@ -2817,8 +2875,8 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     print(
         "[pipeline] final_metric_mapping "
         f"orders={_round_or_none(orders_visual)} buyouts={_round_or_none(buyouts_count_value)} "
-        f"views={_round_or_none(_first_number_local(funnel.get('views'), funnel.get('impressions')))} "
-        f"add_to_cart={_round_or_none(_first_number_local(funnel.get('add_to_cart'), funnel.get('cart_count')))} "
+        f"views={_round_or_none(funnel_views)} "
+        f"add_to_cart={_round_or_none(funnel_add_to_cart)} "
         f"seller_payout={_round_or_none(revenue_visual)} net_profit={_round_or_none(net_profit_visual)}"
     )
     print(
@@ -2913,17 +2971,43 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "daily_buyouts_count": _int_or_none(buyouts_count_value),
             "daily_buyouts_amount": _round_or_none(buyouts_amount_value),
             "avg_check": _round_or_none(avg_check_value),
-            "views": _int_or_none(funnel.get("views", funnel.get("impressions"))),
-            "add_to_cart": _int_or_none(funnel.get("add_to_cart", funnel.get("cart_count"))),
+            "views": _int_or_none(funnel.get("views")),
+            "views_status": str(funnel.get("views_status") or "missing"),
+            "views_source": str(funnel.get("views_source") or "unknown"),
+            "impressions": _int_or_none(funnel.get("impressions")),
+            "impressions_status": str(funnel.get("impressions_status") or "missing"),
+            "impressions_source": str(funnel.get("impressions_source") or "unknown"),
+            "clicks": _int_or_none(funnel.get("clicks")),
+            "clicks_status": str(funnel.get("clicks_status") or "missing"),
+            "clicks_source": str(funnel.get("clicks_source") or "unknown"),
+            "add_to_cart": _int_or_none(funnel.get("add_to_cart")),
+            "add_to_cart_status": str(funnel.get("add_to_cart_status") or "missing"),
+            "add_to_cart_source": str(funnel.get("add_to_cart_source") or "unknown"),
             "view_to_order_conversion": _round_or_none(
                 funnel.get("view_to_order_conversion", funnel.get("click_to_order_conversion_pct"))
             ),
+            "view_to_order_status": str(funnel.get("view_to_order_status") or ""),
+            "view_to_order_reason": str(funnel.get("view_to_order_reason") or ""),
             "cart_rate": _round_or_none(funnel.get("cart_rate", funnel.get("cart_conversion_pct"))),
+            "ctr": _round_or_none(funnel.get("ctr")),
+            "ctr_status": str(funnel.get("ctr_status") or ""),
+            "ctr_reason": str(funnel.get("ctr_reason") or ""),
             "cart_to_order": _round_or_none(funnel.get("cart_to_order")),
+            "cart_to_order_status": str(funnel.get("cart_to_order_status") or ""),
+            "cart_to_order_reason": str(funnel.get("cart_to_order_reason") or ""),
             "buyout_rate": _round_or_none(funnel.get("buyout_rate", funnel.get("order_to_buyout_conversion_pct"))),
+            "order_to_buyout_status": str(funnel.get("order_to_buyout_status") or ""),
+            "order_to_buyout_reason": str(funnel.get("order_to_buyout_reason") or ""),
             "order_to_buyout_over_100": bool(funnel.get("order_to_buyout_over_100", False)),
             "order_to_buyout_note": str(funnel.get("order_to_buyout_note") or ""),
             "cpo": _round_or_none(funnel.get("cpo", funnel.get("CPO"))),
+            "cpo_status": str(funnel.get("cpo_status") or ""),
+            "cpo_reason": str(funnel.get("cpo_reason") or ""),
+            "funnel_status": (
+                funnel.get("funnel_status")
+                if isinstance(funnel.get("funnel_status"), dict)
+                else {}
+            ),
             "data_source_orders": str(daily_kpi.get("data_source_orders") or _SOURCE_UNKNOWN),
             "data_source_orders_count": str(daily_kpi.get("data_source_orders_count") or daily_kpi.get("data_source_orders") or _SOURCE_UNKNOWN),
             "data_source_orders_amount": str(daily_kpi.get("data_source_orders_amount") or _SOURCE_UNKNOWN),
