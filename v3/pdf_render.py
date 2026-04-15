@@ -328,6 +328,9 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         "bg": (246, 248, 252),
         "panel": (255, 255, 255),
         "border": (216, 223, 234),
+        "warning_bg": (255, 244, 226),
+        "warning_border": (230, 189, 128),
+        "warning_text": (123, 83, 22),
         "title": (28, 52, 84),
         "text": (55, 66, 82),
         "muted": (116, 127, 142),
@@ -457,6 +460,25 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     seller_id = normalize_pdf_text(str(payload.get("seller_id") or ""))
     run_date = normalize_pdf_text(str(payload.get("run_date") or ""))
     operational_day = normalize_pdf_text(str(payload.get("operational_day") or run_date))
+    financial_alignment = payload.get("financial_alignment", {})
+    if not isinstance(financial_alignment, dict):
+        financial_alignment = {}
+    financial_alignment_status = str(financial_alignment.get("financial_alignment_status") or "").strip().lower()
+    financial_lagged = bool(
+        financial_alignment.get("financial_lagged", False)
+        or financial_alignment.get("financial_date_misaligned", False)
+        or financial_alignment_status in {"lagged", "lagged_fallback"}
+    )
+    financial_actual_date = normalize_pdf_text(str(financial_alignment.get("financial_actual_date") or ""))
+    financial_target_date = normalize_pdf_text(str(financial_alignment.get("financial_target_date") or operational_day))
+    lag_warning_text = normalize_pdf_text(str(financial_alignment.get("warning_text") or "").strip())
+    if financial_lagged and not lag_warning_text:
+        lag_warning_text = normalize_pdf_text(
+            "Финансовые данные WB доступны только за "
+            f"{financial_actual_date or 'более раннюю дату'} и не относятся к операционному дню "
+            f"{financial_target_date or operational_day}. Показан лаговый финансовый срез."
+        )
+
     draw_1.text((margin, margin), normalize_pdf_text("WB AI Agent v3"), font=fonts["h1"], fill=colors["title"])
     draw_1.text(
         (margin, margin + 64),
@@ -465,6 +487,24 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         fill=colors["muted"],
     )
     draw_1.text((margin, margin + 126), normalize_pdf_text("Ключевые показатели дня"), font=fonts["h2"], fill=colors["title"])
+    card_y = margin + 182
+    if financial_lagged:
+        warning_top = margin + 170
+        warning_bottom = warning_top + 74
+        draw_1.rounded_rectangle(
+            (margin, warning_top, width_px - margin, warning_bottom),
+            radius=14,
+            fill=colors["warning_bg"],
+            outline=colors["warning_border"],
+            width=2,
+        )
+        draw_1.text(
+            (margin + 12, warning_top + 10),
+            _fit_text(draw_1, lag_warning_text, fonts["small"], width_px - margin * 2 - 24),
+            font=fonts["small"],
+            fill=colors["warning_text"],
+        )
+        card_y = warning_bottom + 16
 
     kpi_cards = payload.get("kpi_cards", [])
     if not isinstance(kpi_cards, list):
@@ -477,7 +517,6 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     if not visible_kpi_cards:
         visible_kpi_cards = [{"label": "Ключевые показатели", "value": None, "value_type": "text"}]
 
-    card_y = margin + 182
     card_gap = 18
     card_count = max(1, len(visible_kpi_cards))
     card_w = int((width_px - margin * 2 - card_gap * (card_count - 1)) / card_count)
@@ -533,15 +572,34 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     draw_2.text((margin, margin), normalize_pdf_text("Финансы и реклама"), font=fonts["h1"], fill=colors["title"])
 
     top_panel_h = 930
+    finance_panel_title = "Финансовая структура (лаговый срез WB)" if financial_lagged else "Финансовая структура дня"
     top_content = _draw_panel(
         draw_2,
         margin,
         margin + 84,
         width_px - margin * 2,
         top_panel_h,
-        "Финансовая структура дня",
+        finance_panel_title,
     )
     left, top, right, bottom = top_content
+    finance_table_box: Tuple[int, int, int, int] = top_content
+    if financial_lagged:
+        banner_h = 86
+        banner_bottom = min(bottom - 16, top + banner_h)
+        draw_2.rounded_rectangle(
+            (left, top, right, banner_bottom),
+            radius=12,
+            fill=colors["warning_bg"],
+            outline=colors["warning_border"],
+            width=2,
+        )
+        draw_2.text(
+            (left + 12, top + 10),
+            _fit_text(draw_2, lag_warning_text, fonts["small"], max(80, right - left - 24)),
+            font=fonts["small"],
+            fill=colors["warning_text"],
+        )
+        finance_table_box = (left, banner_bottom + 12, right, bottom)
     financial_structure = payload.get("financial_structure_day", {})
     if not isinstance(financial_structure, dict):
         financial_structure = {}
@@ -588,7 +646,7 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     ]
     _draw_table(
         draw_2,
-        top_content,
+        finance_table_box,
         [
             ("Показатель", "metric", 58),
             ("Значение", "value", 42),

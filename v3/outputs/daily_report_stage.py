@@ -303,6 +303,9 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     buyout_kpi = data.get("buyout_kpi", {})
     if not isinstance(buyout_kpi, dict):
         buyout_kpi = {}
+    financial_kpi = data.get("financial_kpi", {})
+    if not isinstance(financial_kpi, dict):
+        financial_kpi = {}
     event_date_model = data.get("event_date_model", {})
     if not isinstance(event_date_model, dict):
         event_date_model = {}
@@ -354,6 +357,47 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         data_quality.get("financial_finality_status", report_guardrails.get("financial_finality_status", "unavailable"))
         or "unavailable"
     ).strip().lower()
+    financial_alignment_status = str(
+        financial_kpi.get("financial_alignment_status", data_quality.get("financial_alignment_status", ""))
+        or ""
+    ).strip().lower()
+    financial_date_misaligned = bool(
+        financial_kpi.get("financial_date_misaligned", data_quality.get("financial_date_misaligned", False))
+    )
+    financial_actual_date = str(
+        financial_kpi.get(
+            "financial_actual_date",
+            data_quality.get("financial_actual_date", event_date_model.get("financial_date", "")),
+        )
+        or ""
+    ).strip()
+    financial_target_date = str(
+        financial_kpi.get(
+            "financial_target_date",
+            data_quality.get("financial_target_date", event_date_model.get("operational_date", data.get("run_date", ""))),
+        )
+        or ""
+    ).strip()
+    financial_matrix_status = str(daily_status_matrix.get("financials") or "").strip().lower()
+    financial_lagged = bool(
+        financial_alignment_status == "lagged_fallback"
+        or financial_date_misaligned
+        or financial_matrix_status == "lagged"
+    )
+    if financial_lagged and not financial_alignment_status:
+        financial_alignment_status = "lagged_fallback"
+    if not financial_target_date:
+        financial_target_date = str(event_date_model.get("operational_date", data.get("run_date", "")) or "").strip()
+    if not financial_actual_date:
+        financial_actual_date = str(event_date_model.get("financial_date") or "").strip()
+    financial_lag_warning = ""
+    if financial_lagged:
+        financial_lag_warning = (
+            "Финансовые данные WB доступны только за "
+            f"{financial_actual_date or 'более раннюю дату'} и не относятся к операционному дню "
+            f"{financial_target_date or str(data.get('run_date') or '').strip()}. "
+            "Блок ниже показан как лаговый справочный срез."
+        )
     territorial_analysis_enabled = bool(
         data_quality.get(
             "territorial_analysis_enabled",
@@ -407,6 +451,16 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     net_profit_value = render_kpi.get("net_profit", data.get("net_profit"))
     margin_pct_value = render_kpi.get("margin_pct", data.get("margin_pct_total"))
     profitability_pct_value = render_kpi.get("profitability_pct", data.get("profitability_pct_total"))
+    if financial_lagged:
+        render_kpi["financial_lagged"] = True
+        render_kpi["financial_actual_date"] = financial_actual_date
+        render_kpi["financial_target_date"] = financial_target_date
+        render_kpi["financial_alignment_status"] = financial_alignment_status or "lagged_fallback"
+        render_kpi["revenue_lagged"] = revenue_value
+        render_kpi["net_profit_lagged"] = net_profit_value
+        render_kpi["gross_profit_lagged"] = render_kpi.get("gross_profit", data.get("gross_profit_total"))
+        render_kpi["margin_pct_lagged"] = margin_pct_value
+        render_kpi["profitability_pct_lagged"] = profitability_pct_value
 
     funnel = cabinet_funnel.get("funnel", {}) if isinstance(cabinet_funnel, dict) else {}
     if not isinstance(funnel, dict):
@@ -607,7 +661,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
                 total += max(0, count)
         return total
 
-    financial_preliminary = financial_finality_status != "final"
+    financial_preliminary = financial_finality_status != "final" or financial_lagged
     ads_preliminary = non_api_mode or ads_efficiency_mode in {"preview", "disabled"} or not ads_analysis_enabled
 
     scale_rows = decision_groups.get("scale", []) if isinstance(decision_groups.get("scale"), list) else []
@@ -633,13 +687,39 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "## Краткое резюме",
     ]
     page_1.extend(f"- {line}" for line in summary_lines)
+    if financial_lagged:
+        page_1.extend(
+            [
+                "",
+                f"- Финансы WB отстают: доступно за {financial_actual_date or 'более раннюю дату'}, "
+                f"операционный день {financial_target_date or str(data.get('run_date') or '')}.",
+            ]
+        )
+    page_1_kpi_rows: List[str] = []
+    if financial_lagged:
+        page_1_kpi_rows.extend(
+            [
+                f"Финансы WB (лаговый срез) | за {financial_actual_date or 'более раннюю дату'}",
+                f"Финансы за операционный день | нет same-day данных ({financial_target_date or str(data.get('run_date') or '')})",
+            ]
+        )
+    else:
+        page_1_kpi_rows.extend(
+            [
+                f"К перечислению продавцу | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
+                f"Чистая прибыль | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
+            ]
+        )
     page_1.extend(
         [
             "",
             "## KPI карточки",
             "Показатель | Значение",
-            f"К перечислению продавцу | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
-            f"Чистая прибыль | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
+        ]
+    )
+    page_1.extend(page_1_kpi_rows)
+    page_1.extend(
+        [
             f"Расход на рекламу | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
             f"Товары под риском | {_int_text(risk_sku_count)}",
             "",
@@ -657,7 +737,18 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         f"Средний чек | {_money_text(avg_check_value, preliminary=not bool(daily_kpi.get('buyouts_amount_confirmed', False)), decimals=0)}",
         f"Конверсия в заказ | {_pct_text(cabinet_funnel.get('funnel', {}).get('view_to_order_conversion') if isinstance(cabinet_funnel.get('funnel', {}), dict) else None)}",
         "",
-        "## Финансовые KPI",
+        "## Финансовая структура (лаговый срез WB)" if financial_lagged else "## Финансовые KPI",
+    ]
+    if financial_lagged:
+        page_2.extend(
+            [
+                f"Операционный день: {financial_target_date or str(data.get('run_date') or '')} | Финансовые данные WB: {financial_actual_date or 'более ранняя дата'}",
+                f"ВНИМАНИЕ | {financial_lag_warning}",
+                "",
+            ]
+        )
+    page_2.extend(
+        [
         "Показатель | Значение",
         f"К перечислению продавцу | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
         f"Чистая прибыль | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
@@ -673,7 +764,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         f"ROMI | {_pct_text(portfolio_romi, preliminary=ads_preliminary)}",
         f"DRR | {_pct_text(portfolio_drr, preliminary=ads_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
         f"CPO | {_money_text(cpo_value, preliminary=ads_preliminary, decimals=0, missing_label=INSUFFICIENT_DATA_LABEL)}",
-    ]
+    ])
 
     top_profitable_queries = [
         _sanitize_client_text(str(item.get("query") or ""))
@@ -887,12 +978,38 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "## " + _ru("Краткое резюме"),
     ]
     page_1.extend(f"- {_clean_client(line)}" for line in summary_lines_client)
+    if financial_lagged:
+        page_1.extend(
+            [
+                "",
+                "- "
+                + _ru("Финансы WB отстают")
+                + f": {_ru('доступно за')} {financial_actual_date or _ru('более раннюю дату')}, "
+                + f"{_ru('операционный день')} {financial_target_date or str(data.get('run_date') or '')}.",
+            ]
+        )
+    page_1_financial_rows: List[str] = []
+    if financial_lagged:
+        page_1_financial_rows.extend(
+            [
+                _ru("Лаговый финансовый срез WB") + f" | {_ru('за')} {financial_actual_date or _ru('более раннюю дату')}",
+                _ru("Финансы за операционный день") + f" | {_ru('нет same-day данных')} ({financial_target_date or str(data.get('run_date') or '')})",
+            ]
+        )
+    else:
+        page_1_financial_rows.extend(
+            [
+                _ru("К перечислению продавцу") + f" | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
+                _ru("Чистая прибыль") + f" | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
+            ]
+        )
     page_1.extend([
         "",
         "## " + _ru("KPI карточки"),
         _ru("Показатель") + " | " + _ru("Значение"),
-        _ru("К перечислению продавцу") + f" | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
-        _ru("Чистая прибыль") + f" | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
+    ])
+    page_1.extend(page_1_financial_rows)
+    page_1.extend([
         _ru("Расход на рекламу") + f" | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
         _ru("Товары под риском") + f" | {_int_text(risk_count_client)}",
         "",
@@ -909,7 +1026,20 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         _ru("Средний чек") + f" | {_money_text(avg_check_value, preliminary=not bool(daily_kpi.get('buyouts_amount_confirmed', False)), decimals=0)}",
         _ru("Конверсия в заказ") + f" | {_pct_text(conversion_value, missing_label=INSUFFICIENT_DATA_LABEL)}",
         "",
-        "## " + _ru("Финансовые KPI"),
+        "## " + (_ru("Финансовая структура (лаговый срез WB)") if financial_lagged else _ru("Финансовые KPI")),
+    ]
+    if financial_lagged:
+        page_2.extend(
+            [
+                _ru("Операционный день")
+                + f": {financial_target_date or str(data.get('run_date') or '')} | "
+                + _ru("Финансовые данные WB")
+                + f": {financial_actual_date or _ru('более ранняя дата')}",
+                _ru("ВНИМАНИЕ") + f" | {financial_lag_warning}",
+                "",
+            ]
+        )
+    page_2.extend([
         _ru("Показатель") + " | " + _ru("Значение"),
         _ru("К перечислению продавцу") + f" | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
         _ru("Чистая прибыль") + f" | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
@@ -925,8 +1055,13 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         f"DRR | {_pct_text(portfolio_drr, preliminary=ads_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
         f"CPO | {_money_text(cpo_value, preliminary=ads_preliminary, decimals=0, missing_label=INSUFFICIENT_DATA_LABEL)}",
         "",
-        "- " + _ru("Часть финансовых и рекламных метрик носит предварительный характер из-за неполного подтверждения данных."),
-    ]
+        "- "
+        + (
+            _ru("Финансы WB показаны как лаговый справочный срез и не являются итогом операционного дня.")
+            if financial_lagged
+            else _ru("Часть финансовых и рекламных метрик носит предварительный характер из-за неполного подтверждения данных.")
+        ),
+    ])
 
     page_3 = [
         "# " + _ru("Ключевые проблемы"),
@@ -1026,9 +1161,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
                 return number
         return None
 
-    financial_kpi_payload = data.get("financial_kpi", {})
-    if not isinstance(financial_kpi_payload, dict):
-        financial_kpi_payload = {}
+    financial_kpi_payload = financial_kpi if isinstance(financial_kpi, dict) else {}
     email_summary_payload = job.get("email_summary", {})
     if not isinstance(email_summary_payload, dict):
         email_summary_payload = {}
@@ -1302,6 +1435,11 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "net_profit": net_profit_visual,
         "explained_net_profit": _round_or_none(explained_net_profit),
         "net_profit_explain_delta": net_profit_explain_delta,
+        "financial_lagged": financial_lagged,
+        "financial_actual_date": financial_actual_date,
+        "financial_target_date": financial_target_date,
+        "financial_alignment_status": financial_alignment_status or ("lagged_fallback" if financial_lagged else "aligned"),
+        "financial_lag_warning": financial_lag_warning,
     }
 
     top_growth_rows = _watchlist_rows(sku_watchlists, "top_growth", limit=30)
@@ -1927,6 +2065,21 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         value_type="int",
     )
     orders_visual = _first_number_local(orders_exact_value, orders_surrogate_value)
+    buyouts_exact_value = _first_number_local(buyout_kpi.get("buyouts_count"), buyouts_count_value)
+    buyouts_surrogate_value = _first_number_local(
+        funnel.get("buyouts"),
+        daily_kpi.get("daily_buyouts_count"),
+        data.get("daily_buyouts_count"),
+        buyouts_count_value,
+    )
+    buyouts_kpi_payload = build_kpi_display_payload(
+        value=buyouts_exact_value,
+        fallback_value=buyouts_surrogate_value,
+        missing_reason="Нет подтвержденного источника выкупов за период",
+        label="Выкупы",
+        fallback_label="Выкупы (оценка)",
+        value_type="int",
+    )
 
     profit_missing_reason = (
         "Нет себестоимости для точного расчета прибыли"
@@ -1953,9 +2106,24 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         label="Расход на рекламу",
         value_type="money",
     )
+    lagged_financial_card_payload: Dict[str, Any] = {
+        "label": "Лаговый финансовый срез WB",
+        "value": None,
+        "value_type": "text",
+        "state": SECTION_STATE_COMPACT_NOTE,
+        "reason": (
+            f"Финансы WB за {financial_actual_date or 'более раннюю дату'}, "
+            f"не итог за операционный день {financial_target_date or report_date_for_visual}."
+        ),
+    }
+    card_sources = (
+        (lagged_financial_card_payload, ads_kpi_payload, orders_kpi_payload, buyouts_kpi_payload)
+        if financial_lagged
+        else (payout_kpi_payload, profit_kpi_payload, ads_kpi_payload, orders_kpi_payload)
+    )
 
     kpi_cards_payload: List[Dict[str, Any]] = []
-    for item in (payout_kpi_payload, profit_kpi_payload, ads_kpi_payload, orders_kpi_payload):
+    for item in card_sources:
         state = normalize_section_state(item.get("state"), default=SECTION_STATE_HIDDEN)
         if state == SECTION_STATE_HIDDEN:
             continue
@@ -2525,6 +2693,11 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     section_states_payload = {
+        "financials": (
+            SECTION_STATE_COMPACT_NOTE
+            if financial_lagged
+            else (SECTION_STATE_FULL if financial_finality_status == "final" else SECTION_STATE_PARTIAL)
+        ),
         "ads_efficiency": normalize_section_state(ads_visual_payload.get("state"), default=SECTION_STATE_COMPACT_NOTE),
         "funnel": normalize_section_state(funnel_visual_payload.get("state"), default=SECTION_STATE_COMPACT_NOTE),
         "key_problems": normalize_section_state(key_problem_state.get("state"), default=SECTION_STATE_COMPACT_NOTE),
@@ -2556,6 +2729,15 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "profit": profit_kpi_payload,
             "ads_spend": ads_kpi_payload,
             "orders": orders_kpi_payload,
+            "buyouts": buyouts_kpi_payload,
+        },
+        "financial_alignment": {
+            "financial_lagged": financial_lagged,
+            "financial_date_misaligned": financial_date_misaligned,
+            "financial_alignment_status": financial_alignment_status or ("lagged_fallback" if financial_lagged else "aligned"),
+            "financial_actual_date": financial_actual_date,
+            "financial_target_date": financial_target_date,
+            "warning_text": financial_lag_warning,
         },
         "section_states": section_states_payload,
         "section_confidence": section_confidence_payload,
@@ -2692,6 +2874,8 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         for item in important_warnings
         if isinstance(item, dict) and str(item.get("message") or "").strip()
     )
+    if financial_lagged and financial_lag_warning:
+        render_warnings.append(financial_lag_warning)
     seen_render_warnings: set[str] = set()
     deduped_render_warnings: List[str] = []
     for warning_line in render_warnings:
@@ -2706,7 +2890,11 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "operational_day": operational_day_value,
         "email_subject": email_subject_value,
         "email_body_text": email_body_text_value,
-        "financial_interpretation": "provisional" if financial_finality_status != "final" else "final",
+        "financial_interpretation": (
+            "lagged_fallback"
+            if financial_lagged
+            else ("provisional" if financial_finality_status != "final" else "final")
+        ),
         "render_warnings": deduped_render_warnings,
         "pdf_path": os.path.join(out_dir, "report.pdf"),
         "font": job["pdf_font"],
@@ -2717,6 +2905,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "mode_notice": non_api_notice if non_api_mode else "",
         "section_states": section_states_payload,
         "section_confidence": section_confidence_payload,
+        "financial_alignment": visual_payload.get("financial_alignment", {}),
         "kpi_display": visual_payload.get("kpi_display", {}),
         "daily_commerce_kpi": {
             "daily_orders_count": _int_or_none(orders_count_value),
@@ -2786,6 +2975,13 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "financial_completeness_pct": _round_or_none(data.get("financial_completeness_pct")),
             "financial_partial": bool(data.get("financial_partial", False)),
             "financial_finality_status": financial_finality_status,
+            "financial_lagged": financial_lagged,
+            "financial_date_aligned": not financial_lagged,
+            "financial_date_misaligned": financial_date_misaligned,
+            "financial_alignment_status": financial_alignment_status or ("lagged_fallback" if financial_lagged else "aligned"),
+            "financial_actual_date": financial_actual_date,
+            "financial_target_date": financial_target_date,
+            "financial_lag_warning": financial_lag_warning,
             "display": {
                 "seller_payout": format_money_or_unknown(revenue_visual, unknown_label=NO_DATA_LABEL, decimals=0),
                 "net_profit": format_money_or_unknown(net_profit_visual, unknown_label=NO_DATA_LABEL, decimals=0),
