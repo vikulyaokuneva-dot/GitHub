@@ -466,6 +466,21 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         data_quality.get("financial_finality_status", report_guardrails.get("financial_finality_status", "unavailable"))
         or "unavailable"
     ).strip().lower()
+    financial_alignment_status = str(
+        financial_kpi.get("financial_alignment_status", data_quality.get("financial_alignment_status", "aligned"))
+        or "aligned"
+    ).strip().lower()
+    financial_actual_date = str(
+        financial_kpi.get("financial_actual_date", data_quality.get("financial_actual_date", ""))
+        or ""
+    ).strip()
+    financial_target_date = str(
+        financial_kpi.get(
+            "financial_target_date",
+            data_quality.get("financial_target_date", event_date_model.get("operational_date", data.get("run_date", ""))),
+        )
+        or ""
+    ).strip()
     financial_completeness_pct = _safe_float(
         data.get(
             "financial_completeness_pct",
@@ -527,13 +542,28 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "Финансовые показатели за день предварительные и требуют повторной проверки после финализации данных.",
         )
 
+    if financial_alignment_status == "lagged_fallback":
+        key_insights_enhanced.insert(
+            0,
+            (
+                "Заказы и выкупы подтверждены за "
+                f"{financial_target_date or 'целевой день'}, но финансовые данные WB доступны только за "
+                f"{financial_actual_date or 'более раннюю дату'}. "
+                "Финансовый блок показан как лаговый и не должен интерпретироваться как итог за целевой операционный день."
+            ),
+        )
+
     if sku_monitor_brief_lines:
         key_insights_enhanced.append("Мониторинг товаров сформирован по группам: рост, риск, неликвид, реклама, конверсия.")
     if funnel_brief_lines and not non_api_mode:
         key_insights_enhanced.append("Воронка продаж включена в управленческое резюме.")
 
     if non_api_mode:
-        key_insights_enhanced.insert(0, non_api_notice + ".")
+        non_api_line = non_api_notice + "."
+        if financial_finality_status != "final" and key_insights_enhanced:
+            key_insights_enhanced.insert(1, non_api_line)
+        else:
+            key_insights_enhanced.insert(0, non_api_line)
         short_recommendations.insert(
             0,
             "Фокусироваться только на подтвержденных финансовых событиях до подключения API.",

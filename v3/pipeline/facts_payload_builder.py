@@ -152,8 +152,13 @@ def apply_facts_data_quality_patch(
         return None
     out = dict(current_data_quality)
     fact_financial_status = str(out.get("financial_status") or "ok")
+    financial_alignment_status = str(out.get("financial_alignment_status") or "").strip().lower()
     out["ads_attribution_quality"] = ads_attribution_quality
-    if financial_partial:
+    if financial_alignment_status == "lagged_fallback" or fact_financial_status == "lagged":
+        out["financial_status"] = "lagged"
+        out["financial_finality_status"] = str(out.get("financial_finality_status") or "lagged")
+        out["financial_partial"] = True
+    elif financial_partial:
         out["financial_status"] = "partial"
     elif financial_data_degraded_flag and fact_financial_status == "ok":
         out["financial_status"] = "degraded"

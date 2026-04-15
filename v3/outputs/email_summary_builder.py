@@ -149,6 +149,16 @@ def build_email_summary(
         "order_kpi": safe_order_kpi,
         "buyout_kpi": safe_buyout_kpi,
         "financial_kpi": safe_financial_kpi,
+        "financial_date_aligned": bool(safe_financial_kpi.get("financial_date_aligned", True)),
+        "financial_actual_date": str(safe_financial_kpi.get("financial_actual_date") or ""),
+        "financial_target_date": str(
+            safe_financial_kpi.get("financial_target_date")
+            or safe_event_date_model.get("operational_date")
+            or ""
+        ),
+        "financial_date_misaligned": bool(safe_financial_kpi.get("financial_date_misaligned", False)),
+        "financial_alignment_status": str(safe_financial_kpi.get("financial_alignment_status") or "aligned"),
+        "financial_alignment_reason": str(safe_financial_kpi.get("financial_alignment_reason") or ""),
         "daily_status_matrix": safe_status_matrix,
         "render_kpi": safe_render_kpi,
         "funnel_snapshot": safe_funnel_snapshot,

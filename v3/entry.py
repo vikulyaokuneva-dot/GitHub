@@ -747,12 +747,32 @@ def _build_management_email_body(
     summary: Dict[str, Any],
 ) -> str:
     safe_summary = summary if isinstance(summary, dict) else {}
-    return _build_daily_email_body_ru(
+    body = _build_daily_email_body_ru(
         seller_id=seller_id,
         run_date=run_date,
         email_summary=safe_summary,
         build_body=lambda _seller_id, _run_date, _summary: "",
     )
+    financial_finality_status = str(safe_summary.get("financial_finality_status") or "unknown").strip().lower()
+    status_map = {
+        "final": "подтверждено",
+        "confirmed": "подтверждено",
+        "partial": "частичный",
+        "provisional": "предварительный",
+        "lagged": "лаговый (другая дата)",
+        "lagged_fallback": "лаговый (другая дата)",
+        "not_aligned": "не выровнен по дате",
+        "unavailable": "нет данных",
+        "unknown": "нет данных",
+    }
+    status_label = status_map.get(financial_finality_status, status_map["unknown"])
+    status_line = f"Статус финансового контура: {status_label}"
+    finance_anchor = "ФИНАНСОВЫЕ ПОКАЗАТЕЛИ\n"
+    if status_line not in body and finance_anchor in body:
+        body = body.replace(finance_anchor, finance_anchor + f"- {status_line}\n", 1)
+    if financial_finality_status != "final" and "РЕЖИМ РЕКОМЕНДАЦИЙ ИИ" not in body:
+        body = body.replace("РЕКОМЕНДАЦИИ", "РЕЖИМ РЕКОМЕНДАЦИЙ ИИ", 1)
+    return body
 
 def _excel_candidate_paths(
     *,

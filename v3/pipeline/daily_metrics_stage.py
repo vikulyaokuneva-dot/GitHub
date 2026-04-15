@@ -119,6 +119,58 @@ def _resolve_daily_filter_target_date(
     return _normalize_day_token(run_date)
 
 
+def _resolve_financial_alignment(
+    *,
+    event_date_model: Dict[str, Any],
+    api_debug: Dict[str, Any],
+) -> Dict[str, Any]:
+    safe_event_date = event_date_model if isinstance(event_date_model, dict) else {}
+    safe_api_debug = api_debug if isinstance(api_debug, dict) else {}
+    financial_target_date = _normalize_day_token(safe_event_date.get("operational_date"))
+    financial_actual_date = _normalize_day_token(
+        safe_api_debug.get("realization_actual_source_date")
+        or safe_event_date.get("financial_date")
+        or safe_api_debug.get("date_from")
+    )
+    fallback_used = bool(safe_api_debug.get("realization_fallback_used", False))
+
+    if not financial_actual_date:
+        return {
+            "financial_date_aligned": False,
+            "financial_actual_date": "",
+            "financial_target_date": financial_target_date,
+            "financial_date_misaligned": False,
+            "financial_alignment_status": "unavailable",
+            "financial_alignment_reason": "Financial actual date is unavailable; same-day alignment cannot be confirmed.",
+            "realization_fallback_used": fallback_used,
+        }
+
+    is_misaligned = bool(fallback_used or (financial_target_date and financial_actual_date != financial_target_date))
+    if not is_misaligned and financial_target_date and financial_actual_date == financial_target_date:
+        return {
+            "financial_date_aligned": True,
+            "financial_actual_date": financial_actual_date,
+            "financial_target_date": financial_target_date,
+            "financial_date_misaligned": False,
+            "financial_alignment_status": "aligned",
+            "financial_alignment_reason": "Financial actual date matches operational_date.",
+            "realization_fallback_used": fallback_used,
+        }
+
+    return {
+        "financial_date_aligned": False,
+        "financial_actual_date": financial_actual_date,
+        "financial_target_date": financial_target_date,
+        "financial_date_misaligned": True,
+        "financial_alignment_status": "lagged_fallback",
+        "financial_alignment_reason": (
+            f"Financial data is lagged: actual={financial_actual_date}, target={financial_target_date or 'unknown'}; "
+            f"realization_fallback_used={str(fallback_used).lower()}."
+        ),
+        "realization_fallback_used": fallback_used,
+    }
+
+
 def _kernel_row_to_dict(row: Any) -> Dict[str, Any]:
     if isinstance(row, dict):
         return dict(row)
@@ -633,6 +685,76 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             api_debug=api_debug if isinstance(api_debug, dict) else {},
             timezone=str((ctx.get("cfg", {}) if isinstance(ctx.get("cfg"), dict) else {}).get("timezone") or "Europe/Berlin"),
         )
+    if isinstance(event_date_model, dict):
+        if not _normalize_day_token(event_date_model.get("operational_date")):
+            event_date_model["operational_date"] = _normalize_day_token(api_debug.get("date_from")) or _normalize_day_token(run_date)
+        if not _normalize_day_token(event_date_model.get("financial_date")):
+            event_date_model["financial_date"] = (
+                _normalize_day_token(api_debug.get("realization_actual_source_date"))
+                or _normalize_day_token(api_debug.get("date_from"))
+                or _normalize_day_token(event_date_model.get("operational_date"))
+            )
+
+    financial_alignment = _resolve_financial_alignment(
+        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+        api_debug=api_debug if isinstance(api_debug, dict) else {},
+    )
+    financial_date_aligned = bool(financial_alignment.get("financial_date_aligned", False))
+    financial_date_misaligned = bool(financial_alignment.get("financial_date_misaligned", False))
+    financial_alignment_status = str(financial_alignment.get("financial_alignment_status") or "unavailable")
+    financial_alignment_reason = str(financial_alignment.get("financial_alignment_reason") or "")
+    financial_actual_date = str(financial_alignment.get("financial_actual_date") or "")
+    financial_target_date = str(financial_alignment.get("financial_target_date") or "")
+    if isinstance(api_debug, dict):
+        api_debug["financial_alignment"] = {
+            "financial_date_aligned": financial_date_aligned,
+            "financial_actual_date": financial_actual_date,
+            "financial_target_date": financial_target_date,
+            "financial_date_misaligned": financial_date_misaligned,
+            "financial_alignment_status": financial_alignment_status,
+            "financial_alignment_reason": financial_alignment_reason,
+        }
+
+    if isinstance(event_date_model, dict):
+        if financial_actual_date:
+            event_date_model["financial_date"] = financial_actual_date
+
+    if isinstance(financial_kpi, dict):
+        financial_kpi["financial_date_aligned"] = financial_date_aligned
+        financial_kpi["financial_actual_date"] = financial_actual_date
+        financial_kpi["financial_target_date"] = financial_target_date
+        financial_kpi["financial_date_misaligned"] = financial_date_misaligned
+        financial_kpi["financial_alignment_status"] = financial_alignment_status
+        financial_kpi["financial_alignment_reason"] = financial_alignment_reason
+        if financial_date_misaligned:
+            financial_kpi["confirmed"] = False
+            financial_kpi["is_partial"] = True
+            financial_kpi["financial_partial"] = True
+            financial_kpi["financial_status"] = "lagged"
+            financial_kpi["financial_finality_status"] = "lagged"
+            financial_kpi["financial_margin_not_final"] = True
+
+    metrics_data_quality["financial_date_aligned"] = financial_date_aligned
+    metrics_data_quality["financial_actual_date"] = financial_actual_date
+    metrics_data_quality["financial_target_date"] = financial_target_date
+    metrics_data_quality["financial_date_misaligned"] = financial_date_misaligned
+    metrics_data_quality["financial_alignment_status"] = financial_alignment_status
+    metrics_data_quality["financial_alignment_reason"] = financial_alignment_reason
+    if financial_date_misaligned:
+        metrics_data_quality["financial_status"] = "lagged"
+        metrics_data_quality["financial_partial"] = True
+        metrics_data_quality["financial_finality_status"] = "lagged"
+        metrics_data_quality["financial_margin_not_final"] = True
+        warnings_collector.add_warning(
+            "financial_date_misaligned",
+            f"Financial data is lagged: actual={financial_actual_date or 'unknown'}, target={financial_target_date or 'unknown'}.",
+        )
+        if bool(api_debug.get("realization_fallback_used", False)):
+            warnings_collector.add_warning(
+                "realization_lag_fallback_used",
+                "Realization lag fallback is active; daily financial layer is not aligned to operational date.",
+            )
+
     order_kpi = build_order_kpi(
         event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
         daily_kpi=daily_kpi if isinstance(daily_kpi, dict) else {},
@@ -650,6 +772,12 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(financial_contract, dict):
         financial_kpi["contract_date"] = financial_contract.get("date")
         financial_kpi["confirmed"] = bool(financial_contract.get("confirmed", False))
+        financial_kpi["financial_date_aligned"] = bool(financial_contract.get("financial_date_aligned", financial_date_aligned))
+        financial_kpi["financial_actual_date"] = str(financial_contract.get("financial_actual_date") or financial_actual_date)
+        financial_kpi["financial_target_date"] = str(financial_contract.get("financial_target_date") or financial_target_date)
+        financial_kpi["financial_date_misaligned"] = bool(financial_contract.get("financial_date_misaligned", financial_date_misaligned))
+        financial_kpi["financial_alignment_status"] = str(financial_contract.get("financial_alignment_status") or financial_alignment_status)
+        financial_kpi["financial_alignment_reason"] = str(financial_contract.get("financial_alignment_reason") or financial_alignment_reason)
 
     metrics = apply_metrics_assembly_patches(
         metrics=metrics if isinstance(metrics, dict) else {},

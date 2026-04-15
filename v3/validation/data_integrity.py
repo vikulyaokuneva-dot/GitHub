@@ -202,7 +202,6 @@ def resolve_report_reliability_level(
     financial_status = str(financial_finality_status or "unavailable")
     if sku_status == "broken" or financial_status in {"unavailable", "sparse"}:
         return "low"
-    if financial_status in {"partial"} or not bool(ads_analysis_enabled):
+    if financial_status in {"partial", "lagged", "lagged_fallback"} or not bool(ads_analysis_enabled):
         return "medium"
     return "high"
-

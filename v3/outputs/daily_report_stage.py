@@ -93,6 +93,8 @@ def _contour_status_ru(value: str) -> str:
         "final": "подтвержден",
         "ok": "подтвержден",
         "partial": "частичный",
+        "lagged": "лаговый (другая дата)",
+        "lagged_fallback": "лаговый (другая дата)",
         "preview": "частичный",
         "degraded": "частичный",
         "provisional": "частичный",
@@ -115,6 +117,7 @@ def _matrix_status_ru(value: str) -> str:
     mapping = {
         "confirmed": "подтвержден",
         "partial": "частичный",
+        "lagged": "лаговый (другая дата)",
         "not_confirmed": "отсутствует",
         "missing": "отсутствует",
         "unavailable": "отсутствует",

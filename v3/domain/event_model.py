@@ -8,6 +8,7 @@ from .source_policy import SOURCE_UNKNOWN
 STATUS_CONFIRMED = "confirmed"
 STATUS_NOT_CONFIRMED = "not_confirmed"
 STATUS_PARTIAL = "partial"
+STATUS_LAGGED = "lagged"
 STATUS_MISSING = "missing"
 STATUS_UNKNOWN = "unknown"
 
@@ -94,6 +95,14 @@ def build_event_date_model(
     operational_date = str(safe_api.get("date_from") or report_date).strip()
     if not operational_date:
         operational_date = report_date
+    financial_date = str(
+        safe_api.get("financial_date")
+        or safe_api.get("realization_actual_source_date")
+        or safe_api.get("date_from")
+        or operational_date
+    ).strip()
+    if not financial_date:
+        financial_date = operational_date
     tz_value = str(safe_api.get("timezone") or timezone or "Europe/Moscow").strip() or "Europe/Moscow"
     shifted = bool(safe_api.get("shifted_to_previous_day", False))
     return {
@@ -101,7 +110,7 @@ def build_event_date_model(
         "operational_date": operational_date,
         "orders_date": str(safe_api.get("orders_date") or operational_date),
         "buyouts_date": str(safe_api.get("buyouts_date") or operational_date),
-        "financial_date": str(safe_api.get("financial_date") or operational_date),
+        "financial_date": financial_date,
         "shifted_to_previous_day": shifted,
         "timezone": tz_value,
     }
@@ -159,7 +168,8 @@ def build_financial_kpi_contract(
     has_known_source = revenue_source != SOURCE_UNKNOWN
     is_partial = bool(safe_financial.get("is_partial", False))
     completeness_pct = round(_safe_float(safe_financial.get("completeness_pct", 0.0)), 2)
-    confirmed = bool(has_known_source and not is_partial and completeness_pct >= 99.99)
+    financial_date_aligned = bool(safe_financial.get("financial_date_aligned", True))
+    confirmed = bool(has_known_source and not is_partial and completeness_pct >= 99.99 and financial_date_aligned)
 
     def _value(key: str) -> float | None:
         if not has_known_source:
@@ -184,7 +194,18 @@ def build_financial_kpi_contract(
         is_partial=is_partial,
         confirmed=confirmed,
     )
-    return asdict(contract)
+    out = asdict(contract)
+    out.update(
+        {
+            "financial_date_aligned": financial_date_aligned,
+            "financial_actual_date": str(safe_financial.get("financial_actual_date") or out.get("date") or ""),
+            "financial_target_date": str(safe_financial.get("financial_target_date") or event_date_model.get("operational_date") or ""),
+            "financial_date_misaligned": bool(safe_financial.get("financial_date_misaligned", not financial_date_aligned)),
+            "financial_alignment_status": str(safe_financial.get("financial_alignment_status") or ("aligned" if financial_date_aligned else "lagged_fallback")),
+            "financial_alignment_reason": str(safe_financial.get("financial_alignment_reason") or ""),
+        }
+    )
+    return out
 
 
 def build_daily_status_matrix(
@@ -224,7 +245,11 @@ def build_daily_status_matrix(
     )
 
     financial_finality_status = str(safe_financial.get("financial_finality_status") or "").strip().lower()
-    if bool(safe_financial.get("confirmed", False)):
+    financial_alignment_status = str(safe_financial.get("financial_alignment_status") or "").strip().lower()
+    financial_date_misaligned = bool(safe_financial.get("financial_date_misaligned", False))
+    if financial_date_misaligned or financial_alignment_status == "lagged_fallback":
+        financial_status = STATUS_LAGGED
+    elif bool(safe_financial.get("confirmed", False)):
         financial_status = STATUS_CONFIRMED
     elif safe_financial.get("revenue") is None and financial_finality_status in {"", "unavailable", "sparse"}:
         financial_status = STATUS_NOT_CONFIRMED
@@ -286,9 +311,9 @@ def build_render_kpi_values(
         avg_check = round((buyouts_amount_value / buyouts_count_value), 2) if buyouts_count_value > 0 else 0.0
 
     financial_status = str(safe_matrix.get("financials") or STATUS_UNKNOWN)
-    revenue = _optional_rounded(safe_financial.get("revenue")) if financial_status in {STATUS_CONFIRMED, STATUS_PARTIAL} else None
-    net_profit = _optional_rounded(safe_financial.get("net_profit")) if financial_status in {STATUS_CONFIRMED, STATUS_PARTIAL} else None
-    gross_profit = _optional_rounded(safe_financial.get("gross_profit")) if financial_status in {STATUS_CONFIRMED, STATUS_PARTIAL} else None
+    revenue = _optional_rounded(safe_financial.get("revenue")) if financial_status in {STATUS_CONFIRMED, STATUS_PARTIAL, STATUS_LAGGED} else None
+    net_profit = _optional_rounded(safe_financial.get("net_profit")) if financial_status in {STATUS_CONFIRMED, STATUS_PARTIAL, STATUS_LAGGED} else None
+    gross_profit = _optional_rounded(safe_financial.get("gross_profit")) if financial_status in {STATUS_CONFIRMED, STATUS_PARTIAL, STATUS_LAGGED} else None
 
     margin_pct: float | None = None
     profitability_pct: float | None = None
