@@ -58,6 +58,8 @@ class WBApiClient:
         self,
         endpoint: WBEndpoint,
         params: Dict[str, Any] | None = None,
+        method: str = "GET",
+        json_body: Any = None,
         *,
         allow_204: bool = False,
         empty_on_204: Any = None,
@@ -67,6 +69,7 @@ class WBApiClient:
         request_params = params or {}
         max_retries = max(1, self._to_int(self.max_retries, 5))
         timeout_seconds = max(5, self._to_int(self.timeout_seconds, 60))
+        request_method = str(method or "GET").strip().upper() or "GET"
         url = f"{self._base_url(endpoint.base)}{endpoint.path}"
 
         last_error = ""
@@ -75,9 +78,20 @@ class WBApiClient:
         for attempt in range(1, max_retries + 1):
             attempts = attempt
             try:
-                response = requests.get(url, headers=self._headers(), params=request_params, timeout=timeout_seconds)
+                request_payload = json_body if request_method != "GET" else None
+                response = requests.request(
+                    request_method,
+                    url,
+                    headers=self._headers(),
+                    params=request_params,
+                    json=request_payload,
+                    timeout=timeout_seconds,
+                )
                 last_status = int(response.status_code)
-                print(f"[wb_api] endpoint={endpoint.name} attempt={attempt} status={response.status_code}")
+                print(
+                    f"[wb_api] endpoint={endpoint.name} method={request_method} "
+                    f"attempt={attempt} status={response.status_code}"
+                )
                 if response.status_code == 200:
                     try:
                         payload = response.json()
@@ -119,7 +133,10 @@ class WBApiClient:
                 last_error = str(exc)
                 time.sleep(attempt * 1.2)
 
-        print(f"[wb_api] endpoint={endpoint.name} failed status={last_status} error={last_error}")
+        print(
+            f"[wb_api] endpoint={endpoint.name} method={request_method} "
+            f"failed status={last_status} error={last_error}"
+        )
         return {
             "success": False,
             "payload": [] if allow_204 else None,
@@ -130,4 +147,3 @@ class WBApiClient:
 
     def extract_rows(self, payload: Any, keys: Iterable[str]) -> List[Dict[str, Any]]:
         return self._extract_rows(payload, keys)
-

@@ -299,6 +299,9 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         if not isinstance(realization_bundle, dict):
             realization_bundle = {"rows": [], "api_debug": {}}
         api_realization_rows = list(realization_bundle.get("rows", []))
+        realization_loader_debug = realization_bundle.get("api_debug", {})
+        if not isinstance(realization_loader_debug, dict):
+            realization_loader_debug = {}
         realization_attempt_debug = realization_attempt.get("attempts", [])
         if isinstance(realization_attempt_debug, list):
             api_endpoint_debug.extend(
@@ -516,6 +519,24 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "realization_actual_source_date": realization_actual_source_date,
             "realization_fallback_used": realization_fallback_used,
             "realization_fallback_lag_days": realization_fallback_lag_days,
+            "finance_api_mode": str(realization_loader_debug.get("finance_api_mode") or "unknown"),
+            "finance_endpoint_used": str(realization_loader_debug.get("finance_endpoint_used") or ""),
+            "finance_report_ids": (
+                list(realization_loader_debug.get("finance_report_ids", []))
+                if isinstance(realization_loader_debug.get("finance_report_ids"), list)
+                else []
+            ),
+            "finance_requested_fields_count": int(realization_loader_debug.get("finance_requested_fields_count", 0) or 0),
+            "finance_mapping_diagnostics": (
+                dict(realization_loader_debug.get("finance_mapping_diagnostics", {}))
+                if isinstance(realization_loader_debug.get("finance_mapping_diagnostics"), dict)
+                else {}
+            ),
+            "finance_fallback_used": bool(realization_loader_debug.get("finance_fallback_used", False)),
+            "finance_fallback_reason": str(realization_loader_debug.get("finance_fallback_reason") or ""),
+            "finance_primary_endpoint_attempted": str(realization_loader_debug.get("finance_primary_endpoint_attempted") or ""),
+            "finance_primary_status_code": realization_loader_debug.get("finance_primary_status_code"),
+            "finance_primary_error_text": str(realization_loader_debug.get("finance_primary_error_text") or ""),
         }
         print(
             "[wb] rows_loaded "
@@ -601,6 +622,16 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "realization_actual_source_date": None,
             "realization_fallback_used": False,
             "realization_fallback_lag_days": 0,
+            "finance_api_mode": "unknown",
+            "finance_endpoint_used": "",
+            "finance_report_ids": [],
+            "finance_requested_fields_count": 0,
+            "finance_mapping_diagnostics": {},
+            "finance_fallback_used": False,
+            "finance_fallback_reason": "",
+            "finance_primary_endpoint_attempted": "",
+            "finance_primary_status_code": None,
+            "finance_primary_error_text": "",
         }
         _log_api_probe_metrics(api_probe)
         print(

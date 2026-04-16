@@ -2964,6 +2964,26 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "section_states": section_states_payload,
         "section_confidence": section_confidence_payload,
         "financial_alignment": visual_payload.get("financial_alignment", {}),
+        "finance_api_diagnostics": {
+            "finance_api_mode": str(api_debug_payload.get("finance_api_mode") or "unknown"),
+            "finance_endpoint_used": str(api_debug_payload.get("finance_endpoint_used") or ""),
+            "finance_report_ids": (
+                list(api_debug_payload.get("finance_report_ids", []))
+                if isinstance(api_debug_payload.get("finance_report_ids"), list)
+                else []
+            ),
+            "finance_requested_fields_count": int(api_debug_payload.get("finance_requested_fields_count", 0) or 0),
+            "finance_fallback_used": bool(api_debug_payload.get("finance_fallback_used", False)),
+            "finance_fallback_reason": str(api_debug_payload.get("finance_fallback_reason") or ""),
+            "finance_primary_endpoint_attempted": str(api_debug_payload.get("finance_primary_endpoint_attempted") or ""),
+            "finance_primary_status_code": api_debug_payload.get("finance_primary_status_code"),
+            "rows_loaded": int(api_debug_payload.get("financial_rows", 0) or 0),
+            "mapping_diagnostics": (
+                dict(api_debug_payload.get("finance_mapping_diagnostics", {}))
+                if isinstance(api_debug_payload.get("finance_mapping_diagnostics"), dict)
+                else {}
+            ),
+        },
         "kpi_display": visual_payload.get("kpi_display", {}),
         "daily_commerce_kpi": {
             "daily_orders_count": _int_or_none(orders_count_value),
