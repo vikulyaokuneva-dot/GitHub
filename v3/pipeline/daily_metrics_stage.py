@@ -440,6 +440,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     event_date_model = ctx.get("event_date_model", {})
     if not isinstance(event_date_model, dict):
         event_date_model = {}
+    financial_snapshot = ctx.get("financial_snapshot")  # PHASE 3: Get SSOT from input stage
     daily_filter_target_date = _resolve_daily_filter_target_date(
         run_date=run_date,
         event_date_model=event_date_model,
@@ -659,13 +660,15 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     metrics["data_quality"] = metrics_data_quality
     metrics["financial_kpi"] = financial_kpi
     
-    # PHASE 1: Build isolated FinancialSnapshot
-    financial_snapshot = build_financial_snapshot_from_kernel(
-        target_date=_normalize_day_token(daily_filter_target_date) or run_date,
-        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
-        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
-        source=DataSource.FINANCE_API_NEW,
-    )
+    # PHASE 3: Use FinancialSnapshot from input stage as SSOT
+    # Fallback to kernel-based snapshot if not available
+    if not financial_snapshot:
+        financial_snapshot = build_financial_snapshot_from_kernel(
+            target_date=_normalize_day_token(daily_filter_target_date) or run_date,
+            financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+            event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+            source=DataSource.FINANCE_API_NEW,
+        )
     metrics["financial_snapshot"] = financial_snapshot
     
     # Also expose financial_kpi_from_snapshot for downstream compatibility
@@ -1080,6 +1083,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         daily_status_matrix=daily_status_matrix if isinstance(daily_status_matrix, dict) else {},
         event_ledger=event_ledger if isinstance(event_ledger, dict) else {},
         render_kpi=render_kpi if isinstance(render_kpi, dict) else {},
+        financial_snapshot=financial_snapshot,  # PHASE 3: Pass snapshot to facts
     )
 
     confidence = str(facts.get("data_confidence", "low"))

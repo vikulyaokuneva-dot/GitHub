@@ -267,6 +267,7 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         from ..ingestion.api_sales_loader import load_sales_from_api
         from ..ingestion.api_stocks_loader import load_stocks_from_api
         from ..wb_client import WBClient as LegacyAdsClient
+        from ..financial.finance_loader import FinanceLoader
 
         report_timezone = _resolve_report_timezone(cfg)
         period = _resolve_wb_period(run_date, report_timezone)
@@ -313,6 +314,22 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             realization_actual_source_date = str(realization_actual_source_date)
         realization_fallback_used = bool(realization_attempt.get("fallback_used", False))
         realization_fallback_lag_days = int(realization_attempt.get("fallback_lag_days", 0) or 0)
+        
+        # PHASE 3: Load FinancialSnapshot as SSOT
+        financial_snapshot = None
+        try:
+            finance_loader = FinanceLoader(client)
+            load_result = finance_loader.load(date_from, date_to)
+            from ..financial.snapshot_builder import build_financial_snapshot_from_loader
+            financial_snapshot = build_financial_snapshot_from_loader(
+                target_date=date_from,
+                load_result=load_result,
+                actual_date=realization_actual_source_date or date_from,
+            )
+        except Exception as e:
+            print(f"[phase3] FinancialSnapshot loading failed: {str(e)}")
+            financial_snapshot = None
+        
         if realization_fallback_used and realization_actual_source_date:
             warnings_collector.add_warning(
                 "wb_api_realization_lag_fallback_used",
@@ -717,6 +734,7 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         "input_debug": input_debug,
         "api_debug": api_debug,
         "event_date_model": event_date_model,
+        "financial_snapshot": financial_snapshot,  # PHASE 3: NEW - Unified financial data SSOT
         "sales_rows": sales_rows,
         "ads_rows": ads_rows,
         "stocks_rows": stocks_rows,

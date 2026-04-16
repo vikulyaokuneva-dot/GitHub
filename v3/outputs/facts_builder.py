@@ -91,6 +91,7 @@ def build_daily_facts_base(
     daily_status_matrix: Dict[str, Any],
     event_ledger: Dict[str, Any],
     render_kpi: Dict[str, Any],
+    financial_snapshot: Any = None,  # PHASE 3: FinancialSnapshot for status tracking
 ) -> Dict[str, Any]:
     facts = build_facts_from_reports(
         seller_id=seller_id,
@@ -140,6 +141,16 @@ def build_daily_facts_base(
         financial_partial=bool((financial_kpi if isinstance(financial_kpi, dict) else {}).get("is_partial", False)),
         financial_data_degraded_flag=bool(financial_data_degraded_flag),
     )
+    
+    # PHASE 3: Add FinancialSnapshot status information to data_quality
+    if financial_snapshot and hasattr(financial_snapshot, 'status') and hasattr(financial_snapshot, 'alignment'):
+        if not isinstance(patched_data_quality, dict):
+            patched_data_quality = {}
+        patched_data_quality["financial_snapshot_status"] = str(financial_snapshot.status) if financial_snapshot.status else "unknown"
+        if hasattr(financial_snapshot, 'alignment') and financial_snapshot.alignment:
+            patched_data_quality["financial_alignment_status"] = str(financial_snapshot.alignment.alignment_status) if hasattr(financial_snapshot.alignment, 'alignment_status') else "unknown"
+            patched_data_quality["financial_days_lag"] = int(financial_snapshot.alignment.days_lag) if hasattr(financial_snapshot.alignment, 'days_lag') else 0
+    
     if isinstance(patched_data_quality, dict):
         facts["data_quality"] = patched_data_quality
     sections = _build_facts_sections_from_metrics(
