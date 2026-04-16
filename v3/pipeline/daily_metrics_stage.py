@@ -10,9 +10,12 @@ from ..domain.event_model import (
     build_event_date_model,
     build_event_ledger,
     build_financial_kpi_contract,
+    build_financial_kpi_from_snapshot,
     build_order_kpi,
     build_render_kpi_values,
 )
+from ..financial import build_financial_snapshot_from_kernel
+from ..domain.financial_snapshot import DataSource
 from ..analytics.sales_funnel import build_sales_funnel_metrics
 from ..metrics import FinancialKernelInput, run_financial_kernel
 from ..metrics.cabinet_funnel_builder import build_cabinet_funnel_core
@@ -655,6 +658,24 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     )
     metrics["data_quality"] = metrics_data_quality
     metrics["financial_kpi"] = financial_kpi
+    
+    # PHASE 1: Build isolated FinancialSnapshot
+    financial_snapshot = build_financial_snapshot_from_kernel(
+        target_date=_normalize_day_token(daily_filter_target_date) or run_date,
+        financial_kpi=financial_kpi if isinstance(financial_kpi, dict) else {},
+        event_date_model=event_date_model if isinstance(event_date_model, dict) else {},
+        source=DataSource.FINANCE_API_NEW,
+    )
+    metrics["financial_snapshot"] = financial_snapshot
+    
+    # Also expose financial_kpi_from_snapshot for downstream compatibility
+    financial_kpi_from_snapshot = build_financial_kpi_from_snapshot(
+        snapshot=financial_snapshot,
+        ads_spend=ads_spend_total,
+    )
+    if not isinstance(financial_kpi_from_snapshot, dict):
+        financial_kpi_from_snapshot = {}
+
     metrics["financial_kernel"] = {
         "kernel_status": str(getattr(kernel_output, "kernel_status", "") or ""),
         "account_financial_totals": kernel_account_totals,

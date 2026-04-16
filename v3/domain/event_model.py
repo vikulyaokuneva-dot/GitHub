@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
 
 from .source_policy import SOURCE_UNKNOWN
+
+if TYPE_CHECKING:
+    from .financial_snapshot import FinancialSnapshot
 
 STATUS_CONFIRMED = "confirmed"
 STATUS_NOT_CONFIRMED = "not_confirmed"
@@ -421,4 +424,80 @@ def build_event_ledger(
         ],
     }
 
+
+def build_financial_kpi_from_snapshot(
+    *,
+    snapshot: FinancialSnapshot,
+    ads_spend: float = 0.0,
+) -> Dict[str, Any]:
+    """
+    Build FinancialKpiContract from FinancialSnapshot (PHASE 1).
+    
+    This is the new integration point that reads from isolated financial snapshot.
+    """
+    if snapshot.is_missing():
+        # No financial data
+        return asdict(
+            FinancialKpiContract(
+                date=snapshot.target_date,
+                revenue=None,
+                cost_price=None,
+                wb_commission=None,
+                logistics=None,
+                storage=None,
+                penalties=None,
+                deductions=None,
+                ads_spend=None,
+                gross_profit=None,
+                net_profit=None,
+                margin_pct=None,
+                profitability_pct=None,
+                completeness_pct=0.0,
+                is_partial=False,
+                confirmed=False,
+            )
+        )
+
+    components = snapshot.components
+    
+    # Determine if confirmed
+    confirmed = (
+        snapshot.status == snapshot.status.__class__.FULL
+        and snapshot.is_aligned()
+        and snapshot.completeness_pct >= 99.99
+    )
+
+    contract = FinancialKpiContract(
+        date=snapshot.actual_date or snapshot.target_date,
+        revenue=components.revenue if components.revenue > 0 else None,
+        cost_price=components.cost_price if components.cost_price > 0 else None,
+        wb_commission=components.wb_commission if components.wb_commission > 0 else None,
+        logistics=components.logistics if components.logistics > 0 else None,
+        storage=components.storage if components.storage > 0 else None,
+        penalties=components.penalties if components.penalties > 0 else None,
+        deductions=components.deductions if components.deductions > 0 else None,
+        ads_spend=ads_spend if ads_spend > 0 else None,
+        gross_profit=components.gross_profit if components.gross_profit > 0 else None,
+        net_profit=components.net_profit if components.net_profit > 0 else None,
+        margin_pct=components.margin_pct if confirmed else None,
+        profitability_pct=components.profitability_pct if confirmed else None,
+        completeness_pct=snapshot.completeness_pct,
+        is_partial=snapshot.is_partial(),
+        confirmed=confirmed,
+    )
+    
+    out = asdict(contract)
+    out.update({
+        "financial_date_aligned": snapshot.is_aligned(),
+        "financial_actual_date": snapshot.actual_date,
+        "financial_target_date": snapshot.target_date,
+        "financial_date_misaligned": not snapshot.is_aligned(),
+        "financial_alignment_status": snapshot.alignment.alignment_status.value,
+        "financial_alignment_reason": snapshot.alignment.reason,
+        "financial_source": snapshot.source.value,
+        "financial_source_endpoint": snapshot.source_endpoint,
+        "financial_diagnostics": snapshot.diagnostics.to_dict(),
+    })
+    
+    return out
 
