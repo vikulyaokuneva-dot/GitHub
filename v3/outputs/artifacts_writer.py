@@ -23,7 +23,14 @@ def write_daily_metrics_artifacts(
     cabinet_funnel: Dict[str, Any] | None = None,
     sku_daily_dynamics: Dict[str, Any] | None = None,
 ) -> None:
-    write_json(os.path.join(out_dir, "metrics.json"), metrics)
+    metrics_payload = dict(metrics if isinstance(metrics, dict) else {})
+    snapshot = metrics_payload.get("financial_snapshot")
+    if snapshot is not None and hasattr(snapshot, "to_dict"):
+        try:
+            metrics_payload["financial_snapshot"] = snapshot.to_dict()
+        except Exception:
+            metrics_payload["financial_snapshot"] = {}
+    write_json(os.path.join(out_dir, "metrics.json"), metrics_payload)
     if isinstance(event_ledger, dict) and event_ledger:
         write_json(os.path.join(out_dir, "event_ledger.json"), event_ledger)
     if isinstance(cabinet_funnel, dict) and cabinet_funnel:

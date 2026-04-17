@@ -394,10 +394,27 @@ class FinancialSnapshotBuilder:
         is_partial = bool(financial_kpi.get("is_partial", False))
         confirmed = bool(financial_kpi.get("confirmed", False))
         financial_status_str = str(financial_kpi.get("financial_status", "unknown")).lower()
-        rows_loaded = _safe_float(financial_kpi.get("kernel_rows_total", 1)) > 0
+        financial_finality_status = str(financial_kpi.get("financial_finality_status", "")).strip().lower()
+        financial_source = str(financial_kpi.get("financial_source", "")).strip().lower()
+        if "." in financial_source:
+            financial_source = financial_source.split(".")[-1]
+        rows_value = financial_kpi.get(
+            "kernel_rows_total",
+            financial_kpi.get(
+                "financial_rows_count",
+                financial_kpi.get("rows_count", financial_kpi.get("financial_rows", 0)),
+            ),
+        )
+        rows_loaded = _safe_float(rows_value) > 0
+        contour_missing = bool(
+            (not rows_loaded)
+            or financial_source in {"missing", "unknown"}
+            or financial_status_str == "missing"
+            or financial_finality_status == "missing"
+        )
 
         # Map financial status to FinancialStatus
-        if not rows_loaded:
+        if contour_missing:
             status = FinancialStatus.MISSING
             alignment_status = AlignmentStatus.MISSING
             reason = "No financial data loaded"

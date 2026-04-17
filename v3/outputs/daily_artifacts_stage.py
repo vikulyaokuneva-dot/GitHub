@@ -248,6 +248,74 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         )
         if not isinstance(financial_kpi, dict):
             financial_kpi = {}
+
+    def _normalize_token_local(value: Any) -> str:
+        token = str(value or "").strip().lower()
+        if "." in token:
+            token = token.split(".")[-1]
+        return token
+
+    def _snapshot_status_token(snapshot: Any) -> str:
+        if snapshot is None:
+            return ""
+        status = getattr(snapshot, "status", None)
+        if status is None:
+            return ""
+        return _normalize_token_local(getattr(status, "value", status))
+
+    api_debug = payload.get("api_debug", {})
+    if not isinstance(api_debug, dict):
+        api_debug = {}
+    data_sources_payload = payload.get("data_sources", {})
+    if not isinstance(data_sources_payload, dict):
+        data_sources_payload = {}
+    financial_snapshot = payload.get("financial_snapshot")
+    snapshot_status_token = _snapshot_status_token(financial_snapshot)
+    if not snapshot_status_token:
+        snapshot_status_token = _normalize_token_local(data_quality.get("financial_snapshot_status"))
+    snapshot_source_value = ""
+    if financial_snapshot is not None and hasattr(financial_snapshot, "source"):
+        snapshot_source_value = str(getattr(getattr(financial_snapshot, "source"), "value", financial_snapshot.source) or "")
+    financial_source_token = _normalize_token_local(
+        data_sources_payload.get("revenue") or snapshot_source_value or financial_kpi.get("financial_source")
+    )
+    financial_rows = int(
+        round(
+            _safe_float(
+                api_debug.get(
+                    "financial_rows",
+                    getattr(financial_snapshot, "rows_loaded", financial_kpi.get("kernel_rows_total", 0)),
+                )
+            )
+        )
+    )
+    financial_contour_missing = bool(
+        financial_rows <= 0
+        or financial_source_token in {"", "missing", "unknown"}
+        or snapshot_status_token == "missing"
+    )
+
+    if financial_contour_missing:
+        for key in (
+            "seller_payout",
+            "revenue",
+            "gross_revenue",
+            "wb_realized_revenue",
+            "row_revenue_total",
+            "gross_profit",
+            "profit",
+            "net_profit",
+            "margin_pct",
+            "profitability_pct",
+        ):
+            financial_kpi[key] = None
+        financial_kpi["financial_finality_status"] = "missing"
+        financial_kpi["financial_status"] = "missing"
+        financial_kpi["is_partial"] = True
+        financial_kpi["financial_partial"] = True
+        financial_kpi["net_profit_partial"] = True
+        financial_kpi["financial_margin_not_final"] = True
+
     revenue_total_legacy = _safe_float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))))
     profit_total = _safe_float(totals.get("profit", totals.get("total_profit", 0.0)))
     daily_orders_count_legacy = int(round(_safe_float(daily_kpi.get("daily_orders_count", 0))))
@@ -288,7 +356,7 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     margin_pct_total = render_kpi.get("margin_pct")
     profitability_pct_total = render_kpi.get("profitability_pct")
     financial_status = str(daily_status_matrix.get("financials") or "unknown")
-    if financial_status in {"confirmed", "partial"}:
+    if financial_status in {"confirmed", "partial"} and not financial_contour_missing:
         if revenue_total is None:
             revenue_total = _safe_float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))))
         if cost_price_total is None:
@@ -345,6 +413,19 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             (_safe_float(net_profit) / _safe_float(cost_price_total) * 100.0) if _safe_float(cost_price_total) > 0 else 0.0,
         )
     )
+    if financial_contour_missing:
+        revenue_total = None
+        gross_revenue_total = None
+        wb_realized_revenue_total = None
+        seller_payout_total = None
+        gross_profit_total = None
+        net_profit = None
+        margin_pct_total = None
+        profitability_pct_total = None
+        margin_pct_total_legacy = None
+        profitability_pct_total_legacy = None
+        revenue_total_legacy = None
+        financial_status = "missing"
     financial_completeness_pct = _safe_float(financial_kpi.get("completeness_pct", 0.0))
     financial_partial = bool(financial_kpi.get("is_partial", False))
 
@@ -525,6 +606,7 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "profitability_pct_total_legacy": profitability_pct_total_legacy,
             "financial_completeness_pct": financial_completeness_pct,
             "financial_partial": financial_partial,
+            "financial_contour_missing": financial_contour_missing,
             "ads_impressions": ads_impressions,
             "ads_clicks": ads_clicks,
             "ads_ctr": ads_ctr,

@@ -285,6 +285,48 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     data_quality = data.get("data_quality", {})
     if not isinstance(data_quality, dict):
         data_quality = {}
+    mock_sku_excluded = (
+        [str(item).strip() for item in list(data_quality.get("mock_sku_excluded", [])) if str(item).strip()]
+        if isinstance(data_quality.get("mock_sku_excluded"), list)
+        else []
+    )
+    mock_sku_excluded_set = set(mock_sku_excluded)
+    if mock_sku_excluded_set:
+        sku_metrics = [
+            row
+            for row in sku_metrics
+            if not (
+                isinstance(row, dict)
+                and str(row.get("sku") or "").strip() in mock_sku_excluded_set
+            )
+        ]
+        abc_rows = [
+            row
+            for row in abc_rows
+            if not (
+                isinstance(row, dict)
+                and str(row.get("sku") or "").strip() in mock_sku_excluded_set
+            )
+        ]
+        filtered_decision_groups: Dict[str, List[Dict[str, Any]]] = {}
+        for bucket in ("scale", "fix", "watch", "liquidate"):
+            bucket_rows = decision_groups.get(bucket, [])
+            if not isinstance(bucket_rows, list):
+                filtered_decision_groups[bucket] = []
+                continue
+            filtered_decision_groups[bucket] = [
+                row
+                for row in bucket_rows
+                if not (
+                    isinstance(row, dict)
+                    and str(row.get("sku") or "").strip() in mock_sku_excluded_set
+                )
+            ]
+        decision_groups = filtered_decision_groups
+        warnings_collector.add_warning(
+            "mock_sku_excluded_from_report",
+            "mock sku excluded from production report",
+        )
     outcomes_payload = data.get("outcomes_payload", {})
     if not isinstance(outcomes_payload, dict):
         outcomes_payload = {}
@@ -350,6 +392,28 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         query_profitability = {}
     if not isinstance(report_guardrails, dict):
         report_guardrails = {}
+    data_sources = data.get("data_sources", {})
+    if not isinstance(data_sources, dict):
+        data_sources = {}
+    api_debug_early = data.get("api_debug", {})
+    if not isinstance(api_debug_early, dict):
+        api_debug_early = {}
+    financial_snapshot = data.get("financial_snapshot")
+
+    def _normalize_status_token(value: Any) -> str:
+        token = str(value or "").strip().lower()
+        if "." in token:
+            token = token.split(".")[-1]
+        return token
+
+    def _snapshot_status_token(snapshot: Any) -> str:
+        if snapshot is None:
+            return ""
+        status = getattr(snapshot, "status", None)
+        if status is None:
+            return ""
+        return _normalize_status_token(getattr(status, "value", status))
+
     sku_attribution_status = str(
         data_quality.get("sku_attribution_status", report_guardrails.get("sku_attribution_status", "ok")) or "ok"
     ).strip().lower()
@@ -379,11 +443,45 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         or ""
     ).strip()
     financial_matrix_status = str(daily_status_matrix.get("financials") or "").strip().lower()
+    financial_source_token = _normalize_status_token(
+        data_sources.get("revenue", financial_kpi.get("financial_source"))
+    )
+    financial_rows_effective = int(
+        round(
+            _safe_float_local(
+                api_debug_early.get(
+                    "financial_rows",
+                    getattr(financial_snapshot, "rows_loaded", data_quality.get("financial_rows_effective", 0)),
+                )
+            )
+            or 0.0
+        )
+    )
+    financial_snapshot_status_token = _snapshot_status_token(financial_snapshot)
+    if not financial_snapshot_status_token:
+        financial_snapshot_status_token = _normalize_status_token(
+            data_quality.get("financial_snapshot_status")
+        )
+    financial_contour_missing = bool(
+        financial_rows_effective <= 0
+        or financial_source_token in {"", "missing", "unknown"}
+        or financial_snapshot_status_token == "missing"
+        or financial_finality_status == "missing"
+    )
+    if financial_contour_missing:
+        financial_finality_status = "missing"
+
     financial_lagged = bool(
         financial_alignment_status == "lagged_fallback"
         or financial_date_misaligned
         or financial_matrix_status == "lagged"
     )
+    if financial_contour_missing:
+        financial_lagged = False
+        financial_alignment_status = "missing"
+        financial_date_misaligned = False
+        financial_actual_date = ""
+
     if financial_lagged and not financial_alignment_status:
         financial_alignment_status = "lagged_fallback"
     if not financial_target_date:
@@ -451,6 +549,11 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     net_profit_value = render_kpi.get("net_profit", data.get("net_profit"))
     margin_pct_value = render_kpi.get("margin_pct", data.get("margin_pct_total"))
     profitability_pct_value = render_kpi.get("profitability_pct", data.get("profitability_pct_total"))
+    if financial_contour_missing:
+        revenue_value = None
+        net_profit_value = None
+        margin_pct_value = None
+        profitability_pct_value = None
     if financial_lagged:
         render_kpi["financial_lagged"] = True
         render_kpi["financial_actual_date"] = financial_actual_date
@@ -747,24 +850,42 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
                 "",
             ]
         )
-    page_2.extend(
-        [
-        "Показатель | Значение",
-        f"К перечислению продавцу | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
-        f"Чистая прибыль | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
-        f"Маржа | {_pct_text(margin_pct_value, preliminary=financial_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
-        f"Рентабельность | {_pct_text(profitability_pct_value, preliminary=financial_preliminary)}",
-        f"Полнота финансовых данных | {_pct_text(data.get('financial_completeness_pct'))}",
-        "",
-        "## Эффективность рекламы",
-        "Показатель | Значение",
-        f"Расход на рекламу | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
-        f"Выручка из рекламы | {_money_text(portfolio_revenue_from_ads, preliminary=ads_preliminary, decimals=0)}",
-        f"Прибыль из рекламы | {_money_text(portfolio_profit_from_ads, preliminary=ads_preliminary, decimals=0)}",
-        f"ROMI | {_pct_text(portfolio_romi, preliminary=ads_preliminary)}",
-        f"DRR | {_pct_text(portfolio_drr, preliminary=ads_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
-        f"CPO | {_money_text(cpo_value, preliminary=ads_preliminary, decimals=0, missing_label=INSUFFICIENT_DATA_LABEL)}",
-    ])
+    if financial_contour_missing:
+        page_2.extend(
+            [
+                "Финансовые данные отсутствуют.",
+                "WB API не вернул строки реализации / начислений.",
+                "Проверьте следующий цикл синхронизации.",
+                "",
+                "## Эффективность рекламы",
+                "Показатель | Значение",
+                f"Расход на рекламу | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
+                f"Выручка из рекламы | {_money_text(portfolio_revenue_from_ads, preliminary=ads_preliminary, decimals=0)}",
+                f"Прибыль из рекламы | {_money_text(portfolio_profit_from_ads, preliminary=ads_preliminary, decimals=0)}",
+                f"ROMI | {_pct_text(portfolio_romi, preliminary=ads_preliminary)}",
+                f"DRR | {_pct_text(portfolio_drr, preliminary=ads_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
+                f"CPO | {_money_text(cpo_value, preliminary=ads_preliminary, decimals=0, missing_label=INSUFFICIENT_DATA_LABEL)}",
+            ]
+        )
+    else:
+        page_2.extend(
+            [
+            "Показатель | Значение",
+            f"К перечислению продавцу | {_money_text(revenue_value, preliminary=financial_preliminary, decimals=0)}",
+            f"Чистая прибыль | {_money_text(net_profit_value, preliminary=financial_preliminary, decimals=0)}",
+            f"Маржа | {_pct_text(margin_pct_value, preliminary=financial_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
+            f"Рентабельность | {_pct_text(profitability_pct_value, preliminary=financial_preliminary)}",
+            f"Полнота финансовых данных | {_pct_text(data.get('financial_completeness_pct'))}",
+            "",
+            "## Эффективность рекламы",
+            "Показатель | Значение",
+            f"Расход на рекламу | {_money_text(portfolio_ad_spend, preliminary=ads_preliminary, decimals=0)}",
+            f"Выручка из рекламы | {_money_text(portfolio_revenue_from_ads, preliminary=ads_preliminary, decimals=0)}",
+            f"Прибыль из рекламы | {_money_text(portfolio_profit_from_ads, preliminary=ads_preliminary, decimals=0)}",
+            f"ROMI | {_pct_text(portfolio_romi, preliminary=ads_preliminary)}",
+            f"DRR | {_pct_text(portfolio_drr, preliminary=ads_preliminary, missing_label=INSUFFICIENT_DATA_LABEL)}",
+            f"CPO | {_money_text(cpo_value, preliminary=ads_preliminary, decimals=0, missing_label=INSUFFICIENT_DATA_LABEL)}",
+        ])
 
     top_profitable_queries = [
         _sanitize_client_text(str(item.get("query") or ""))
@@ -1283,6 +1404,25 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     )
     tax_visual = _first_number_local(data.get("tax_total"), financial_kpi_payload.get("tax"), email_summary_payload.get("tax"))
 
+    if financial_contour_missing:
+        seller_payout_visual = None
+        gross_revenue_visual = None
+        wb_realized_revenue_visual = None
+        revenue_visual = None
+        net_profit_visual = None
+        commission_visual = None
+        acquiring_visual = None
+        pvz_service_visual = None
+        logistics_visual = None
+        storage_visual = None
+        deductions_visual = None
+        loyalty_program_visual = None
+        loyalty_points_visual = None
+        other_adjustments_visual = None
+        penalties_visual = None
+        cost_price_visual = None
+        tax_visual = None
+
     if not _component_available("revenue", "seller_payout"):
         seller_payout_visual = None
         revenue_visual = None
@@ -1440,6 +1580,17 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "financial_target_date": financial_target_date,
         "financial_alignment_status": financial_alignment_status or ("lagged_fallback" if financial_lagged else "aligned"),
         "financial_lag_warning": financial_lag_warning,
+        "financial_finality_status": financial_finality_status,
+        "financial_contour_missing": financial_contour_missing,
+        "missing_warning_lines": (
+            [
+                "Финансовые данные отсутствуют.",
+                "WB API не вернул строки реализации / начислений.",
+                "Проверьте следующий цикл синхронизации.",
+            ]
+            if financial_contour_missing
+            else []
+        ),
     }
 
     top_growth_rows = _watchlist_rows(sku_watchlists, "top_growth", limit=30)
@@ -2149,11 +2300,16 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     def _funnel_field_value(key: str, *, fallback: Any = None) -> float | None:
         status_token = str(funnel.get(f"{key}_status") or "").strip().lower()
-        if status_token == "missing":
+        if status_token in {"missing", "unknown", "unavailable", "not_confirmed"}:
             return None
-        return _first_number_local(funnel.get(key), fallback)
+        value = _first_number_local(funnel.get(key), fallback)
+        source_token = str(funnel.get(f"{key}_source") or "").strip().lower()
+        if source_token in {"unknown", "missing", "unavailable_from_api"} and value in {None, 0.0}:
+            return None
+        return value
 
     funnel_views = _funnel_field_value("views")
+    funnel_impressions = _funnel_field_value("impressions")
     if funnel_views is None:
         impressions_status_token = str(funnel.get("impressions_status") or "").strip().lower()
         if impressions_status_token in {"confirmed", "confirmed_zero"}:
@@ -2753,8 +2909,12 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     section_states_payload = {
         "financials": (
             SECTION_STATE_COMPACT_NOTE
-            if financial_lagged
-            else (SECTION_STATE_FULL if financial_finality_status == "final" else SECTION_STATE_PARTIAL)
+            if financial_contour_missing
+            else (
+                SECTION_STATE_COMPACT_NOTE
+                if financial_lagged
+                else (SECTION_STATE_FULL if financial_finality_status == "final" else SECTION_STATE_PARTIAL)
+            )
         ),
         "ads_efficiency": normalize_section_state(ads_visual_payload.get("state"), default=SECTION_STATE_COMPACT_NOTE),
         "funnel": normalize_section_state(funnel_visual_payload.get("state"), default=SECTION_STATE_COMPACT_NOTE),
@@ -2949,9 +3109,13 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "email_subject": email_subject_value,
         "email_body_text": email_body_text_value,
         "financial_interpretation": (
-            "lagged_fallback"
-            if financial_lagged
-            else ("provisional" if financial_finality_status != "final" else "final")
+            "missing"
+            if financial_contour_missing
+            else (
+                "lagged_fallback"
+                if financial_lagged
+                else ("provisional" if financial_finality_status != "final" else "final")
+            )
         ),
         "render_warnings": deduped_render_warnings,
         "pdf_path": os.path.join(out_dir, "report.pdf"),
@@ -2978,6 +3142,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "finance_primary_endpoint_attempted": str(api_debug_payload.get("finance_primary_endpoint_attempted") or ""),
             "finance_primary_status_code": api_debug_payload.get("finance_primary_status_code"),
             "rows_loaded": int(api_debug_payload.get("financial_rows", 0) or 0),
+            "contour_missing": bool(financial_contour_missing),
             "mapping_diagnostics": (
                 dict(api_debug_payload.get("finance_mapping_diagnostics", {}))
                 if isinstance(api_debug_payload.get("finance_mapping_diagnostics"), dict)
@@ -2991,13 +3156,13 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "daily_buyouts_count": _int_or_none(buyouts_count_value),
             "daily_buyouts_amount": _round_or_none(buyouts_amount_value),
             "avg_check": _round_or_none(avg_check_value),
-            "views": _int_or_none(funnel.get("views")),
+            "views": _int_or_none(funnel_views),
             "views_status": str(funnel.get("views_status") or "missing"),
             "views_source": str(funnel.get("views_source") or "unknown"),
-            "impressions": _int_or_none(funnel.get("impressions")),
+            "impressions": _int_or_none(funnel_impressions),
             "impressions_status": str(funnel.get("impressions_status") or "missing"),
             "impressions_source": str(funnel.get("impressions_source") or "unknown"),
-            "clicks": _int_or_none(funnel.get("clicks")),
+            "clicks": _int_or_none(funnel_clicks),
             "clicks_status": str(funnel.get("clicks_status") or "missing"),
             "clicks_source": str(funnel.get("clicks_source") or "unknown"),
             "add_to_cart": _int_or_none(funnel.get("add_to_cart")),
@@ -3078,6 +3243,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "profitability_pct": _round_or_none(profitability_pct_value),
             "financial_completeness_pct": _round_or_none(data.get("financial_completeness_pct")),
             "financial_partial": bool(data.get("financial_partial", False)),
+            "financial_contour_missing": bool(financial_contour_missing),
             "financial_finality_status": financial_finality_status,
             "financial_lagged": financial_lagged,
             "financial_date_aligned": not financial_lagged,

@@ -41,6 +41,54 @@ def _safe_int_local(value: Any, default: int = 0) -> int:
         return int(default)
 
 
+def _normalize_token_local(value: Any) -> str:
+    token = str(value or "").strip().lower()
+    if "." in token:
+        token = token.split(".")[-1]
+    return token
+
+
+def _snapshot_status_token(snapshot: Any) -> str:
+    if snapshot is None:
+        return ""
+    status = getattr(snapshot, "status", None)
+    if status is None:
+        return ""
+    status_value = getattr(status, "value", status)
+    return _normalize_token_local(status_value)
+
+
+def _is_mock_sku_candidate(sku: Any) -> bool:
+    token = str(sku or "").strip()
+    if not token:
+        return False
+    lowered = token.lower()
+    if token in {"1001", "1002", "1003"}:
+        return True
+    return ("mock" in lowered) or ("demo" in lowered)
+
+
+def _extract_sku_token(row: Any) -> str:
+    if not isinstance(row, dict):
+        return ""
+    for key in ("sku", "nm_id", "nmId", "nmid", "wb_sku"):
+        value = row.get(key)
+        token = str(value or "").strip()
+        if token and token.lower() != "nan":
+            return token
+    return ""
+
+
+def _build_real_sku_context(rows_groups: List[List[Dict[str, Any]]]) -> set[str]:
+    out: set[str] = set()
+    for rows in rows_groups:
+        for row in rows if isinstance(rows, list) else []:
+            token = _extract_sku_token(row)
+            if token:
+                out.add(token)
+    return out
+
+
 def _normalize_day_token(value: Any) -> str:
     text = str(value or "").strip()
     if len(text) >= 10 and text[4:5] == "-" and text[7:8] == "-":
@@ -557,9 +605,44 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "api_realization_rows": len(raw_bundle.api_realization_rows),
         }
         input_debug["normalization_layer"] = normalized_bundle.debug if isinstance(normalized_bundle.debug, dict) else {}
+
+    real_sku_context = _build_real_sku_context(
+        [
+            sales_rows if isinstance(sales_rows, list) else [],
+            stocks_rows if isinstance(stocks_rows, list) else [],
+            api_orders_rows if isinstance(api_orders_rows, list) else [],
+            api_sales_rows if isinstance(api_sales_rows, list) else [],
+            api_realization_rows if isinstance(api_realization_rows, list) else [],
+            api_stocks_rows if isinstance(api_stocks_rows, list) else [],
+        ]
+    )
+    mock_sku_excluded: List[str] = []
+    raw_sku_metrics = metrics.get("sku_metrics", []) if isinstance(metrics, dict) else []
+    if isinstance(raw_sku_metrics, list) and raw_sku_metrics:
+        filtered_sku_metrics: List[Dict[str, Any]] = []
+        for item in raw_sku_metrics:
+            if not isinstance(item, dict):
+                continue
+            sku_token = str(item.get("sku") or "").strip()
+            if not sku_token:
+                filtered_sku_metrics.append(item)
+                continue
+            if _is_mock_sku_candidate(sku_token) and sku_token not in real_sku_context:
+                if sku_token not in mock_sku_excluded:
+                    mock_sku_excluded.append(sku_token)
+                continue
+            filtered_sku_metrics.append(item)
+        metrics["sku_metrics"] = filtered_sku_metrics
     metrics_data_quality = metrics.get("data_quality", {}) if isinstance(metrics, dict) else {}
     if not isinstance(metrics_data_quality, dict):
         metrics_data_quality = {}
+    metrics_data_quality["mock_sku_excluded_count"] = len(mock_sku_excluded)
+    metrics_data_quality["mock_sku_excluded"] = list(mock_sku_excluded)
+    if mock_sku_excluded:
+        warnings_collector.add_warning(
+            "mock_sku_excluded_from_report",
+            "mock sku excluded from production report",
+        )
     diagnostics_payload = metrics.get("diagnostics", {}) if isinstance(metrics, dict) else {}
     if not isinstance(diagnostics_payload, dict):
         diagnostics_payload = {}
@@ -768,6 +851,69 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data_sources, dict):
         data_sources = {}
 
+    snapshot_source_value = ""
+    if financial_snapshot is not None and hasattr(financial_snapshot, "source"):
+        snapshot_source_value = str(getattr(getattr(financial_snapshot, "source"), "value", financial_snapshot.source) or "")
+    financial_source_token = _normalize_token_local(
+        data_sources.get("revenue") or snapshot_source_value or financial_kpi.get("financial_source")
+    )
+    financial_rows_for_semantics = _safe_int_local(
+        api_debug.get(
+            "financial_rows",
+            getattr(financial_snapshot, "rows_loaded", financial_kpi.get("kernel_rows_total", 0)),
+        ),
+        0,
+    )
+    financial_snapshot_status_token = _snapshot_status_token(financial_snapshot)
+    financial_contour_missing = bool(
+        financial_rows_for_semantics <= 0
+        or financial_source_token in {"", "missing", "unknown"}
+        or financial_snapshot_status_token == "missing"
+    )
+    if financial_contour_missing:
+        for key in (
+            "seller_payout",
+            "revenue",
+            "gross_revenue",
+            "wb_realized_revenue",
+            "row_revenue_total",
+            "profit",
+            "gross_profit",
+            "net_profit",
+            "margin_pct",
+            "profitability_pct",
+        ):
+            financial_kpi[key] = None
+            totals_for_daily[key] = None
+        financial_kpi["financial_finality_status"] = "missing"
+        financial_kpi["financial_status"] = "missing"
+        financial_kpi["financial_partial"] = True
+        financial_kpi["is_partial"] = True
+        financial_kpi["net_profit_partial"] = True
+        financial_kpi["financial_margin_not_final"] = True
+        financial_kpi["confirmed"] = False
+        financial_kpi["completeness_pct"] = 0.0
+        metrics_data_quality["financial_status"] = "missing"
+        metrics_data_quality["financial_partial"] = True
+        metrics_data_quality["financial_finality_status"] = "missing"
+        metrics_data_quality["financial_completeness_pct"] = 0.0
+        metrics_data_quality["net_profit_partial"] = True
+        metrics_data_quality["financial_margin_not_final"] = True
+        metrics_data_quality["financial_contour_missing"] = True
+        metrics_data_quality["financial_rows_effective"] = int(financial_rows_for_semantics)
+        metrics_data_quality["financial_source_effective"] = financial_source_token or "unknown"
+        warnings_collector.add_warning(
+            "financial_contour_missing",
+            "Financial contour missing: realization rows are unavailable for current operational day.",
+        )
+    else:
+        metrics_data_quality["financial_contour_missing"] = False
+        metrics_data_quality["financial_rows_effective"] = int(financial_rows_for_semantics)
+        metrics_data_quality["financial_source_effective"] = financial_source_token or "unknown"
+    metrics["financial_kpi"] = financial_kpi
+    metrics["totals"] = totals_for_daily
+    metrics["data_quality"] = metrics_data_quality
+
     if not isinstance(event_date_model, dict) or not event_date_model:
         event_date_model = build_event_date_model(
             run_date=run_date,
@@ -815,7 +961,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         financial_kpi["financial_date_misaligned"] = financial_date_misaligned
         financial_kpi["financial_alignment_status"] = financial_alignment_status
         financial_kpi["financial_alignment_reason"] = financial_alignment_reason
-        if financial_date_misaligned:
+        if financial_date_misaligned and not financial_contour_missing:
             financial_kpi["confirmed"] = False
             financial_kpi["is_partial"] = True
             financial_kpi["financial_partial"] = True
@@ -829,7 +975,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     metrics_data_quality["financial_date_misaligned"] = financial_date_misaligned
     metrics_data_quality["financial_alignment_status"] = financial_alignment_status
     metrics_data_quality["financial_alignment_reason"] = financial_alignment_reason
-    if financial_date_misaligned:
+    if financial_date_misaligned and not financial_contour_missing:
         metrics_data_quality["financial_status"] = "lagged"
         metrics_data_quality["financial_partial"] = True
         metrics_data_quality["financial_finality_status"] = "lagged"
@@ -1022,7 +1168,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     warnings_collector.extend_warnings(assembly_warning_additions.get("financial_warning_additions", []))
     warnings_collector.extend_warnings(assembly_warning_additions.get("ads_warning_additions", []))
     api_financial_contour_missing = bool(token and not api_realization_rows)
-    financial_data_missing_flag = len(sales_rows) == 0
+    financial_data_missing_flag = bool(financial_contour_missing)
     financial_data_degraded_flag = False
     if financial_data_missing_flag:
         if not any(
@@ -1093,6 +1239,16 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     unassigned_costs = metrics.get("unassigned_costs", {}) if isinstance(metrics, dict) else {}
 
     sku_metrics = _extract_sku_metrics(metrics)
+    if isinstance(sku_metrics, list) and mock_sku_excluded:
+        sku_metrics = [
+            row
+            for row in sku_metrics
+            if not (
+                isinstance(row, dict)
+                and _is_mock_sku_candidate(row.get("sku"))
+                and str(row.get("sku") or "").strip() in set(mock_sku_excluded)
+            )
+        ]
     abc_rows = compute_abc(sku_metrics)
     abc_summary = {"A": 0, "B": 0, "C": 0}
     for row in abc_rows:
@@ -1336,6 +1492,12 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
                 "territorial_confidence_level": str(metrics_data_quality.get("territorial_confidence_level") or "low"),
                 "territorial_suppressed_due_to_data_quality": bool(metrics_data_quality.get("territorial_suppressed_due_to_data_quality", False)),
                 "profit_contribution_enabled": profit_contribution_enabled,
+                "mock_sku_excluded_count": int(metrics_data_quality.get("mock_sku_excluded_count", 0) or 0),
+                "mock_sku_excluded": (
+                    [str(item) for item in list(metrics_data_quality.get("mock_sku_excluded", [])) if str(item).strip()]
+                    if isinstance(metrics_data_quality.get("mock_sku_excluded"), list)
+                    else []
+                ),
                 "advertising_efficiency_enabled": bool(metrics_data_quality.get("advertising_efficiency_enabled", False)),
                 "advertising_efficiency_analysis_mode": str(metrics_data_quality.get("advertising_efficiency_analysis_mode") or "disabled"),
                 "report_reliability_level": str(metrics_data_quality.get("report_reliability_level") or "medium"),
@@ -1413,5 +1575,3 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
     return ctx
-
-

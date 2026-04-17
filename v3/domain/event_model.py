@@ -177,7 +177,10 @@ def build_financial_kpi_contract(
     def _value(key: str) -> float | None:
         if not has_known_source:
             return None
-        return round(_safe_float(safe_financial.get(key, 0.0)), 2)
+        raw_value = safe_financial.get(key)
+        if raw_value is None:
+            return None
+        return round(_safe_float(raw_value), 2)
 
     contract = FinancialKpiContract(
         date=str(event_date_model.get("financial_date") or event_date_model.get("operational_date") or ""),
@@ -500,4 +503,3 @@ def build_financial_kpi_from_snapshot(
     })
     
     return out
-

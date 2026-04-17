@@ -2956,6 +2956,34 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
             }
         )
 
+    def _is_mock_sku_token(value: Any) -> bool:
+        token = str(value or "").strip()
+        if not token:
+            return False
+        lowered = token.lower()
+        if token in {"1001", "1002", "1003"}:
+            return True
+        return ("mock" in lowered) or ("demo" in lowered)
+
+    real_context_skus = {
+        str(row.get("sku") or "").strip()
+        for row in (valid_sales_rows + valid_stocks_rows)
+        if isinstance(row, dict) and str(row.get("sku") or "").strip()
+    }
+    mock_sku_excluded: List[str] = []
+    filtered_sku_metrics: List[Dict[str, Any]] = []
+    for row in sku_metrics:
+        if not isinstance(row, dict):
+            continue
+        sku_token = str(row.get("sku") or "").strip()
+        if _is_mock_sku_token(sku_token) and sku_token not in real_context_skus:
+            if sku_token and sku_token not in mock_sku_excluded:
+                mock_sku_excluded.append(sku_token)
+            continue
+        filtered_sku_metrics.append(row)
+    sku_metrics = filtered_sku_metrics
+    zero_revenue_activity_skus = [sku for sku in zero_revenue_activity_skus if sku not in set(mock_sku_excluded)]
+
     sku_metrics.sort(key=lambda x: (float(x.get("profit", 0.0)), float(x.get("revenue", 0.0))), reverse=True)
 
     valid_revenue = sum(float(row.get("revenue") or 0.0) for row in valid_sales_rows)
@@ -3326,6 +3354,8 @@ def build_metrics_from_reports(sales_rows: List[Dict[str, Any]], ads_rows: List[
         "ai_decision_reliability": ai_reliability,
         "zero_revenue_activity_sku_count": len(zero_revenue_activity_skus),
         "zero_revenue_activity_skus": zero_revenue_activity_skus[:50],
+        "mock_sku_excluded_count": len(mock_sku_excluded),
+        "mock_sku_excluded": mock_sku_excluded,
         "sku_attribution_status": sku_attribution_status,
         "invalid_sku_rows_parser_error": int(sku_attribution.get("invalid_sku_rows_parser_error", 0) or 0),
         "invalid_sku_rows_missing_field": int(sku_attribution.get("invalid_sku_rows_missing_field", 0) or 0),
@@ -3491,6 +3521,18 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
         "wb_api_financial_degraded",
     }
     effective = codes - debug
+    mock_sku_excluded_count = int(data_quality.get("mock_sku_excluded_count", 0) or 0)
+    if mock_sku_excluded_count > 0 and not any(
+        str(item.get("code") or "") == "mock_sku_excluded_from_report"
+        for item in warnings
+        if isinstance(item, dict)
+    ):
+        warnings.append(
+            {
+                "code": "mock_sku_excluded_from_report",
+                "message": "mock sku excluded from production report",
+            }
+        )
 
     invalid_sku_rows = int(data_quality.get("invalid_sku_rows", 0) or 0)
     unassigned_present = bool(data_quality.get("unassigned_costs_present", False))
@@ -3508,7 +3550,7 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
     else:
         confidence = "high"
 
-    if financial_status == "partial" or financial_finality_status in {"sparse", "unavailable"}:
+    if financial_status == "partial" or financial_finality_status in {"sparse", "unavailable", "missing"}:
         confidence = "low"
     elif financial_status == "degraded" and confidence == "high":
         confidence = "medium"
@@ -3549,30 +3591,60 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
     ads_attribution_quality = str(
         ads_diagnostics.get("attribution_quality", ads_metrics.get("attribution_quality", "unknown")) or "unknown"
     )
+
+    def _norm_token(value: Any) -> str:
+        token = str(value or "").strip().lower()
+        if "." in token:
+            token = token.split(".")[-1]
+        return token
+
+    def _float_or_none(value: Any) -> float | None:
+        try:
+            if value is None or value == "":
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    financial_debug_rows = metrics.get("financial_debug", []) if isinstance(metrics, dict) else []
+    financial_rows_count = len(financial_debug_rows) if isinstance(financial_debug_rows, list) else 0
+    if financial_rows_count <= 0:
+        financial_rows_count = int(data_quality.get("financial_rows_effective", 0) or 0)
+    data_sources_payload = metrics.get("data_sources", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(data_sources_payload, dict):
+        data_sources_payload = {}
+    financial_source_token = _norm_token(data_sources_payload.get("revenue", financial_kpi.get("financial_source")))
+    snapshot_status_token = _norm_token(data_quality.get("financial_snapshot_status"))
+    financial_contour_missing = bool(
+        financial_rows_count <= 0
+        or financial_source_token in {"", "missing", "unknown"}
+        or snapshot_status_token == "missing"
+    )
+
     financial_kpi_payload = {
-        "revenue": float(financial_kpi.get("revenue", 0.0) or 0.0),
-        "gross_revenue": float(financial_kpi.get("gross_revenue", 0.0) or 0.0),
-        "wb_realized_revenue": float(financial_kpi.get("wb_realized_revenue", 0.0) or 0.0),
-        "seller_payout": float(financial_kpi.get("seller_payout", 0.0) or 0.0),
-        "row_revenue_total": float(financial_kpi.get("row_revenue_total", 0.0) or 0.0),
-        "cost_price": float(financial_kpi.get("cost_price", 0.0) or 0.0),
-        "wb_commission": float(financial_kpi.get("wb_commission", 0.0) or 0.0),
-        "acquiring": float(financial_kpi.get("acquiring", 0.0) or 0.0),
-        "pvz_service": float(financial_kpi.get("pvz_service", 0.0) or 0.0),
-        "logistics": float(financial_kpi.get("logistics", 0.0) or 0.0),
-        "storage": float(financial_kpi.get("storage", 0.0) or 0.0),
-        "penalties": float(financial_kpi.get("penalties", 0.0) or 0.0),
-        "deductions": float(financial_kpi.get("deductions", 0.0) or 0.0),
-        "loyalty_program": float(financial_kpi.get("loyalty_program", 0.0) or 0.0),
-        "loyalty_points_withheld": float(financial_kpi.get("loyalty_points_withheld", 0.0) or 0.0),
-        "loyalty_total": float(financial_kpi.get("loyalty_total", 0.0) or 0.0),
-        "other_adjustments": float(financial_kpi.get("other_adjustments", 0.0) or 0.0),
-        "tax": float(financial_kpi.get("tax", 0.0) or 0.0),
-        "ads_spend": float(financial_kpi.get("ads_spend", 0.0) or 0.0),
-        "gross_profit": float(financial_kpi.get("gross_profit", 0.0) or 0.0),
-        "net_profit": float(financial_kpi.get("net_profit", 0.0) or 0.0),
-        "margin_pct": float(financial_kpi.get("margin_pct", 0.0) or 0.0),
-        "profitability_pct": float(financial_kpi.get("profitability_pct", 0.0) or 0.0),
+        "revenue": _float_or_none(financial_kpi.get("revenue")),
+        "gross_revenue": _float_or_none(financial_kpi.get("gross_revenue")),
+        "wb_realized_revenue": _float_or_none(financial_kpi.get("wb_realized_revenue")),
+        "seller_payout": _float_or_none(financial_kpi.get("seller_payout")),
+        "row_revenue_total": _float_or_none(financial_kpi.get("row_revenue_total")),
+        "cost_price": _float_or_none(financial_kpi.get("cost_price")),
+        "wb_commission": _float_or_none(financial_kpi.get("wb_commission")),
+        "acquiring": _float_or_none(financial_kpi.get("acquiring")),
+        "pvz_service": _float_or_none(financial_kpi.get("pvz_service")),
+        "logistics": _float_or_none(financial_kpi.get("logistics")),
+        "storage": _float_or_none(financial_kpi.get("storage")),
+        "penalties": _float_or_none(financial_kpi.get("penalties")),
+        "deductions": _float_or_none(financial_kpi.get("deductions")),
+        "loyalty_program": _float_or_none(financial_kpi.get("loyalty_program")),
+        "loyalty_points_withheld": _float_or_none(financial_kpi.get("loyalty_points_withheld")),
+        "loyalty_total": _float_or_none(financial_kpi.get("loyalty_total")),
+        "other_adjustments": _float_or_none(financial_kpi.get("other_adjustments")),
+        "tax": _float_or_none(financial_kpi.get("tax")),
+        "ads_spend": _float_or_none(financial_kpi.get("ads_spend")),
+        "gross_profit": _float_or_none(financial_kpi.get("gross_profit")),
+        "net_profit": _float_or_none(financial_kpi.get("net_profit")),
+        "margin_pct": _float_or_none(financial_kpi.get("margin_pct")),
+        "profitability_pct": _float_or_none(financial_kpi.get("profitability_pct")),
         "cost_price_missing": bool(financial_kpi.get("cost_price_missing", False)),
         "wb_commission_missing": bool(financial_kpi.get("wb_commission_missing", False)),
         "expense_attribution_partial": bool(financial_kpi.get("expense_attribution_partial", False)),
@@ -3586,6 +3658,23 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
         "components": financial_kpi.get("components", data_quality.get("financial_components", {})),
         "is_partial": bool(financial_kpi.get("is_partial", False)),
     }
+    if financial_contour_missing:
+        for key in (
+            "seller_payout",
+            "revenue",
+            "gross_revenue",
+            "wb_realized_revenue",
+            "row_revenue_total",
+            "gross_profit",
+            "net_profit",
+            "margin_pct",
+            "profitability_pct",
+        ):
+            financial_kpi_payload[key] = None
+        financial_kpi_payload["financial_finality_status"] = "missing"
+        financial_kpi_payload["is_partial"] = True
+        financial_kpi_payload["net_profit_partial"] = True
+        financial_kpi_payload["financial_margin_not_final"] = True
     commerce_kpi = {
         "daily_orders_count": daily_orders_count,
         "daily_orders_amount": round(daily_orders_amount, 2),
@@ -3676,6 +3765,13 @@ def build_facts_from_reports(seller_id: str, run_date: str, seller_name: str, me
             "financial_finality_status": str(
                 data_quality.get("financial_finality_status", financial_kpi_payload.get("financial_finality_status", "unavailable"))
                 or "unavailable"
+            ),
+            "financial_contour_missing": financial_contour_missing,
+            "mock_sku_excluded_count": int(data_quality.get("mock_sku_excluded_count", 0) or 0),
+            "mock_sku_excluded": (
+                [str(item) for item in list(data_quality.get("mock_sku_excluded", [])) if str(item).strip()]
+                if isinstance(data_quality.get("mock_sku_excluded"), list)
+                else []
             ),
             "territorial_analysis_enabled": bool(data_quality.get("territorial_analysis_enabled", True)),
             "profit_contribution_enabled": bool(data_quality.get("profit_contribution_enabled", True)),

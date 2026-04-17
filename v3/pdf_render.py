@@ -603,6 +603,7 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
     financial_structure = payload.get("financial_structure_day", {})
     if not isinstance(financial_structure, dict):
         financial_structure = {}
+    financial_missing = bool(financial_structure.get("financial_contour_missing", False))
     seller_payout_value = _as_number(
         financial_structure.get("seller_payout")
         if financial_structure.get("seller_payout") is not None
@@ -654,6 +655,35 @@ def write_daily_bi_pdf(path: str, payload: Dict[str, Any]) -> Dict[str, str]:
         fs_rows,
         "Недостаточно данных для визуализации",
     )
+
+    if financial_missing:
+        warning_lines = financial_structure.get("missing_warning_lines", [])
+        if not isinstance(warning_lines, list) or not warning_lines:
+            warning_lines = [
+                "Финансовые данные отсутствуют.",
+                "WB API не вернул строки реализации / начислений.",
+                "Проверьте следующий цикл синхронизации.",
+            ]
+        x1, y1, x2, _ = finance_table_box
+        draw_2.rounded_rectangle(
+            finance_table_box,
+            radius=12,
+            fill=colors["warning_bg"],
+            outline=colors["warning_border"],
+            width=2,
+        )
+        text_y = y1 + 16
+        for line in warning_lines[:3]:
+            safe_line = normalize_pdf_text(str(line or "").strip())
+            if not safe_line:
+                continue
+            draw_2.text(
+                (x1 + 14, text_y),
+                _fit_text(draw_2, safe_line, fonts["body"], max(40, x2 - x1 - 28)),
+                font=fonts["body"],
+                fill=colors["warning_text"],
+            )
+            text_y += 40
 
     ads = payload.get("ads_efficiency", {})
     if not isinstance(ads, dict):
