@@ -14,6 +14,35 @@ from typing import Any
 import pandas as pd
 
 
+STOCK_SKU_COLUMN_PRIORITY: tuple[str, ...] = (
+    "Артикул WB",
+    "Артикул",
+    "nmId",
+    "SKU",
+)
+
+STOCK_SKU_COLUMN_ALIASES: tuple[str, ...] = STOCK_SKU_COLUMN_PRIORITY + (
+    "nm_id",
+    "nmid",
+)
+
+STOCK_TOTAL_COLUMN_PRIORITY: tuple[str, ...] = (
+    "Всего находится на складах",
+    "Остаток",
+    "Количество",
+    "Остатки, шт",
+)
+
+STOCK_TOTAL_COLUMN_ALIASES: tuple[str, ...] = STOCK_TOTAL_COLUMN_PRIORITY + (
+    "Остатки на текущий день, шт",
+    "Остатки на текущий день",
+    "quantityFull",
+    "quantity",
+    "qty",
+    "stock",
+)
+
+
 def _norm(value: Any) -> str:
     text = "" if value is None else str(value)
     text = text.replace("\xa0", " ").replace("\n", " ").replace("\r", " ")
@@ -102,28 +131,37 @@ def _find_header_row_with_dates(raw_df: pd.DataFrame, *, require_detail_qty: boo
     max_scan = min(len(raw_df), 20)
     best_row = None
     best_score = -1
+    total_stock_hints = tuple(_norm(x) for x in STOCK_TOTAL_COLUMN_ALIASES if _norm(x))
     for idx in range(max_scan):
         values = [str(v).strip() for v in list(raw_df.iloc[idx].tolist())]
         normalized_values = [_norm(v) for v in values if _norm(v)]
         if not normalized_values:
             continue
 
-        has_sku = any("артикул wb" in v or "nmid" in v or "nm_id" in v for v in normalized_values)
+        has_sku = any(
+            ("артикул wb" in v)
+            or ("артикул" == v)
+            or ("nmid" in v)
+            or ("nm_id" in v)
+            or ("sku" == v)
+            for v in normalized_values
+        )
         has_warehouse = any("склад" in v or "warehouse" in v for v in normalized_values)
+        has_total_stock = any(v in total_stock_hints for v in normalized_values)
         has_detail_qty = any(
             ("остатки на текущий день" in v and "шт" in v) or "quantityfull" in v
             for v in normalized_values
-        )
+        ) or has_total_stock
         date_cols = sum(1 for v in values if _parse_date(v) is not None)
 
         if require_detail_qty:
             if not (has_sku and has_warehouse and has_detail_qty):
                 continue
-            score = date_cols + 5
+            score = date_cols + 5 + (2 if has_total_stock else 0)
         else:
-            if not (has_sku and has_warehouse and date_cols > 0):
+            if not (has_sku and has_warehouse and (date_cols > 0 or has_total_stock)):
                 continue
-            score = date_cols
+            score = date_cols + (3 if has_total_stock else 0)
 
         if score > best_score:
             best_score = score
@@ -215,19 +253,10 @@ def _parse_detail_control_sheet(path: Path, sheet_name: str | None) -> dict[str,
     df = _build_table_with_header(raw, header_row)
     columns = [str(c) for c in list(df.columns)]
 
-    sku_col = _resolve_column(columns, ("Артикул WB", "nmId", "nm_id", "nmid"))
+    sku_col = _resolve_column(columns, STOCK_SKU_COLUMN_ALIASES)
     warehouse_col = _resolve_column(columns, ("Склад", "Склад WB", "warehouse", "warehouseName"))
     region_col = _resolve_column(columns, ("Регион", "region", "Регион склада"))
-    qty_col = _resolve_column(
-        columns,
-        (
-            "Остатки на текущий день, шт",
-            "Остатки на текущий день",
-            "quantityFull",
-            "quantity",
-            "stock",
-        ),
-    )
+    qty_col = _resolve_column(columns, STOCK_TOTAL_COLUMN_ALIASES)
     if not sku_col or not warehouse_col or not qty_col:
         return {
             "status": "detail_required_columns_missing",
@@ -371,11 +400,12 @@ def parse_audit_stock_history_with_diagnostics(
     history_df = _build_table_with_header(raw_history, header_row)
     columns = [str(c) for c in list(history_df.columns)]
 
-    sku_col = _resolve_column(columns, ("Артикул WB", "nmId", "nm_id", "nmid"))
+    sku_col = _resolve_column(columns, STOCK_SKU_COLUMN_ALIASES)
     warehouse_col = _resolve_column(columns, ("Склад", "Склад WB", "warehouse", "warehouseName"))
     seller_col = _resolve_column(columns, ("Артикул продавца", "supplierArticle", "seller_article"))
     name_col = _resolve_column(columns, ("Название", "name", "Наименование"))
     region_col = _resolve_column(columns, ("Регион", "Регион склада", "region"))
+    total_stock_col = _resolve_column(columns, STOCK_TOTAL_COLUMN_ALIASES)
 
     if not sku_col or not warehouse_col:
         return {
@@ -396,7 +426,10 @@ def parse_audit_stock_history_with_diagnostics(
     date_columns = _detect_date_columns(columns)
     chosen_date_col, chosen_date, date_pick_reason = _pick_date_column(date_columns, preferred_date=preferred_date)
     available_dates = sorted({date.isoformat() for _, date in date_columns})
-    if not chosen_date_col or chosen_date is None:
+    qty_column = total_stock_col or chosen_date_col
+    qty_column_pick = "total_stock_column" if total_stock_col else date_pick_reason
+    source_date = chosen_date.isoformat() if isinstance(chosen_date, dt.date) else None
+    if not qty_column:
         return {
             "status": "history_date_columns_missing",
             "path": path,
@@ -427,7 +460,7 @@ def parse_audit_stock_history_with_diagnostics(
         if sku <= 0 or not warehouse:
             continue
 
-        qty = _to_int_non_negative(row.get(chosen_date_col))
+        qty = _to_int_non_negative(row.get(qty_column))
         seller_article = str(row.get(seller_col) or "").strip() if seller_col else ""
         name = str(row.get(name_col) or "").strip() if name_col else ""
         region = str(row.get(region_col) or "").strip() if region_col else ""
@@ -446,7 +479,7 @@ def parse_audit_stock_history_with_diagnostics(
                 "region": region,
                 "supplierArticle": seller_article,
                 "_name": name,
-                "source_date": chosen_date.isoformat(),
+                "source_date": source_date,
             }
         )
         parsed_rows += 1
@@ -485,9 +518,10 @@ def parse_audit_stock_history_with_diagnostics(
         "rows_parsed": int(parsed_rows),
         "source": "xlsx_history",
         "source_sheet": history_sheet,
-        "source_date": chosen_date.isoformat(),
-        "source_date_column": str(chosen_date_col),
-        "source_date_pick": date_pick_reason,
+        "source_date": source_date,
+        "source_date_column": str(chosen_date_col) if chosen_date_col else None,
+        "source_stock_column": str(total_stock_col) if total_stock_col else None,
+        "source_date_pick": qty_column_pick,
         "available_dates": available_dates,
         "sku_total_stocks": sku_total_stocks,
         "sku_stocks_by_warehouse": sku_stocks_by_warehouse,

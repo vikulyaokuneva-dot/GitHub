@@ -110,6 +110,31 @@ STORAGE_COLUMN_ALIASES: tuple[str, ...] = (
     "storage",
 )
 
+STOCK_SKU_COLUMN_PRIORITY: tuple[str, ...] = (
+    "Артикул WB",
+    "Артикул",
+    "nmId",
+    "SKU",
+)
+
+STOCK_SKU_COLUMN_ALIASES: tuple[str, ...] = STOCK_SKU_COLUMN_PRIORITY + (
+    "nm_id",
+)
+
+STOCK_TOTAL_COLUMN_PRIORITY: tuple[str, ...] = (
+    "Всего находится на складах",
+    "Остаток",
+    "Количество",
+    "Остатки, шт",
+)
+
+STOCK_TOTAL_COLUMN_ALIASES: tuple[str, ...] = STOCK_TOTAL_COLUMN_PRIORITY + (
+    "quantityFull",
+    "quantity",
+    "qty",
+    "stock",
+)
+
 
 def _norm(text: Any) -> str:
     s = "" if text is None else str(text)
@@ -245,6 +270,20 @@ def _resolve_storage_column(columns: list[Any]) -> str | None:
             token in normalized for token in ("срок", "дней", "day", "days")
         ):
             return original
+    return None
+
+
+def _resolve_column_priority(columns: list[Any], aliases: tuple[str, ...]) -> str | None:
+    normalized_to_original: dict[str, str] = {}
+    for raw_name in columns:
+        original = str(raw_name)
+        normalized = _norm(original)
+        if normalized:
+            normalized_to_original.setdefault(normalized, original)
+    for alias in aliases:
+        key = _norm(alias)
+        if key in normalized_to_original:
+            return normalized_to_original.get(key)
     return None
 
 
@@ -1092,31 +1131,42 @@ def _extract_volume_liters_from_stocks_row(row: dict[str, Any]) -> tuple[float |
     return None, "missing"
 
 
-def _parse_stocks_df_rows(df_local: pd.DataFrame) -> tuple[list[dict[str, Any]], int, int, str | None, int, int]:
+def _parse_stocks_df_rows(
+    df_local: pd.DataFrame,
+) -> tuple[list[dict[str, Any]], int, int, str | None, int, int, str | None, str | None]:
     rows_local: list[dict[str, Any]] = []
     mapped_rows_local = 0
     parsed_rows_local = 0
     date_stock_column_local = None
     id_mapped_rows_local = 0
     qty_positive_rows_local = 0
+    columns_local = [str(col) for col in list(df_local.columns)]
+    resolved_sku_col = _resolve_column_priority(columns_local, STOCK_SKU_COLUMN_ALIASES)
+    resolved_total_stock_col = _resolve_column_priority(columns_local, STOCK_TOTAL_COLUMN_ALIASES)
 
     for _, r in df_local.iterrows():
         row = dict(r)
         parsed_rows_local += 1
 
-        qty = _to_int(_lookup(row, ("quantityFull", "quantity", "qty", "stock")))
-        if qty <= 0:
-            qty = _to_int(_value_by_index(row, 16))
-        if qty <= 0:
-            qty_by_day, day_col = _extract_date_stock_value(row)
-            if qty_by_day > 0:
-                qty = qty_by_day
-                if day_col:
-                    date_stock_column_local = day_col
+        if resolved_total_stock_col:
+            qty = _to_int(row.get(resolved_total_stock_col))
+        else:
+            qty = _to_int(_lookup(row, ("quantityFull", "quantity", "qty", "stock")))
+            if qty <= 0:
+                qty = _to_int(_value_by_index(row, 16))
+            if qty <= 0:
+                qty_by_day, day_col = _extract_date_stock_value(row)
+                if qty_by_day > 0:
+                    qty = qty_by_day
+                    if day_col:
+                        date_stock_column_local = day_col
 
-        nmid = _to_int(_lookup(row, ("nmId", "nm_id", "sku")))
-        if nmid == 0:
-            nmid = _to_int(_value_by_index(row, 2))
+        if resolved_sku_col:
+            nmid = _to_int(row.get(resolved_sku_col))
+        else:
+            nmid = _to_int(_lookup(row, ("nmId", "nm_id", "sku")))
+            if nmid == 0:
+                nmid = _to_int(_value_by_index(row, 2))
 
         supplier_article = str(_lookup(row, ("supplierArticle", "vendorCode", "seller_sku")) or "").strip()
         if not supplier_article:
@@ -1194,6 +1244,8 @@ def _parse_stocks_df_rows(df_local: pd.DataFrame) -> tuple[list[dict[str, Any]],
         date_stock_column_local,
         id_mapped_rows_local,
         qty_positive_rows_local,
+        resolved_sku_col,
+        resolved_total_stock_col,
     )
 
 
@@ -1216,6 +1268,8 @@ def parse_stocks_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
     best_id_mapped_rows = 0
     best_qty_positive_rows = 0
     best_date_col = None
+    best_sku_col = None
+    best_total_stock_col = None
     best_header = header_guess
     tried: list[dict[str, Any]] = []
 
@@ -1237,6 +1291,8 @@ def parse_stocks_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
             date_stock_column,
             id_mapped_rows,
             qty_positive_rows,
+            resolved_sku_col,
+            resolved_total_stock_col,
         ) = _parse_stocks_df_rows(df)
         tried.append(
             {
@@ -1246,6 +1302,8 @@ def parse_stocks_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
                 "mapped_rows": int(mapped_rows),
                 "id_mapped_rows": int(id_mapped_rows),
                 "qty_positive_rows": int(qty_positive_rows),
+                "resolved_sku_column": resolved_sku_col,
+                "resolved_total_stock_column": resolved_total_stock_col,
             }
         )
 
@@ -1268,6 +1326,8 @@ def parse_stocks_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
             best_id_mapped_rows = id_mapped_rows
             best_qty_positive_rows = qty_positive_rows
             best_date_col = date_stock_column
+            best_sku_col = resolved_sku_col
+            best_total_stock_col = resolved_total_stock_col
             best_header = header
 
     rows = best_rows
@@ -1291,6 +1351,8 @@ def parse_stocks_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
         "id_mapped_rows": int(best_id_mapped_rows),
         "qty_positive_rows": int(best_qty_positive_rows),
         "date_stock_column": date_stock_column,
+        "resolved_sku_column": best_sku_col,
+        "resolved_total_stock_column": best_total_stock_col,
     }
 
 def parse_ads_file(path: str) -> list[dict[str, Any]]:
