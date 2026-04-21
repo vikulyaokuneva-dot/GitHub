@@ -1,0 +1,102 @@
+{
+  "seller_id": "seller_001",
+  "run_date": "2026-04-21",
+  "operational_date": "2026-04-20",
+  "timezone": "Europe/Moscow",
+  "source_mode": "wb_api_core_v1",
+  "source_rules": {
+    "orders_count": "orders_api",
+    "orders_amount": "orders_api",
+    "buyouts_count": "sales_api",
+    "buyouts_amount": "sales_api",
+    "financial": "finance_api",
+    "stock.total_units": "stocks_api"
+  },
+  "endpoints": {
+    "orders": {
+      "success": false,
+      "status_code": null,
+      "attempts": 0,
+      "rows_loaded": 0,
+      "error_text": "WB_API_TOKEN not provided"
+    },
+    "sales": {
+      "success": false,
+      "status_code": null,
+      "attempts": 0,
+      "rows_loaded": 0,
+      "error_text": "WB_API_TOKEN not provided"
+    },
+    "realization": {
+      "success": false,
+      "status_code": null,
+      "attempts": 0,
+      "rows_loaded": 0,
+      "error_text": "WB_API_TOKEN not provided",
+      "finance_endpoint_used": "/api/finance/v1/sales-reports/detailed",
+      "finance_requested_fields_count": 19,
+      "finance_payload_incompatible": false
+    },
+    "stocks": {
+      "success": false,
+      "status_code": null,
+      "attempts": 0,
+      "rows_loaded": 0,
+      "error_text": "WB_API_TOKEN not provided"
+    }
+  },
+  "counts": {
+    "raw": {
+      "orders": 0,
+      "sales": 0,
+      "realization": 0,
+      "stocks": 0
+    },
+    "normalized": {
+      "orders": 0,
+      "sales": 0,
+      "stocks": 0,
+      "realization": 0
+    },
+    "reconciled": {
+      "orders": 0,
+      "sales": 0,
+      "realization": 0,
+      "stocks": 0
+    }
+  },
+  "reconcile": {
+    "target_date": "2026-04-20",
+    "financial_actual_date": null,
+    "financial_date_aligned": null,
+    "selected_sources": {
+      "orders": "orders_api",
+      "buyouts": "sales_api",
+      "financial": "finance_api",
+      "stock": "stocks_api"
+    }
+  },
+  "finance_mapping": {
+    "parse_errors_count": 0,
+    "missing_required_fields": [],
+    "money_string_fields_parsed": []
+  },
+  "warnings": [
+    {
+      "code": "orders_api_unavailable",
+      "message": "WB_API_TOKEN not provided"
+    },
+    {
+      "code": "sales_api_unavailable",
+      "message": "WB_API_TOKEN not provided"
+    },
+    {
+      "code": "stocks_api_unavailable",
+      "message": "WB_API_TOKEN not provided"
+    },
+    {
+      "code": "finance_api_unavailable",
+      "message": "WB_API_TOKEN not provided"
+    }
+  ]
+}
