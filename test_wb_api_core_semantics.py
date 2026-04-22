@@ -250,6 +250,90 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         self.assertEqual(finance_rows[0]["storage"], -20.0)
         self.assertEqual(finance_rows[0]["seller_payout"], 1410.0)
 
+    def test_finance_final_uses_report_date_and_excludes_zero_reimbursements(self) -> None:
+        raw_bundle = _raw_bundle_fixture()
+        raw_bundle["finance_final"]["rows_raw"] = [
+            {
+                "dateFrom": "2026-04-21",
+                "dateTo": "2026-04-21",
+                "rrDate": "2026-04-21",
+                "orderDt": "2026-04-18T08:00:00Z",
+                "saleDt": "2026-04-19T10:00:00Z",
+                "nmId": 1001,
+                "supplierArticle": "ART-1001",
+                "quantity": 1,
+                "retailAmount": 1800.0,
+                "ppvzSalesCommission": 250.0,
+                "deliveryAmount": -90.0,
+                "paidStorage": -20.0,
+                "acquiringFee": -15.0,
+                "forPay": 1410.0,
+                "docTypeName": "Продажа",
+            },
+            {
+                "dateFrom": "2026-04-21",
+                "dateTo": "2026-04-21",
+                "rrDate": "2026-04-21",
+                "saleDt": "2026-04-21T12:00:00Z",
+                "quantity": 2,
+                "docTypeName": "Возмещение издержек по перевозке/по складским операциям с товаром",
+            },
+        ]
+
+        normalized = normalize_bundle(raw_bundle)
+        finance_rows = normalized["finance_final_rows"]
+        reconciled = reconcile_bundle(
+            raw_bundle=raw_bundle,
+            normalized_bundle=normalized,
+            target_date="2026-04-21",
+        )
+
+        self.assertEqual(finance_rows[0]["date"], "2026-04-21")
+        self.assertEqual(finance_rows[0]["order_date"], "2026-04-18")
+        self.assertEqual(finance_rows[0]["sale_date"], "2026-04-19")
+        self.assertEqual(finance_rows[0]["row_group"], "sale")
+        self.assertEqual(finance_rows[1]["row_group"], "reimbursement")
+        self.assertEqual(finance_rows[1]["is_zero_technical"], True)
+        self.assertEqual(reconciled["finance_final_daily"]["gross_revenue"], 1800.0)
+        self.assertEqual(reconciled["finance_final_daily"]["seller_payout"], 1410.0)
+        self.assertEqual(reconciled["finance_final_daily"]["logistics"], -90.0)
+        self.assertEqual(reconciled["finance_final_daily"]["storage"], -20.0)
+        self.assertEqual(reconciled["finance_final_daily"]["acquiring"], -15.0)
+        self.assertEqual(reconciled["finance_final_daily"]["diagnostics"]["selected_rows_count"], 2)
+        self.assertEqual(reconciled["finance_final_daily"]["diagnostics"]["effective_rows_count"], 1)
+        self.assertEqual(reconciled["finance_final_daily"]["diagnostics"]["technical_zero_rows_count"], 1)
+
+    def test_finance_non_zero_reimbursement_row_is_included_by_field(self) -> None:
+        raw_bundle = _raw_bundle_fixture()
+        raw_bundle["finance_final"]["rows_raw"] = [
+            {
+                "dateFrom": "2026-04-21",
+                "dateTo": "2026-04-21",
+                "rrDate": "2026-04-21",
+                "saleDt": "2026-04-21T12:00:00Z",
+                "quantity": 1,
+                "deliveryAmount": -35.0,
+                "forPay": -35.0,
+                "docTypeName": "Возмещение издержек по перевозке/по складским операциям с товаром",
+            }
+        ]
+
+        normalized = normalize_bundle(raw_bundle)
+        finance_rows = normalized["finance_final_rows"]
+        reconciled = reconcile_bundle(
+            raw_bundle=raw_bundle,
+            normalized_bundle=normalized,
+            target_date="2026-04-21",
+        )
+
+        self.assertEqual(finance_rows[0]["row_group"], "reimbursement")
+        self.assertEqual(finance_rows[0]["include_in_totals"], True)
+        self.assertEqual(finance_rows[0]["include_logistics"], True)
+        self.assertEqual(finance_rows[0]["is_zero_technical"], False)
+        self.assertEqual(reconciled["finance_final_daily"]["gross_revenue"], 0.0)
+        self.assertEqual(reconciled["finance_final_daily"]["seller_payout"], -35.0)
+        self.assertEqual(reconciled["finance_final_daily"]["logistics"], -35.0)
+
     def test_stocks_rows_are_aligned_to_single_snapshot_date(self) -> None:
         raw_bundle = _raw_bundle_fixture()
         raw_bundle["stocks"]["rows_raw"] = [

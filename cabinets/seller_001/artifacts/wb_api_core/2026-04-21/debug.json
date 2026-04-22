@@ -13,13 +13,13 @@
   },
   "endpoints": {
     "cabinet_commerce": {
-      "success": false,
-      "status_code": 429,
-      "attempts": 5,
-      "rows_loaded": 0,
-      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"61ea04da59e8a4bbc7bb8ac9bb246fed\",\n    \"origin\": \"s2sauth",
+      "success": true,
+      "status_code": 200,
+      "attempts": 1,
+      "rows_loaded": 22,
+      "error_text": "",
       "base_url": "https://seller-analytics-api.wildberries.ru",
-      "pages_loaded": 0,
+      "pages_loaded": 1,
       "page_limit": 1000
     },
     "finance_final": {
@@ -60,22 +60,22 @@
   },
   "counts": {
     "raw": {
-      "cabinet_commerce": 0,
+      "cabinet_commerce": 22,
       "finance_final": 20,
       "orders": 7,
       "sales": 3,
       "stocks": 16
     },
     "normalized": {
-      "cabinet_commerce": 0,
+      "cabinet_commerce": 22,
       "finance_final": 20,
       "orders": 7,
       "sales": 3,
       "stocks": 16
     },
     "reconciled": {
-      "cabinet_commerce": 0,
-      "finance_final": 11,
+      "cabinet_commerce": 22,
+      "finance_final": 20,
       "orders": 3,
       "sales": 3,
       "stocks": 16
@@ -177,10 +177,6 @@
     ]
   },
   "warnings": [
-    {
-      "code": "cabinet_commerce_api_unavailable",
-      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"61ea04da59e8a4bbc7bb8ac9bb246fed\",\n    \"origin\": \"s2sauth"
-    },
     {
       "code": "stocks_snapshot_date_misaligned",
       "message": "Stocks rows normalized to snapshot date 2026-04-22 instead of 2026-04-21."

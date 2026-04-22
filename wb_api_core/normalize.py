@@ -118,12 +118,19 @@ def _normalize_sku(value: Any) -> str | None:
     return compact
 
 
-def _row_date_iso(row: Dict[str, Any]) -> str:
-    for key in ("date", "orderDate", "saleDate", "orderDt", "saleDt", "lastChangeDate", "order_dt", "sale_dt", "createdAt"):
+def _pick_iso_date(row: Dict[str, Any], keys: Iterable[str]) -> str:
+    for key in keys:
         raw = str(row.get(key) or "").strip()
         if re.fullmatch(r"\d{4}-\d{2}-\d{2}.*", raw):
             return raw[:10]
     return ""
+
+
+def _row_date_iso(row: Dict[str, Any]) -> str:
+    return _pick_iso_date(
+        row,
+        ("date", "orderDate", "saleDate", "orderDt", "saleDt", "lastChangeDate", "order_dt", "sale_dt", "createdAt"),
+    )
 
 
 def _period_date_iso(period: Dict[str, Any]) -> str:
@@ -134,6 +141,53 @@ def _period_date_iso(period: Dict[str, Any]) -> str:
         if re.fullmatch(r"\d{4}-\d{2}-\d{2}.*", raw):
             return raw[:10]
     return ""
+
+
+def _finance_report_date_iso(row: Dict[str, Any]) -> str:
+    return _pick_iso_date(row, ("rrDate", "rr_dt", "dateFrom", "date_from", "dateTo", "date_to")) or _row_date_iso(row)
+
+
+def _finance_order_date_iso(row: Dict[str, Any]) -> str:
+    return _pick_iso_date(row, ("orderDt", "orderDate", "order_dt"))
+
+
+def _finance_sale_date_iso(row: Dict[str, Any]) -> str:
+    return _pick_iso_date(row, ("saleDt", "saleDate", "sale_dt"))
+
+
+def _contains_any(text: str, markers: Iterable[str]) -> bool:
+    return any(marker in text for marker in markers)
+
+
+def _finance_row_operation_text(*values: Any) -> str:
+    parts = [str(value or "").strip().lower() for value in values if str(value or "").strip()]
+    return " ".join(parts)
+
+
+def _finance_row_group(operation_text: str) -> str:
+    sale_markers = ("продаж", "реализац")
+    return_markers = ("возврат", "return", "refund", "сторно")
+    logistics_markers = ("логист", "доставк", "перевоз")
+    storage_markers = ("хран", "storage")
+    penalty_markers = ("штраф", "penalty", "fine")
+    deduction_markers = ("удержан", "deduct", "коррект", "acquiring")
+    reimbursement_markers = ("возмещ", "компенсац", "reimburse", "compensat")
+
+    if _contains_any(operation_text, return_markers):
+        return "return"
+    if _contains_any(operation_text, sale_markers):
+        return "sale"
+    if _contains_any(operation_text, reimbursement_markers):
+        return "reimbursement"
+    if _contains_any(operation_text, logistics_markers):
+        return "logistics"
+    if _contains_any(operation_text, storage_markers):
+        return "storage"
+    if _contains_any(operation_text, penalty_markers):
+        return "penalty"
+    if _contains_any(operation_text, deduction_markers):
+        return "deduction"
+    return "other"
 
 
 def _normalize_cabinet_commerce(rows_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -307,7 +361,9 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
     for index, row in enumerate(rows_raw):
         if not isinstance(row, dict):
             continue
-        row_date = _row_date_iso(row)
+        report_date = _finance_report_date_iso(row)
+        order_date = _finance_order_date_iso(row)
+        sale_date = _finance_sale_date_iso(row)
         nm_id = _pick_text(row, ("nmId", "nm_id", "nmid", "nmID"))
         seller_sku = _pick_text(row, ("supplierArticle", "vendorCode", "supplier_article"))
         quantity, _ = _parse_float_with_diag(
@@ -370,6 +426,23 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             ("tax", "taxAmount"),
             diag=diag,
         )
+        operation_name = _pick_text(row, ("sellerOperName", "supplierOperName", "docTypeName", "operationTypeName", "operationName"))
+        document_type = _pick_text(row, ("docTypeName", "sellerOperName", "supplierOperName"))
+        operation_text = _finance_row_operation_text(operation_name, document_type)
+        row_group = _finance_row_group(operation_text)
+        tracked_values = (
+            float(gross_revenue or 0.0),
+            float(seller_payout or 0.0),
+            float(wb_commission or 0.0),
+            float(logistics or 0.0),
+            float(storage or 0.0),
+            float(penalties or 0.0),
+            float(deductions or 0.0),
+            float(acquiring or 0.0),
+            float(tax or 0.0),
+        )
+        has_financial_effect = any(abs(value) > 1e-9 for value in tracked_values)
+        is_zero_technical = row_group == "reimbursement" and not has_financial_effect
 
         if not gross_key:
             missing = diag.setdefault("missing_required_fields", set())
@@ -386,7 +459,10 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
 
         rows.append(
             {
-                "date": row_date,
+                "date": report_date,
+                "report_date": report_date,
+                "order_date": order_date,
+                "sale_date": sale_date,
                 "sku": _normalize_sku(nm_id or seller_sku or row.get("barcode")),
                 "nm_id": nm_id,
                 "seller_sku": seller_sku,
@@ -401,8 +477,21 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
                 "acquiring": round(float(acquiring or 0.0), 2),
                 "tax": round(float(tax or 0.0), 2),
                 "warehouse": _pick_text(row, ("warehouseName", "warehouse", "officeName")),
-                "operation_name": _pick_text(row, ("docTypeName", "sellerOperName", "supplierOperName", "operationTypeName", "operationName")),
-                "document_type": _pick_text(row, ("docTypeName", "sellerOperName", "supplierOperName")),
+                "operation_name": operation_name,
+                "document_type": document_type,
+                "row_group": row_group,
+                "has_financial_effect": has_financial_effect,
+                "is_zero_technical": is_zero_technical,
+                "include_in_totals": has_financial_effect and not is_zero_technical,
+                "include_gross_revenue": row_group == "sale" and abs(float(gross_revenue or 0.0)) > 1e-9,
+                "include_seller_payout": has_financial_effect and not is_zero_technical and abs(float(seller_payout or 0.0)) > 1e-9,
+                "include_wb_commission": has_financial_effect and not is_zero_technical and abs(float(wb_commission or 0.0)) > 1e-9,
+                "include_logistics": has_financial_effect and not is_zero_technical and abs(float(logistics or 0.0)) > 1e-9,
+                "include_storage": has_financial_effect and not is_zero_technical and abs(float(storage or 0.0)) > 1e-9,
+                "include_penalties": has_financial_effect and not is_zero_technical and abs(float(penalties or 0.0)) > 1e-9,
+                "include_deductions": has_financial_effect and not is_zero_technical and abs(float(deductions or 0.0)) > 1e-9,
+                "include_acquiring": has_financial_effect and not is_zero_technical and abs(float(acquiring or 0.0)) > 1e-9,
+                "include_tax": has_financial_effect and not is_zero_technical and abs(float(tax or 0.0)) > 1e-9,
                 "source": "finance_detailed_api",
                 "_raw_row_index": index,
             }

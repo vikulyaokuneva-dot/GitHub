@@ -21,6 +21,18 @@ def _safe_total(rows: List[Dict[str, Any]], field: str) -> float:
     return round(total, 2)
 
 
+def _safe_total_if(rows: List[Dict[str, Any]], field: str, include_flag: str) -> float:
+    total = 0.0
+    for row in rows:
+        if not bool(row.get(include_flag, False)):
+            continue
+        try:
+            total += float(row.get(field, 0.0) or 0.0)
+        except Exception:
+            continue
+    return round(total, 2)
+
+
 def _filter_rows_by_day(rows: List[Dict[str, Any]], target_date: str) -> List[Dict[str, Any]]:
     return [row for row in rows if isinstance(row, dict) and str(row.get("date") or "") == target_date]
 
@@ -163,22 +175,28 @@ def reconcile_bundle(
     }
 
     if finance_available:
+        finance_effective_rows = [row for row in finance_rows if bool(row.get("include_in_totals", False))]
         finance_final_daily = {
             "source": SOURCE_RULES["finance_final_daily"],
             "available": True,
             "target_date": target_date,
             "actual_date": finance_actual_date,
             "date_aligned": finance_date_aligned,
-            "gross_revenue": _safe_total(finance_rows, "gross_revenue"),
-            "seller_payout": _safe_total(finance_rows, "seller_payout"),
-            "wb_commission": _safe_total(finance_rows, "wb_commission"),
-            "logistics": _safe_total(finance_rows, "logistics"),
-            "storage": _safe_total(finance_rows, "storage"),
-            "penalties": _safe_total(finance_rows, "penalties"),
-            "deductions": _safe_total(finance_rows, "deductions"),
-            "acquiring": _safe_total(finance_rows, "acquiring"),
-            "tax": _safe_total(finance_rows, "tax"),
+            "gross_revenue": _safe_total_if(finance_rows, "gross_revenue", "include_gross_revenue"),
+            "seller_payout": _safe_total_if(finance_rows, "seller_payout", "include_seller_payout"),
+            "wb_commission": _safe_total_if(finance_rows, "wb_commission", "include_wb_commission"),
+            "logistics": _safe_total_if(finance_rows, "logistics", "include_logistics"),
+            "storage": _safe_total_if(finance_rows, "storage", "include_storage"),
+            "penalties": _safe_total_if(finance_rows, "penalties", "include_penalties"),
+            "deductions": _safe_total_if(finance_rows, "deductions", "include_deductions"),
+            "acquiring": _safe_total_if(finance_rows, "acquiring", "include_acquiring"),
+            "tax": _safe_total_if(finance_rows, "tax", "include_tax"),
             "rows": finance_rows,
+            "diagnostics": {
+                "selected_rows_count": len(finance_rows),
+                "effective_rows_count": len(finance_effective_rows),
+                "technical_zero_rows_count": len([row for row in finance_rows if bool(row.get("is_zero_technical", False))]),
+            },
         }
     else:
         finance_final_daily = {
@@ -197,6 +215,11 @@ def reconcile_bundle(
             "acquiring": None,
             "tax": None,
             "rows": [],
+            "diagnostics": {
+                "selected_rows_count": 0,
+                "effective_rows_count": 0,
+                "technical_zero_rows_count": 0,
+            },
         }
 
     live_operational = {
