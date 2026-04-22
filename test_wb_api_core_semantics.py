@@ -349,10 +349,13 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         )
 
         stock_rows = reconciled["live_operational"]["stocks"]["rows"]
-        self.assertEqual(reconciled["live_operational"]["stocks"]["actual_date"], "2026-04-22")
-        self.assertEqual(reconciled["live_operational"]["stocks"]["date_aligned"], False)
+        self.assertEqual(reconciled["live_operational"]["stocks"]["snapshot_kind"], "live_snapshot")
+        self.assertEqual(reconciled["live_operational"]["stocks"]["snapshot_date"], "2026-04-22")
+        self.assertEqual(reconciled["live_operational"]["stocks"]["operational_date_reference"], "2026-04-21")
         self.assertEqual(reconciled["live_operational"]["stocks"]["total_units"], 22.0)
         self.assertTrue(all(str((row or {}).get("date") or "") == "2026-04-22" for row in stock_rows))
+        warning_codes = {str(item.get("code") or "") for item in reconciled.get("warnings", []) if isinstance(item, dict)}
+        self.assertNotIn("stocks_snapshot_date_misaligned", warning_codes)
 
     def test_snapshot_and_debug_use_new_sections(self) -> None:
         raw_bundle = _raw_bundle_fixture()
@@ -383,11 +386,14 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         self.assertEqual(snapshot["cabinet_commerce_daily"]["orders_count"], 5.0)
         self.assertEqual(snapshot["finance_final_daily"]["gross_revenue"], 1800.0)
         self.assertEqual(snapshot["live_operational"]["orders"]["count"], 1.0)
-        self.assertEqual(snapshot["live_operational"]["stocks"]["actual_date"], "2026-04-21")
+        self.assertEqual(snapshot["live_operational"]["stocks"]["snapshot_kind"], "live_snapshot")
+        self.assertEqual(snapshot["live_operational"]["stocks"]["snapshot_date"], "2026-04-21")
+        self.assertEqual(snapshot["live_operational"]["stocks"]["operational_date_reference"], "2026-04-21")
         self.assertIn("cabinet_commerce", debug["endpoints"])
         self.assertIn("finance_final", debug["endpoints"])
         self.assertEqual(debug["reconcile"]["selected_sources"]["cabinet_commerce_daily"], "sales_funnel_api")
         self.assertEqual(debug["counts"]["raw"]["cabinet_commerce"], 2)
+        self.assertEqual(debug["reconcile"]["live_stocks_snapshot_date"], "2026-04-21")
 
     def test_live_operational_loaders_keep_statistics_host(self) -> None:
         client = _FakeClient(

@@ -74,13 +74,12 @@ def _select_finance_rows(rows: List[Dict[str, Any]], target_date: str) -> tuple[
     return selected, actual_date, False
 
 
-def _select_stock_rows(rows: List[Dict[str, Any]], target_date: str) -> tuple[List[Dict[str, Any]], str, bool | None]:
+def _select_stock_rows(rows: List[Dict[str, Any]], target_date: str) -> tuple[List[Dict[str, Any]], str]:
     stock_dates = sorted({str(row.get("date") or "") for row in rows if isinstance(row, dict) and str(row.get("date") or "")})
     if stock_dates:
         actual_date = stock_dates[-1]
     else:
         actual_date = str(target_date or "")
-    aligned = actual_date == str(target_date or "") if actual_date else None
     selected_rows: List[Dict[str, Any]] = []
     for row in rows:
         if not isinstance(row, dict):
@@ -89,7 +88,7 @@ def _select_stock_rows(rows: List[Dict[str, Any]], target_date: str) -> tuple[Li
         if actual_date:
             item["date"] = actual_date
         selected_rows.append(item)
-    return selected_rows, actual_date, aligned
+    return selected_rows, actual_date
 
 
 def _warning(code: str, message: str) -> Dict[str, str]:
@@ -119,7 +118,7 @@ def reconcile_bundle(
     orders_rows_before_dedupe = _filter_rows_by_day(orders_all, target_date)
     orders_rows = _dedupe_orders_rows(orders_rows_before_dedupe)
     sales_rows = _filter_rows_by_day(sales_all, target_date)
-    stock_rows, stock_actual_date, stock_date_aligned = _select_stock_rows(stocks_all, target_date)
+    stock_rows, stock_actual_date = _select_stock_rows(stocks_all, target_date)
 
     cabinet_available = bool(cabinet_debug.get("success", False))
     finance_available = bool(finance_debug.get("success", False))
@@ -155,14 +154,6 @@ def reconcile_bundle(
                 f"Finance rows selected from {finance_actual_date} instead of {target_date}.",
             )
         )
-    if stocks_available and stock_actual_date and stock_actual_date != target_date:
-        warnings.append(
-            _warning(
-                "stocks_snapshot_date_misaligned",
-                f"Stocks rows normalized to snapshot date {stock_actual_date} instead of {target_date}.",
-            )
-        )
-
     cabinet_commerce_daily = {
         "source": SOURCE_RULES["cabinet_commerce_daily"],
         "available": cabinet_available,
@@ -249,9 +240,9 @@ def reconcile_bundle(
         "stocks": {
             "source": SOURCE_RULES["live_operational.stocks"],
             "available": stocks_available,
-            "target_date": target_date,
-            "actual_date": stock_actual_date if stocks_available else None,
-            "date_aligned": stock_date_aligned if stocks_available else None,
+            "snapshot_kind": "live_snapshot",
+            "operational_date_reference": target_date,
+            "snapshot_date": stock_actual_date if stocks_available else None,
             "total_units": _safe_total(stock_rows, "stock") if stocks_available else None,
             "rows": stock_rows,
         },

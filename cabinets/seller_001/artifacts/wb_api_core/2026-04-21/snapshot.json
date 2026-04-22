@@ -6,12 +6,12 @@
   "source_mode": "wb_api_core_v2",
   "cabinet_commerce_daily": {
     "source": "sales_funnel_api",
-    "available": true,
+    "available": false,
     "target_date": "2026-04-21",
-    "orders_count": 5.0,
-    "orders_amount": 4260.0,
-    "buyouts_count": 0.0,
-    "buyouts_amount": 0.0
+    "orders_count": null,
+    "orders_amount": null,
+    "buyouts_count": null,
+    "buyouts_amount": null
   },
   "finance_final_daily": {
     "source": "finance_detailed_api",
@@ -50,7 +50,7 @@
       "target_date": "2026-04-21",
       "actual_date": "2026-04-22",
       "date_aligned": false,
-      "total_units": 269.0
+      "total_units": 272.0
     }
   }
 }

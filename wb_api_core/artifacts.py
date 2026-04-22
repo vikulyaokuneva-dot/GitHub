@@ -145,6 +145,7 @@ def build_debug(
             "target_date": operational_date,
             "finance_final_actual_date": finance_final.get("actual_date"),
             "finance_final_date_aligned": finance_final.get("date_aligned"),
+            "live_stocks_snapshot_date": str((((live_operational.get("stocks") or {}) if isinstance(live_operational, dict) else {}).get("snapshot_date") or "")),
             "selected_sources": {
                 "cabinet_commerce_daily": str((reconcile_result.get("cabinet_commerce_daily") or {}).get("source") or ""),
                 "finance_final_daily": str((reconcile_result.get("finance_final_daily") or {}).get("source") or ""),
