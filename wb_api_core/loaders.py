@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import os
+import time
 from typing import Any, Dict, List
 
 from .client import (
@@ -13,6 +16,187 @@ from .client import (
 
 SALES_FUNNEL_PAGE_LIMIT = 1000
 FINANCE_PAGE_LIMIT = 100000
+CABINET_COMMERCE_SOURCE_FAMILY = "cabinet_commerce_daily"
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return max(0, int(str(os.getenv(name, str(default)) or str(default)).strip()))
+    except Exception:
+        return int(default)
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return max(0.0, float(str(os.getenv(name, str(default)) or str(default)).strip()))
+    except Exception:
+        return float(default)
+
+
+def _cabinet_commerce_retry_policy() -> Dict[str, Any]:
+    return {
+        "retryable_statuses": (429, 500, 502, 503, 504),
+        "max_attempts": max(1, _env_int("WB_CABINET_COMMERCE_MAX_ATTEMPTS", 5)),
+        "base_delay_seconds": _env_float("WB_CABINET_COMMERCE_BASE_DELAY_SECONDS", 3.0),
+        "cap_delay_seconds": _env_float("WB_CABINET_COMMERCE_CAP_DELAY_SECONDS", 45.0),
+        "jitter_ratio": min(_env_float("WB_CABINET_COMMERCE_JITTER_RATIO", 0.25), 1.0),
+        "max_retry_window_seconds": _env_float("WB_CABINET_COMMERCE_MAX_RETRY_WINDOW_SECONDS", 90.0),
+    }
+
+
+def _cabinet_commerce_cache_ttl_seconds() -> int:
+    return max(60, _env_int("WB_CABINET_COMMERCE_CACHE_TTL_SECONDS", 21600))
+
+
+def _cabinet_commerce_cache_fallback_ttl_seconds() -> int:
+    return max(_cabinet_commerce_cache_ttl_seconds(), _env_int("WB_CABINET_COMMERCE_CACHE_FALLBACK_TTL_SECONDS", 259200))
+
+
+def _cabinet_commerce_cache_path(repo_root: str, seller_id: str, target_date: str) -> str:
+    return os.path.join(
+        repo_root,
+        "cabinets",
+        seller_id,
+        "artifacts",
+        "wb_api_core",
+        "cache",
+        CABINET_COMMERCE_SOURCE_FAMILY,
+        f"{target_date}.json",
+    )
+
+
+def _read_json(path: str) -> Dict[str, Any] | None:
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            payload = json.load(file)
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
+def _write_json(path: str, payload: Dict[str, Any]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as file:
+        json.dump(payload, file, ensure_ascii=False, indent=2)
+
+
+def _read_cabinet_commerce_cache(
+    *,
+    repo_root: str | None,
+    seller_id: str | None,
+    target_date: str,
+    max_age_seconds: int | None,
+) -> Dict[str, Any] | None:
+    resolved_repo_root = str(repo_root or "").strip()
+    resolved_seller_id = str(seller_id or "").strip()
+    if not resolved_repo_root or not resolved_seller_id:
+        return None
+    path = _cabinet_commerce_cache_path(resolved_repo_root, resolved_seller_id, target_date)
+    if not os.path.exists(path):
+        return None
+    payload = _read_json(path)
+    if not isinstance(payload, dict):
+        return None
+    if str(payload.get("seller_id") or "") != resolved_seller_id:
+        return None
+    if str(payload.get("target_date") or "") != target_date:
+        return None
+    if str(payload.get("source_family") or "") != CABINET_COMMERCE_SOURCE_FAMILY:
+        return None
+    rows_raw = payload.get("rows_raw")
+    debug = payload.get("debug")
+    if not isinstance(rows_raw, list) or not isinstance(debug, dict):
+        return None
+    if not bool(debug.get("success", False)):
+        return None
+    cached_at_epoch = payload.get("cached_at_epoch")
+    try:
+        cache_age_seconds = max(0.0, time.time() - float(cached_at_epoch))
+    except Exception:
+        try:
+            cache_age_seconds = max(0.0, time.time() - float(os.path.getmtime(path)))
+        except Exception:
+            cache_age_seconds = 0.0
+    if max_age_seconds is not None and cache_age_seconds > float(max_age_seconds):
+        return None
+    return {
+        "path": path,
+        "age_seconds": round(cache_age_seconds, 2),
+        "rows_raw": [row for row in rows_raw if isinstance(row, dict)],
+        "debug": dict(debug),
+    }
+
+
+def _write_cabinet_commerce_cache(
+    *,
+    repo_root: str | None,
+    seller_id: str | None,
+    target_date: str,
+    rows_raw: List[Dict[str, Any]],
+    debug: Dict[str, Any],
+) -> str:
+    resolved_repo_root = str(repo_root or "").strip()
+    resolved_seller_id = str(seller_id or "").strip()
+    if not resolved_repo_root or not resolved_seller_id:
+        return ""
+    path = _cabinet_commerce_cache_path(resolved_repo_root, resolved_seller_id, target_date)
+    payload = {
+        "seller_id": resolved_seller_id,
+        "target_date": target_date,
+        "source_family": CABINET_COMMERCE_SOURCE_FAMILY,
+        "cached_at_epoch": round(time.time(), 3),
+        "rows_raw": [row for row in rows_raw if isinstance(row, dict)],
+        "debug": dict(debug),
+    }
+    _write_json(path, payload)
+    return path
+
+
+def _build_cabinet_cache_debug(
+    *,
+    client: WBApiClient,
+    target_date: str,
+    rows_raw: List[Dict[str, Any]],
+    cache_path: str,
+    cache_age_seconds: float,
+    cache_mode: str,
+    retry_count: int = 0,
+    retry_delays: List[float] | None = None,
+    final_failure_reason: str = "",
+    last_status_code: Any = 200,
+    last_attempts: int = 0,
+) -> Dict[str, Any]:
+    response = {
+        "endpoint": "cabinet_commerce",
+        "path": SALES_FUNNEL_PRODUCTS_PATH,
+        "method": "POST",
+        "base_url": client.analytics_base_url,
+        "success": True,
+        "status_code": last_status_code,
+        "attempts": last_attempts,
+        "error_text": "",
+    }
+    return _build_debug(
+        response,
+        rows_loaded=len(rows_raw),
+        date_from=target_date,
+        date_to=target_date,
+        extra={
+            "source_family": CABINET_COMMERCE_SOURCE_FAMILY,
+            "page_limit": SALES_FUNNEL_PAGE_LIMIT,
+            "pages_loaded": 0,
+            "last_offset": 0,
+            "pagination_complete": True,
+            "cache_hit": True,
+            "cache_mode": cache_mode,
+            "cache_fallback_used": cache_mode == "failure_fallback",
+            "cache_path": cache_path,
+            "cache_age_seconds": round(float(cache_age_seconds or 0.0), 2),
+            "retry_count": int(retry_count or 0),
+            "retry_delays": list(retry_delays or []),
+            "final_failure_reason": str(final_failure_reason or ""),
+        },
+    )
 
 
 def _build_debug(
@@ -35,6 +219,14 @@ def _build_debug(
         "error_text": str(response.get("error_text") or ""),
         "date_from": date_from,
         "date_to": date_to,
+        "cache_hit": bool(response.get("cache_hit", False)),
+        "cache_mode": str(response.get("cache_mode") or ""),
+        "cache_fallback_used": bool(response.get("cache_fallback_used", False)),
+        "cache_path": str(response.get("cache_path") or ""),
+        "cache_age_seconds": response.get("cache_age_seconds"),
+        "retry_count": int(response.get("retry_count", 0) or 0),
+        "retry_delays": list(response.get("retry_delays", []) or []),
+        "final_failure_reason": str(response.get("final_failure_reason") or ""),
     }
     if isinstance(extra, dict):
         payload.update(extra)
@@ -84,11 +276,39 @@ def _extract_sales_funnel_rows(payload: Any, client: WBApiClient) -> List[Dict[s
     return client.extract_rows(payload, ("products", "items", "rows"))
 
 
-def load_cabinet_commerce(client: WBApiClient, target_date: str) -> Dict[str, Any]:
+def load_cabinet_commerce(
+    client: WBApiClient,
+    target_date: str,
+    *,
+    seller_id: str | None = None,
+    repo_root: str | None = None,
+) -> Dict[str, Any]:
+    fresh_cache = _read_cabinet_commerce_cache(
+        repo_root=repo_root,
+        seller_id=seller_id,
+        target_date=target_date,
+        max_age_seconds=_cabinet_commerce_cache_ttl_seconds(),
+    )
+    if isinstance(fresh_cache, dict):
+        cached_rows = list(fresh_cache.get("rows_raw", []))
+        return {
+            "rows_raw": cached_rows,
+            "debug": _build_cabinet_cache_debug(
+                client=client,
+                target_date=target_date,
+                rows_raw=cached_rows,
+                cache_path=str(fresh_cache.get("path") or ""),
+                cache_age_seconds=float(fresh_cache.get("age_seconds") or 0.0),
+                cache_mode="fresh_local_cache",
+            ),
+        }
+
     rows_raw: List[Dict[str, Any]] = []
     pages_loaded = 0
     offset = 0
     last_page_rows_loaded = 0
+    total_retry_count = 0
+    total_retry_delays: List[float] = []
     last_response: Dict[str, Any] = {
         "endpoint": "cabinet_commerce",
         "path": SALES_FUNNEL_PRODUCTS_PATH,
@@ -118,8 +338,11 @@ def load_cabinet_commerce(client: WBApiClient, target_date: str) -> Dict[str, An
             allow_204=True,
             empty_on_204={"data": {"products": []}},
             base_url=client.analytics_base_url,
+            retry_policy=_cabinet_commerce_retry_policy(),
         )
         last_response = response
+        total_retry_count += int(response.get("retry_count", 0) or 0)
+        total_retry_delays.extend([float(item) for item in list(response.get("retry_delays", []) or [])])
         if not bool(response.get("success", False)):
             break
         page_rows = _extract_sales_funnel_rows(response.get("payload", {}), client)
@@ -130,6 +353,65 @@ def load_cabinet_commerce(client: WBApiClient, target_date: str) -> Dict[str, An
             break
         offset += SALES_FUNNEL_PAGE_LIMIT
 
+    if bool(last_response.get("success", False)):
+        success_debug = _build_debug(
+            last_response,
+            rows_loaded=len(rows_raw),
+            date_from=target_date,
+            date_to=target_date,
+            extra={
+                "source_family": CABINET_COMMERCE_SOURCE_FAMILY,
+                "page_limit": SALES_FUNNEL_PAGE_LIMIT,
+                "pages_loaded": pages_loaded,
+                "last_offset": offset,
+                "pagination_complete": bool(bool(last_response.get("success", False)) and last_page_rows_loaded < SALES_FUNNEL_PAGE_LIMIT),
+                "cache_hit": False,
+                "cache_mode": "miss",
+                "cache_fallback_used": False,
+                "retry_count": total_retry_count,
+                "retry_delays": [round(float(item), 2) for item in total_retry_delays],
+                "final_failure_reason": "",
+            },
+        )
+        cache_path = _write_cabinet_commerce_cache(
+            repo_root=repo_root,
+            seller_id=seller_id,
+            target_date=target_date,
+            rows_raw=rows_raw,
+            debug=success_debug,
+        )
+        if cache_path:
+            success_debug["cache_path"] = cache_path
+        return {
+            "rows_raw": rows_raw,
+            "debug": success_debug,
+        }
+
+    fallback_cache = _read_cabinet_commerce_cache(
+        repo_root=repo_root,
+        seller_id=seller_id,
+        target_date=target_date,
+        max_age_seconds=_cabinet_commerce_cache_fallback_ttl_seconds(),
+    )
+    if isinstance(fallback_cache, dict):
+        cached_rows = list(fallback_cache.get("rows_raw", []))
+        return {
+            "rows_raw": cached_rows,
+            "debug": _build_cabinet_cache_debug(
+                client=client,
+                target_date=target_date,
+                rows_raw=cached_rows,
+                cache_path=str(fallback_cache.get("path") or ""),
+                cache_age_seconds=float(fallback_cache.get("age_seconds") or 0.0),
+                cache_mode="failure_fallback",
+                retry_count=total_retry_count,
+                retry_delays=[round(float(item), 2) for item in total_retry_delays],
+                final_failure_reason=str(last_response.get("final_failure_reason") or last_response.get("error_text") or ""),
+                last_status_code=last_response.get("status_code"),
+                last_attempts=int(last_response.get("attempts", 0) or 0),
+            ),
+        }
+
     return {
         "rows_raw": rows_raw,
         "debug": _build_debug(
@@ -138,11 +420,17 @@ def load_cabinet_commerce(client: WBApiClient, target_date: str) -> Dict[str, An
             date_from=target_date,
             date_to=target_date,
             extra={
-                "source_family": "cabinet_commerce_daily",
+                "source_family": CABINET_COMMERCE_SOURCE_FAMILY,
                 "page_limit": SALES_FUNNEL_PAGE_LIMIT,
                 "pages_loaded": pages_loaded,
                 "last_offset": offset,
                 "pagination_complete": bool(bool(last_response.get("success", False)) and last_page_rows_loaded < SALES_FUNNEL_PAGE_LIMIT),
+                "cache_hit": False,
+                "cache_mode": "miss",
+                "cache_fallback_used": False,
+                "retry_count": total_retry_count,
+                "retry_delays": [round(float(item), 2) for item in total_retry_delays],
+                "final_failure_reason": str(last_response.get("final_failure_reason") or last_response.get("error_text") or ""),
             },
         ),
     }
@@ -247,9 +535,15 @@ def load_finance_final(client: WBApiClient, target_date: str) -> Dict[str, Any]:
     }
 
 
-def load_bundle(client: WBApiClient, target_date: str) -> Dict[str, Any]:
+def load_bundle(
+    client: WBApiClient,
+    target_date: str,
+    *,
+    seller_id: str | None = None,
+    repo_root: str | None = None,
+) -> Dict[str, Any]:
     return {
-        "cabinet_commerce": load_cabinet_commerce(client, target_date),
+        "cabinet_commerce": load_cabinet_commerce(client, target_date, seller_id=seller_id, repo_root=repo_root),
         "finance_final": load_finance_final(client, target_date),
         "orders": load_orders(client, target_date),
         "sales": load_sales(client, target_date),

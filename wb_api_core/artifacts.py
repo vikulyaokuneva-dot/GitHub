@@ -107,6 +107,10 @@ def build_debug(
             "rows_loaded": int(debug.get("rows_loaded", 0) or 0),
             "error_text": str(debug.get("error_text") or ""),
             "base_url": str(debug.get("base_url") or ""),
+            "cache_hit": bool(debug.get("cache_hit", False)),
+            "retry_count": int(debug.get("retry_count", 0) or 0),
+            "retry_delays": list(debug.get("retry_delays", []) or []),
+            "final_failure_reason": str(debug.get("final_failure_reason") or ""),
         }
         if key == "finance_final":
             endpoints[key]["finance_endpoint_used"] = str(debug.get("finance_endpoint_used") or "")
@@ -115,6 +119,10 @@ def build_debug(
         if key == "cabinet_commerce":
             endpoints[key]["pages_loaded"] = int(debug.get("pages_loaded", 0) or 0)
             endpoints[key]["page_limit"] = int(debug.get("page_limit", 0) or 0)
+            endpoints[key]["cache_mode"] = str(debug.get("cache_mode") or "")
+            endpoints[key]["cache_path"] = str(debug.get("cache_path") or "")
+            endpoints[key]["cache_age_seconds"] = debug.get("cache_age_seconds")
+            endpoints[key]["cache_fallback_used"] = bool(debug.get("cache_fallback_used", False))
 
     raw_counts = {
         "cabinet_commerce": len(list((raw_bundle.get("cabinet_commerce") or {}).get("rows_raw", []))),

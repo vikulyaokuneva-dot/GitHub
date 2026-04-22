@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import json
+import os
+import tempfile
 import unittest
 from typing import Any, Dict, Iterable, List
+from unittest.mock import MagicMock, patch
 
 from wb_api_core.artifacts import build_debug
+from wb_api_core.client import WBApiClient
 from wb_api_core.loaders import load_cabinet_commerce, load_finance_final, load_orders, load_sales
 from wb_api_core.normalize import normalize_bundle
 from wb_api_core.reconcile import reconcile_bundle
@@ -29,6 +34,7 @@ class _FakeClient:
         allow_204: bool = False,
         empty_on_204: Any = None,
         base_url: str | None = None,
+        retry_policy: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         self.calls.append(
             {
@@ -40,6 +46,7 @@ class _FakeClient:
                 "allow_204": allow_204,
                 "empty_on_204": empty_on_204,
                 "base_url": base_url,
+                "retry_policy": dict(retry_policy or {}),
             }
         )
         payload = self.payloads.get(endpoint_name, [])
@@ -51,6 +58,9 @@ class _FakeClient:
             "error_text": "",
             "status_code": 200,
             "attempts": 1,
+            "retry_count": 0,
+            "retry_delays": [],
+            "final_failure_reason": "",
             "method": method,
             "base_url": base_url,
         }
@@ -66,6 +76,54 @@ class _FakeClient:
             if isinstance(rows, list):
                 return [row for row in rows if isinstance(row, dict)]
         return []
+
+
+class _AlwaysFailClient(_FakeClient):
+    def __init__(self, *, status_code: int = 429, error_text: str = "429: too many requests") -> None:
+        super().__init__({})
+        self.status_code = status_code
+        self.error_text = error_text
+
+    def request_json(
+        self,
+        *,
+        endpoint_name: str,
+        path: str,
+        params: Dict[str, Any] | None = None,
+        method: str = "GET",
+        json_body: Any = None,
+        allow_204: bool = False,
+        empty_on_204: Any = None,
+        base_url: str | None = None,
+        retry_policy: Dict[str, Any] | None = None,
+    ) -> Dict[str, Any]:
+        self.calls.append(
+            {
+                "endpoint_name": endpoint_name,
+                "path": path,
+                "params": dict(params or {}),
+                "method": method,
+                "json_body": json_body,
+                "allow_204": allow_204,
+                "empty_on_204": empty_on_204,
+                "base_url": base_url,
+                "retry_policy": dict(retry_policy or {}),
+            }
+        )
+        return {
+            "endpoint": endpoint_name,
+            "path": path,
+            "success": False,
+            "payload": None,
+            "error_text": self.error_text,
+            "status_code": self.status_code,
+            "attempts": 5,
+            "retry_count": 4,
+            "retry_delays": [3.0, 6.0, 12.0, 24.0],
+            "final_failure_reason": self.error_text,
+            "method": method,
+            "base_url": base_url,
+        }
 
 
 def _raw_bundle_fixture() -> Dict[str, Any]:
@@ -194,6 +252,7 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         self.assertEqual(client.calls[0]["method"], "POST")
         self.assertEqual(client.calls[0]["json_body"]["selectedPeriod"], {"start": "2026-04-21", "end": "2026-04-21"})
         self.assertEqual(client.calls[0]["json_body"]["offset"], 0)
+        self.assertEqual(client.calls[0]["retry_policy"]["max_attempts"], 5)
 
     def test_load_finance_final_uses_finance_host_and_daily_body(self) -> None:
         client = _FakeClient(
@@ -410,6 +469,143 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         self.assertEqual(client.calls[1]["base_url"], None)
         self.assertEqual(client.calls[0]["params"], {"dateFrom": "2026-04-21", "flag": 0})
         self.assertEqual(client.calls[1]["params"], {"dateFrom": "2026-04-21", "flag": 1})
+
+    def test_cabinet_commerce_uses_fresh_local_cache_without_api_call(self) -> None:
+        client = _FakeClient({})
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = os.path.join(
+                temp_dir,
+                "cabinets",
+                "seller_001",
+                "artifacts",
+                "wb_api_core",
+                "cache",
+                "cabinet_commerce_daily",
+            )
+            os.makedirs(cache_dir, exist_ok=True)
+            cache_path = os.path.join(cache_dir, "2026-04-21.json")
+            with open(cache_path, "w", encoding="utf-8") as file:
+                json.dump(
+                    {
+                        "seller_id": "seller_001",
+                        "target_date": "2026-04-21",
+                        "source_family": "cabinet_commerce_daily",
+                        "cached_at_epoch": 4102444800.0,
+                        "rows_raw": [
+                            {
+                                "product": {"nmId": 1001},
+                                "statistic": {"selected": {"period": {"start": "2026-04-21", "end": "2026-04-21"}}},
+                            }
+                        ],
+                        "debug": {"success": True},
+                    },
+                    file,
+                    ensure_ascii=False,
+                )
+
+            with patch("wb_api_core.loaders.time.time", return_value=4102444800.0):
+                bundle = load_cabinet_commerce(
+                    client,
+                    "2026-04-21",
+                    seller_id="seller_001",
+                    repo_root=temp_dir,
+                )
+
+        self.assertEqual(len(bundle["rows_raw"]), 1)
+        self.assertEqual(len(client.calls), 0)
+        self.assertEqual(bundle["debug"]["cache_hit"], True)
+        self.assertEqual(bundle["debug"]["cache_mode"], "fresh_local_cache")
+        self.assertEqual(bundle["debug"]["retry_count"], 0)
+
+    def test_cabinet_commerce_falls_back_to_cache_after_retryable_failure(self) -> None:
+        client = _AlwaysFailClient()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = os.path.join(
+                temp_dir,
+                "cabinets",
+                "seller_001",
+                "artifacts",
+                "wb_api_core",
+                "cache",
+                "cabinet_commerce_daily",
+            )
+            os.makedirs(cache_dir, exist_ok=True)
+            cache_path = os.path.join(cache_dir, "2026-04-21.json")
+            with open(cache_path, "w", encoding="utf-8") as file:
+                json.dump(
+                    {
+                        "seller_id": "seller_001",
+                        "target_date": "2026-04-21",
+                        "source_family": "cabinet_commerce_daily",
+                        "cached_at_epoch": 4102444800.0 - 40000.0,
+                        "rows_raw": [
+                            {
+                                "product": {"nmId": 1001},
+                                "statistic": {"selected": {"period": {"start": "2026-04-21", "end": "2026-04-21"}}},
+                            }
+                        ],
+                        "debug": {"success": True},
+                    },
+                    file,
+                    ensure_ascii=False,
+                )
+
+            with patch("wb_api_core.loaders.time.time", return_value=4102444800.0):
+                bundle = load_cabinet_commerce(
+                    client,
+                    "2026-04-21",
+                    seller_id="seller_001",
+                    repo_root=temp_dir,
+                )
+
+        self.assertEqual(len(client.calls), 1)
+        self.assertEqual(len(bundle["rows_raw"]), 1)
+        self.assertEqual(bundle["debug"]["cache_hit"], True)
+        self.assertEqual(bundle["debug"]["cache_fallback_used"], True)
+        self.assertEqual(bundle["debug"]["cache_mode"], "failure_fallback")
+        self.assertEqual(bundle["debug"]["retry_count"], 4)
+        self.assertEqual(bundle["debug"]["retry_delays"], [3.0, 6.0, 12.0, 24.0])
+        self.assertIn("429", bundle["debug"]["final_failure_reason"])
+        self.assertEqual(bundle["debug"]["cache_path"], cache_path)
+
+    def test_request_json_uses_retry_policy_metadata(self) -> None:
+        client = WBApiClient(token="token")
+        rate_limited = MagicMock()
+        rate_limited.status_code = 429
+        rate_limited.text = "too many requests"
+        rate_limited.headers = {}
+        success = MagicMock()
+        success.status_code = 200
+        success.json.return_value = {"data": {"products": []}}
+        success.text = ""
+        success.headers = {}
+
+        with patch("wb_api_core.client.requests.request", side_effect=[rate_limited, rate_limited, success]) as request_mock:
+            with patch("wb_api_core.client.time.sleep") as sleep_mock:
+                with patch("wb_api_core.client.random.uniform", return_value=0.0):
+                    response = client.request_json(
+                        endpoint_name="cabinet_commerce",
+                        path="/api/analytics/v3/sales-funnel/products",
+                        method="POST",
+                        json_body={"selectedPeriod": {"start": "2026-04-21", "end": "2026-04-21"}},
+                        base_url=client.analytics_base_url,
+                        retry_policy={
+                            "retryable_statuses": (429, 500, 502, 503, 504),
+                            "max_attempts": 5,
+                            "base_delay_seconds": 3.0,
+                            "cap_delay_seconds": 45.0,
+                            "jitter_ratio": 0.25,
+                            "max_retry_window_seconds": 90.0,
+                        },
+                    )
+
+        self.assertEqual(request_mock.call_count, 3)
+        self.assertEqual(response["success"], True)
+        self.assertEqual(response["attempts"], 3)
+        self.assertEqual(response["retry_count"], 2)
+        self.assertEqual(response["retry_delays"], [3.0, 6.0])
+        self.assertEqual(response["final_failure_reason"], "")
+        self.assertEqual(sleep_mock.call_count, 2)
 
 
 if __name__ == "__main__":
