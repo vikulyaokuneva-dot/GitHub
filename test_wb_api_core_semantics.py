@@ -116,20 +116,21 @@ def _raw_bundle_fixture() -> Dict[str, Any]:
         "finance_final": {
             "rows_raw": [
                 {
-                    "saleDate": "2026-04-21T10:00:00",
+                    "saleDt": "2026-04-21T10:00:00Z",
                     "nmId": 1001,
                     "supplierArticle": "ART-1001",
                     "quantity": 1,
                     "retailAmount": 1800.0,
-                    "retailPriceWithDiscRub": 1800.0,
+                    "retailPriceWithDisc": 1800.0,
                     "ppvzSalesCommission": 250.0,
-                    "deliveryRub": -90.0,
-                    "storageFee": -20.0,
-                    "penaltyAmount": -5.0,
+                    "deliveryAmount": -90.0,
+                    "paidStorage": -20.0,
+                    "penalty": -5.0,
                     "deduction": -10.0,
                     "acquiringFee": -15.0,
-                    "ppvzForPay": 1410.0,
+                    "forPay": 1410.0,
                     "tax": 108.0,
+                    "officeName": "Podolsk",
                     "docTypeName": "Продажа",
                 }
             ],
@@ -199,9 +200,9 @@ class TestWbApiCoreSemantics(unittest.TestCase):
             {
                 "finance_final": [
                     {
-                        "saleDate": "2026-04-21T10:00:00",
+                        "saleDt": "2026-04-21T10:00:00Z",
                         "retailAmount": 1000.0,
-                        "ppvzForPay": 800.0,
+                        "forPay": 800.0,
                     }
                 ]
             }
@@ -215,7 +216,7 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         self.assertEqual(client.calls[0]["json_body"]["period"], "daily")
         self.assertEqual(client.calls[0]["json_body"]["limit"], 100000)
         self.assertEqual(client.calls[0]["json_body"]["rrdId"], 0)
-        self.assertIn("retailAmount", client.calls[0]["json_body"]["fields"])
+        self.assertNotIn("fields", client.calls[0]["json_body"])
 
     def test_normalize_and_reconcile_keep_source_families_separate(self) -> None:
         raw_bundle = _raw_bundle_fixture()
@@ -238,6 +239,36 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         self.assertEqual(reconciled["live_operational"]["orders"]["count"], 1.0)
         self.assertEqual(reconciled["live_operational"]["sales"]["amount"], 700.0)
         self.assertEqual(reconciled["live_operational"]["stocks"]["total_units"], 10.0)
+
+    def test_finance_final_normalization_supports_new_detailed_field_names(self) -> None:
+        raw_bundle = _raw_bundle_fixture()
+        normalized = normalize_bundle(raw_bundle)
+        finance_rows = normalized["finance_final_rows"]
+
+        self.assertEqual(len(finance_rows), 1)
+        self.assertEqual(finance_rows[0]["date"], "2026-04-21")
+        self.assertEqual(finance_rows[0]["storage"], -20.0)
+        self.assertEqual(finance_rows[0]["seller_payout"], 1410.0)
+
+    def test_stocks_rows_are_aligned_to_single_snapshot_date(self) -> None:
+        raw_bundle = _raw_bundle_fixture()
+        raw_bundle["stocks"]["rows_raw"] = [
+            {"lastChangeDate": "2026-04-21T10:00:00", "nmId": 1001, "quantityFull": 10, "warehouseName": "Podolsk"},
+            {"lastChangeDate": "2026-04-22T09:00:00", "nmId": 1002, "quantityFull": 5, "warehouseName": "Kazan"},
+            {"lastChangeDate": "2026-04-22T11:00:00", "nmId": 1003, "quantityFull": 7, "warehouseName": "Tula"},
+        ]
+        normalized = normalize_bundle(raw_bundle)
+        reconciled = reconcile_bundle(
+            raw_bundle=raw_bundle,
+            normalized_bundle=normalized,
+            target_date="2026-04-21",
+        )
+
+        stock_rows = reconciled["live_operational"]["stocks"]["rows"]
+        self.assertEqual(reconciled["live_operational"]["stocks"]["actual_date"], "2026-04-22")
+        self.assertEqual(reconciled["live_operational"]["stocks"]["date_aligned"], False)
+        self.assertEqual(reconciled["live_operational"]["stocks"]["total_units"], 22.0)
+        self.assertTrue(all(str((row or {}).get("date") or "") == "2026-04-22" for row in stock_rows))
 
     def test_snapshot_and_debug_use_new_sections(self) -> None:
         raw_bundle = _raw_bundle_fixture()
@@ -268,6 +299,7 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         self.assertEqual(snapshot["cabinet_commerce_daily"]["orders_count"], 5.0)
         self.assertEqual(snapshot["finance_final_daily"]["gross_revenue"], 1800.0)
         self.assertEqual(snapshot["live_operational"]["orders"]["count"], 1.0)
+        self.assertEqual(snapshot["live_operational"]["stocks"]["actual_date"], "2026-04-21")
         self.assertIn("cabinet_commerce", debug["endpoints"])
         self.assertIn("finance_final", debug["endpoints"])
         self.assertEqual(debug["reconcile"]["selected_sources"]["cabinet_commerce_daily"], "sales_funnel_api")

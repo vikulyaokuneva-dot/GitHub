@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List
 
 from .client import (
     FINANCE_DETAILED_PATH,
@@ -13,30 +13,6 @@ from .client import (
 
 SALES_FUNNEL_PAGE_LIMIT = 1000
 FINANCE_PAGE_LIMIT = 100000
-FINANCE_FINAL_FIELDS: Sequence[str] = (
-    "saleDate",
-    "nmId",
-    "supplierArticle",
-    "vendorCode",
-    "barcode",
-    "srid",
-    "rrdId",
-    "reportId",
-    "quantity",
-    "retailAmount",
-    "retailPriceWithDiscRub",
-    "retailPrice",
-    "ppvzSalesCommission",
-    "deliveryRub",
-    "storageFee",
-    "penaltyAmount",
-    "deduction",
-    "acquiringFee",
-    "ppvzForPay",
-    "tax",
-    "warehouseName",
-    "docTypeName",
-)
 
 
 def _build_debug(
@@ -240,7 +216,6 @@ def load_finance_final(client: WBApiClient, target_date: str) -> Dict[str, Any]:
             "period": "daily",
             "limit": FINANCE_PAGE_LIMIT,
             "rrdId": 0,
-            "fields": list(FINANCE_FINAL_FIELDS),
         },
         allow_204=True,
         empty_on_204=[],
@@ -259,8 +234,9 @@ def load_finance_final(client: WBApiClient, target_date: str) -> Dict[str, Any]:
             extra={
                 "source_family": "finance_final_daily",
                 "finance_endpoint_used": FINANCE_DETAILED_PATH,
-                "finance_requested_fields_count": len(FINANCE_FINAL_FIELDS),
-                "finance_requested_fields": list(FINANCE_FINAL_FIELDS),
+                "finance_requested_fields_count": 0,
+                "finance_requested_fields": [],
+                "finance_request_uses_all_fields": True,
                 "finance_period": "daily",
                 "finance_limit": FINANCE_PAGE_LIMIT,
                 "finance_rrd_id": 0,

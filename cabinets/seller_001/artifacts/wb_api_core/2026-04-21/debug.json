@@ -13,24 +13,24 @@
   },
   "endpoints": {
     "cabinet_commerce": {
-      "success": true,
-      "status_code": 200,
-      "attempts": 1,
-      "rows_loaded": 22,
-      "error_text": "",
+      "success": false,
+      "status_code": 429,
+      "attempts": 5,
+      "rows_loaded": 0,
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"61ea04da59e8a4bbc7bb8ac9bb246fed\",\n    \"origin\": \"s2sauth",
       "base_url": "https://seller-analytics-api.wildberries.ru",
-      "pages_loaded": 1,
+      "pages_loaded": 0,
       "page_limit": 1000
     },
     "finance_final": {
-      "success": false,
-      "status_code": 400,
+      "success": true,
+      "status_code": 200,
       "attempts": 1,
-      "rows_loaded": 0,
-      "error_text": "400: {\"status\":400,\"title\":\"GetReportDetailByPeriodNBAndNNB fields validation error\",\"detail\":\"GetReportDetailByPeriodNBAndNNB fields validation error: unknown field: saleDate\",\"requestId\":\"2752f1a0-f0e2-48ba-ad68-9bd8b6116f76\",\"origin\":\"open-api-finreports\"}",
+      "rows_loaded": 20,
+      "error_text": "",
       "base_url": "https://finance-api.wildberries.ru",
       "finance_endpoint_used": "/api/finance/v1/sales-reports/detailed",
-      "finance_requested_fields_count": 22,
+      "finance_requested_fields_count": 0,
       "finance_payload_incompatible": false
     },
     "orders": {
@@ -60,22 +60,22 @@
   },
   "counts": {
     "raw": {
-      "cabinet_commerce": 22,
-      "finance_final": 0,
+      "cabinet_commerce": 0,
+      "finance_final": 20,
       "orders": 7,
       "sales": 3,
       "stocks": 16
     },
     "normalized": {
-      "cabinet_commerce": 22,
-      "finance_final": 0,
+      "cabinet_commerce": 0,
+      "finance_final": 20,
       "orders": 7,
       "sales": 3,
       "stocks": 16
     },
     "reconciled": {
-      "cabinet_commerce": 22,
-      "finance_final": 0,
+      "cabinet_commerce": 0,
+      "finance_final": 11,
       "orders": 3,
       "sales": 3,
       "stocks": 16
@@ -83,8 +83,8 @@
   },
   "reconcile": {
     "target_date": "2026-04-21",
-    "finance_final_actual_date": null,
-    "finance_final_date_aligned": null,
+    "finance_final_actual_date": "2026-04-21",
+    "finance_final_date_aligned": true,
     "selected_sources": {
       "cabinet_commerce_daily": "sales_funnel_api",
       "finance_final_daily": "finance_detailed_api",
@@ -166,12 +166,24 @@
   "finance_mapping": {
     "parse_errors_count": 0,
     "missing_required_fields": [],
-    "money_string_fields_parsed": []
+    "money_string_fields_parsed": [
+      "acquiringFee",
+      "deduction",
+      "forPay",
+      "paidStorage",
+      "penalty",
+      "ppvzSalesCommission",
+      "retailAmount"
+    ]
   },
   "warnings": [
     {
-      "code": "finance_final_api_unavailable",
-      "message": "400: {\"status\":400,\"title\":\"GetReportDetailByPeriodNBAndNNB fields validation error\",\"detail\":\"GetReportDetailByPeriodNBAndNNB fields validation error: unknown field: saleDate\",\"requestId\":\"2752f1a0-f0e2-48ba-ad68-9bd8b6116f76\",\"origin\":\"open-api-finreports\"}"
+      "code": "cabinet_commerce_api_unavailable",
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"61ea04da59e8a4bbc7bb8ac9bb246fed\",\n    \"origin\": \"s2sauth"
+    },
+    {
+      "code": "stocks_snapshot_date_misaligned",
+      "message": "Stocks rows normalized to snapshot date 2026-04-22 instead of 2026-04-21."
     }
   ]
 }

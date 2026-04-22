@@ -119,7 +119,7 @@ def _normalize_sku(value: Any) -> str | None:
 
 
 def _row_date_iso(row: Dict[str, Any]) -> str:
-    for key in ("date", "orderDate", "saleDate", "lastChangeDate", "order_dt", "sale_dt", "createdAt"):
+    for key in ("date", "orderDate", "saleDate", "orderDt", "saleDt", "lastChangeDate", "order_dt", "sale_dt", "createdAt"):
         raw = str(row.get(key) or "").strip()
         if re.fullmatch(r"\d{4}-\d{2}-\d{2}.*", raw):
             return raw[:10]
@@ -323,7 +323,7 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
         if gross_revenue is None:
             unit_price, _ = _parse_float_with_diag(
                 row,
-                ("retailPriceWithDiscRub", "retail_price_withdisc_rub", "priceWithDisc", "finishedPrice"),
+                ("retailPriceWithDisc", "retailPriceWithDiscRub", "retail_price_withdisc_rub", "priceWithDisc", "finishedPrice"),
                 diag=diag,
             )
             qty_for_amount = abs(float(quantity or 0.0)) if abs(float(quantity or 0.0)) > 1e-9 else 1.0
@@ -347,7 +347,7 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
         )
         storage, _ = _parse_float_with_diag(
             row,
-            ("storageFee", "storage_fee", "storage"),
+            ("paidStorage", "storageFee", "storage_fee", "storage"),
             diag=diag,
         )
         penalties, _ = _parse_float_with_diag(
@@ -401,8 +401,8 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
                 "acquiring": round(float(acquiring or 0.0), 2),
                 "tax": round(float(tax or 0.0), 2),
                 "warehouse": _pick_text(row, ("warehouseName", "warehouse", "officeName")),
-                "operation_name": _pick_text(row, ("docTypeName", "supplierOperName", "operationTypeName", "operationName")),
-                "document_type": _pick_text(row, ("docTypeName", "supplierOperName")),
+                "operation_name": _pick_text(row, ("docTypeName", "sellerOperName", "supplierOperName", "operationTypeName", "operationName")),
+                "document_type": _pick_text(row, ("docTypeName", "sellerOperName", "supplierOperName")),
                 "source": "finance_detailed_api",
                 "_raw_row_index": index,
             }

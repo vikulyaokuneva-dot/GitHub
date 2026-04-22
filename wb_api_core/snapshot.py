@@ -68,6 +68,8 @@ def build_snapshot(
                 "source": live_stocks.get("source"),
                 "available": bool(live_stocks.get("available", False)),
                 "target_date": live_stocks.get("target_date"),
+                "actual_date": live_stocks.get("actual_date"),
+                "date_aligned": live_stocks.get("date_aligned"),
                 "total_units": live_stocks.get("total_units"),
             },
         },
