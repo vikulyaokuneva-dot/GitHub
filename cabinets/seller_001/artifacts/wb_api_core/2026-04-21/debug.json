@@ -15,19 +15,19 @@
     "cabinet_commerce": {
       "success": true,
       "status_code": 200,
-      "attempts": 1,
+      "attempts": 0,
       "rows_loaded": 22,
       "error_text": "",
       "base_url": "https://seller-analytics-api.wildberries.ru",
-      "cache_hit": false,
+      "cache_hit": true,
       "retry_count": 0,
       "retry_delays": [],
       "final_failure_reason": "",
-      "pages_loaded": 1,
+      "pages_loaded": 0,
       "page_limit": 1000,
-      "cache_mode": "miss",
+      "cache_mode": "fresh_local_cache",
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\cabinet_commerce_daily\\2026-04-21.json",
-      "cache_age_seconds": null,
+      "cache_age_seconds": 11483.44,
       "cache_fallback_used": false
     },
     "finance_final": {
@@ -49,7 +49,7 @@
       "success": true,
       "status_code": 200,
       "attempts": 1,
-      "rows_loaded": 9,
+      "rows_loaded": 11,
       "error_text": "",
       "base_url": "https://statistics-api.wildberries.ru",
       "cache_hit": false,
@@ -86,14 +86,14 @@
     "raw": {
       "cabinet_commerce": 22,
       "finance_final": 20,
-      "orders": 9,
+      "orders": 11,
       "sales": 3,
       "stocks": 18
     },
     "normalized": {
       "cabinet_commerce": 22,
       "finance_final": 20,
-      "orders": 9,
+      "orders": 11,
       "sales": 3,
       "stocks": 18
     },
@@ -119,7 +119,7 @@
     }
   },
   "orders_raw_inventory": {
-    "rows_loaded": 9,
+    "rows_loaded": 11,
     "rows_matching_operational_date": 3,
     "requested_fields_present": {
       "quantity": 0,

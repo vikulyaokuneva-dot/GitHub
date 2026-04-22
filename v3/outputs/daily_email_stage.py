@@ -350,9 +350,17 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     data: Dict[str, Any] = dict(payload or {})
     source_mode = str(data.get("source_mode") or "").strip().lower()
+    core_snapshot_mode = source_mode == "core_snapshot"
     data_mode = str(data.get("data_mode") or "").strip().lower()
     if not data_mode:
-        data_mode = "api" if (source_mode == "wb_api" and not bool(data.get("local_financial_fallback_used", False))) else "raw_reports_fallback"
+        data_mode = (
+            "api"
+            if (
+                core_snapshot_mode
+                or (source_mode == "wb_api" and not bool(data.get("local_financial_fallback_used", False)))
+            )
+            else "raw_reports_fallback"
+        )
     non_api_mode = bool(data.get("non_api_mode", data_mode != "api"))
     non_api_label = "недостаточно данных (non-API mode)"
     non_api_notice = (
@@ -589,11 +597,18 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     net_profit_for_summary = data.get("net_profit")
     margin_pct_for_summary = data.get("margin_pct_total")
     profitability_pct_for_summary = data.get("profitability_pct_total")
-    daily_orders_count_for_summary = render_kpi.get("orders_count", data.get("daily_orders_count"))
-    avg_check_for_summary = render_kpi.get("avg_check", data.get("avg_check"))
-    daily_orders_amount_for_summary = render_kpi.get("orders_amount", data.get("daily_orders_amount"))
-    daily_buyouts_count_for_summary = render_kpi.get("buyouts_count", data.get("daily_buyouts_count"))
-    daily_buyouts_amount_for_summary = render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount"))
+    if core_snapshot_mode:
+        daily_orders_count_for_summary = render_kpi.get("orders_count")
+        avg_check_for_summary = render_kpi.get("avg_check")
+        daily_orders_amount_for_summary = render_kpi.get("orders_amount")
+        daily_buyouts_count_for_summary = render_kpi.get("buyouts_count")
+        daily_buyouts_amount_for_summary = render_kpi.get("buyouts_amount")
+    else:
+        daily_orders_count_for_summary = render_kpi.get("orders_count", data.get("daily_orders_count"))
+        avg_check_for_summary = render_kpi.get("avg_check", data.get("avg_check"))
+        daily_orders_amount_for_summary = render_kpi.get("orders_amount", data.get("daily_orders_amount"))
+        daily_buyouts_count_for_summary = render_kpi.get("buyouts_count", data.get("daily_buyouts_count"))
+        daily_buyouts_amount_for_summary = render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount"))
     ads_summary_for_email = ads_summary if isinstance(ads_summary, dict) else {}
     ads_rows_for_summary = _safe_int(data.get("ads_rows_count"))
     ads_impressions_for_summary = _safe_int(data.get("ads_impressions"))
@@ -665,8 +680,16 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         ads_loaded_from_file=ads_loaded_from_file_for_summary,
         ads_source_file=ads_source_file_for_summary,
         ads_attribution_quality=ads_attribution_quality_for_summary,
-        daily_revenue=render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount")),
-        financial_revenue=render_kpi.get("revenue", data.get("revenue_total")),
+        daily_revenue=(
+            render_kpi.get("buyouts_amount")
+            if core_snapshot_mode
+            else render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount"))
+        ),
+        financial_revenue=(
+            render_kpi.get("revenue")
+            if core_snapshot_mode
+            else render_kpi.get("revenue", data.get("revenue_total"))
+        ),
         daily_orders_count=daily_orders_count_for_summary,
         avg_check=avg_check_for_summary,
         daily_orders_amount=daily_orders_amount_for_summary,

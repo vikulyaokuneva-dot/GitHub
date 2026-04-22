@@ -4,9 +4,297 @@ import json
 import os
 from typing import Any, Dict
 
+from ..core_report_bridge import (
+    CoreSnapshotBridgeFatalError,
+    build_core_report_payload,
+    is_core_snapshot_usable,
+    load_core_snapshot_artifacts,
+    resolve_core_snapshot_paths,
+    validate_core_snapshot,
+)
 from ..domain.event_model import build_render_kpi_values
 from ..pipeline.daily_stage_support import sync_from_entry
 from ..validation.report_guardrails import apply_report_guardrails
+
+
+PDF_SOURCE_MODE_ENV = "PDF_SOURCE_MODE"
+PDF_SOURCE_MODE_LEGACY = "legacy"
+PDF_SOURCE_MODE_CORE_SNAPSHOT = "core_snapshot"
+
+
+def _resolve_pdf_source_mode(payload: Dict[str, Any]) -> str:
+    explicit_mode = str(
+        (payload.get("pdf_source_mode") if isinstance(payload, dict) else None)
+        or os.getenv(PDF_SOURCE_MODE_ENV, "")
+        or ""
+    ).strip().lower()
+    if explicit_mode == PDF_SOURCE_MODE_CORE_SNAPSHOT:
+        return PDF_SOURCE_MODE_CORE_SNAPSHOT
+    return PDF_SOURCE_MODE_LEGACY
+
+
+def _safe_float_core(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_int_core(value: Any) -> int | None:
+    numeric = _safe_float_core(value)
+    if numeric is None:
+        return None
+    return int(round(numeric))
+
+
+def _financial_finality_status_from_core(finance_status: str, finance_available: bool) -> str:
+    if not finance_available:
+        return "missing"
+    if finance_status == "ok":
+        return "final"
+    return "partial"
+
+
+def _financial_matrix_status_from_core(finance_status: str, finance_available: bool) -> str:
+    if not finance_available:
+        return "missing"
+    if finance_status == "lagged":
+        return "lagged"
+    if finance_status == "ok":
+        return "confirmed"
+    return "partial"
+
+
+def _apply_core_snapshot_mirrors(
+    *,
+    payload: Dict[str, Any],
+    core_report_payload: Dict[str, Any],
+    warnings_collector: Any,
+) -> None:
+    meta = core_report_payload.get("meta", {}) if isinstance(core_report_payload, dict) else {}
+    if not isinstance(meta, dict):
+        meta = {}
+    cabinet = core_report_payload.get("cabinet_commerce", {}) if isinstance(core_report_payload, dict) else {}
+    if not isinstance(cabinet, dict):
+        cabinet = {}
+    finance = core_report_payload.get("finance_final", {}) if isinstance(core_report_payload, dict) else {}
+    if not isinstance(finance, dict):
+        finance = {}
+    live = core_report_payload.get("live_operational", {}) if isinstance(core_report_payload, dict) else {}
+    if not isinstance(live, dict):
+        live = {}
+    source_flags = core_report_payload.get("source_flags", {}) if isinstance(core_report_payload, dict) else {}
+    if not isinstance(source_flags, dict):
+        source_flags = {}
+    warnings = core_report_payload.get("warnings", []) if isinstance(core_report_payload, dict) else []
+    if isinstance(warnings_collector, WarningsCollector):
+        warnings_collector.extend_warnings(warnings if isinstance(warnings, list) else [])
+
+    cabinet_source = str(cabinet.get("source") or "unknown")
+    finance_source = str(finance.get("source") or "unknown")
+    finance_available = bool(finance.get("available", False))
+    finance_status = str(finance.get("status") or "unavailable").strip().lower()
+    finance_rows_loaded = int(source_flags.get("finance_rows_loaded", 0) or 0)
+    finance_finality_status = _financial_finality_status_from_core(finance_status, finance_available)
+    financial_alignment_status = (
+        "aligned"
+        if finance.get("date_aligned") is True
+        else ("lagged_fallback" if finance_available else "missing")
+    )
+    financial_matrix_status = _financial_matrix_status_from_core(finance_status, finance_available)
+    finance_buyouts_count = finance.get("buyouts_count")
+    finance_buyouts_amount = finance.get("buyouts_amount")
+    finance_buyouts_confirmed = finance_buyouts_count is not None or finance_buyouts_amount is not None
+
+    daily_kpi = {
+        "daily_orders_count": cabinet.get("orders_count"),
+        "daily_orders_amount": cabinet.get("orders_amount"),
+        "daily_buyouts_count": finance_buyouts_count,
+        "daily_buyouts_amount": finance_buyouts_amount,
+        "orders_count_confirmed": bool(cabinet.get("available", False)),
+        "buyouts_count_confirmed": bool(finance_buyouts_confirmed),
+        "buyouts_amount_confirmed": bool(finance_buyouts_amount is not None),
+        "data_source_orders": cabinet_source,
+        "data_source_orders_count": cabinet_source,
+        "data_source_orders_amount": cabinet_source,
+        "data_source_buyouts": finance_source,
+        "data_source_buyouts_count": finance_source,
+        "data_source_buyouts_amount": finance_source,
+    }
+    financial_kpi = {
+        "revenue": finance.get("seller_payout"),
+        "gross_revenue": finance.get("gross_revenue"),
+        "seller_payout": finance.get("seller_payout"),
+        "wb_commission": finance.get("wb_commission"),
+        "logistics": finance.get("logistics"),
+        "storage": finance.get("storage"),
+        "penalties": finance.get("penalties"),
+        "deductions": finance.get("deductions"),
+        "acquiring": finance.get("acquiring"),
+        "tax": finance.get("tax"),
+        "cost_price": None,
+        "gross_profit": None,
+        "net_profit": None,
+        "margin_pct": None,
+        "profitability_pct": None,
+        "financial_source": finance_source,
+        "financial_finality_status": finance_finality_status,
+        "financial_status": finance_status,
+        "is_partial": bool(finance_status != "ok"),
+        "financial_partial": bool(finance_status != "ok"),
+        "net_profit_partial": True,
+        "financial_margin_not_final": True,
+        "completeness_pct": 100.0 if finance_available and finance_rows_loaded > 0 else 0.0,
+        "kernel_rows_total": finance_rows_loaded,
+        "financial_alignment_status": financial_alignment_status,
+        "financial_date_misaligned": bool(finance_available and finance.get("date_aligned") is False),
+        "financial_actual_date": finance.get("actual_date"),
+        "financial_target_date": finance.get("target_date") or meta.get("operational_date"),
+    }
+    order_kpi = {
+        "orders_count": cabinet.get("orders_count"),
+        "orders_amount": cabinet.get("orders_amount"),
+        "source": cabinet_source,
+        "status": "confirmed" if bool(cabinet.get("available", False)) else "missing",
+    }
+    buyout_kpi = {
+        "buyouts_count": finance_buyouts_count,
+        "buyouts_amount": finance_buyouts_amount,
+        "source": finance_source,
+        "status": "confirmed" if finance_buyouts_confirmed else "missing",
+    }
+    daily_status_matrix = {
+        "orders": "confirmed" if bool(cabinet.get("available", False)) else "missing",
+        "buyouts": "confirmed" if finance_buyouts_confirmed else "missing",
+        "financials": financial_matrix_status,
+    }
+    render_kpi = {
+        "orders_count": cabinet.get("orders_count"),
+        "orders_amount": cabinet.get("orders_amount"),
+        "buyouts_count": finance_buyouts_count,
+        "buyouts_amount": finance_buyouts_amount,
+        "avg_check": None,
+        "revenue": finance.get("seller_payout"),
+        "gross_profit": None,
+        "net_profit": None,
+        "margin_pct": None,
+        "profitability_pct": None,
+        "financial_lagged": bool(finance_status == "lagged"),
+        "financial_actual_date": finance.get("actual_date"),
+        "financial_target_date": finance.get("target_date") or meta.get("operational_date"),
+        "financial_alignment_status": financial_alignment_status,
+    }
+    event_date_model = {
+        "report_date": meta.get("report_date"),
+        "operational_date": meta.get("operational_date"),
+        "financial_date": finance.get("actual_date"),
+    }
+    data_quality = payload.get("data_quality", {})
+    if not isinstance(data_quality, dict):
+        data_quality = {}
+    data_quality = dict(data_quality)
+    data_quality.update(
+        {
+            "financial_finality_status": finance_finality_status,
+            "financial_alignment_status": financial_alignment_status,
+            "financial_date_misaligned": bool(finance_available and finance.get("date_aligned") is False),
+            "financial_actual_date": finance.get("actual_date"),
+            "financial_target_date": finance.get("target_date") or meta.get("operational_date"),
+            "financial_snapshot_status": "confirmed" if finance_available else "missing",
+            "financial_rows_effective": finance_rows_loaded,
+        }
+    )
+    data_sources = payload.get("data_sources", {})
+    if not isinstance(data_sources, dict):
+        data_sources = {}
+    data_sources = dict(data_sources)
+    data_sources.update(
+        {
+            "orders": cabinet_source,
+            "orders_count": cabinet_source,
+            "orders_amount": cabinet_source,
+            "buyouts": finance_source,
+            "buyouts_count": finance_source,
+            "buyouts_amount": finance_source,
+            "revenue": finance_source,
+        }
+    )
+    api_debug = payload.get("api_debug", {})
+    if not isinstance(api_debug, dict):
+        api_debug = {}
+    api_debug = dict(api_debug)
+    api_debug.update(
+        {
+            "financial_rows": finance_rows_loaded,
+            "orders_rows": int(source_flags.get("live_orders_rows_loaded", 0) or 0),
+            "sales_rows": int(source_flags.get("live_sales_rows_loaded", 0) or 0),
+            "stocks_rows": int(source_flags.get("live_stocks_rows_loaded", 0) or 0),
+            "core_debug_present": bool(source_flags.get("debug_present", False)),
+        }
+    )
+    legacy_source_mode = str(payload.get("source_mode") or "").strip()
+    payload.update(
+        {
+            "core_report_payload": core_report_payload,
+            "source_flags": source_flags,
+            "legacy_source_mode": legacy_source_mode,
+            "pdf_source_mode": PDF_SOURCE_MODE_CORE_SNAPSHOT,
+            "source_mode": PDF_SOURCE_MODE_CORE_SNAPSHOT,
+            "data_mode": "api",
+            "non_api_mode": False,
+            "seller_id": meta.get("seller_id"),
+            "run_date": meta.get("report_date"),
+            "daily_kpi": daily_kpi,
+            "financial_kpi": financial_kpi,
+            "order_kpi": order_kpi,
+            "buyout_kpi": buyout_kpi,
+            "daily_status_matrix": daily_status_matrix,
+            "render_kpi": render_kpi,
+            "event_date_model": event_date_model,
+            "data_quality": data_quality,
+            "data_sources": data_sources,
+            "api_debug": api_debug,
+            "daily_orders_count": cabinet.get("orders_count"),
+            "daily_orders_count_legacy": None,
+            "daily_orders_amount": cabinet.get("orders_amount"),
+            "daily_orders_amount_legacy": None,
+            "daily_buyouts_count": finance_buyouts_count,
+            "daily_buyouts_count_legacy": None,
+            "daily_buyouts_amount": finance_buyouts_amount,
+            "daily_buyouts_amount_legacy": None,
+            "avg_check": None,
+            "avg_check_legacy": None,
+            "revenue_total": finance.get("seller_payout"),
+            "revenue_total_legacy": None,
+            "gross_revenue_total": finance.get("gross_revenue"),
+            "seller_payout_total": finance.get("seller_payout"),
+            "wb_commission": finance.get("wb_commission"),
+            "acquiring_total": finance.get("acquiring"),
+            "logistics_total": finance.get("logistics"),
+            "storage_total": finance.get("storage"),
+            "penalties_total": finance.get("penalties"),
+            "deductions_total": finance.get("deductions"),
+            "tax_total": finance.get("tax"),
+            "cost_price_total": None,
+            "pvz_service_total": None,
+            "loyalty_program_total": None,
+            "loyalty_points_withheld_total": None,
+            "other_adjustments_total": None,
+            "ads_spend_total": None,
+            "gross_profit_total": None,
+            "net_profit": None,
+            "profit_total": None,
+            "margin_pct_total": None,
+            "margin_pct_total_legacy": None,
+            "profitability_pct_total": None,
+            "profitability_pct_total_legacy": None,
+            "financial_completeness_pct": 100.0 if finance_available and finance_rows_loaded > 0 else 0.0,
+            "financial_partial": bool(finance_status != "ok"),
+            "financial_contour_missing": not finance_available,
+        }
+    )
 
 
 def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
@@ -30,6 +318,48 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     warnings_collector = payload.get("warnings_collector")
     if not isinstance(warnings_collector, WarningsCollector):
         warnings_collector = WarningsCollector()
+    pdf_source_mode = _resolve_pdf_source_mode(payload)
+    payload["pdf_source_mode"] = pdf_source_mode
+    core_snapshot_mode = pdf_source_mode == PDF_SOURCE_MODE_CORE_SNAPSHOT
+    if core_snapshot_mode:
+        missing_context = [
+            name
+            for name in ("repo_root", "seller_id", "run_date")
+            if not str(payload.get(name) or "").strip()
+        ]
+        if missing_context:
+            raise CoreSnapshotBridgeFatalError(
+                "core_snapshot_context_missing: " + ", ".join(missing_context)
+            )
+        paths = resolve_core_snapshot_paths(
+            repo_root=str(payload.get("repo_root") or ""),
+            seller_id=str(payload.get("seller_id") or ""),
+            run_date=str(payload.get("run_date") or ""),
+        )
+        artifacts = load_core_snapshot_artifacts(paths=paths)
+        validation_warnings = validate_core_snapshot(
+            snapshot=artifacts.get("snapshot", {}),
+            debug=artifacts.get("debug"),
+            seller_id=str(payload.get("seller_id") or ""),
+            run_date=str(payload.get("run_date") or ""),
+        )
+        core_report_payload = build_core_report_payload(
+            snapshot=artifacts.get("snapshot", {}),
+            debug=artifacts.get("debug"),
+            seller_id=str(payload.get("seller_id") or ""),
+            run_date=str(payload.get("run_date") or ""),
+            paths=paths,
+            validation_warnings=validation_warnings,
+        )
+        if not is_core_snapshot_usable(core_report_payload):
+            raise CoreSnapshotBridgeFatalError(
+                "core_snapshot_unusable: cabinet_commerce and finance_final are both unavailable"
+            )
+        _apply_core_snapshot_mirrors(
+            payload=payload,
+            core_report_payload=core_report_payload,
+            warnings_collector=warnings_collector,
+        )
 
     facts = payload.get("facts", {})
     if not isinstance(facts, dict):
@@ -356,7 +686,7 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     margin_pct_total = render_kpi.get("margin_pct")
     profitability_pct_total = render_kpi.get("profitability_pct")
     financial_status = str(daily_status_matrix.get("financials") or "unknown")
-    if financial_status in {"confirmed", "partial"} and not financial_contour_missing:
+    if (not core_snapshot_mode) and financial_status in {"confirmed", "partial"} and not financial_contour_missing:
         if revenue_total is None:
             revenue_total = _safe_float(financial_kpi.get("revenue", totals.get("total_revenue", totals.get("revenue", 0.0))))
         if cost_price_total is None:
@@ -573,18 +903,18 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "gross_revenue_total": gross_revenue_total,
             "wb_realized_revenue_total": wb_realized_revenue_total,
             "seller_payout_total": seller_payout_total,
-            "revenue_total_legacy": revenue_total_legacy,
+            "revenue_total_legacy": None if core_snapshot_mode else revenue_total_legacy,
             "profit_total": profit_total,
             "daily_orders_count": daily_orders_count,
-            "daily_orders_count_legacy": daily_orders_count_legacy,
+            "daily_orders_count_legacy": None if core_snapshot_mode else daily_orders_count_legacy,
             "daily_orders_amount": daily_orders_amount,
-            "daily_orders_amount_legacy": daily_orders_amount_legacy,
+            "daily_orders_amount_legacy": None if core_snapshot_mode else daily_orders_amount_legacy,
             "daily_buyouts_count": daily_buyouts_count,
-            "daily_buyouts_count_legacy": daily_buyouts_count_legacy,
+            "daily_buyouts_count_legacy": None if core_snapshot_mode else daily_buyouts_count_legacy,
             "daily_buyouts_amount": daily_buyouts_amount,
-            "daily_buyouts_amount_legacy": daily_buyouts_amount_legacy,
+            "daily_buyouts_amount_legacy": None if core_snapshot_mode else daily_buyouts_amount_legacy,
             "avg_check": avg_check,
-            "avg_check_legacy": avg_check_legacy,
+            "avg_check_legacy": None if core_snapshot_mode else avg_check_legacy,
             "cost_price_total": cost_price_total,
             "wb_commission": wb_commission,
             "acquiring_total": acquiring_total,
@@ -601,9 +931,9 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             "gross_profit_total": gross_profit_total,
             "net_profit": net_profit,
             "margin_pct_total": margin_pct_total,
-            "margin_pct_total_legacy": margin_pct_total_legacy,
+            "margin_pct_total_legacy": None if core_snapshot_mode else margin_pct_total_legacy,
             "profitability_pct_total": profitability_pct_total,
-            "profitability_pct_total_legacy": profitability_pct_total_legacy,
+            "profitability_pct_total_legacy": None if core_snapshot_mode else profitability_pct_total_legacy,
             "financial_completeness_pct": financial_completeness_pct,
             "financial_partial": financial_partial,
             "financial_contour_missing": financial_contour_missing,

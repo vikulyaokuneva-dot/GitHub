@@ -218,11 +218,15 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     data: Dict[str, Any] = dict(payload or {})
     source_mode = str(data.get("source_mode") or "").strip().lower()
+    core_snapshot_mode = source_mode == "core_snapshot"
     data_mode = str(data.get("data_mode") or "").strip().lower()
     if not data_mode:
         data_mode = (
             "api"
-            if (source_mode == "wb_api" and not bool(data.get("local_financial_fallback_used", False)))
+            if (
+                core_snapshot_mode
+                or (source_mode == "wb_api" and not bool(data.get("local_financial_fallback_used", False)))
+            )
             else "raw_reports_fallback"
         )
     non_api_mode = bool(data.get("non_api_mode", data_mode != "api"))
@@ -539,16 +543,52 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
                 return number
         return None
 
-    orders_count_value = render_kpi.get("orders_count", data.get("daily_orders_count"))
+    orders_count_value = (
+        render_kpi.get("orders_count")
+        if core_snapshot_mode
+        else render_kpi.get("orders_count", data.get("daily_orders_count"))
+    )
     orders_count_raw_value = orders_count_value
-    orders_amount_value = render_kpi.get("orders_amount", data.get("daily_orders_amount"))
-    buyouts_count_value = render_kpi.get("buyouts_count", data.get("daily_buyouts_count"))
-    buyouts_amount_value = render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount"))
-    avg_check_value = render_kpi.get("avg_check", data.get("avg_check"))
-    revenue_value = render_kpi.get("revenue", data.get("revenue_total"))
-    net_profit_value = render_kpi.get("net_profit", data.get("net_profit"))
-    margin_pct_value = render_kpi.get("margin_pct", data.get("margin_pct_total"))
-    profitability_pct_value = render_kpi.get("profitability_pct", data.get("profitability_pct_total"))
+    orders_amount_value = (
+        render_kpi.get("orders_amount")
+        if core_snapshot_mode
+        else render_kpi.get("orders_amount", data.get("daily_orders_amount"))
+    )
+    buyouts_count_value = (
+        render_kpi.get("buyouts_count")
+        if core_snapshot_mode
+        else render_kpi.get("buyouts_count", data.get("daily_buyouts_count"))
+    )
+    buyouts_amount_value = (
+        render_kpi.get("buyouts_amount")
+        if core_snapshot_mode
+        else render_kpi.get("buyouts_amount", data.get("daily_buyouts_amount"))
+    )
+    avg_check_value = (
+        render_kpi.get("avg_check")
+        if core_snapshot_mode
+        else render_kpi.get("avg_check", data.get("avg_check"))
+    )
+    revenue_value = (
+        render_kpi.get("revenue")
+        if core_snapshot_mode
+        else render_kpi.get("revenue", data.get("revenue_total"))
+    )
+    net_profit_value = (
+        render_kpi.get("net_profit")
+        if core_snapshot_mode
+        else render_kpi.get("net_profit", data.get("net_profit"))
+    )
+    margin_pct_value = (
+        render_kpi.get("margin_pct")
+        if core_snapshot_mode
+        else render_kpi.get("margin_pct", data.get("margin_pct_total"))
+    )
+    profitability_pct_value = (
+        render_kpi.get("profitability_pct")
+        if core_snapshot_mode
+        else render_kpi.get("profitability_pct", data.get("profitability_pct_total"))
+    )
     if financial_contour_missing:
         revenue_value = None
         net_profit_value = None
@@ -561,14 +601,18 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         render_kpi["financial_alignment_status"] = financial_alignment_status or "lagged_fallback"
         render_kpi["revenue_lagged"] = revenue_value
         render_kpi["net_profit_lagged"] = net_profit_value
-        render_kpi["gross_profit_lagged"] = render_kpi.get("gross_profit", data.get("gross_profit_total"))
+        render_kpi["gross_profit_lagged"] = (
+            render_kpi.get("gross_profit")
+            if core_snapshot_mode
+            else render_kpi.get("gross_profit", data.get("gross_profit_total"))
+        )
         render_kpi["margin_pct_lagged"] = margin_pct_value
         render_kpi["profitability_pct_lagged"] = profitability_pct_value
 
     funnel = cabinet_funnel.get("funnel", {}) if isinstance(cabinet_funnel, dict) else {}
     if not isinstance(funnel, dict):
         funnel = {}
-    if is_missing_value(orders_count_value):
+    if (not core_snapshot_mode) and is_missing_value(orders_count_value):
         orders_count_value = _first_number_early(
             funnel.get("orders"),
             daily_kpi.get("daily_orders_count"),
@@ -1404,7 +1448,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     )
     tax_visual = _first_number_local(data.get("tax_total"), financial_kpi_payload.get("tax"), email_summary_payload.get("tax"))
 
-    if financial_contour_missing:
+    if financial_contour_missing and not (non_api_mode and not core_snapshot_mode):
         seller_payout_visual = None
         gross_revenue_visual = None
         wb_realized_revenue_visual = None
@@ -2198,15 +2242,17 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
                 break
 
     orders_exact_value = _first_number_local(orders_count_raw_value, order_kpi.get("orders_count"))
-    orders_surrogate_value = _first_number_local(
-        funnel.get("orders"),
-        daily_kpi.get("daily_orders_count"),
-        data.get("daily_orders_count"),
-        data.get("orders"),
-        data.get("sales_activity_qty"),
-        funnel.get("buyouts"),
-        buyouts_count_value,
-    )
+    orders_surrogate_value = None
+    if not core_snapshot_mode:
+        orders_surrogate_value = _first_number_local(
+            funnel.get("orders"),
+            daily_kpi.get("daily_orders_count"),
+            data.get("daily_orders_count"),
+            data.get("orders"),
+            data.get("sales_activity_qty"),
+            funnel.get("buyouts"),
+            buyouts_count_value,
+        )
     orders_kpi_payload = build_kpi_display_payload(
         value=orders_exact_value,
         fallback_value=orders_surrogate_value,
@@ -2217,12 +2263,14 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     )
     orders_visual = _first_number_local(orders_exact_value, orders_surrogate_value)
     buyouts_exact_value = _first_number_local(buyout_kpi.get("buyouts_count"), buyouts_count_value)
-    buyouts_surrogate_value = _first_number_local(
-        funnel.get("buyouts"),
-        daily_kpi.get("daily_buyouts_count"),
-        data.get("daily_buyouts_count"),
-        buyouts_count_value,
-    )
+    buyouts_surrogate_value = None
+    if not core_snapshot_mode:
+        buyouts_surrogate_value = _first_number_local(
+            funnel.get("buyouts"),
+            daily_kpi.get("daily_buyouts_count"),
+            data.get("daily_buyouts_count"),
+            buyouts_count_value,
+        )
     buyouts_kpi_payload = build_kpi_display_payload(
         value=buyouts_exact_value,
         fallback_value=buyouts_surrogate_value,
@@ -2239,7 +2287,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     )
     profit_kpi_payload = build_kpi_display_payload(
         value=net_profit_exact_visual,
-        fallback_value=operating_profit_without_cogs,
+        fallback_value=None if core_snapshot_mode else operating_profit_without_cogs,
         missing_reason=profit_missing_reason,
         label="Чистая прибыль",
         fallback_label="Прибыль без себестоимости",
@@ -3106,6 +3154,9 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "seller_id": seller_id_value,
         "report_date": report_date_value,
         "operational_day": operational_day_value,
+        "source_mode": source_mode or "unknown",
+        "pdf_source_mode": str(data.get("pdf_source_mode") or source_mode or "unknown"),
+        "core_report_payload_available": isinstance(data.get("core_report_payload"), dict),
         "email_subject": email_subject_value,
         "email_body_text": email_body_text_value,
         "financial_interpretation": (
