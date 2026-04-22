@@ -1,0 +1,90 @@
+{
+  "seller_id": "seller_001",
+  "run_date": "2026-04-18",
+  "operational_date": "2026-04-18",
+  "timezone": "Europe/Moscow",
+  "source_mode": "wb_api_core_v1",
+  "source_rules": {
+    "orders_count": "orders_api",
+    "orders_amount": "orders_api",
+    "buyouts_count": "sales_api",
+    "buyouts_amount": "sales_api",
+    "financial": "finance_api",
+    "stock.total_units": "stocks_api"
+  },
+  "endpoints": {
+    "orders": {
+      "success": true,
+      "status_code": 200,
+      "attempts": 1,
+      "rows_loaded": 11,
+      "error_text": ""
+    },
+    "sales": {
+      "success": true,
+      "status_code": 200,
+      "attempts": 1,
+      "rows_loaded": 27,
+      "error_text": ""
+    },
+    "realization": {
+      "success": false,
+      "status_code": 404,
+      "attempts": 1,
+      "rows_loaded": 0,
+      "error_text": "404: {\n    \"title\": \"path not found\",\n    \"detail\": \"Please consult the https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"9995b4770d66c f3e1c2a5\",\n    \"requestId\": \"5ae16f95c4a9f1e488c3dac906b47061\",\n    \"origin\": \"s2s-api-auth-stat\",\n    \"status\": 404,\n    \"statusText\": \"Not Found\",\n    ",
+      "finance_endpoint_used": "/api/finance/v1/sales-reports/detailed",
+      "finance_requested_fields_count": 19,
+      "finance_payload_incompatible": false
+    },
+    "stocks": {
+      "success": true,
+      "status_code": 200,
+      "attempts": 1,
+      "rows_loaded": 26,
+      "error_text": ""
+    }
+  },
+  "counts": {
+    "raw": {
+      "orders": 11,
+      "sales": 27,
+      "realization": 0,
+      "stocks": 26
+    },
+    "normalized": {
+      "orders": 11,
+      "sales": 27,
+      "stocks": 26,
+      "realization": 0
+    },
+    "reconciled": {
+      "orders": 1,
+      "sales": 5,
+      "realization": 0,
+      "stocks": 26
+    }
+  },
+  "reconcile": {
+    "target_date": "2026-04-18",
+    "financial_actual_date": null,
+    "financial_date_aligned": null,
+    "selected_sources": {
+      "orders": "orders_api",
+      "buyouts": "sales_api",
+      "financial": "finance_api",
+      "stock": "stocks_api"
+    }
+  },
+  "finance_mapping": {
+    "parse_errors_count": 0,
+    "missing_required_fields": [],
+    "money_string_fields_parsed": []
+  },
+  "warnings": [
+    {
+      "code": "finance_api_unavailable",
+      "message": "404: {\n    \"title\": \"path not found\",\n    \"detail\": \"Please consult the https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"9995b4770d66c f3e1c2a5\",\n    \"requestId\": \"5ae16f95c4a9f1e488c3dac906b47061\",\n    \"origin\": \"s2s-api-auth-stat\",\n    \"status\": 404,\n    \"statusText\": \"Not Found\",\n    "
+    }
+  ]
+}

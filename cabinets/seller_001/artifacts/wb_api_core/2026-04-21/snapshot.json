@@ -1,23 +1,22 @@
 {
   "seller_id": "seller_001",
   "run_date": "2026-04-21",
-  "operational_date": "2026-04-20",
+  "operational_date": "2026-04-21",
   "timezone": "Europe/Moscow",
-  "source_mode": "wb_api_core_v1",
-  "daily": {
-    "orders_count": null,
-    "orders_amount": null,
-    "orders_source": "orders_api",
-    "orders_available": false,
-    "buyouts_count": null,
-    "buyouts_amount": null,
-    "buyouts_source": "sales_api",
-    "buyouts_available": false
+  "source_mode": "wb_api_core_v2",
+  "cabinet_commerce_daily": {
+    "source": "sales_funnel_api",
+    "available": true,
+    "target_date": "2026-04-21",
+    "orders_count": 5.0,
+    "orders_amount": 4260.0,
+    "buyouts_count": 0.0,
+    "buyouts_amount": 0.0
   },
-  "financial": {
-    "source": "finance_api",
+  "finance_final_daily": {
+    "source": "finance_detailed_api",
     "available": false,
-    "target_date": "2026-04-20",
+    "target_date": "2026-04-21",
     "actual_date": null,
     "date_aligned": null,
     "gross_revenue": null,
@@ -27,14 +26,29 @@
     "storage": null,
     "penalties": null,
     "deductions": null,
-    "tax": null,
-    "net_profit": null,
-    "margin_pct": null,
-    "finality": "missing"
+    "acquiring": null,
+    "tax": null
   },
-  "stock": {
-    "total_units": null,
-    "source": "stocks_api",
-    "available": false
+  "live_operational": {
+    "orders": {
+      "source": "orders_api",
+      "available": true,
+      "target_date": "2026-04-21",
+      "count": 3.0,
+      "amount": 2500.0
+    },
+    "sales": {
+      "source": "sales_api",
+      "available": true,
+      "target_date": "2026-04-21",
+      "count": 3.0,
+      "amount": 7160.0
+    },
+    "stocks": {
+      "source": "stocks_api",
+      "available": true,
+      "target_date": "2026-04-21",
+      "total_units": 269.0
+    }
   }
 }

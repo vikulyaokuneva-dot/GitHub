@@ -6,16 +6,24 @@ from typing import Any, Dict, Iterable, List
 
 import requests
 
+STATISTICS_BASE_URL = "https://statistics-api.wildberries.ru"
+FINANCE_BASE_URL = "https://finance-api.wildberries.ru"
+ANALYTICS_BASE_URL = "https://seller-analytics-api.wildberries.ru"
+
 ORDERS_PATH = "/api/v1/supplier/orders"
 SALES_PATH = "/api/v1/supplier/sales"
 STOCKS_PATH = "/api/v1/supplier/stocks"
-REALIZATION_PATH = "/api/finance/v1/sales-reports/detailed"
+FINANCE_DETAILED_PATH = "/api/finance/v1/sales-reports/detailed"
+SALES_FUNNEL_PRODUCTS_PATH = "/api/analytics/v3/sales-funnel/products"
 
 
 class WBApiClient:
     def __init__(self, token: str | None = None) -> None:
         self.token = str(token or os.getenv("WB_API_TOKEN", "")).strip()
-        self.base_url = os.getenv("WB_STATISTICS_BASE_URL", "https://statistics-api.wildberries.ru").rstrip("/")
+        self.statistics_base_url = os.getenv("WB_STATISTICS_BASE_URL", STATISTICS_BASE_URL).rstrip("/")
+        self.finance_base_url = os.getenv("WB_FINANCE_BASE_URL", FINANCE_BASE_URL).rstrip("/")
+        self.analytics_base_url = os.getenv("WB_ANALYTICS_BASE_URL", ANALYTICS_BASE_URL).rstrip("/")
+        self.base_url = self.statistics_base_url
         self.timeout_seconds = max(5, int(str(os.getenv("WB_API_TIMEOUT_SECONDS", "60") or "60")))
         self.max_retries = max(1, int(str(os.getenv("WB_API_MAX_RETRIES", "5") or "5")))
 
@@ -38,6 +46,7 @@ class WBApiClient:
         json_body: Any = None,
         allow_204: bool = False,
         empty_on_204: Any = None,
+        base_url: str | None = None,
     ) -> Dict[str, Any]:
         if not self.has_token():
             return {
@@ -49,10 +58,12 @@ class WBApiClient:
                 "status_code": None,
                 "attempts": 0,
                 "method": str(method or "GET").strip().upper() or "GET",
+                "base_url": str(base_url or self.statistics_base_url).rstrip("/"),
             }
 
         request_method = str(method or "GET").strip().upper() or "GET"
-        url = f"{self.base_url}{path}"
+        resolved_base_url = str(base_url or self.statistics_base_url).rstrip("/")
+        url = f"{resolved_base_url}{path}"
         last_error = ""
         last_status: int | None = None
         attempts = 0
@@ -84,6 +95,7 @@ class WBApiClient:
                         "status_code": response.status_code,
                         "attempts": attempts,
                         "method": request_method,
+                        "base_url": resolved_base_url,
                     }
                 if response.status_code == 204 and allow_204:
                     return {
@@ -95,6 +107,7 @@ class WBApiClient:
                         "status_code": response.status_code,
                         "attempts": attempts,
                         "method": request_method,
+                        "base_url": resolved_base_url,
                     }
                 if response.status_code in (429, 500, 502, 503, 504):
                     last_error = f"{response.status_code}: {response.text[:300]}"
@@ -115,6 +128,7 @@ class WBApiClient:
             "status_code": last_status,
             "attempts": attempts,
             "method": request_method,
+            "base_url": resolved_base_url,
         }
 
     @staticmethod
