@@ -220,6 +220,7 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     ads_source_file = ""
     ads_rows_count = 0
     ads_attribution_quality = "unknown"
+    financial_snapshot = None
     local_bundle = load_local_reports(seller_input_dir)
     if isinstance(local_bundle.get("files"), dict):
         discovered_files = dict(local_bundle.get("files") or discovered_files)
@@ -751,4 +752,3 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         "ads_attribution_quality": ads_attribution_quality,
         "supplier_goods_daily": supplier_goods_daily,
     }
-

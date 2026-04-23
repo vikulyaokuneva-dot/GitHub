@@ -3,69 +3,23 @@
     "engine": "logistics_ktr_engine",
     "version": "1.0",
     "seller_id": "seller_001",
-    "run_date": "2026-04-13",
-    "generated_at": "2026-04-15T18:58:11Z",
+    "run_date": "2026-04-21",
+    "generated_at": "2026-04-23T20:18:38Z",
     "source_artifacts": [
       "territorial_distribution.json"
     ]
   },
   "summary": {
-    "sku_total": 3,
+    "sku_total": 0,
     "sku_with_ktr": 0,
     "efficient_count": 0,
     "acceptable_count": 0,
     "inefficient_count": 0,
     "critical_count": 0,
-    "low_confidence_count": 3,
+    "low_confidence_count": 0,
     "avg_ktr": 0.0,
     "avg_locality_score": 0.0,
     "top_critical_skus": []
   },
-  "skus": [
-    {
-      "sku": "1001",
-      "total_buys": 1,
-      "total_stock": 0,
-      "ktr": null,
-      "distribution_gap": null,
-      "confidence": "low",
-      "low_sample_warning": true,
-      "locality_score": null,
-      "logistics_efficiency_status": "insufficient_data",
-      "priority_for_relocation": "none",
-      "dominant_demand_warehouses": [],
-      "dominant_stock_warehouses": [],
-      "explanation": "Insufficient data for logistics assessment."
-    },
-    {
-      "sku": "1002",
-      "total_buys": 1,
-      "total_stock": 0,
-      "ktr": null,
-      "distribution_gap": null,
-      "confidence": "low",
-      "low_sample_warning": true,
-      "locality_score": null,
-      "logistics_efficiency_status": "insufficient_data",
-      "priority_for_relocation": "none",
-      "dominant_demand_warehouses": [],
-      "dominant_stock_warehouses": [],
-      "explanation": "Insufficient data for logistics assessment."
-    },
-    {
-      "sku": "1003",
-      "total_buys": 1,
-      "total_stock": 0,
-      "ktr": null,
-      "distribution_gap": null,
-      "confidence": "low",
-      "low_sample_warning": true,
-      "locality_score": null,
-      "logistics_efficiency_status": "insufficient_data",
-      "priority_for_relocation": "none",
-      "dominant_demand_warehouses": [],
-      "dominant_stock_warehouses": [],
-      "explanation": "Insufficient data for logistics assessment."
-    }
-  ]
+  "skus": []
 }

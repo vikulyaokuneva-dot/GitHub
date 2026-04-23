@@ -1,9 +1,5 @@
 [
   {
-    "code": "wb_api_realization_missing",
-    "message": "WB API sales rows are present, but realization rows are empty; financial contour is not confirmed."
-  },
-  {
     "code": "input_files_found",
     "message": "Input files found: total=0, sales=0, ads=0, stocks=0, funnel=0, supplier_goods=0, unknown=0"
   },
@@ -24,14 +20,6 @@
     "message": "No valid stocks report found in input/."
   },
   {
-    "code": "financial_data_missing",
-    "message": "Financial contour is missing: no realization rows and no local financial fallback."
-  },
-  {
-    "code": "wb_api_empty",
-    "message": "WB API returned no rows"
-  },
-  {
     "code": "financial_kernel_input_missing_groups",
     "message": "Missing required semantic groups: operation_name, quantity, row_amount"
   },
@@ -40,8 +28,12 @@
     "message": "No financial rows were provided for account-level calculation."
   },
   {
-    "code": "sales_funnel_insufficient_data",
-    "message": "Insufficient funnel data for 3 SKU."
+    "code": "financial_contour_missing",
+    "message": "Financial contour missing: realization rows are unavailable for current operational day."
+  },
+  {
+    "code": "sales_funnel_sku_metrics_missing",
+    "message": "SKU-level metrics for sales funnel are missing."
   },
   {
     "code": "keyword_source_rows_missing",
@@ -64,24 +56,28 @@
     "message": "Query-level advertising rows are missing; query analysis is limited."
   },
   {
+    "code": "daily_orders_count_unknown",
+    "message": "daily_orders_count is unknown: no_candidates_found"
+  },
+  {
+    "code": "daily_buyouts_count_unknown",
+    "message": "daily_buyouts_count is unknown: no_candidates_found"
+  },
+  {
+    "code": "daily_kpi_unknown",
+    "message": "daily orders/buyouts counts remain unknown because no confirmed source is available"
+  },
+  {
+    "code": "financial_data_missing",
+    "message": "Financial contour is missing: no realization rows and no local financial fallback."
+  },
+  {
     "code": "profit_contribution_partial_data",
-    "message": "Profit contribution computed with status=partial."
+    "message": "Profit contribution computed with status=insufficient_data."
   },
   {
-    "code": "low_total_profit",
-    "message": "Total financial profit is non-positive; financial attribution may be incomplete."
-  },
-  {
-    "code": "territorial_distribution_stock_rows_missing",
-    "message": "Stock rows are missing for robust localization estimation."
-  },
-  {
-    "code": "territorial_distribution_demand_geo_partial",
-    "message": "Demand geography is missing for 3 SKU rows."
-  },
-  {
-    "code": "territorial_distribution_stock_geo_partial",
-    "message": "Stock geography is missing for 3 SKU rows."
+    "code": "territorial_distribution_sku_missing",
+    "message": "No SKU rows available for territorial distribution analysis."
   },
   {
     "code": "territorial_distribution_suppressed_due_to_data_quality",
@@ -96,19 +92,15 @@
     "message": "Territorial conclusions are preview-only due to limited evidence coverage."
   },
   {
-    "code": "insufficient_warehouse_data",
-    "message": "Insufficient warehouse-level data for full territorial analysis"
-  },
-  {
-    "code": "decision_memory_updated",
-    "message": "Decision memory updated: added 3 records."
+    "code": "sku_health_partial_data",
+    "message": "SKU health score computed with status=insufficient_data."
   },
   {
     "code": "decision_outcomes_evaluated",
-    "message": "Decision outcomes evaluated: 9"
+    "message": "Decision outcomes evaluated: 3"
   },
   {
     "code": "history_snapshot_saved",
-    "message": "History snapshot saved for 2026-04-15"
+    "message": "History snapshot saved for 2026-04-21"
   }
 ]

@@ -1,22 +1,22 @@
 {
   "seller_id": "seller_001",
   "seller_name": "Sergey WB",
-  "run_date": "2026-04-15",
-  "generated_at": "2026-04-15T15:49:06Z",
+  "run_date": "2026-04-21",
+  "generated_at": "2026-04-23T20:18:38Z",
   "data_confidence": "low",
-  "source_mode": "wb_api",
-  "daily_orders_count": 3,
-  "daily_orders_amount": 3399.91,
-  "daily_buyouts_count": 3,
-  "daily_buyouts_amount": 2580.0,
-  "data_source_orders": "api",
-  "data_source_buyouts": "api",
-  "data_source_orders_count": "api",
-  "data_source_orders_amount": "api",
-  "data_source_buyouts_count": "api",
-  "data_source_buyouts_amount": "api",
-  "orders_amount_confirmed": true,
-  "buyouts_amount_confirmed": true,
+  "source_mode": "local_reports",
+  "daily_orders_count": 0,
+  "daily_orders_amount": 0.0,
+  "daily_buyouts_count": 0,
+  "daily_buyouts_amount": 0.0,
+  "data_source_orders": "unknown",
+  "data_source_buyouts": "unknown",
+  "data_source_orders_count": "unknown",
+  "data_source_orders_amount": "unknown",
+  "data_source_buyouts_count": "unknown",
+  "data_source_buyouts_amount": "unknown",
+  "orders_amount_confirmed": false,
+  "buyouts_amount_confirmed": false,
   "ads_rows": 0,
   "ads_spend": 0.0,
   "ads_loaded_from_file": false,
@@ -27,29 +27,29 @@
     "ads_files_found": 0,
     "stocks_files_found": 0,
     "unknown_files_found": 0,
-    "source_mode": "wb_api",
+    "source_mode": "local_reports",
     "confidence": "low"
   },
   "commerce_kpi": {
-    "daily_orders_count": 3,
-    "daily_orders_amount": 3399.91,
-    "daily_buyouts_count": 3,
-    "daily_buyouts_amount": 2580.0,
-    "data_source_orders_count": "api",
-    "data_source_orders_amount": "api",
-    "data_source_buyouts_count": "api",
-    "data_source_buyouts_amount": "api",
-    "orders_count_confirmed": true,
-    "buyouts_count_confirmed": true,
-    "orders_amount_confirmed": true,
-    "buyouts_amount_confirmed": true
+    "daily_orders_count": 0,
+    "daily_orders_amount": 0.0,
+    "daily_buyouts_count": 0,
+    "daily_buyouts_amount": 0.0,
+    "data_source_orders_count": "unknown",
+    "data_source_orders_amount": "unknown",
+    "data_source_buyouts_count": "unknown",
+    "data_source_buyouts_amount": "unknown",
+    "orders_count_confirmed": false,
+    "buyouts_count_confirmed": false,
+    "orders_amount_confirmed": false,
+    "buyouts_amount_confirmed": false
   },
   "financial_kpi": {
-    "revenue": 0.0,
-    "gross_revenue": 0.0,
-    "wb_realized_revenue": 0.0,
-    "seller_payout": 0.0,
-    "row_revenue_total": 0.0,
+    "revenue": null,
+    "gross_revenue": null,
+    "wb_realized_revenue": null,
+    "seller_payout": null,
+    "row_revenue_total": null,
     "revenue_basis": "seller_payout",
     "cost_price": 0.0,
     "cogs": 0.0,
@@ -66,15 +66,15 @@
     "other_adjustments": 0.0,
     "tax": 0.0,
     "ads_spend": 0.0,
-    "gross_profit": 0.0,
-    "net_profit": 0.0,
+    "gross_profit": null,
+    "net_profit": null,
     "margin_pct": null,
     "profitability_pct": null,
     "cost_price_missing": false,
     "wb_commission_missing": false,
     "expense_attribution_partial": false,
-    "net_profit_partial": false,
-    "financial_margin_not_final": false,
+    "net_profit_partial": true,
+    "financial_margin_not_final": true,
     "completeness_pct": 0.0,
     "components": {
       "revenue": {
@@ -131,10 +131,10 @@
     },
     "available_components": 17,
     "total_components": 17,
-    "financial_finality_status": "final",
-    "financial_status": "ok",
-    "is_partial": false,
-    "financial_partial": false,
+    "financial_finality_status": "missing",
+    "financial_status": "missing",
+    "is_partial": true,
+    "financial_partial": true,
     "kernel_semantic_mapping_missing": false,
     "kernel_semantic_missing_groups": [
       "operation_name",
@@ -153,16 +153,23 @@
       "net_profit": "financial_kernel",
       "cost_price": "financial_kernel"
     },
-    "contract_date": "2026-04-14",
-    "confirmed": false
+    "profit": null,
+    "confirmed": false,
+    "financial_date_aligned": true,
+    "financial_actual_date": "2026-04-21",
+    "financial_target_date": "2026-04-21",
+    "financial_date_misaligned": false,
+    "financial_alignment_status": "aligned",
+    "financial_alignment_reason": "Financial actual date matches operational_date.",
+    "contract_date": "2026-04-21"
   },
   "kpi": {
-    "revenue": 0.0,
-    "profit": 0.0,
-    "orders": 3,
-    "buyouts": 3,
-    "orders_amount": 3399.91,
-    "buyouts_amount": 2580.0
+    "revenue": null,
+    "profit": null,
+    "orders": 0,
+    "buyouts": 0,
+    "orders_amount": 0.0,
+    "buyouts_amount": 0.0
   },
   "data_quality": {
     "valid_sku_count": 0,
@@ -171,7 +178,7 @@
     "unassigned_costs_present": false,
     "unassigned_rows": 0,
     "unassigned_profit": 0.0,
-    "financial_status": "degraded",
+    "financial_status": "partial",
     "ai_decision_reliability": "low",
     "sku_attribution_status": "ok",
     "invalid_sku_rows_parser_error": 0,
@@ -184,154 +191,47 @@
     "cost_price_missing": false,
     "wb_commission_missing": false,
     "expense_attribution_partial": false,
-    "net_profit_partial": false,
-    "financial_margin_not_final": false,
+    "net_profit_partial": true,
+    "financial_margin_not_final": true,
     "financial_completeness_pct": 0.0,
-    "financial_finality_status": "final",
+    "financial_finality_status": "missing",
+    "financial_contour_missing": true,
+    "mock_sku_excluded_count": 0,
+    "mock_sku_excluded": [],
     "territorial_analysis_enabled": false,
     "profit_contribution_enabled": true,
     "ads_analysis_enabled": false,
     "report_reliability_level": "low",
+    "financial_snapshot_status": "FinancialStatus.MISSING",
+    "financial_alignment_status": "AlignmentStatus.MISSING",
+    "financial_days_lag": 0,
     "territorial_actionable_enabled": false,
     "territorial_analysis_mode": "disabled",
     "territorial_analysis_status": "blocked_by_data",
     "territorial_recommendation_status": "blocked_by_data",
-    "territorial_blocked_reasons": [
-      "insufficient_order_volume",
-      "localization_not_computable",
-      "missing_demand_geography",
-      "missing_stock_geography"
-    ],
+    "territorial_blocked_reasons": [],
     "territorial_confidence_level": "low",
     "territorial_suppressed_due_to_data_quality": true,
     "advertising_efficiency_enabled": false,
     "advertising_efficiency_analysis_mode": "disabled"
   },
   "api_debug": {
-    "sales_rows": 3,
-    "orders_rows": 3,
+    "sales_rows": 0,
+    "orders_rows": 0,
     "realization_rows": 0,
     "financial_rows": 0,
     "ads_rows": 0,
     "stocks_rows": 0,
-    "endpoints": [
-      {
-        "endpoint": "realization",
-        "success": true,
-        "fail": false,
-        "rows_loaded": 0,
-        "date_from": "2026-04-14",
-        "date_to": "2026-04-14",
-        "error_text": "",
-        "status_code": 200,
-        "attempts": 1,
-        "realization_lag_days": 0,
-        "realization_attempt_date_from": "2026-04-14",
-        "realization_attempt_date_to": "2026-04-14",
-        "realization_target_date": "2026-04-14"
-      },
-      {
-        "endpoint": "realization",
-        "success": true,
-        "fail": false,
-        "rows_loaded": 0,
-        "date_from": "2026-04-13",
-        "date_to": "2026-04-13",
-        "error_text": "",
-        "status_code": 200,
-        "attempts": 1,
-        "realization_lag_days": 1,
-        "realization_attempt_date_from": "2026-04-13",
-        "realization_attempt_date_to": "2026-04-13",
-        "realization_target_date": "2026-04-14"
-      },
-      {
-        "endpoint": "realization",
-        "success": true,
-        "fail": false,
-        "rows_loaded": 0,
-        "date_from": "2026-04-12",
-        "date_to": "2026-04-12",
-        "error_text": "",
-        "status_code": 200,
-        "attempts": 1,
-        "realization_lag_days": 2,
-        "realization_attempt_date_from": "2026-04-12",
-        "realization_attempt_date_to": "2026-04-12",
-        "realization_target_date": "2026-04-14"
-      },
-      {
-        "endpoint": "realization",
-        "success": true,
-        "fail": false,
-        "rows_loaded": 0,
-        "date_from": "2026-04-11",
-        "date_to": "2026-04-11",
-        "error_text": "",
-        "status_code": 200,
-        "attempts": 1,
-        "realization_lag_days": 3,
-        "realization_attempt_date_from": "2026-04-11",
-        "realization_attempt_date_to": "2026-04-11",
-        "realization_target_date": "2026-04-14"
-      },
-      {
-        "endpoint": "sales",
-        "success": true,
-        "fail": false,
-        "rows_loaded": 3,
-        "date_from": "2026-04-14",
-        "date_to": "2026-04-14",
-        "error_text": "",
-        "status_code": 200,
-        "attempts": 1
-      },
-      {
-        "endpoint": "orders",
-        "success": true,
-        "fail": false,
-        "rows_loaded": 3,
-        "date_from": "2026-04-14",
-        "date_to": "2026-04-14",
-        "error_text": "",
-        "status_code": 200,
-        "attempts": 1
-      },
-      {
-        "endpoint": "stocks",
-        "success": true,
-        "fail": false,
-        "rows_loaded": 0,
-        "date_from": "2026-03-15",
-        "date_to": "2026-04-14",
-        "error_text": "",
-        "status_code": 200,
-        "attempts": 1
-      },
-      {
-        "endpoint": "ads_legacy",
-        "success": true,
-        "fail": false,
-        "rows_loaded": 0,
-        "date_from": "2026-04-14",
-        "date_to": "2026-04-14",
-        "error_text": "",
-        "status_code": 200,
-        "attempts": 1
-      }
-    ],
-    "date_from": "2026-04-14",
-    "date_to": "2026-04-14",
-    "run_date_requested": "2026-04-15",
+    "endpoints": [],
+    "date_from": "2026-04-21",
+    "date_to": "2026-04-21",
+    "run_date_requested": "2026-04-21",
     "timezone": "Europe/Moscow",
-    "shifted_to_previous_day": true,
+    "shifted_to_previous_day": false,
     "input_files_detected": 0,
     "local_financial_fallback_used": false,
     "financial_contour_source": "missing",
-    "funnel_source": "api",
-    "funnel_upper_available": false,
-    "funnel_lower_available": true,
-    "funnel_degradation_mode": "upper_funnel_unavailable_from_api",
+    "funnel_source": "missing",
     "supplier_goods_daily_found": false,
     "local_funnel_report_found": false,
     "local_funnel_source_file": "",
@@ -344,50 +244,53 @@
       "archive_errors": []
     },
     "probe_metrics": {
-      "orders_count": 3,
-      "orders_amount": 3399.91,
-      "buyouts": 3,
+      "orders_count": null,
+      "orders_amount": null,
+      "buyouts": null,
       "views": null,
       "add_to_cart": null,
       "ads_spend": null
     },
-    "realization_target_date": "2026-04-14",
+    "realization_target_date": "2026-04-21",
     "realization_actual_source_date": null,
     "realization_fallback_used": false,
     "realization_fallback_lag_days": 0,
+    "finance_api_mode": "unknown",
+    "finance_endpoint_used": "",
+    "finance_report_ids": [],
+    "finance_requested_fields_count": 0,
+    "finance_mapping_diagnostics": {},
+    "finance_fallback_used": false,
+    "finance_fallback_reason": "",
+    "finance_primary_endpoint_attempted": "",
+    "finance_primary_status_code": null,
+    "finance_primary_error_text": "",
     "daily_row_filter": {
-      "target_date": "2026-04-14",
-      "orders_rows_before": 3,
-      "orders_rows_after": 3,
+      "target_date": "2026-04-21",
+      "orders_rows_before": 0,
+      "orders_rows_after": 0,
       "orders_rows_dropped": 0,
-      "sales_rows_before": 3,
-      "sales_rows_after": 3,
+      "sales_rows_before": 0,
+      "sales_rows_after": 0,
       "sales_rows_dropped": 0,
       "realization_rows_before": 0,
       "realization_rows_after": 0,
       "realization_rows_dropped": 0,
-      "orders_dates_sample_before": [
-        "2026-04-14",
-        "2026-04-14",
-        "2026-04-14"
-      ],
-      "orders_dates_sample_after": [
-        "2026-04-14",
-        "2026-04-14",
-        "2026-04-14"
-      ],
-      "sales_dates_sample_before": [
-        "2026-04-14",
-        "2026-04-14",
-        "2026-04-14"
-      ],
-      "sales_dates_sample_after": [
-        "2026-04-14",
-        "2026-04-14",
-        "2026-04-14"
-      ],
+      "realization_fallback_window_days": 0,
+      "orders_dates_sample_before": [],
+      "orders_dates_sample_after": [],
+      "sales_dates_sample_before": [],
+      "sales_dates_sample_after": [],
       "realization_dates_sample_before": [],
       "realization_dates_sample_after": []
+    },
+    "financial_alignment": {
+      "financial_date_aligned": true,
+      "financial_actual_date": "2026-04-21",
+      "financial_target_date": "2026-04-21",
+      "financial_date_misaligned": false,
+      "financial_alignment_status": "aligned",
+      "financial_alignment_reason": "Financial actual date matches operational_date."
     }
   },
   "ads_file_candidates_found": 0,
@@ -397,8 +300,8 @@
   "ads_rows_raw": 0,
   "ads_rows_usable": 0,
   "ads_loader_error": "",
-  "orders_count_confirmed": true,
-  "buyouts_count_confirmed": true,
+  "orders_count_confirmed": false,
+  "buyouts_count_confirmed": false,
   "data_source_revenue": "unknown",
   "data_source_wb_commission": "unknown",
   "data_source_logistics": "unknown",
@@ -410,41 +313,41 @@
     "item_qty": 0,
     "sales_activity_qty": 0,
     "sku_activity_count": 0,
-    "confirmed_daily_orders_count": 3,
-    "confirmed_daily_buyouts_count": 3,
-    "orders_gap_vs_activity": -3,
-    "buyouts_gap_vs_activity": -3
+    "confirmed_daily_orders_count": 0,
+    "confirmed_daily_buyouts_count": 0,
+    "orders_gap_vs_activity": 0,
+    "buyouts_gap_vs_activity": 0
   },
-  "orders_count_unknown_reason": "",
-  "buyouts_count_unknown_reason": "",
+  "orders_count_unknown_reason": "no_candidates_found",
+  "buyouts_count_unknown_reason": "no_candidates_found",
   "source_flags": {
     "orders_count": {
-      "api": true,
+      "api": false,
       "supplier_goods": false,
       "local_report": false,
       "fallback": false,
-      "unknown": false
+      "unknown": true
     },
     "buyouts_count": {
-      "api": true,
+      "api": false,
       "supplier_goods": false,
       "local_report": false,
       "fallback": false,
-      "unknown": false
+      "unknown": true
     },
     "orders_amount": {
-      "api": true,
+      "api": false,
       "supplier_goods": false,
       "local_report": false,
       "fallback": false,
-      "unknown": false
+      "unknown": true
     },
     "buyouts_amount": {
-      "api": true,
+      "api": false,
       "supplier_goods": false,
       "local_report": false,
       "fallback": false,
-      "unknown": false
+      "unknown": true
     },
     "revenue": {
       "api": false,
@@ -485,10 +388,10 @@
   "source_policy": {
     "policy_version": "wb_source_policy_v1",
     "sources": {
-      "orders_count": "api",
-      "buyouts_count": "api",
-      "orders_amount": "api",
-      "buyouts_amount": "api",
+      "orders_count": "unknown",
+      "buyouts_count": "unknown",
+      "orders_amount": "unknown",
+      "buyouts_amount": "unknown",
       "revenue": "unknown",
       "wb_commission": "unknown",
       "logistics": "unknown",
@@ -497,32 +400,32 @@
     },
     "source_flags": {
       "orders_count": {
-        "api": true,
+        "api": false,
         "supplier_goods": false,
         "local_report": false,
         "fallback": false,
-        "unknown": false
+        "unknown": true
       },
       "buyouts_count": {
-        "api": true,
+        "api": false,
         "supplier_goods": false,
         "local_report": false,
         "fallback": false,
-        "unknown": false
+        "unknown": true
       },
       "orders_amount": {
-        "api": true,
+        "api": false,
         "supplier_goods": false,
         "local_report": false,
         "fallback": false,
-        "unknown": false
+        "unknown": true
       },
       "buyouts_amount": {
-        "api": true,
+        "api": false,
         "supplier_goods": false,
         "local_report": false,
         "fallback": false,
-        "unknown": false
+        "unknown": true
       },
       "revenue": {
         "api": false,
@@ -562,62 +465,62 @@
     }
   },
   "event_date_model": {
-    "report_date": "2026-04-15",
-    "operational_date": "2026-04-14",
-    "orders_date": "2026-04-14",
-    "buyouts_date": "2026-04-14",
-    "financial_date": "2026-04-14",
-    "shifted_to_previous_day": true,
+    "report_date": "2026-04-21",
+    "operational_date": "2026-04-21",
+    "orders_date": "2026-04-21",
+    "buyouts_date": "2026-04-21",
+    "financial_date": "2026-04-21",
+    "shifted_to_previous_day": false,
     "timezone": "Europe/Moscow"
   },
   "order_kpi": {
-    "date": "2026-04-14",
-    "orders_count": 3,
-    "orders_amount": 3399.91,
-    "orders_count_confirmed": true,
-    "orders_amount_confirmed": true,
-    "source_count": "api",
-    "source_amount": "api"
+    "date": "2026-04-21",
+    "orders_count": null,
+    "orders_amount": null,
+    "orders_count_confirmed": false,
+    "orders_amount_confirmed": false,
+    "source_count": "unknown",
+    "source_amount": "unknown"
   },
   "buyout_kpi": {
-    "date": "2026-04-14",
-    "buyouts_count": 3,
-    "buyouts_amount": 2580.0,
-    "buyouts_count_confirmed": true,
-    "buyouts_amount_confirmed": true,
-    "source_count": "api",
-    "source_amount": "api"
+    "date": "2026-04-21",
+    "buyouts_count": null,
+    "buyouts_amount": null,
+    "buyouts_count_confirmed": false,
+    "buyouts_amount_confirmed": false,
+    "source_count": "unknown",
+    "source_amount": "unknown"
   },
   "daily_status_matrix": {
-    "orders": "confirmed",
-    "buyouts": "confirmed",
-    "financials": "unknown",
+    "orders": "not_confirmed",
+    "buyouts": "not_confirmed",
+    "financials": "partial",
     "ads": "missing",
     "ai_reliability": "low"
   },
   "event_ledger": {
-    "report_date": "2026-04-15",
-    "operational_date": "2026-04-14",
+    "report_date": "2026-04-21",
+    "operational_date": "2026-04-21",
     "events": [
       {
         "event_type": "orders_snapshot",
-        "event_date": "2026-04-14",
-        "source": "api.orders",
-        "confirmed": true,
-        "rows": 3,
-        "amount": 3399.91
+        "event_date": "2026-04-21",
+        "source": "unknown",
+        "confirmed": false,
+        "rows": 0,
+        "amount": null
       },
       {
         "event_type": "buyouts_snapshot",
-        "event_date": "2026-04-14",
-        "source": "api.sales",
-        "confirmed": true,
-        "rows": 3,
-        "amount": 2580.0
+        "event_date": "2026-04-21",
+        "source": "unknown",
+        "confirmed": false,
+        "rows": 0,
+        "amount": null
       },
       {
         "event_type": "financial_snapshot",
-        "event_date": "2026-04-14",
+        "event_date": "2026-04-21",
         "source": "unknown",
         "confirmed": false,
         "rows": 0,
@@ -626,11 +529,11 @@
     ]
   },
   "render_kpi": {
-    "orders_count": 3,
-    "orders_amount": 3399.91,
-    "buyouts_count": 3,
-    "buyouts_amount": 2580.0,
-    "avg_check": 860.0,
+    "orders_count": null,
+    "orders_amount": null,
+    "buyouts_count": null,
+    "buyouts_amount": null,
+    "avg_check": null,
     "revenue": null,
     "gross_profit": null,
     "net_profit": null,
@@ -638,64 +541,121 @@
     "profitability_pct": null
   },
   "conversion_view_to_order": null,
-  "buyout_rate": 100.0,
+  "buyout_rate": null,
   "CPO": null,
   "sales_funnel": {
-    "date": "2026-04-15",
+    "date": "2026-04-21",
     "funnel": {
       "views": 0,
+      "views_status": "confirmed_zero",
+      "views_source": "analytics_api",
+      "impressions": 0,
+      "impressions_status": "confirmed_zero",
+      "impressions_source": "analytics_api",
+      "clicks": 0,
+      "clicks_status": "confirmed_zero",
+      "clicks_source": "analytics_api",
       "add_to_cart": null,
-      "orders": 3,
-      "buyouts": 3,
+      "add_to_cart_status": "missing",
+      "add_to_cart_source": "unknown",
+      "orders": null,
+      "orders_status": "missing",
+      "orders_source": "unknown",
+      "buyouts": null,
+      "buyouts_status": "missing",
+      "buyouts_source": "unknown",
       "view_to_order_conversion": null,
+      "view_to_order_status": "insufficient_data",
+      "view_to_order_reason": "views_or_orders_missing",
       "view_to_order": null,
       "cart_rate": null,
       "cart_to_order": null,
-      "buyout_rate": 100.0,
-      "order_to_buyout": 100.0,
+      "cart_to_order_status": "insufficient_data",
+      "cart_to_order_reason": "add_to_cart_or_orders_missing",
+      "buyout_rate": null,
+      "order_to_buyout_status": "insufficient_data",
+      "order_to_buyout_reason": "orders_or_buyouts_missing",
+      "order_to_buyout": null,
       "order_to_buyout_over_100": false,
       "order_to_buyout_note": "",
       "orders_amount": null,
       "buyouts_amount": null,
       "ads_spend": null,
       "cpo": null,
-      "impressions": 0,
-      "clicks": 0,
+      "cpo_status": "insufficient_data",
+      "cpo_reason": "ads_spend_or_orders_missing",
       "ctr": null,
+      "ctr_status": "insufficient_data",
+      "ctr_reason": "impressions_non_positive",
       "cart_count": null,
       "cart_conversion_pct": null,
       "cart_rate_pct": null,
       "click_to_order_conversion_pct": null,
-      "order_to_buyout_conversion_pct": 100.0,
+      "order_to_buyout_conversion_pct": null,
       "conversion_rates": {
         "view_to_order": null,
         "cart_to_order": null,
-        "order_to_buyout": 100.0,
+        "order_to_buyout": null,
         "order_to_buyout_over_100": false,
         "order_to_buyout_note": ""
       },
+      "conversion_status": {
+        "view_to_order": {
+          "status": "insufficient_data",
+          "reason": "views_or_orders_missing"
+        },
+        "cart_to_order": {
+          "status": "insufficient_data",
+          "reason": "add_to_cart_or_orders_missing"
+        },
+        "order_to_buyout": {
+          "status": "insufficient_data",
+          "reason": "orders_or_buyouts_missing"
+        },
+        "ctr": {
+          "status": "insufficient_data",
+          "reason": "impressions_non_positive"
+        },
+        "cpo": {
+          "status": "insufficient_data",
+          "reason": "ads_spend_or_orders_missing"
+        }
+      },
+      "funnel_status": {
+        "upper_funnel": "partial",
+        "middle_funnel": "missing",
+        "lower_funnel": "missing",
+        "overall": "partial",
+        "reason_codes": [
+          "upper_funnel_partial_fields",
+          "orders_missing_or_unconfirmed",
+          "buyouts_missing_or_unconfirmed"
+        ]
+      },
       "marketing_layer": {
         "basis": "orders",
-        "orders": 3,
+        "orders": null,
         "ads_spend": null,
         "cpo": null
       },
       "financial_layer": {
         "basis": "buyouts",
-        "buyouts": 3,
+        "buyouts": null,
         "revenue": 0.0,
         "commission": 0.0,
         "logistics": 0.0,
         "tax": 0.0,
         "cogs": 0.0,
-        "profit": 0.0
+        "profit": null
       }
     },
     "data_sources": {
-      "views": "api",
+      "views": "analytics_api",
+      "impressions": "analytics_api",
+      "clicks": "analytics_api",
       "add_to_cart": "unknown",
-      "orders": "api",
-      "buyouts": "api",
+      "orders": "unknown",
+      "buyouts": "unknown",
       "orders_amount": "unknown",
       "buyouts_amount": "unknown",
       "ads_spend": "unknown",
@@ -703,122 +663,39 @@
     },
     "status": {
       "traffic": "partial",
-      "conversion": "confirmed",
-      "buyout_stage": "confirmed"
+      "conversion": "unknown",
+      "buyout_stage": "unknown"
+    },
+    "funnel_status": {
+      "upper_funnel": "partial",
+      "middle_funnel": "missing",
+      "lower_funnel": "missing",
+      "overall": "partial",
+      "reason_codes": [
+        "upper_funnel_partial_fields",
+        "orders_missing_or_unconfirmed",
+        "buyouts_missing_or_unconfirmed"
+      ]
     },
     "marketing_layer": {
       "basis": "orders",
-      "orders": 3,
+      "orders": null,
       "ads_spend": null,
       "cpo": null
     },
     "financial_layer": {
       "basis": "buyouts",
-      "buyouts": 3,
+      "buyouts": null,
       "revenue": 0.0,
       "commission": 0.0,
       "logistics": 0.0,
       "tax": 0.0,
       "cogs": 0.0,
-      "profit": 0.0
+      "profit": null
     },
-    "sku_funnel": [
-      {
-        "views": null,
-        "add_to_cart": null,
-        "orders": 1,
-        "buyouts": 1,
-        "view_to_order_conversion": null,
-        "cart_rate": null,
-        "cart_to_order": null,
-        "buyout_rate": 100.0,
-        "buyout_rate_over_100": false,
-        "buyout_rate_note": "",
-        "ads_spend": 0.0,
-        "cpo": 0.0,
-        "marketing_layer": {
-          "basis": "orders",
-          "orders": 1,
-          "ads_spend": 0.0,
-          "cpo": 0.0
-        },
-        "financial_layer": {
-          "basis": "buyouts",
-          "buyouts": 1,
-          "revenue": 800.0,
-          "commission": null,
-          "logistics": null,
-          "tax": null,
-          "cogs": null,
-          "profit": null
-        },
-        "sku": "1001"
-      },
-      {
-        "views": null,
-        "add_to_cart": null,
-        "orders": 1,
-        "buyouts": 1,
-        "view_to_order_conversion": null,
-        "cart_rate": null,
-        "cart_to_order": null,
-        "buyout_rate": 100.0,
-        "buyout_rate_over_100": false,
-        "buyout_rate_note": "",
-        "ads_spend": 0.0,
-        "cpo": 0.0,
-        "marketing_layer": {
-          "basis": "orders",
-          "orders": 1,
-          "ads_spend": 0.0,
-          "cpo": 0.0
-        },
-        "financial_layer": {
-          "basis": "buyouts",
-          "buyouts": 1,
-          "revenue": 900.0,
-          "commission": null,
-          "logistics": null,
-          "tax": null,
-          "cogs": null,
-          "profit": null
-        },
-        "sku": "1002"
-      },
-      {
-        "views": null,
-        "add_to_cart": null,
-        "orders": 1,
-        "buyouts": 1,
-        "view_to_order_conversion": null,
-        "cart_rate": null,
-        "cart_to_order": null,
-        "buyout_rate": 100.0,
-        "buyout_rate_over_100": false,
-        "buyout_rate_note": "",
-        "ads_spend": 0.0,
-        "cpo": 0.0,
-        "marketing_layer": {
-          "basis": "orders",
-          "orders": 1,
-          "ads_spend": 0.0,
-          "cpo": 0.0
-        },
-        "financial_layer": {
-          "basis": "buyouts",
-          "buyouts": 1,
-          "revenue": 880.0,
-          "commission": null,
-          "logistics": null,
-          "tax": null,
-          "cogs": null,
-          "profit": null
-        },
-        "sku": "1003"
-      }
-    ],
+    "sku_funnel": [],
     "sku_diagnostics": {
-      "date": "2026-04-15",
+      "date": "2026-04-21",
       "status": "partial_success",
       "thresholds": {
         "min_views_for_analysis": 50.0,
@@ -830,64 +707,9 @@
         "max_orders_for_ads_efficiency_problem": 0.0,
         "weak_conversion_for_ads_efficiency": 0.005
       },
-      "items": [
-        {
-          "sku": "1001",
-          "views": null,
-          "add_to_cart": null,
-          "orders": 1,
-          "buyouts": 1,
-          "ads_spend": 0.0,
-          "conversion": null,
-          "cart_rate": null,
-          "cart_to_order": null,
-          "buyout_rate": 1.0,
-          "has_views": false,
-          "has_cart": false,
-          "has_orders": true,
-          "has_buyouts": true,
-          "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
-        },
-        {
-          "sku": "1002",
-          "views": null,
-          "add_to_cart": null,
-          "orders": 1,
-          "buyouts": 1,
-          "ads_spend": 0.0,
-          "conversion": null,
-          "cart_rate": null,
-          "cart_to_order": null,
-          "buyout_rate": 1.0,
-          "has_views": false,
-          "has_cart": false,
-          "has_orders": true,
-          "has_buyouts": true,
-          "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
-        },
-        {
-          "sku": "1003",
-          "views": null,
-          "add_to_cart": null,
-          "orders": 1,
-          "buyouts": 1,
-          "ads_spend": 0.0,
-          "conversion": null,
-          "cart_rate": null,
-          "cart_to_order": null,
-          "buyout_rate": 1.0,
-          "has_views": false,
-          "has_cart": false,
-          "has_orders": true,
-          "has_buyouts": true,
-          "issue_type": "insufficient_data",
-          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
-        }
-      ],
+      "items": [],
       "summary": {
-        "sku_count": 3,
+        "sku_count": 0,
         "analyzed_sku_count": 0,
         "issue_counts": {
           "traffic_problem": 0,
@@ -896,21 +718,21 @@
           "buyout_problem": 0,
           "ads_efficiency_problem": 0,
           "healthy_funnel": 0,
-          "insufficient_data": 3
+          "insufficient_data": 0
         },
         "top_problem_groups": [],
         "top_problem_skus": []
       },
       "warnings": [
         {
-          "code": "sales_funnel_insufficient_data",
-          "message": "Insufficient funnel data for 3 SKU."
+          "code": "sales_funnel_sku_metrics_missing",
+          "message": "SKU-level metrics for sales funnel are missing."
         }
       ]
     }
   },
   "sales_funnel_summary": {
-    "sku_count": 3,
+    "sku_count": 0,
     "analyzed_sku_count": 0,
     "issue_counts": {
       "traffic_problem": 0,
@@ -919,7 +741,7 @@
       "buyout_problem": 0,
       "ads_efficiency_problem": 0,
       "healthy_funnel": 0,
-      "insufficient_data": 3
+      "insufficient_data": 0
     },
     "top_problem_groups": [],
     "top_problem_skus": []
@@ -931,15 +753,15 @@
     "buyout_problem": 0,
     "ads_efficiency_problem": 0,
     "healthy_funnel": 0,
-    "insufficient_data": 3
+    "insufficient_data": 0
   },
   "sales_funnel_top_problem_groups": [],
   "finance": {
-    "revenue": 0.0,
-    "gross_revenue": 0.0,
-    "wb_realized_revenue": 0.0,
-    "seller_payout": 0.0,
-    "row_revenue_total": 0.0,
+    "revenue": null,
+    "gross_revenue": null,
+    "wb_realized_revenue": null,
+    "seller_payout": null,
+    "row_revenue_total": null,
     "revenue_basis": "seller_payout",
     "cost_price": 0.0,
     "cogs": 0.0,
@@ -956,15 +778,15 @@
     "other_adjustments": 0.0,
     "tax": 0.0,
     "ads_spend": 0.0,
-    "gross_profit": 0.0,
-    "net_profit": 0.0,
+    "gross_profit": null,
+    "net_profit": null,
     "margin_pct": null,
     "profitability_pct": null,
     "cost_price_missing": false,
     "wb_commission_missing": false,
     "expense_attribution_partial": false,
-    "net_profit_partial": false,
-    "financial_margin_not_final": false,
+    "net_profit_partial": true,
+    "financial_margin_not_final": true,
     "completeness_pct": 0.0,
     "components": {
       "revenue": {
@@ -1021,10 +843,10 @@
     },
     "available_components": 17,
     "total_components": 17,
-    "financial_finality_status": "final",
-    "financial_status": "ok",
-    "is_partial": false,
-    "financial_partial": false,
+    "financial_finality_status": "missing",
+    "financial_status": "missing",
+    "is_partial": true,
+    "financial_partial": true,
     "kernel_semantic_mapping_missing": false,
     "kernel_semantic_missing_groups": [
       "operation_name",
@@ -1043,56 +865,118 @@
       "net_profit": "financial_kernel",
       "cost_price": "financial_kernel"
     },
-    "contract_date": "2026-04-14",
-    "confirmed": false
+    "profit": null,
+    "confirmed": false,
+    "financial_date_aligned": true,
+    "financial_actual_date": "2026-04-21",
+    "financial_target_date": "2026-04-21",
+    "financial_date_misaligned": false,
+    "financial_alignment_status": "aligned",
+    "financial_alignment_reason": "Financial actual date matches operational_date.",
+    "contract_date": "2026-04-21"
   },
   "funnel": {
     "views": 0,
+    "views_status": "confirmed_zero",
+    "views_source": "analytics_api",
+    "impressions": 0,
+    "impressions_status": "confirmed_zero",
+    "impressions_source": "analytics_api",
+    "clicks": 0,
+    "clicks_status": "confirmed_zero",
+    "clicks_source": "analytics_api",
     "add_to_cart": null,
-    "orders": 3,
-    "buyouts": 3,
+    "add_to_cart_status": "missing",
+    "add_to_cart_source": "unknown",
+    "orders": null,
+    "orders_status": "missing",
+    "orders_source": "unknown",
+    "buyouts": null,
+    "buyouts_status": "missing",
+    "buyouts_source": "unknown",
     "view_to_order_conversion": null,
+    "view_to_order_status": "insufficient_data",
+    "view_to_order_reason": "views_or_orders_missing",
     "view_to_order": null,
     "cart_rate": null,
     "cart_to_order": null,
-    "buyout_rate": 100.0,
-    "order_to_buyout": 100.0,
+    "cart_to_order_status": "insufficient_data",
+    "cart_to_order_reason": "add_to_cart_or_orders_missing",
+    "buyout_rate": null,
+    "order_to_buyout_status": "insufficient_data",
+    "order_to_buyout_reason": "orders_or_buyouts_missing",
+    "order_to_buyout": null,
     "order_to_buyout_over_100": false,
     "order_to_buyout_note": "",
     "orders_amount": null,
     "buyouts_amount": null,
     "ads_spend": null,
     "cpo": null,
-    "impressions": 0,
-    "clicks": 0,
+    "cpo_status": "insufficient_data",
+    "cpo_reason": "ads_spend_or_orders_missing",
     "ctr": null,
+    "ctr_status": "insufficient_data",
+    "ctr_reason": "impressions_non_positive",
     "cart_count": null,
     "cart_conversion_pct": null,
     "cart_rate_pct": null,
     "click_to_order_conversion_pct": null,
-    "order_to_buyout_conversion_pct": 100.0,
+    "order_to_buyout_conversion_pct": null,
     "conversion_rates": {
       "view_to_order": null,
       "cart_to_order": null,
-      "order_to_buyout": 100.0,
+      "order_to_buyout": null,
       "order_to_buyout_over_100": false,
       "order_to_buyout_note": ""
     },
+    "conversion_status": {
+      "view_to_order": {
+        "status": "insufficient_data",
+        "reason": "views_or_orders_missing"
+      },
+      "cart_to_order": {
+        "status": "insufficient_data",
+        "reason": "add_to_cart_or_orders_missing"
+      },
+      "order_to_buyout": {
+        "status": "insufficient_data",
+        "reason": "orders_or_buyouts_missing"
+      },
+      "ctr": {
+        "status": "insufficient_data",
+        "reason": "impressions_non_positive"
+      },
+      "cpo": {
+        "status": "insufficient_data",
+        "reason": "ads_spend_or_orders_missing"
+      }
+    },
+    "funnel_status": {
+      "upper_funnel": "partial",
+      "middle_funnel": "missing",
+      "lower_funnel": "missing",
+      "overall": "partial",
+      "reason_codes": [
+        "upper_funnel_partial_fields",
+        "orders_missing_or_unconfirmed",
+        "buyouts_missing_or_unconfirmed"
+      ]
+    },
     "marketing_layer": {
       "basis": "orders",
-      "orders": 3,
+      "orders": null,
       "ads_spend": null,
       "cpo": null
     },
     "financial_layer": {
       "basis": "buyouts",
-      "buyouts": 3,
+      "buyouts": null,
       "revenue": 0.0,
       "commission": 0.0,
       "logistics": 0.0,
       "tax": 0.0,
       "cogs": 0.0,
-      "profit": 0.0
+      "profit": null
     }
   },
   "ads": {
@@ -1116,20 +1000,20 @@
   "profit_contribution_summary": {
     "p1_count": 0,
     "p2_count": 0,
-    "p3_count": 3,
+    "p3_count": 0,
     "top_profit_skus": []
   },
   "territorial_distribution_summary": {
-    "sku_total": 3,
+    "sku_total": 0,
     "sku_with_ktr": 0,
     "balanced_count": 0,
     "moderate_mismatch_count": 0,
     "misallocated_count": 0,
-    "insufficient_distribution_data_count": 3,
-    "no_stock_data_count": 3,
-    "insufficient_total_count": 3,
+    "insufficient_distribution_data_count": 0,
+    "no_stock_data_count": 0,
+    "insufficient_total_count": 0,
     "avg_ktr": 0.0,
-    "total_skus_analyzed": 3,
+    "total_skus_analyzed": 0,
     "skus_with_irp_penalty": 0,
     "skus_below_60_localization": 0,
     "skus_below_40_localization": 0,
@@ -1142,28 +1026,18 @@
     "stock_coverage_pct": 0.0,
     "unknown_share_pct": 100.0,
     "known_localization_skus": 0,
-    "unknown_localization_skus": 3,
+    "unknown_localization_skus": 0,
     "full_analysis_skus": 0,
     "preview_analysis_skus": 0,
-    "disabled_analysis_skus": 3,
+    "disabled_analysis_skus": 0,
     "usable_analysis_skus": 0,
-    "blocked_analysis_skus": 3,
+    "blocked_analysis_skus": 0,
     "confidence_level": "low",
     "analysis_mode": "disabled",
     "analysis_status": "blocked_by_data",
     "recommendation_status": "blocked_by_data",
-    "blocked_reasons": [
-      "insufficient_order_volume",
-      "localization_not_computable",
-      "missing_demand_geography",
-      "missing_stock_geography"
-    ],
-    "blocked_reason_counts": {
-      "missing_demand_geography": 3,
-      "missing_stock_geography": 3,
-      "insufficient_order_volume": 3,
-      "localization_not_computable": 3
-    },
+    "blocked_reasons": [],
+    "blocked_reason_counts": {},
     "suppressed_due_to_data_quality": true,
     "recommendation_candidate_skus": 0,
     "actionable_recommendation_skus": 0,
@@ -1173,26 +1047,26 @@
     "top_misaligned_skus": []
   },
   "logistics_ktr_summary": {
-    "sku_total": 3,
+    "sku_total": 0,
     "sku_with_ktr": 0,
     "efficient_count": 0,
     "acceptable_count": 0,
     "inefficient_count": 0,
     "critical_count": 0,
-    "low_confidence_count": 3,
+    "low_confidence_count": 0,
     "avg_ktr": 0.0,
     "avg_locality_score": 0.0,
     "top_critical_skus": []
   },
   "decision_memory_summary": {
     "total_logged": 100,
-    "pending": 3,
-    "success": 28,
+    "pending": 0,
+    "success": 31,
     "fail": 40,
     "neutral": 29
   },
   "history_summary": {
-    "snapshots_count": 13,
-    "latest_snapshot_date": "2026-04-15"
+    "snapshots_count": 14,
+    "latest_snapshot_date": "2026-04-21"
   }
 }

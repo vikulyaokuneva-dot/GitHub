@@ -2,6 +2,8 @@
 Tests for PHASE 3 - FinancialSnapshot integration in pipeline.
 """
 
+import os
+import tempfile
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from v3.financial.models import FinancialRow, FinancialLoadResult, LoadStatus, FinanceAPISource
@@ -10,6 +12,23 @@ from v3.domain.financial_snapshot import FinancialSnapshot, FinancialStatus, Ali
 
 class TestPhase3InputStageIntegration:
     """Test that daily_input_stage loads financial_snapshot."""
+
+    def test_daily_input_stage_local_reports_initializes_financial_snapshot(self):
+        """Local-reports path should return financial_snapshot=None instead of crashing."""
+        from v3.pipeline.daily_input_stage import run_daily_input_stage
+
+        with tempfile.TemporaryDirectory() as repo_root:
+            os.makedirs(os.path.join(repo_root, "cabinets", "seller_001", "input"), exist_ok=True)
+            with patch.dict("os.environ", {"WB_API_TOKEN": ""}, clear=False):
+                context = run_daily_input_stage(
+                    repo_root=repo_root,
+                    seller_id="seller_001",
+                    run_date="2026-04-21",
+                )
+
+        assert "financial_snapshot" in context
+        assert context["financial_snapshot"] is None
+        assert context["source_mode"] == "local_reports"
 
     def test_daily_input_stage_includes_financial_snapshot(self):
         """Test that run_daily_input_stage returns financial_snapshot in context."""
