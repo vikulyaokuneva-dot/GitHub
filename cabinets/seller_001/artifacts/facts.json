@@ -2,7 +2,7 @@
   "seller_id": "seller_001",
   "seller_name": "Sergey WB",
   "run_date": "2026-04-21",
-  "generated_at": "2026-04-23T20:18:38Z",
+  "generated_at": "2026-04-23T21:43:56Z",
   "data_confidence": "low",
   "source_mode": "local_reports",
   "daily_orders_count": 0,
@@ -1064,9 +1064,5 @@
     "success": 31,
     "fail": 40,
     "neutral": 29
-  },
-  "history_summary": {
-    "snapshots_count": 14,
-    "latest_snapshot_date": "2026-04-21"
   }
 }

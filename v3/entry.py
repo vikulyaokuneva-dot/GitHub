@@ -1060,6 +1060,31 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     return output
 
 
+def _finalize_daily_delivery(result: Dict[str, Any], *, seller_id: str, run_date: str) -> Dict[str, Any]:
+    if not isinstance(result, dict):
+        return result
+    if str(result.get("status") or "") not in {"success", "partial_success"}:
+        return result
+
+    report_version = str(result.get("report_version") or "").strip().lower()
+    if report_version == "v2":
+        persist_result_job_if_possible(result)
+        return result
+
+    report_pdf_path = os.path.join(str(result.get("artifacts_dir") or ""), "report.pdf")
+    email_summary = result.get("email_summary", {}) if isinstance(result, dict) else {}
+    finalized_result = orchestrate_daily_email_send(
+        job=result if isinstance(result, dict) else {},
+        seller_id=seller_id,
+        run_date=run_date,
+        report_pdf_path=report_pdf_path,
+        email_summary=email_summary if isinstance(email_summary, dict) else {},
+        build_body=_build_management_email_body,
+    )
+    persist_result_job_if_possible(finalized_result if isinstance(finalized_result, dict) else {})
+    return finalized_result
+
+
 def _failed_run_result(seller_id: str, run_date: str, mode: str, error: str) -> Dict[str, Any]:
     return {
         "seller_id": seller_id,
@@ -1198,17 +1223,11 @@ def run_for_seller(seller_id: str, run_date: str | None = None, repo_root: str |
         _debug_seller_paths(seller_repo_root, seller_id)
         result = _run_daily_for_seller(seller_repo_root, seller_id, resolved_run_date)
         if str(result.get("status") or "") in {"success", "partial_success"}:
-            report_pdf_path = os.path.join(str(result.get("artifacts_dir") or ""), "report.pdf")
-            email_summary = result.get("email_summary", {}) if isinstance(result, dict) else {}
-            result = orchestrate_daily_email_send(
-                job=result if isinstance(result, dict) else {},
+            result = _finalize_daily_delivery(
+                result if isinstance(result, dict) else {},
                 seller_id=seller_id,
                 run_date=resolved_run_date,
-                report_pdf_path=report_pdf_path,
-                email_summary=email_summary if isinstance(email_summary, dict) else {},
-                build_body=_build_management_email_body,
             )
-            persist_result_job_if_possible(result if isinstance(result, dict) else {})
 
         status = str(result.get("status") or "")
         if status == "success":

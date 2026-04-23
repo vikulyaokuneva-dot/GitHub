@@ -96,11 +96,7 @@
     "message": "SKU health score computed with status=insufficient_data."
   },
   {
-    "code": "decision_outcomes_evaluated",
-    "message": "Decision outcomes evaluated: 3"
-  },
-  {
-    "code": "history_snapshot_saved",
-    "message": "History snapshot saved for 2026-04-21"
+    "code": "no_decisions_ready_for_outcome",
+    "message": "No decisions are ready for outcome evaluation yet"
   }
 ]
