@@ -3,18 +3,11 @@
   "mode": "daily",
   "run_date": "2026-04-21",
   "status": "success",
-  "started_at": "2026-04-23T21:43:56Z",
-  "finished_at": "2026-04-23T21:43:57Z",
+  "started_at": "2026-04-23T22:05:57Z",
+  "finished_at": "2026-04-23T22:05:58Z",
   "error": null,
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
   "source_mode": "wb_api_core_v2",
-  "artifacts": [
-    "report_payload_v2.json",
-    "report_v2.pdf",
-    "email_v2.html",
-    "email_v2.txt",
-    "report_meta.json"
-  ],
   "email_attempted": false,
   "email_sent": false,
   "email_to": "",
@@ -25,14 +18,27 @@
   "report_version": "v2",
   "renderer": "report_v2",
   "source_of_truth": "snapshot.json",
+  "artifacts": {
+    "pdf": "report_v2.pdf",
+    "payload": "report_payload_v2.json",
+    "email_html": "email_v2.html",
+    "email_txt": "email_v2.txt"
+  },
   "report_meta": {
     "seller_id": "seller_001",
     "report_date": "2026-04-21",
     "operational_day": "2026-04-21",
     "source_mode": "wb_api_core_v2",
+    "status": "success",
     "report_version": "v2",
     "renderer": "report_v2",
     "source_of_truth": "snapshot.json",
+    "artifacts": {
+      "pdf": "report_v2.pdf",
+      "payload": "report_payload_v2.json",
+      "email_html": "email_v2.html",
+      "email_txt": "email_v2.txt"
+    },
     "snapshot_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-04-21\\snapshot.json",
     "debug_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-04-21\\debug.json",
     "report_payload_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_payload_v2.json",
@@ -52,5 +58,6 @@
   "payload_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_payload_v2.json",
   "pdf_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_v2.pdf",
   "email_html_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\email_v2.html",
-  "email_txt_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\email_v2.txt"
+  "email_txt_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\email_v2.txt",
+  "report_meta_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_meta.json"
 }

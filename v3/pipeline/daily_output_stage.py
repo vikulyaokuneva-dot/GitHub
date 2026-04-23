@@ -20,6 +20,13 @@ REPORT_VERSION_ENV = "REPORT_VERSION"
 REPORT_VERSION_LEGACY = "legacy"
 REPORT_VERSION_V2 = "v2"
 
+V2_ARTIFACT_FILENAMES = {
+    "pdf": "report_v2.pdf",
+    "payload": "report_payload_v2.json",
+    "email_html": "email_v2.html",
+    "email_txt": "email_v2.txt",
+}
+
 
 def _resolve_report_version(context: Dict[str, Any]) -> str:
     raw_context_value = context.get("report_version") if isinstance(context, dict) else None
@@ -30,6 +37,10 @@ def _resolve_report_version(context: Dict[str, Any]) -> str:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _v2_artifact_registry() -> Dict[str, str]:
+    return dict(V2_ARTIFACT_FILENAMES)
 
 
 def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
@@ -64,15 +75,18 @@ def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
     report_date = str(meta.get("report_date") or run_date)
     operational_day = str(meta.get("operational_date") or report_date)
     normalized_seller_id = str(meta.get("seller_id") or seller_id)
+    artifacts_registry = _v2_artifact_registry()
 
     report_meta: Dict[str, Any] = {
         "seller_id": normalized_seller_id,
         "report_date": report_date,
         "operational_day": operational_day,
         "source_mode": source_mode,
+        "status": "success",
         "report_version": REPORT_VERSION_V2,
         "renderer": "report_v2",
         "source_of_truth": "snapshot.json",
+        "artifacts": artifacts_registry,
         "snapshot_path": snapshot_paths["snapshot_path"],
         "debug_path": snapshot_paths["debug_path"] if os.path.isfile(snapshot_paths["debug_path"]) else "",
         "report_payload_path": str(report_v2_result.get("payload_path") or ""),
@@ -93,13 +107,6 @@ def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
         source_mode=source_mode,
         artifacts_dir=out_dir,
         status="success",
-        artifacts=[
-            "report_payload_v2.json",
-            "report_v2.pdf",
-            "email_v2.html",
-            "email_v2.txt",
-            "report_meta.json",
-        ],
         email_attempted=False,
         email_sent=False,
         email_to="",
@@ -113,11 +120,13 @@ def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
             "report_version": REPORT_VERSION_V2,
             "renderer": "report_v2",
             "source_of_truth": "snapshot.json",
+            "artifacts": artifacts_registry,
             "report_meta": report_meta,
             "payload_path": str(report_v2_result.get("payload_path") or ""),
             "pdf_path": str(report_v2_result.get("pdf_path") or ""),
             "email_html_path": str(report_v2_result.get("email_html_path") or ""),
             "email_txt_path": str(report_v2_result.get("email_txt_path") or ""),
+            "report_meta_path": str(Path(out_dir) / "report_meta.json"),
             "artifacts_dir": out_dir,
         }
     )

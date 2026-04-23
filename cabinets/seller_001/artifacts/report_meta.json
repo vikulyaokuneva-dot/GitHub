@@ -3,9 +3,16 @@
   "report_date": "2026-04-21",
   "operational_day": "2026-04-21",
   "source_mode": "wb_api_core_v2",
+  "status": "success",
   "report_version": "v2",
   "renderer": "report_v2",
   "source_of_truth": "snapshot.json",
+  "artifacts": {
+    "pdf": "report_v2.pdf",
+    "payload": "report_payload_v2.json",
+    "email_html": "email_v2.html",
+    "email_txt": "email_v2.txt"
+  },
   "snapshot_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-04-21\\snapshot.json",
   "debug_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-04-21\\debug.json",
   "report_payload_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_payload_v2.json",

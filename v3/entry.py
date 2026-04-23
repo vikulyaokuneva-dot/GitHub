@@ -1068,7 +1068,6 @@ def _finalize_daily_delivery(result: Dict[str, Any], *, seller_id: str, run_date
 
     report_version = str(result.get("report_version") or "").strip().lower()
     if report_version == "v2":
-        persist_result_job_if_possible(result)
         return result
 
     report_pdf_path = os.path.join(str(result.get("artifacts_dir") or ""), "report.pdf")

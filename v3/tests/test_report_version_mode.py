@@ -122,9 +122,52 @@ class TestReportVersionMode(unittest.TestCase):
 
             with open(os.path.join(out_dir, "report_meta.json"), "r", encoding="utf-8-sig") as file:
                 report_meta = json.load(file)
+            expected_artifacts = {
+                "pdf": "report_v2.pdf",
+                "payload": "report_payload_v2.json",
+                "email_html": "email_v2.html",
+                "email_txt": "email_v2.txt",
+            }
             self.assertEqual(report_meta.get("report_version"), "v2")
             self.assertEqual(report_meta.get("renderer"), "report_v2")
             self.assertEqual(report_meta.get("source_of_truth"), "snapshot.json")
+            self.assertEqual(report_meta.get("status"), "success")
+            self.assertEqual(report_meta.get("artifacts"), expected_artifacts)
+
+    def test_daily_output_stage_v2_mode_writes_job_with_only_v2_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as repo_root:
+            out_dir = os.path.join(repo_root, "cabinets", "seller_001", "artifacts")
+            core_dir = os.path.join(out_dir, "wb_api_core", "2026-04-21")
+            _write_json(os.path.join(core_dir, "snapshot.json"), _snapshot_payload())
+            _write_json(os.path.join(core_dir, "debug.json"), _debug_payload())
+
+            with patch.dict(os.environ, {"REPORT_VERSION": "v2"}, clear=False):
+                result = run_daily_output_stage(
+                    {
+                        "repo_root": repo_root,
+                        "seller_id": "seller_001",
+                        "run_date": "2026-04-21",
+                        "out_dir": out_dir,
+                        "started_at": "2026-04-21T10:00:00Z",
+                    }
+                )
+
+            with open(os.path.join(out_dir, "job.json"), "r", encoding="utf-8-sig") as file:
+                job = json.load(file)
+
+            expected_artifacts = {
+                "pdf": "report_v2.pdf",
+                "payload": "report_payload_v2.json",
+                "email_html": "email_v2.html",
+                "email_txt": "email_v2.txt",
+            }
+            self.assertEqual(result.get("report_version"), "v2")
+            self.assertEqual(job.get("report_version"), "v2")
+            self.assertEqual(job.get("renderer"), "report_v2")
+            self.assertEqual(job.get("source_of_truth"), "snapshot.json")
+            self.assertEqual(job.get("artifacts"), expected_artifacts)
+            self.assertEqual(os.path.basename(str(job.get("pdf_path") or "")), "report_v2.pdf")
+            self.assertNotIn("report.pdf", json.dumps(job, ensure_ascii=False))
 
     def test_daily_output_stage_legacy_mode_keeps_legacy_chain(self) -> None:
         with patch.dict(os.environ, {"REPORT_VERSION": "legacy"}, clear=False):
@@ -152,7 +195,7 @@ class TestReportVersionMode(unittest.TestCase):
         history_mock.assert_called_once()
         self.assertEqual(result.get("status"), "success")
 
-    def test_finalize_daily_delivery_skips_legacy_email_send_for_v2(self) -> None:
+    def test_finalize_daily_delivery_skips_legacy_finalize_writers_for_v2(self) -> None:
         with patch(
             "v3.entry.orchestrate_daily_email_send",
             side_effect=AssertionError("legacy email send should not run for report_v2"),
@@ -167,7 +210,7 @@ class TestReportVersionMode(unittest.TestCase):
                 run_date="2026-04-21",
             )
 
-        persist_mock.assert_called_once()
+        persist_mock.assert_not_called()
         self.assertEqual(result.get("report_version"), "v2")
 
     def test_finalize_daily_delivery_uses_legacy_email_send_for_legacy_mode(self) -> None:
