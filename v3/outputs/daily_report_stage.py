@@ -5,6 +5,7 @@ import os
 import re
 from typing import Any, Dict, List
 
+from ..core_report_bridge import build_core_snapshot_stage_view
 from ..pdf_render import normalize_pdf_text, repair_mojibake, write_daily_bi_pdf
 from ..pipeline.daily_stage_support import sync_from_entry
 from .email_sender_orchestrator import build_daily_email_body, build_daily_email_subject
@@ -219,6 +220,8 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     data: Dict[str, Any] = dict(payload or {})
     source_mode = str(data.get("source_mode") or "").strip().lower()
     core_snapshot_mode = source_mode == "core_snapshot"
+    if core_snapshot_mode and not isinstance(data.get("core_report_payload"), dict):
+        raise ValueError("core_snapshot_mode_requires_core_report_payload")
     data_mode = str(data.get("data_mode") or "").strip().lower()
     if not data_mode:
         data_mode = (
@@ -230,15 +233,6 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             else "raw_reports_fallback"
         )
     non_api_mode = bool(data.get("non_api_mode", data_mode != "api"))
-    print(
-        "[daily_report_stage] enter "
-        f"source_mode={source_mode or '<empty>'} "
-        f"pdf_source_mode={str(data.get('pdf_source_mode') or '<empty>')} "
-        f"core_report_payload_available={str(isinstance(data.get('core_report_payload'), dict)).lower()} "
-        f"data_mode={data_mode} "
-        f"non_api_mode={str(non_api_mode).lower()} "
-        f"kpi_fields=daily_kpi,financial_kpi,render_kpi,order_kpi,buyout_kpi,daily_status_matrix,event_date_model"
-    )
     non_api_notice = (
         "Отчет собран в ограниченном режиме по raw-отчетам WB, "
         "часть метрик может быть недоступна до подключения API"
@@ -411,6 +405,69 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     api_debug_early = data.get("api_debug", {})
     if not isinstance(api_debug_early, dict):
         api_debug_early = {}
+    source_flags_payload = data.get("source_flags", {})
+    if not isinstance(source_flags_payload, dict):
+        source_flags_payload = {}
+    live_operational_payload: Dict[str, Any] = {}
+    if core_snapshot_mode:
+        core_snapshot_view = build_core_snapshot_stage_view(data.get("core_report_payload", {}))
+        daily_kpi = core_snapshot_view.get("daily_kpi", {})
+        if not isinstance(daily_kpi, dict):
+            daily_kpi = {}
+        core_event_date_model = core_snapshot_view.get("event_date_model", {})
+        if not isinstance(core_event_date_model, dict):
+            core_event_date_model = {}
+        event_date_model = dict(event_date_model)
+        event_date_model.update(core_event_date_model)
+        order_kpi = core_snapshot_view.get("order_kpi", {})
+        if not isinstance(order_kpi, dict):
+            order_kpi = {}
+        buyout_kpi = core_snapshot_view.get("buyout_kpi", {})
+        if not isinstance(buyout_kpi, dict):
+            buyout_kpi = {}
+        financial_kpi = core_snapshot_view.get("financial_kpi", {})
+        if not isinstance(financial_kpi, dict):
+            financial_kpi = {}
+        daily_status_matrix = dict(daily_status_matrix)
+        daily_status_matrix.update(
+            core_snapshot_view.get("daily_status_matrix", {})
+            if isinstance(core_snapshot_view.get("daily_status_matrix"), dict)
+            else {}
+        )
+        render_kpi = core_snapshot_view.get("render_kpi", {})
+        if not isinstance(render_kpi, dict):
+            render_kpi = {}
+        data_quality = dict(data_quality)
+        data_quality.update(
+            core_snapshot_view.get("data_quality", {})
+            if isinstance(core_snapshot_view.get("data_quality"), dict)
+            else {}
+        )
+        data_sources = dict(data_sources)
+        data_sources.update(
+            core_snapshot_view.get("data_sources", {})
+            if isinstance(core_snapshot_view.get("data_sources"), dict)
+            else {}
+        )
+        source_flags_payload = (
+            core_snapshot_view.get("source_flags", {})
+            if isinstance(core_snapshot_view.get("source_flags"), dict)
+            else source_flags_payload
+        )
+        live_operational_payload = (
+            core_snapshot_view.get("live_operational", {})
+            if isinstance(core_snapshot_view.get("live_operational"), dict)
+            else {}
+        )
+        api_debug_early = dict(api_debug_early)
+        api_debug_early.update(
+            {
+                "financial_rows": int(source_flags_payload.get("finance_rows_loaded", 0) or 0),
+                "orders_rows": int(source_flags_payload.get("live_orders_rows_loaded", 0) or 0),
+                "sales_rows": int(source_flags_payload.get("live_sales_rows_loaded", 0) or 0),
+                "stocks_rows": int(source_flags_payload.get("live_stocks_rows_loaded", 0) or 0),
+            }
+        )
     financial_snapshot = data.get("financial_snapshot")
 
     def _normalize_status_token(value: Any) -> str:
@@ -968,6 +1025,47 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     liquidate_count = len(liquidate_rows)
 
     liquidate_skus = _compact_sku_list_clean([str(row.get("sku") or "").strip() for row in liquidate_rows if isinstance(row, dict)], limit=8)
+    live_orders_payload = (
+        live_operational_payload.get("orders", {})
+        if isinstance(live_operational_payload.get("orders"), dict)
+        else {}
+    )
+    live_sales_payload = (
+        live_operational_payload.get("sales", {})
+        if isinstance(live_operational_payload.get("sales"), dict)
+        else {}
+    )
+    live_stocks_payload = (
+        live_operational_payload.get("stocks", {})
+        if isinstance(live_operational_payload.get("stocks"), dict)
+        else {}
+    )
+    live_block_lines: List[str] = []
+    if core_snapshot_mode:
+        live_block_lines = [
+            "",
+            "## Live operational",
+            "Показатель | Значение",
+            (
+                "Live заказы | "
+                + _int_text(live_orders_payload.get("count"), missing_label=NO_DATA_LABEL)
+                + " / "
+                + _money_text(live_orders_payload.get("amount"), preliminary=False, decimals=0)
+            ),
+            (
+                "Live продажи | "
+                + _int_text(live_sales_payload.get("count"), missing_label=NO_DATA_LABEL)
+                + " / "
+                + _money_text(live_sales_payload.get("amount"), preliminary=False, decimals=0)
+            ),
+            (
+                "Live остатки | "
+                + _int_text(live_stocks_payload.get("total_units"), missing_label=NO_DATA_LABEL)
+                + " ед. / snapshot "
+                + str(live_stocks_payload.get("snapshot_date") or NO_DATA_LABEL)
+            ),
+        ]
+    page_2.extend(live_block_lines)
 
     page_3: List[str] = [
         "# Ключевые проблемы",
@@ -1133,6 +1231,35 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         txt = re.sub(r"\s{2,}", " ", txt).strip()
         return txt
 
+    live_block_lines_client: List[str] = []
+    if core_snapshot_mode:
+        live_block_lines_client = [
+            "",
+            "## " + _ru("Live-оперативка"),
+            _ru("Показатель") + " | " + _ru("Значение"),
+            (
+                _ru("Live заказы")
+                + " | "
+                + _int_text(live_orders_payload.get("count"), missing_label=NO_DATA_LABEL)
+                + " / "
+                + _money_text(live_orders_payload.get("amount"), preliminary=False, decimals=0)
+            ),
+            (
+                _ru("Live продажи")
+                + " | "
+                + _int_text(live_sales_payload.get("count"), missing_label=NO_DATA_LABEL)
+                + " / "
+                + _money_text(live_sales_payload.get("amount"), preliminary=False, decimals=0)
+            ),
+            (
+                _ru("Live остатки")
+                + " | "
+                + _int_text(live_stocks_payload.get("total_units"), missing_label=NO_DATA_LABEL)
+                + " ед. / snapshot "
+                + str(live_stocks_payload.get("snapshot_date") or NO_DATA_LABEL)
+            ),
+        ]
+
     summary_lines_client = [
         _clean_client(x)
         for x in data.get("key_insights", [])
@@ -1236,6 +1363,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             else _ru("Часть финансовых и рекламных метрик носит предварительный характер из-за неполного подтверждения данных.")
         ),
     ])
+    page_2.extend(live_block_lines_client)
 
     page_3 = [
         "# " + _ru("Ключевые проблемы"),
@@ -1381,81 +1509,102 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     report_date_for_visual = str(data.get("run_date") or "")
     operational_day_for_visual = str(event_date_model.get("operational_date") or report_date_for_visual)
 
-    seller_payout_visual = _first_number_local(
-        financial_kpi_payload.get("seller_payout"),
-        data.get("seller_payout_total"),
-        data.get("revenue_total"),
-        revenue_value,
-        email_summary_payload.get("financial_revenue"),
-    )
-    gross_revenue_visual = _first_number_local(
-        financial_kpi_payload.get("gross_revenue"),
-        data.get("gross_revenue_total"),
-    )
-    wb_realized_revenue_visual = _first_number_local(
-        financial_kpi_payload.get("wb_realized_revenue"),
-        data.get("wb_realized_revenue_total"),
-    )
-    revenue_visual = _first_number_local(
-        financial_kpi_payload.get("revenue"),
-        data.get("revenue_total"),
-        seller_payout_visual,
-    )
-    net_profit_visual = _first_number_local(
-        net_profit_value,
-        data.get("net_profit"),
-        financial_kpi_payload.get("net_profit"),
-        email_summary_payload.get("net_profit"),
-    )
-    ad_spend_visual = _first_number_local(
-        portfolio_ad_spend,
-        data.get("ads_spend_total"),
-        financial_kpi_payload.get("ads_spend"),
-        email_summary_payload.get("ads_spend"),
-    )
-    orders_visual = _first_number_local(
-        orders_count_value,
-        order_kpi.get("orders_count"),
-        funnel.get("orders"),
-        daily_kpi.get("daily_orders_count"),
-    )
+    if core_snapshot_mode:
+        seller_payout_visual = _safe_float_local(financial_kpi_payload.get("seller_payout"))
+        gross_revenue_visual = _safe_float_local(financial_kpi_payload.get("gross_revenue"))
+        wb_realized_revenue_visual = _safe_float_local(financial_kpi_payload.get("wb_realized_revenue"))
+        revenue_visual = _safe_float_local(financial_kpi_payload.get("revenue"))
+        net_profit_visual = _safe_float_local(net_profit_value)
+        ad_spend_visual = _first_number_local(portfolio_ad_spend, financial_kpi_payload.get("ads_spend"))
+        orders_visual = _safe_float_local(orders_count_value)
+        commission_visual = _safe_float_local(financial_kpi_payload.get("wb_commission"))
+        acquiring_visual = _safe_float_local(financial_kpi_payload.get("acquiring"))
+        pvz_service_visual = _safe_float_local(financial_kpi_payload.get("pvz_service"))
+        logistics_visual = _safe_float_local(financial_kpi_payload.get("logistics"))
+        storage_visual = _safe_float_local(financial_kpi_payload.get("storage"))
+        deductions_visual = _safe_float_local(financial_kpi_payload.get("deductions"))
+        loyalty_program_visual = _safe_float_local(financial_kpi_payload.get("loyalty_program"))
+        loyalty_points_visual = _safe_float_local(financial_kpi_payload.get("loyalty_points_withheld"))
+        other_adjustments_visual = _safe_float_local(financial_kpi_payload.get("other_adjustments"))
+        penalties_visual = _safe_float_local(financial_kpi_payload.get("penalties"))
+        cost_price_visual = _safe_float_local(financial_kpi_payload.get("cost_price"))
+        tax_visual = _safe_float_local(financial_kpi_payload.get("tax"))
+    else:
+        seller_payout_visual = _first_number_local(
+            financial_kpi_payload.get("seller_payout"),
+            data.get("seller_payout_total"),
+            data.get("revenue_total"),
+            revenue_value,
+            email_summary_payload.get("financial_revenue"),
+        )
+        gross_revenue_visual = _first_number_local(
+            financial_kpi_payload.get("gross_revenue"),
+            data.get("gross_revenue_total"),
+        )
+        wb_realized_revenue_visual = _first_number_local(
+            financial_kpi_payload.get("wb_realized_revenue"),
+            data.get("wb_realized_revenue_total"),
+        )
+        revenue_visual = _first_number_local(
+            financial_kpi_payload.get("revenue"),
+            data.get("revenue_total"),
+            seller_payout_visual,
+        )
+        net_profit_visual = _first_number_local(
+            net_profit_value,
+            data.get("net_profit"),
+            financial_kpi_payload.get("net_profit"),
+            email_summary_payload.get("net_profit"),
+        )
+        ad_spend_visual = _first_number_local(
+            portfolio_ad_spend,
+            data.get("ads_spend_total"),
+            financial_kpi_payload.get("ads_spend"),
+            email_summary_payload.get("ads_spend"),
+        )
+        orders_visual = _first_number_local(
+            orders_count_value,
+            order_kpi.get("orders_count"),
+            funnel.get("orders"),
+            daily_kpi.get("daily_orders_count"),
+        )
 
-    commission_visual = _first_number_local(
-        data.get("wb_commission"),
-        financial_kpi_payload.get("wb_commission"),
-        email_summary_payload.get("wb_commission"),
-    )
-    acquiring_visual = _first_number_local(data.get("acquiring_total"), financial_kpi_payload.get("acquiring"))
-    pvz_service_visual = _first_number_local(data.get("pvz_service_total"), financial_kpi_payload.get("pvz_service"))
-    logistics_visual = _first_number_local(
-        data.get("logistics_total"),
-        data.get("logistics"),
-        financial_kpi_payload.get("logistics"),
-        email_summary_payload.get("logistics"),
-    )
-    storage_visual = _first_number_local(
-        data.get("storage_total"),
-        data.get("storage"),
-        financial_kpi_payload.get("storage"),
-        email_summary_payload.get("storage"),
-    )
-    deductions_visual = _first_number_local(data.get("deductions_total"), financial_kpi_payload.get("deductions"))
-    loyalty_program_visual = _first_number_local(data.get("loyalty_program_total"), financial_kpi_payload.get("loyalty_program"))
-    loyalty_points_visual = _first_number_local(
-        data.get("loyalty_points_withheld_total"),
-        financial_kpi_payload.get("loyalty_points_withheld"),
-    )
-    other_adjustments_visual = _first_number_local(
-        data.get("other_adjustments_total"),
-        financial_kpi_payload.get("other_adjustments"),
-    )
-    penalties_visual = _first_number_local(data.get("penalties_total"), financial_kpi_payload.get("penalties"))
-    cost_price_visual = _first_number_local(
-        data.get("cost_price_total"),
-        financial_kpi_payload.get("cost_price"),
-        email_summary_payload.get("cost_price"),
-    )
-    tax_visual = _first_number_local(data.get("tax_total"), financial_kpi_payload.get("tax"), email_summary_payload.get("tax"))
+        commission_visual = _first_number_local(
+            data.get("wb_commission"),
+            financial_kpi_payload.get("wb_commission"),
+            email_summary_payload.get("wb_commission"),
+        )
+        acquiring_visual = _first_number_local(data.get("acquiring_total"), financial_kpi_payload.get("acquiring"))
+        pvz_service_visual = _first_number_local(data.get("pvz_service_total"), financial_kpi_payload.get("pvz_service"))
+        logistics_visual = _first_number_local(
+            data.get("logistics_total"),
+            data.get("logistics"),
+            financial_kpi_payload.get("logistics"),
+            email_summary_payload.get("logistics"),
+        )
+        storage_visual = _first_number_local(
+            data.get("storage_total"),
+            data.get("storage"),
+            financial_kpi_payload.get("storage"),
+            email_summary_payload.get("storage"),
+        )
+        deductions_visual = _first_number_local(data.get("deductions_total"), financial_kpi_payload.get("deductions"))
+        loyalty_program_visual = _first_number_local(data.get("loyalty_program_total"), financial_kpi_payload.get("loyalty_program"))
+        loyalty_points_visual = _first_number_local(
+            data.get("loyalty_points_withheld_total"),
+            financial_kpi_payload.get("loyalty_points_withheld"),
+        )
+        other_adjustments_visual = _first_number_local(
+            data.get("other_adjustments_total"),
+            financial_kpi_payload.get("other_adjustments"),
+        )
+        penalties_visual = _first_number_local(data.get("penalties_total"), financial_kpi_payload.get("penalties"))
+        cost_price_visual = _first_number_local(
+            data.get("cost_price_total"),
+            financial_kpi_payload.get("cost_price"),
+            email_summary_payload.get("cost_price"),
+        )
+        tax_visual = _first_number_local(data.get("tax_total"), financial_kpi_payload.get("tax"), email_summary_payload.get("tax"))
 
     if financial_contour_missing and not (non_api_mode and not core_snapshot_mode):
         seller_payout_visual = None
@@ -3032,6 +3181,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         "recommendations_note": _sanitize_client_text(recommendation_state.get("note") or ""),
         "sku_profit_rows": sku_profit_rows,
         "financial_events": financial_events_payload,
+        "live_operational": live_operational_payload,
     }
 
     discovered_files_payload = data.get("discovered_files", {})
@@ -3042,9 +3192,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
         value = discovered_files_payload.get(key, [])
         return len(value) if isinstance(value, list) else 0
 
-    api_debug_payload = data.get("api_debug", {})
-    if not isinstance(api_debug_payload, dict):
-        api_debug_payload = {}
+    api_debug_payload = dict(api_debug_early) if isinstance(api_debug_early, dict) else {}
 
     print(
         "[pipeline] source_files_loaded "
@@ -3210,6 +3358,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             ),
         },
         "kpi_display": visual_payload.get("kpi_display", {}),
+        "live_operational": live_operational_payload,
         "daily_commerce_kpi": {
             "daily_orders_count": _int_or_none(orders_count_value),
             "daily_orders_amount": _round_or_none(orders_amount_value),
@@ -3295,7 +3444,7 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "ads_source_file": str(data.get("ads_source_file") or ""),
             "ads_loaded_from_file": bool(data.get("ads_loaded_from_file", False)),
             "ads_attribution_quality": str(data.get("ads_attribution_quality") or "unknown"),
-            "gross_profit": _round_or_none(data.get("gross_profit_total")),
+            "gross_profit": None if core_snapshot_mode else _round_or_none(data.get("gross_profit_total")),
             "net_profit": _round_or_none(net_profit_visual),
             "explained_net_profit": _round_or_none(explained_net_profit),
             "net_profit_explain_delta": _round_or_none(net_profit_explain_delta),
@@ -3361,14 +3510,6 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
     report_meta["page_previews"] = [{"page": page_idx + 1, "lines": page[:30]} for page_idx, page in enumerate(report_pages)]
 
-    print(
-        "[daily_report_stage] report_meta "
-        f"source_mode={str(report_meta.get('source_mode') or '<empty>')} "
-        f"pdf_source_mode={str(report_meta.get('pdf_source_mode') or '<empty>')} "
-        f"core_report_payload_available={str(bool(report_meta.get('core_report_payload_available', False))).lower()} "
-        f"data_mode={str(report_meta.get('data_mode') or '<empty>')} "
-        f"non_api_mode={str(bool(report_meta.get('non_api_mode', False))).lower()}"
-    )
     write_report_meta(out_dir=out_dir, report_meta=report_meta)
     data.update({"job": job, "report_meta": report_meta, "visual_payload": visual_payload})
     return data

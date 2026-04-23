@@ -73,6 +73,15 @@ def _safe_dict(value: Any) -> Dict[str, Any]:
     return dict(value) if isinstance(value, dict) else {}
 
 
+def _safe_float_value(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _normalize_warning_items(items: Any, *, default_block: str = "") -> List[Dict[str, Any]]:
     normalized: List[Dict[str, Any]] = []
     if not isinstance(items, list):
@@ -190,13 +199,6 @@ def build_core_report_payload(
     paths: Dict[str, str],
     validation_warnings: List[Dict[str, Any]] | None = None,
 ) -> Dict[str, Any]:
-    print(
-        "[core_report_bridge] build_core_report_payload "
-        f"seller_id={seller_id or '<empty>'} "
-        f"run_date={run_date or '<empty>'} "
-        f"snapshot_path={str(paths.get('snapshot_path') or '<empty>')} "
-        f"debug_path={str(paths.get('debug_path') or '<empty>')}"
-    )
     warnings: List[Dict[str, Any]] = list(validation_warnings or [])
     debug_payload = _safe_dict(debug)
     endpoints = _safe_dict(debug_payload.get("endpoints"))
@@ -293,8 +295,8 @@ def build_core_report_payload(
             "target_date": cabinet.get("target_date"),
             "orders_count": cabinet.get("orders_count"),
             "orders_amount": cabinet.get("orders_amount"),
-            "buyouts_count": None,
-            "buyouts_amount": None,
+            "buyouts_count": cabinet.get("buyouts_count"),
+            "buyouts_amount": cabinet.get("buyouts_amount"),
         },
         "finance_final": {
             "source": str(finance.get("source") or "").strip(),
@@ -359,6 +361,201 @@ def build_core_report_payload(
             "live_stocks_rows_loaded": int(stocks_debug.get("rows_loaded", 0) or 0),
             "live_stocks_snapshot_date": str(live_stocks.get("snapshot_date") or "").strip(),
         },
+    }
+
+
+def build_core_snapshot_stage_view(core_report_payload: Dict[str, Any]) -> Dict[str, Any]:
+    meta = _safe_dict(core_report_payload.get("meta"))
+    cabinet = _safe_dict(core_report_payload.get("cabinet_commerce"))
+    finance = _safe_dict(core_report_payload.get("finance_final"))
+    live_operational = _safe_dict(core_report_payload.get("live_operational"))
+    source_flags = _safe_dict(core_report_payload.get("source_flags"))
+
+    live_orders = _safe_dict(live_operational.get("orders"))
+    live_sales = _safe_dict(live_operational.get("sales"))
+    live_stocks = _safe_dict(live_operational.get("stocks"))
+
+    cabinet_source = str(cabinet.get("source") or "unknown")
+    finance_source = str(finance.get("source") or "unknown")
+    cabinet_available = bool(cabinet.get("available", False))
+    finance_available = bool(finance.get("available", False))
+    finance_status = str(finance.get("status") or "unavailable").strip().lower()
+    finance_rows_loaded = int(source_flags.get("finance_rows_loaded", 0) or 0)
+
+    buyouts_count = cabinet.get("buyouts_count")
+    buyouts_amount = cabinet.get("buyouts_amount")
+    buyouts_count_number = _safe_float_value(buyouts_count)
+    buyouts_amount_number = _safe_float_value(buyouts_amount)
+    avg_check = None
+    if buyouts_count_number not in (None, 0.0) and buyouts_amount_number is not None:
+        avg_check = round(buyouts_amount_number / buyouts_count_number, 2)
+
+    buyouts_count_confirmed = buyouts_count is not None
+    buyouts_amount_confirmed = buyouts_amount is not None
+    buyouts_confirmed = bool(buyouts_count_confirmed or buyouts_amount_confirmed)
+    financial_finality_status = "missing"
+    if finance_available:
+        financial_finality_status = "final" if finance_status == "ok" else "partial"
+    financial_alignment_status = (
+        "aligned"
+        if finance.get("date_aligned") is True
+        else ("lagged_fallback" if finance_available else "missing")
+    )
+    financial_matrix_status = "missing"
+    if finance_available:
+        if finance_status == "lagged":
+            financial_matrix_status = "lagged"
+        elif finance_status == "ok":
+            financial_matrix_status = "confirmed"
+        else:
+            financial_matrix_status = "partial"
+
+    daily_kpi = {
+        "daily_orders_count": cabinet.get("orders_count"),
+        "daily_orders_amount": cabinet.get("orders_amount"),
+        "daily_buyouts_count": buyouts_count,
+        "daily_buyouts_amount": buyouts_amount,
+        "orders_count_confirmed": cabinet_available,
+        "buyouts_count_confirmed": buyouts_confirmed,
+        "buyouts_amount_confirmed": buyouts_amount_confirmed,
+        "data_source_orders": cabinet_source,
+        "data_source_orders_count": cabinet_source,
+        "data_source_orders_amount": cabinet_source,
+        "data_source_buyouts": cabinet_source,
+        "data_source_buyouts_count": cabinet_source,
+        "data_source_buyouts_amount": cabinet_source,
+    }
+    order_kpi = {
+        "date": cabinet.get("target_date") or meta.get("operational_date"),
+        "orders_count": cabinet.get("orders_count"),
+        "orders_amount": cabinet.get("orders_amount"),
+        "orders_count_confirmed": cabinet_available,
+        "orders_amount_confirmed": bool(cabinet_available and cabinet.get("orders_amount") is not None),
+        "source_count": cabinet_source,
+        "source_amount": cabinet_source,
+    }
+    buyout_kpi = {
+        "date": cabinet.get("target_date") or meta.get("operational_date"),
+        "buyouts_count": buyouts_count,
+        "buyouts_amount": buyouts_amount,
+        "buyouts_count_confirmed": buyouts_count_confirmed,
+        "buyouts_amount_confirmed": buyouts_amount_confirmed,
+        "source_count": cabinet_source,
+        "source_amount": cabinet_source,
+    }
+    financial_components = {
+        "revenue": {"available": finance.get("seller_payout") is not None},
+        "seller_payout": {"available": finance.get("seller_payout") is not None},
+        "commission": {"available": finance.get("wb_commission") is not None},
+        "acquiring": {"available": finance.get("acquiring") is not None},
+        "pvz_service": {"available": False},
+        "logistics": {"available": finance.get("logistics") is not None},
+        "storage": {"available": finance.get("storage") is not None},
+        "deductions": {"available": finance.get("deductions") is not None},
+        "penalties": {"available": finance.get("penalties") is not None},
+        "cost_price": {"available": False},
+        "tax": {"available": finance.get("tax") is not None},
+        "ads_spend": {"available": False},
+        "net_profit": {"available": False},
+    }
+    financial_kpi = {
+        "revenue": finance.get("seller_payout"),
+        "gross_revenue": finance.get("gross_revenue"),
+        "wb_realized_revenue": None,
+        "seller_payout": finance.get("seller_payout"),
+        "wb_commission": finance.get("wb_commission"),
+        "logistics": finance.get("logistics"),
+        "storage": finance.get("storage"),
+        "penalties": finance.get("penalties"),
+        "deductions": finance.get("deductions"),
+        "acquiring": finance.get("acquiring"),
+        "pvz_service": None,
+        "tax": finance.get("tax"),
+        "cost_price": None,
+        "gross_profit": None,
+        "net_profit": None,
+        "margin_pct": None,
+        "profitability_pct": None,
+        "financial_source": finance_source,
+        "financial_finality_status": financial_finality_status,
+        "financial_status": finance_status,
+        "is_partial": bool(finance_status != "ok"),
+        "financial_partial": bool(finance_status != "ok"),
+        "net_profit_partial": True,
+        "financial_margin_not_final": True,
+        "completeness_pct": 100.0 if finance_available and finance_rows_loaded > 0 else 0.0,
+        "kernel_rows_total": finance_rows_loaded,
+        "financial_alignment_status": financial_alignment_status,
+        "financial_date_aligned": bool(finance.get("date_aligned") is True),
+        "financial_date_misaligned": bool(finance_available and finance.get("date_aligned") is False),
+        "financial_actual_date": finance.get("actual_date"),
+        "financial_target_date": finance.get("target_date") or meta.get("operational_date"),
+        "components": financial_components,
+    }
+    render_kpi = {
+        "orders_count": cabinet.get("orders_count"),
+        "orders_amount": cabinet.get("orders_amount"),
+        "buyouts_count": buyouts_count,
+        "buyouts_amount": buyouts_amount,
+        "avg_check": avg_check,
+        "revenue": finance.get("seller_payout"),
+        "gross_profit": None,
+        "net_profit": None,
+        "margin_pct": None,
+        "profitability_pct": None,
+        "financial_lagged": bool(finance_status == "lagged"),
+        "financial_actual_date": finance.get("actual_date"),
+        "financial_target_date": finance.get("target_date") or meta.get("operational_date"),
+        "financial_alignment_status": financial_alignment_status,
+    }
+    event_date_model = {
+        "report_date": meta.get("report_date"),
+        "operational_date": meta.get("operational_date"),
+        "financial_date": finance.get("actual_date"),
+    }
+    daily_status_matrix = {
+        "orders": "confirmed" if cabinet_available else "missing",
+        "buyouts": "confirmed" if buyouts_confirmed else "missing",
+        "financials": financial_matrix_status,
+    }
+    data_quality = {
+        "financial_finality_status": financial_finality_status,
+        "financial_alignment_status": financial_alignment_status,
+        "financial_date_misaligned": bool(finance_available and finance.get("date_aligned") is False),
+        "financial_actual_date": finance.get("actual_date"),
+        "financial_target_date": finance.get("target_date") or meta.get("operational_date"),
+        "financial_snapshot_status": "confirmed" if finance_available else "missing",
+        "financial_rows_effective": finance_rows_loaded,
+        "financial_completeness_pct": 100.0 if finance_available and finance_rows_loaded > 0 else 0.0,
+    }
+    data_sources = {
+        "orders": cabinet_source,
+        "orders_count": cabinet_source,
+        "orders_amount": cabinet_source,
+        "buyouts": cabinet_source,
+        "buyouts_count": cabinet_source,
+        "buyouts_amount": cabinet_source,
+        "revenue": finance_source,
+    }
+    live_section = {
+        "status": str(live_operational.get("status") or "unavailable"),
+        "orders": live_orders,
+        "sales": live_sales,
+        "stocks": live_stocks,
+    }
+    return {
+        "meta": meta,
+        "daily_kpi": daily_kpi,
+        "order_kpi": order_kpi,
+        "buyout_kpi": buyout_kpi,
+        "financial_kpi": financial_kpi,
+        "render_kpi": render_kpi,
+        "event_date_model": event_date_model,
+        "daily_status_matrix": daily_status_matrix,
+        "data_quality": data_quality,
+        "data_sources": data_sources,
+        "source_flags": source_flags,
+        "live_operational": live_section,
     }
 
 

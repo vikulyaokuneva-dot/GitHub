@@ -26,19 +26,11 @@ def _resolve_pdf_source_mode(payload: Dict[str, Any]) -> str:
     raw_payload_value = payload.get("pdf_source_mode") if isinstance(payload, dict) else None
     raw_env_value = os.getenv(PDF_SOURCE_MODE_ENV, "")
     explicit_mode = str(raw_payload_value or raw_env_value or "").strip().lower()
-    resolved_mode = (
+    return (
         PDF_SOURCE_MODE_CORE_SNAPSHOT
         if explicit_mode == PDF_SOURCE_MODE_CORE_SNAPSHOT
         else PDF_SOURCE_MODE_LEGACY
     )
-    print(
-        "[PDF_SOURCE_MODE] "
-        f"raw_payload={raw_payload_value!r} "
-        f"raw_env={raw_env_value!r} "
-        f"normalized={resolved_mode} "
-        f"default={PDF_SOURCE_MODE_LEGACY}"
-    )
-    return resolved_mode
 
 
 def _safe_float_core(value: Any) -> float | None:
@@ -112,8 +104,16 @@ def _apply_core_snapshot_mirrors(
         else ("lagged_fallback" if finance_available else "missing")
     )
     financial_matrix_status = _financial_matrix_status_from_core(finance_status, finance_available)
-    finance_buyouts_count = finance.get("buyouts_count")
-    finance_buyouts_amount = finance.get("buyouts_amount")
+    finance_buyouts_count = (
+        finance.get("buyouts_count")
+        if finance.get("buyouts_count") is not None
+        else cabinet.get("buyouts_count")
+    )
+    finance_buyouts_amount = (
+        finance.get("buyouts_amount")
+        if finance.get("buyouts_amount") is not None
+        else cabinet.get("buyouts_amount")
+    )
     finance_buyouts_confirmed = finance_buyouts_count is not None or finance_buyouts_amount is not None
 
     daily_kpi = {
@@ -329,21 +329,6 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
     pdf_source_mode = _resolve_pdf_source_mode(payload)
     payload["pdf_source_mode"] = pdf_source_mode
     core_snapshot_mode = pdf_source_mode == PDF_SOURCE_MODE_CORE_SNAPSHOT
-    event_date_model = payload.get("event_date_model", {})
-    if not isinstance(event_date_model, dict):
-        event_date_model = {}
-    print(
-        "[prepare_daily_output_payload] enter "
-        f"seller_id={str(payload.get('seller_id') or '<empty>')} "
-        f"run_date={str(payload.get('run_date') or '<empty>')} "
-        f"operational_date={str(event_date_model.get('operational_date') or payload.get('run_date') or '<empty>')} "
-        f"source_mode={str(payload.get('source_mode') or '<empty>')} "
-        f"pdf_source_mode={pdf_source_mode}"
-    )
-    print(
-        "[prepare_daily_output_payload] branch="
-        f"{PDF_SOURCE_MODE_CORE_SNAPSHOT if core_snapshot_mode else PDF_SOURCE_MODE_LEGACY}"
-    )
     if core_snapshot_mode:
         missing_context = [
             name
@@ -359,30 +344,7 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             seller_id=str(payload.get("seller_id") or ""),
             run_date=str(payload.get("run_date") or ""),
         )
-        print(
-            "[prepare_daily_output_payload] core_report_bridge_call "
-            f"seller_id={str(payload.get('seller_id') or '<empty>')} "
-            f"run_date={str(payload.get('run_date') or '<empty>')} "
-            f"snapshot_path={str(paths.get('snapshot_path') or '<empty>')} "
-            f"debug_path={str(paths.get('debug_path') or '<empty>')}"
-        )
         artifacts = load_core_snapshot_artifacts(paths=paths)
-        snapshot_artifact = artifacts.get("snapshot", {})
-        if not isinstance(snapshot_artifact, dict):
-            snapshot_artifact = {}
-        debug_artifact = artifacts.get("debug")
-        print(
-            "[prepare_daily_output_payload] core_artifacts "
-            f"snapshot_found={str(os.path.isfile(str(paths.get('snapshot_path') or ''))).lower()} "
-            f"debug_found={str(os.path.isfile(str(paths.get('debug_path') or ''))).lower()} "
-            f"seller_id={str(snapshot_artifact.get('seller_id') or payload.get('seller_id') or '<empty>')} "
-            f"run_date={str(snapshot_artifact.get('run_date') or payload.get('run_date') or '<empty>')} "
-            f"operational_date={str(snapshot_artifact.get('operational_date') or '<empty>')} "
-            f"cabinet_commerce_daily={str(isinstance(snapshot_artifact.get('cabinet_commerce_daily'), dict)).lower()} "
-            f"finance_final_daily={str(isinstance(snapshot_artifact.get('finance_final_daily'), dict)).lower()} "
-            f"live_operational={str(isinstance(snapshot_artifact.get('live_operational'), dict)).lower()} "
-            f"debug_payload={str(isinstance(debug_artifact, dict)).lower()}"
-        )
         validation_warnings = validate_core_snapshot(
             snapshot=artifacts.get("snapshot", {}),
             debug=artifacts.get("debug"),
@@ -397,17 +359,6 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             paths=paths,
             validation_warnings=validation_warnings,
         )
-        core_report_meta = core_report_payload.get("meta", {}) if isinstance(core_report_payload, dict) else {}
-        if not isinstance(core_report_meta, dict):
-            core_report_meta = {}
-        core_report_warnings = core_report_payload.get("warnings", []) if isinstance(core_report_payload, dict) else []
-        print(
-            "[prepare_daily_output_payload] core_report_payload "
-            f"built={str(isinstance(core_report_payload, dict)).lower()} "
-            f"keys={sorted(core_report_payload.keys()) if isinstance(core_report_payload, dict) else []} "
-            f"meta.source_mode={str(core_report_meta.get('source_mode') or '<empty>')} "
-            f"warnings_count={len(core_report_warnings) if isinstance(core_report_warnings, list) else 0}"
-        )
         if not is_core_snapshot_usable(core_report_payload):
             raise CoreSnapshotBridgeFatalError(
                 "core_snapshot_unusable: cabinet_commerce and finance_final are both unavailable"
@@ -416,35 +367,6 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
             payload=payload,
             core_report_payload=core_report_payload,
             warnings_collector=warnings_collector,
-        )
-        mirror_fields = [
-            field
-            for field in (
-                "legacy_source_mode",
-                "pdf_source_mode",
-                "source_mode",
-                "data_mode",
-                "non_api_mode",
-                "daily_kpi",
-                "financial_kpi",
-                "order_kpi",
-                "buyout_kpi",
-                "daily_status_matrix",
-                "render_kpi",
-                "event_date_model",
-                "data_quality",
-                "data_sources",
-                "api_debug",
-            )
-            if field in payload
-        ]
-        print(
-            "[prepare_daily_output_payload] payload_written "
-            f"source_mode={str(payload.get('source_mode') or '<empty>')} "
-            f"pdf_source_mode={str(payload.get('pdf_source_mode') or '<empty>')} "
-            f"core_report_payload={str(isinstance(payload.get('core_report_payload'), dict)).lower()} "
-            f"core_report_payload_available={str(isinstance(payload.get('core_report_payload'), dict)).lower()} "
-            f"mirror_fields={mirror_fields}"
         )
 
     facts = payload.get("facts", {})
@@ -1034,12 +956,6 @@ def prepare_daily_output_payload(context: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
     payload = apply_report_guardrails(payload)
-    print(
-        "[prepare_daily_output_payload] exit "
-        f"source_mode={str(payload.get('source_mode') or '<empty>')} "
-        f"pdf_source_mode={str(payload.get('pdf_source_mode') or '<empty>')} "
-        f"core_report_payload_available={str(isinstance(payload.get('core_report_payload'), dict)).lower()}"
-    )
     return payload
 
 

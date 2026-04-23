@@ -3,6 +3,7 @@
 import re
 from typing import Any, Dict, List
 
+from ..core_report_bridge import build_core_snapshot_stage_view
 from ..pdf_render import normalize_pdf_text
 from ..pipeline.daily_stage_support import sync_from_entry
 from .email_summary_builder import build_email_summary
@@ -351,6 +352,8 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     data: Dict[str, Any] = dict(payload or {})
     source_mode = str(data.get("source_mode") or "").strip().lower()
     core_snapshot_mode = source_mode == "core_snapshot"
+    if core_snapshot_mode and not isinstance(data.get("core_report_payload"), dict):
+        raise ValueError("core_snapshot_mode_requires_core_report_payload")
     data_mode = str(data.get("data_mode") or "").strip().lower()
     if not data_mode:
         data_mode = (
@@ -362,15 +365,6 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             else "raw_reports_fallback"
         )
     non_api_mode = bool(data.get("non_api_mode", data_mode != "api"))
-    print(
-        "[daily_email_stage] enter "
-        f"source_mode={source_mode or '<empty>'} "
-        f"pdf_source_mode={str(data.get('pdf_source_mode') or '<empty>')} "
-        f"core_report_payload_available={str(isinstance(data.get('core_report_payload'), dict)).lower()} "
-        f"data_mode={data_mode} "
-        f"non_api_mode={str(non_api_mode).lower()} "
-        f"kpi_fields=daily_kpi,render_kpi,order_kpi,buyout_kpi,financial_kpi,daily_status_matrix,event_date_model"
-    )
     non_api_label = "недостаточно данных (non-API mode)"
     non_api_notice = (
         "Отчет собран в ограниченном режиме по raw-отчетам WB, "
@@ -430,6 +424,40 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     report_guardrails = data.get("report_guardrails", {})
     if not isinstance(report_guardrails, dict):
         report_guardrails = {}
+    if core_snapshot_mode:
+        core_snapshot_view = build_core_snapshot_stage_view(data.get("core_report_payload", {}))
+        daily_kpi = core_snapshot_view.get("daily_kpi", {})
+        if not isinstance(daily_kpi, dict):
+            daily_kpi = {}
+        core_event_date_model = core_snapshot_view.get("event_date_model", {})
+        if not isinstance(core_event_date_model, dict):
+            core_event_date_model = {}
+        event_date_model = dict(event_date_model)
+        event_date_model.update(core_event_date_model)
+        order_kpi = core_snapshot_view.get("order_kpi", {})
+        if not isinstance(order_kpi, dict):
+            order_kpi = {}
+        buyout_kpi = core_snapshot_view.get("buyout_kpi", {})
+        if not isinstance(buyout_kpi, dict):
+            buyout_kpi = {}
+        financial_kpi = core_snapshot_view.get("financial_kpi", {})
+        if not isinstance(financial_kpi, dict):
+            financial_kpi = {}
+        daily_status_matrix = dict(daily_status_matrix)
+        daily_status_matrix.update(
+            core_snapshot_view.get("daily_status_matrix", {})
+            if isinstance(core_snapshot_view.get("daily_status_matrix"), dict)
+            else {}
+        )
+        render_kpi = core_snapshot_view.get("render_kpi", {})
+        if not isinstance(render_kpi, dict):
+            render_kpi = {}
+        data_quality = dict(data_quality)
+        data_quality.update(
+            core_snapshot_view.get("data_quality", {})
+            if isinstance(core_snapshot_view.get("data_quality"), dict)
+            else {}
+        )
 
     decision_groups: Dict[str, List[Dict[str, Any]]] = {}
     if isinstance(decisions_summary, dict):
@@ -751,14 +779,6 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "funnel_brief_lines": funnel_brief_lines,
             "sku_monitor_brief_lines": sku_monitor_brief_lines,
         }
-    )
-    print(
-        "[daily_email_stage] exit "
-        f"source_mode={str(data.get('source_mode') or '<empty>')} "
-        f"pdf_source_mode={str(data.get('pdf_source_mode') or '<empty>')} "
-        f"core_report_payload_available={str(isinstance(data.get('core_report_payload'), dict)).lower()} "
-        f"data_mode={data_mode} "
-        f"non_api_mode={str(non_api_mode).lower()}"
     )
     return data
 
