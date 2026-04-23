@@ -362,6 +362,15 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             else "raw_reports_fallback"
         )
     non_api_mode = bool(data.get("non_api_mode", data_mode != "api"))
+    print(
+        "[daily_email_stage] enter "
+        f"source_mode={source_mode or '<empty>'} "
+        f"pdf_source_mode={str(data.get('pdf_source_mode') or '<empty>')} "
+        f"core_report_payload_available={str(isinstance(data.get('core_report_payload'), dict)).lower()} "
+        f"data_mode={data_mode} "
+        f"non_api_mode={str(non_api_mode).lower()} "
+        f"kpi_fields=daily_kpi,render_kpi,order_kpi,buyout_kpi,financial_kpi,daily_status_matrix,event_date_model"
+    )
     non_api_label = "недостаточно данных (non-API mode)"
     non_api_notice = (
         "Отчет собран в ограниченном режиме по raw-отчетам WB, "
@@ -742,6 +751,14 @@ def run_daily_email_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             "funnel_brief_lines": funnel_brief_lines,
             "sku_monitor_brief_lines": sku_monitor_brief_lines,
         }
+    )
+    print(
+        "[daily_email_stage] exit "
+        f"source_mode={str(data.get('source_mode') or '<empty>')} "
+        f"pdf_source_mode={str(data.get('pdf_source_mode') or '<empty>')} "
+        f"core_report_payload_available={str(isinstance(data.get('core_report_payload'), dict)).lower()} "
+        f"data_mode={data_mode} "
+        f"non_api_mode={str(non_api_mode).lower()}"
     )
     return data
 

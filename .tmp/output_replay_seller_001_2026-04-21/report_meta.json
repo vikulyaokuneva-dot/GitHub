@@ -1,0 +1,823 @@
+{
+  "seller_id": "seller_001",
+  "report_date": "2026-04-21",
+  "operational_day": "2026-04-21",
+  "source_mode": "core_snapshot",
+  "pdf_source_mode": "core_snapshot",
+  "core_report_payload_available": true,
+  "email_subject": "WB ИИ-агент v3 — управленческое резюме: seller_001 (2026-04-21)",
+  "email_body_text": "Управленческое резюме WB ИИ-агент v3\nКабинет: seller_001\nДата отчета: 2026-04-21\nОперационный день: 2026-04-21\n\nКЛЮЧЕВЫЕ ПОКАЗАТЕЛИ\n- Заказы: 5\n- Выкупы: нет данных\n- Заказы, сумма: 4 260.00\n- Выкупы, сумма: нет данных\n- Средний чек: нет данных\n- Конверсия просмотр → заказ: недостаточно данных\n- Конверсия заказ → выкуп: 100.0 %\n\nФИНАНСОВЫЕ ПОКАЗАТЕЛИ\n- К перечислению продавцу: 4 868\n- Чистая прибыль: нет данных\n- Маржа: недостаточно данных для расчета\n- Рентабельность: нет данных\n\nГЛАВНЫЕ ВЫВОДЫ\n- Рекомендации переведены в режим гипотез до подтверждения качества данных.\n- Территориальные выводы предварительные: для уверенных решений нужны подтвержденные данные по складам и логистике.\n- Мониторинг товаров сформирован по группам: рост, риск, неликвид, реклама, конверсия.\n\nРЕКОМЕНДАЦИИ\n- Рекомендации ниже являются гипотезами до подтверждения данных (территориальный анализ в ограниченном режиме; недостаточно данных по рекламе).\n- Гипотеза: сохранить текущий курс и перепроверить показатели на следующем цикле.\n\nВЫВОД ДНЯ\nПредварительный вывод: высокие по влиянию действия требуют подтверждения (территориальный анализ в ограниченном режиме; недостаточно данных по рекламе).\n\nДетали в PDF.",
+  "financial_interpretation": "final",
+  "render_warnings": [
+    "Ads analysis is suppressed because ads source data is missing."
+  ],
+  "pdf_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\.tmp\\output_replay_seller_001_2026-04-21\\report.pdf",
+  "font": {
+    "family": "DejaVuSans",
+    "regular": "D:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf",
+    "bold": "D:\\WB\\Бот ИИ менеджер\\GitHub\\assets\\fonts\\DejaVuSans.ttf"
+  },
+  "pages": 9,
+  "visual_previews": [
+    "D:\\WB\\Бот ИИ менеджер\\GitHub\\.tmp\\output_replay_seller_001_2026-04-21\\report_preview_page_1.png",
+    "D:\\WB\\Бот ИИ менеджер\\GitHub\\.tmp\\output_replay_seller_001_2026-04-21\\report_preview_page_2.png",
+    "D:\\WB\\Бот ИИ менеджер\\GitHub\\.tmp\\output_replay_seller_001_2026-04-21\\report_preview_page_3.png",
+    "D:\\WB\\Бот ИИ менеджер\\GitHub\\.tmp\\output_replay_seller_001_2026-04-21\\report_preview_page_4.png",
+    "D:\\WB\\Бот ИИ менеджер\\GitHub\\.tmp\\output_replay_seller_001_2026-04-21\\report_preview_page_5.png",
+    "D:\\WB\\Бот ИИ менеджер\\GitHub\\.tmp\\output_replay_seller_001_2026-04-21\\report_preview_page_6.png",
+    "D:\\WB\\Бот ИИ менеджер\\GitHub\\.tmp\\output_replay_seller_001_2026-04-21\\report_preview_page_7.png",
+    "D:\\WB\\Бот ИИ менеджер\\GitHub\\.tmp\\output_replay_seller_001_2026-04-21\\report_preview_page_8.png",
+    "D:\\WB\\Бот ИИ менеджер\\GitHub\\.tmp\\output_replay_seller_001_2026-04-21\\report_preview_page_9.png"
+  ],
+  "data_mode": "api",
+  "non_api_mode": false,
+  "mode_notice": "",
+  "section_states": {
+    "financials": "full",
+    "ads_efficiency": "partial",
+    "funnel": "partial",
+    "key_problems": "full",
+    "recommendations": "full",
+    "territorial_localization": "compact_note"
+  },
+  "section_confidence": {
+    "financials": "medium",
+    "ads_efficiency": "medium",
+    "funnel": "medium",
+    "key_problems": "medium",
+    "recommendations": "medium",
+    "territorial_localization": "low"
+  },
+  "financial_alignment": {
+    "financial_lagged": false,
+    "financial_date_misaligned": false,
+    "financial_alignment_status": "aligned",
+    "financial_actual_date": "2026-04-21",
+    "financial_target_date": "2026-04-21",
+    "warning_text": ""
+  },
+  "finance_api_diagnostics": {
+    "finance_api_mode": "unknown",
+    "finance_endpoint_used": "",
+    "finance_report_ids": [],
+    "finance_requested_fields_count": 0,
+    "finance_fallback_used": false,
+    "finance_fallback_reason": "",
+    "finance_primary_endpoint_attempted": "",
+    "finance_primary_status_code": null,
+    "rows_loaded": 20,
+    "contour_missing": false,
+    "mapping_diagnostics": {}
+  },
+  "kpi_display": {
+    "seller_payout": {
+      "state": "full",
+      "label": "К перечислению продавцу",
+      "base_label": "К перечислению продавцу",
+      "value": 4868.22,
+      "value_type": "money",
+      "reason": "",
+      "source": "primary",
+      "is_fallback": false
+    },
+    "profit": {
+      "state": "compact_note",
+      "label": "Чистая прибыль",
+      "base_label": "Чистая прибыль",
+      "value": null,
+      "value_type": "money",
+      "reason": "Нет себестоимости для точного расчета прибыли",
+      "source": "missing",
+      "is_fallback": false
+    },
+    "ads_spend": {
+      "state": "full",
+      "label": "Расход на рекламу",
+      "base_label": "Расход на рекламу",
+      "value": 0.0,
+      "value_type": "money",
+      "reason": "",
+      "source": "primary",
+      "is_fallback": false
+    },
+    "orders": {
+      "state": "full",
+      "label": "Заказы",
+      "base_label": "Заказы",
+      "value": 5.0,
+      "value_type": "int",
+      "reason": "",
+      "source": "primary",
+      "is_fallback": false
+    },
+    "buyouts": {
+      "state": "compact_note",
+      "label": "Выкупы",
+      "base_label": "Выкупы",
+      "value": null,
+      "value_type": "int",
+      "reason": "Нет подтвержденного источника выкупов за период",
+      "source": "missing",
+      "is_fallback": false
+    }
+  },
+  "daily_commerce_kpi": {
+    "daily_orders_count": 5,
+    "daily_orders_amount": 4260.0,
+    "daily_buyouts_count": null,
+    "daily_buyouts_amount": null,
+    "avg_check": null,
+    "views": 0,
+    "views_status": "missing",
+    "views_source": "unknown",
+    "impressions": 0,
+    "impressions_status": "missing",
+    "impressions_source": "unknown",
+    "clicks": 0,
+    "clicks_status": "missing",
+    "clicks_source": "unknown",
+    "add_to_cart": null,
+    "add_to_cart_status": "missing",
+    "add_to_cart_source": "unknown",
+    "view_to_order_conversion": null,
+    "view_to_order_status": "",
+    "view_to_order_reason": "",
+    "cart_rate": null,
+    "ctr": null,
+    "ctr_status": "",
+    "ctr_reason": "",
+    "cart_to_order": null,
+    "cart_to_order_status": "",
+    "cart_to_order_reason": "",
+    "buyout_rate": 100.0,
+    "order_to_buyout_status": "",
+    "order_to_buyout_reason": "",
+    "order_to_buyout_over_100": false,
+    "order_to_buyout_note": "",
+    "cpo": null,
+    "cpo_status": "",
+    "cpo_reason": "",
+    "funnel_status": {},
+    "data_source_orders": "sales_funnel_api",
+    "data_source_orders_count": "sales_funnel_api",
+    "data_source_orders_amount": "sales_funnel_api",
+    "data_source_buyouts": "finance_detailed_api",
+    "data_source_buyouts_count": "finance_detailed_api",
+    "data_source_buyouts_amount": "finance_detailed_api",
+    "orders_count_confirmed": true,
+    "buyouts_count_confirmed": false,
+    "display": {
+      "daily_orders_count": "5",
+      "daily_orders_amount": "4 260.00",
+      "daily_buyouts_count": "нет данных",
+      "daily_buyouts_amount": "нет данных",
+      "avg_check": "нет данных"
+    }
+  },
+  "daily_financial_kpi": {
+    "seller_payout": 4868.22,
+    "gross_revenue": 4652.0,
+    "wb_realized_revenue": null,
+    "revenue": 4868.22,
+    "cost_price": null,
+    "wb_commission": -329.75,
+    "acquiring": 186.08,
+    "pvz_service": null,
+    "logistics": 3.0,
+    "storage": 68.37,
+    "penalties": 0.0,
+    "deductions": 0.0,
+    "loyalty_program": null,
+    "loyalty_points_withheld": null,
+    "loyalty_total": 0.0,
+    "other_adjustments": null,
+    "tax": 0.0,
+    "ads_spend": 0.0,
+    "ads_impressions": 0,
+    "ads_clicks": 0,
+    "ads_orders": 0,
+    "ads_rows": 0,
+    "ads_source_file": "",
+    "ads_loaded_from_file": false,
+    "ads_attribution_quality": "unknown",
+    "gross_profit": null,
+    "net_profit": null,
+    "explained_net_profit": null,
+    "net_profit_explain_delta": null,
+    "margin_pct": null,
+    "profitability_pct": null,
+    "financial_completeness_pct": 100.0,
+    "financial_partial": false,
+    "financial_contour_missing": false,
+    "financial_finality_status": "final",
+    "financial_lagged": false,
+    "financial_date_aligned": true,
+    "financial_date_misaligned": false,
+    "financial_alignment_status": "aligned",
+    "financial_actual_date": "2026-04-21",
+    "financial_target_date": "2026-04-21",
+    "financial_lag_warning": "",
+    "display": {
+      "seller_payout": "4 868",
+      "net_profit": "нет данных",
+      "margin_pct": "недостаточно данных для расчета",
+      "profitability_pct": "нет данных"
+    }
+  },
+  "event_date_model": {
+    "report_date": "2026-04-21",
+    "operational_date": "2026-04-21",
+    "financial_date": "2026-04-21"
+  },
+  "daily_status_matrix": {
+    "orders": "confirmed",
+    "buyouts": "missing",
+    "financials": "confirmed"
+  },
+  "order_kpi": {
+    "orders_count": 5.0,
+    "orders_amount": 4260.0,
+    "source": "sales_funnel_api",
+    "status": "confirmed"
+  },
+  "buyout_kpi": {
+    "buyouts_count": null,
+    "buyouts_amount": null,
+    "source": "finance_detailed_api",
+    "status": "missing"
+  },
+  "event_ledger_preview": [
+    {
+      "event_type": "orders_snapshot",
+      "event_date": "2026-04-14",
+      "source": "api.orders",
+      "confirmed": true,
+      "rows": 3,
+      "amount": 3399.91
+    },
+    {
+      "event_type": "buyouts_snapshot",
+      "event_date": "2026-04-14",
+      "source": "api.sales",
+      "confirmed": true,
+      "rows": 3,
+      "amount": 2580.0
+    },
+    {
+      "event_type": "financial_snapshot",
+      "event_date": "2026-04-14",
+      "source": "unknown",
+      "confirmed": false,
+      "rows": 0,
+      "amount": null
+    }
+  ],
+  "funnel_snapshot": {
+    "date": "2026-04-15",
+    "funnel": {
+      "views": 0,
+      "add_to_cart": null,
+      "orders": 3,
+      "buyouts": 3,
+      "view_to_order_conversion": null,
+      "view_to_order": null,
+      "cart_rate": null,
+      "cart_to_order": null,
+      "buyout_rate": 100.0,
+      "order_to_buyout": 100.0,
+      "order_to_buyout_over_100": false,
+      "order_to_buyout_note": "",
+      "orders_amount": null,
+      "buyouts_amount": null,
+      "ads_spend": null,
+      "cpo": null,
+      "impressions": 0,
+      "clicks": 0,
+      "ctr": null,
+      "cart_count": null,
+      "cart_conversion_pct": null,
+      "cart_rate_pct": null,
+      "click_to_order_conversion_pct": null,
+      "order_to_buyout_conversion_pct": 100.0,
+      "conversion_rates": {
+        "view_to_order": null,
+        "cart_to_order": null,
+        "order_to_buyout": 100.0,
+        "order_to_buyout_over_100": false,
+        "order_to_buyout_note": ""
+      },
+      "marketing_layer": {
+        "basis": "orders",
+        "orders": 3,
+        "ads_spend": null,
+        "cpo": null
+      },
+      "financial_layer": {
+        "basis": "buyouts",
+        "buyouts": 3,
+        "revenue": 0.0,
+        "commission": 0.0,
+        "logistics": 0.0,
+        "tax": 0.0,
+        "cogs": 0.0,
+        "profit": 0.0
+      }
+    },
+    "data_sources": {
+      "views": "api",
+      "add_to_cart": "unknown",
+      "orders": "api",
+      "buyouts": "api",
+      "orders_amount": "unknown",
+      "buyouts_amount": "unknown",
+      "ads_spend": "unknown",
+      "cpo": "derived"
+    },
+    "status": {
+      "traffic": "partial",
+      "conversion": "confirmed",
+      "buyout_stage": "confirmed"
+    },
+    "marketing_layer": {
+      "basis": "orders",
+      "orders": 3,
+      "ads_spend": null,
+      "cpo": null
+    },
+    "financial_layer": {
+      "basis": "buyouts",
+      "buyouts": 3,
+      "revenue": 0.0,
+      "commission": 0.0,
+      "logistics": 0.0,
+      "tax": 0.0,
+      "cogs": 0.0,
+      "profit": 0.0
+    },
+    "sku_funnel": [
+      {
+        "views": null,
+        "add_to_cart": null,
+        "orders": 1,
+        "buyouts": 1,
+        "view_to_order_conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 100.0,
+        "buyout_rate_over_100": false,
+        "buyout_rate_note": "",
+        "ads_spend": 0.0,
+        "cpo": 0.0,
+        "marketing_layer": {
+          "basis": "orders",
+          "orders": 1,
+          "ads_spend": 0.0,
+          "cpo": 0.0
+        },
+        "financial_layer": {
+          "basis": "buyouts",
+          "buyouts": 1,
+          "revenue": 800.0,
+          "commission": null,
+          "logistics": null,
+          "tax": null,
+          "cogs": null,
+          "profit": null
+        },
+        "sku": "1001"
+      },
+      {
+        "views": null,
+        "add_to_cart": null,
+        "orders": 1,
+        "buyouts": 1,
+        "view_to_order_conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 100.0,
+        "buyout_rate_over_100": false,
+        "buyout_rate_note": "",
+        "ads_spend": 0.0,
+        "cpo": 0.0,
+        "marketing_layer": {
+          "basis": "orders",
+          "orders": 1,
+          "ads_spend": 0.0,
+          "cpo": 0.0
+        },
+        "financial_layer": {
+          "basis": "buyouts",
+          "buyouts": 1,
+          "revenue": 900.0,
+          "commission": null,
+          "logistics": null,
+          "tax": null,
+          "cogs": null,
+          "profit": null
+        },
+        "sku": "1002"
+      },
+      {
+        "views": null,
+        "add_to_cart": null,
+        "orders": 1,
+        "buyouts": 1,
+        "view_to_order_conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 100.0,
+        "buyout_rate_over_100": false,
+        "buyout_rate_note": "",
+        "ads_spend": 0.0,
+        "cpo": 0.0,
+        "marketing_layer": {
+          "basis": "orders",
+          "orders": 1,
+          "ads_spend": 0.0,
+          "cpo": 0.0
+        },
+        "financial_layer": {
+          "basis": "buyouts",
+          "buyouts": 1,
+          "revenue": 880.0,
+          "commission": null,
+          "logistics": null,
+          "tax": null,
+          "cogs": null,
+          "profit": null
+        },
+        "sku": "1003"
+      }
+    ],
+    "sku_diagnostics": {
+      "date": "2026-04-15",
+      "status": "partial_success",
+      "thresholds": {
+        "min_views_for_analysis": 50.0,
+        "low_cart_rate": 0.03,
+        "low_conversion": 0.01,
+        "low_cart_to_order": 0.25,
+        "low_buyout_rate": 0.8,
+        "min_ads_spend_for_efficiency": 1.0,
+        "max_orders_for_ads_efficiency_problem": 0.0,
+        "weak_conversion_for_ads_efficiency": 0.005
+      },
+      "items": [
+        {
+          "sku": "1001",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 1,
+          "buyouts": 1,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "1002",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 1,
+          "buyouts": 1,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        },
+        {
+          "sku": "1003",
+          "views": null,
+          "add_to_cart": null,
+          "orders": 1,
+          "buyouts": 1,
+          "ads_spend": 0.0,
+          "conversion": null,
+          "cart_rate": null,
+          "cart_to_order": null,
+          "buyout_rate": 1.0,
+          "has_views": false,
+          "has_cart": false,
+          "has_orders": true,
+          "has_buyouts": true,
+          "issue_type": "insufficient_data",
+          "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+        }
+      ],
+      "summary": {
+        "sku_count": 3,
+        "analyzed_sku_count": 0,
+        "issue_counts": {
+          "traffic_problem": 0,
+          "card_problem": 0,
+          "price_or_offer_problem": 0,
+          "buyout_problem": 0,
+          "ads_efficiency_problem": 0,
+          "healthy_funnel": 0,
+          "insufficient_data": 3
+        },
+        "top_problem_groups": [],
+        "top_problem_skus": []
+      },
+      "warnings": [
+        {
+          "code": "sales_funnel_insufficient_data",
+          "message": "Insufficient funnel data for 3 SKU."
+        }
+      ]
+    }
+  },
+  "sales_funnel_summary": {
+    "sku_count": 3,
+    "analyzed_sku_count": 0,
+    "issue_counts": {
+      "traffic_problem": 0,
+      "card_problem": 0,
+      "price_or_offer_problem": 0,
+      "buyout_problem": 0,
+      "ads_efficiency_problem": 0,
+      "healthy_funnel": 0,
+      "insufficient_data": 3
+    },
+    "top_problem_groups": [],
+    "top_problem_skus": []
+  },
+  "sku_status_counts": {
+    "growth": 0,
+    "normal": 0,
+    "risk": 2,
+    "liquidation": 0
+  },
+  "sku_status_detail_count": 2,
+  "key_problem_data_status": {
+    "low_traffic": "partial",
+    "conversion_drop": "sufficient",
+    "inefficient_ads": "insufficient",
+    "liquidation_skus": "sufficient"
+  },
+  "key_problem_reasons": {
+    "low_traffic": "Признак низкого трафика: есть продажи, но недостаточно данных по просмотрам",
+    "inefficient_ads": "Нет связки расход → заказ/выкуп для оценки рекламы"
+  },
+  "sku_watchlists_preview": {
+    "top_growth": [],
+    "top_risk": [
+      {
+        "sku": "1001",
+        "attention_score": 12,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      },
+      {
+        "sku": "1002",
+        "attention_score": 12,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      }
+    ],
+    "dead_stock": [],
+    "ad_inefficiency": [],
+    "conversion_drop": [],
+    "logistics_risk": []
+  },
+  "funnel_section_preview": [
+    "# Финансы и реклама",
+    "## Коммерческие KPI",
+    "Показатель | Значение",
+    "Заказы | 5",
+    "Выкупы | нет данных",
+    "Средний чек | нет данных",
+    "Конверсия в заказ | недостаточно данных для расчета",
+    "",
+    "## Финансовые KPI",
+    "Показатель | Значение",
+    "К перечислению продавцу | 4 868",
+    "Чистая прибыль | нет данных",
+    "Маржа | недостаточно данных для расчета",
+    "Полнота финансовых данных | 100.0 %",
+    "",
+    "## Эффективность рекламы",
+    "Показатель | Значение",
+    "Расход на рекламу | 0 (предварительно)",
+    "Выручка из рекламы | 0 (предварительно)",
+    "Прибыль из рекламы | 0 (предварительно)",
+    "ROMI | нет данных",
+    "DRR | недостаточно данных для расчета",
+    "CPO | недостаточно данных для расчета",
+    "",
+    "- Часть финансовых и рекламных метрик носит предварительный характер из-за неполного подтверждения данных."
+  ],
+  "sku_monitor_section_preview": [
+    "# Мониторинг товаров",
+    "## Рост",
+    "- Нет данных",
+    "## Риск",
+    "- SKU 1001",
+    "- SKU 1002",
+    "## Наблюдать",
+    "- Нет данных",
+    "## Ликвидировать",
+    "- Нет данных"
+  ],
+  "territorial_section_preview": {
+    "analysis_status": "blocked_by_data",
+    "state": "compact_note",
+    "blocked_reason_rows": [
+      {
+        "reason": "Недостаточно заказов для уверенной оценки",
+        "count": "3"
+      },
+      {
+        "reason": "Локализация по SKU не вычисляется на текущих данных",
+        "count": "3"
+      },
+      {
+        "reason": "Нет географии спроса по части SKU",
+        "count": "3"
+      },
+      {
+        "reason": "Недостаточно данных по размещению остатков",
+        "count": "3"
+      }
+    ],
+    "top_demand_regions_rows": [],
+    "recommendation_rows_count": 0,
+    "sku_rows_count": 3
+  },
+  "page_previews": [
+    {
+      "page": 1,
+      "lines": [
+        "# AI-аудит кабинета Wildberries",
+        "### Кабинет: seller 001",
+        "### Дата анализа: 2026-04-21",
+        "### Надежность данных: средняя",
+        "",
+        "## Краткое резюме",
+        "- В памяти AI уже накоплено 100 решений.",
+        "- Территориальные выводы предварительные: для уверенных решений нужны подтвержденные данные по складам и логистике.",
+        "",
+        "## KPI карточки",
+        "Показатель | Значение",
+        "К перечислению продавцу | 4 868",
+        "Чистая прибыль | нет данных",
+        "Расход на рекламу | 0 (предварительно)",
+        "Товары под риском | 0",
+        "",
+        "## Главный вывод AI",
+        "Вывод формируется по данным текущего дня."
+      ]
+    },
+    {
+      "page": 2,
+      "lines": [
+        "# Финансы и реклама",
+        "## Коммерческие KPI",
+        "Показатель | Значение",
+        "Заказы | 5",
+        "Выкупы | нет данных",
+        "Средний чек | нет данных",
+        "Конверсия в заказ | недостаточно данных для расчета",
+        "",
+        "## Финансовые KPI",
+        "Показатель | Значение",
+        "К перечислению продавцу | 4 868",
+        "Чистая прибыль | нет данных",
+        "Маржа | недостаточно данных для расчета",
+        "Полнота финансовых данных | 100.0 %",
+        "",
+        "## Эффективность рекламы",
+        "Показатель | Значение",
+        "Расход на рекламу | 0 (предварительно)",
+        "Выручка из рекламы | 0 (предварительно)",
+        "Прибыль из рекламы | 0 (предварительно)",
+        "ROMI | нет данных",
+        "DRR | недостаточно данных для расчета",
+        "CPO | недостаточно данных для расчета",
+        "",
+        "- Часть финансовых и рекламных метрик носит предварительный характер из-за неполного подтверждения данных."
+      ]
+    },
+    {
+      "page": 3,
+      "lines": [
+        "# Ключевые проблемы",
+        "## Низкий трафик",
+        "- Слабый трафик зафиксирован у 0 SKU",
+        "## Падение конверсии",
+        "- Проблема конверсии у 0 SKU",
+        "## Неэффективная реклама",
+        "- Зоны риска в рекламе: 0",
+        "## Товары в зоне ликвидации",
+        "- В зоне ликвидации: 0 SKU"
+      ]
+    },
+    {
+      "page": 4,
+      "lines": [
+        "# Рекомендации AI",
+        "## Что делать сейчас",
+        "- Усилить работу с карточками SKU с сниженной конверсией.",
+        "- Перераспределить рекламный бюджет из убыточных запросов.",
+        "## Что наблюдать",
+        "- Отслеживать динамику выкупа и маржи по рисковым SKU.",
+        "## Что пока не подтверждено и требует перепроверки",
+        "- Выкупы дня: данные не подтверждены",
+        "- Рекламные метрики: данные не подтверждены"
+      ]
+    },
+    {
+      "page": 5,
+      "lines": [
+        "# Мониторинг товаров",
+        "## Рост",
+        "- Нет данных",
+        "## Риск",
+        "- SKU 1001",
+        "- SKU 1002",
+        "## Наблюдать",
+        "- Нет данных",
+        "## Ликвидировать",
+        "- Нет данных"
+      ]
+    },
+    {
+      "page": 6,
+      "lines": [
+        "# Качество данных",
+        "Показатель | Значение",
+        "Валидные товары (SKU) | 0",
+        "Строки с ошибками | 0",
+        "Не распределённые строки | 0",
+        "Полнота финансовых данных | 100.0 %",
+        "Статус финансового контура | подтвержден",
+        "Надежность отчета | средняя",
+        "",
+        "## Подтверждено",
+        "- реклама",
+        "- часть финансовых строк",
+        "",
+        "## Не подтверждено",
+        "- заказы дня",
+        "- выкупы дня",
+        "",
+        "## Как это влияет на выводы",
+        "- Часть выводов по прибыли и рекламе требует перепроверки после финального подтверждения данных."
+      ]
+    },
+    {
+      "page": 7,
+      "lines": [
+        "# Что умеет AI Директор",
+        "- Ежедневно анализирует финансы, рекламу и воронку продаж.",
+        "- Находит точки роста и зоны потерь по SKU.",
+        "- Формирует понятные рекомендации для владельца кабинета.",
+        "",
+        "## Демо для клиента",
+        "- Могу подготовить такой же аудит по вашему кабинету."
+      ]
+    }
+  ]
+}

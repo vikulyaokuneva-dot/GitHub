@@ -230,6 +230,15 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
             else "raw_reports_fallback"
         )
     non_api_mode = bool(data.get("non_api_mode", data_mode != "api"))
+    print(
+        "[daily_report_stage] enter "
+        f"source_mode={source_mode or '<empty>'} "
+        f"pdf_source_mode={str(data.get('pdf_source_mode') or '<empty>')} "
+        f"core_report_payload_available={str(isinstance(data.get('core_report_payload'), dict)).lower()} "
+        f"data_mode={data_mode} "
+        f"non_api_mode={str(non_api_mode).lower()} "
+        f"kpi_fields=daily_kpi,financial_kpi,render_kpi,order_kpi,buyout_kpi,daily_status_matrix,event_date_model"
+    )
     non_api_notice = (
         "Отчет собран в ограниченном режиме по raw-отчетам WB, "
         "часть метрик может быть недоступна до подключения API"
@@ -3352,6 +3361,14 @@ def run_daily_report_stage(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
     report_meta["page_previews"] = [{"page": page_idx + 1, "lines": page[:30]} for page_idx, page in enumerate(report_pages)]
 
+    print(
+        "[daily_report_stage] report_meta "
+        f"source_mode={str(report_meta.get('source_mode') or '<empty>')} "
+        f"pdf_source_mode={str(report_meta.get('pdf_source_mode') or '<empty>')} "
+        f"core_report_payload_available={str(bool(report_meta.get('core_report_payload_available', False))).lower()} "
+        f"data_mode={str(report_meta.get('data_mode') or '<empty>')} "
+        f"non_api_mode={str(bool(report_meta.get('non_api_mode', False))).lower()}"
+    )
     write_report_meta(out_dir=out_dir, report_meta=report_meta)
     data.update({"job": job, "report_meta": report_meta, "visual_payload": visual_payload})
     return data

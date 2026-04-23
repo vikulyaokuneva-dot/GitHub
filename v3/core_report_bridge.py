@@ -190,6 +190,13 @@ def build_core_report_payload(
     paths: Dict[str, str],
     validation_warnings: List[Dict[str, Any]] | None = None,
 ) -> Dict[str, Any]:
+    print(
+        "[core_report_bridge] build_core_report_payload "
+        f"seller_id={seller_id or '<empty>'} "
+        f"run_date={run_date or '<empty>'} "
+        f"snapshot_path={str(paths.get('snapshot_path') or '<empty>')} "
+        f"debug_path={str(paths.get('debug_path') or '<empty>')}"
+    )
     warnings: List[Dict[str, Any]] = list(validation_warnings or [])
     debug_payload = _safe_dict(debug)
     endpoints = _safe_dict(debug_payload.get("endpoints"))

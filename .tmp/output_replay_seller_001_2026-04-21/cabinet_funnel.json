@@ -1,0 +1,269 @@
+{
+  "date": "2026-04-15",
+  "funnel": {
+    "views": 0,
+    "add_to_cart": null,
+    "orders": 3,
+    "buyouts": 3,
+    "view_to_order_conversion": null,
+    "view_to_order": null,
+    "cart_rate": null,
+    "cart_to_order": null,
+    "buyout_rate": 100.0,
+    "order_to_buyout": 100.0,
+    "order_to_buyout_over_100": false,
+    "order_to_buyout_note": "",
+    "orders_amount": null,
+    "buyouts_amount": null,
+    "ads_spend": null,
+    "cpo": null,
+    "impressions": 0,
+    "clicks": 0,
+    "ctr": null,
+    "cart_count": null,
+    "cart_conversion_pct": null,
+    "cart_rate_pct": null,
+    "click_to_order_conversion_pct": null,
+    "order_to_buyout_conversion_pct": 100.0,
+    "conversion_rates": {
+      "view_to_order": null,
+      "cart_to_order": null,
+      "order_to_buyout": 100.0,
+      "order_to_buyout_over_100": false,
+      "order_to_buyout_note": ""
+    },
+    "marketing_layer": {
+      "basis": "orders",
+      "orders": 3,
+      "ads_spend": null,
+      "cpo": null
+    },
+    "financial_layer": {
+      "basis": "buyouts",
+      "buyouts": 3,
+      "revenue": 0.0,
+      "commission": 0.0,
+      "logistics": 0.0,
+      "tax": 0.0,
+      "cogs": 0.0,
+      "profit": 0.0
+    }
+  },
+  "data_sources": {
+    "views": "api",
+    "add_to_cart": "unknown",
+    "orders": "api",
+    "buyouts": "api",
+    "orders_amount": "unknown",
+    "buyouts_amount": "unknown",
+    "ads_spend": "unknown",
+    "cpo": "derived"
+  },
+  "status": {
+    "traffic": "partial",
+    "conversion": "confirmed",
+    "buyout_stage": "confirmed"
+  },
+  "marketing_layer": {
+    "basis": "orders",
+    "orders": 3,
+    "ads_spend": null,
+    "cpo": null
+  },
+  "financial_layer": {
+    "basis": "buyouts",
+    "buyouts": 3,
+    "revenue": 0.0,
+    "commission": 0.0,
+    "logistics": 0.0,
+    "tax": 0.0,
+    "cogs": 0.0,
+    "profit": 0.0
+  },
+  "sku_funnel": [
+    {
+      "views": null,
+      "add_to_cart": null,
+      "orders": 1,
+      "buyouts": 1,
+      "view_to_order_conversion": null,
+      "cart_rate": null,
+      "cart_to_order": null,
+      "buyout_rate": 100.0,
+      "buyout_rate_over_100": false,
+      "buyout_rate_note": "",
+      "ads_spend": 0.0,
+      "cpo": 0.0,
+      "marketing_layer": {
+        "basis": "orders",
+        "orders": 1,
+        "ads_spend": 0.0,
+        "cpo": 0.0
+      },
+      "financial_layer": {
+        "basis": "buyouts",
+        "buyouts": 1,
+        "revenue": 800.0,
+        "commission": null,
+        "logistics": null,
+        "tax": null,
+        "cogs": null,
+        "profit": null
+      },
+      "sku": "1001"
+    },
+    {
+      "views": null,
+      "add_to_cart": null,
+      "orders": 1,
+      "buyouts": 1,
+      "view_to_order_conversion": null,
+      "cart_rate": null,
+      "cart_to_order": null,
+      "buyout_rate": 100.0,
+      "buyout_rate_over_100": false,
+      "buyout_rate_note": "",
+      "ads_spend": 0.0,
+      "cpo": 0.0,
+      "marketing_layer": {
+        "basis": "orders",
+        "orders": 1,
+        "ads_spend": 0.0,
+        "cpo": 0.0
+      },
+      "financial_layer": {
+        "basis": "buyouts",
+        "buyouts": 1,
+        "revenue": 900.0,
+        "commission": null,
+        "logistics": null,
+        "tax": null,
+        "cogs": null,
+        "profit": null
+      },
+      "sku": "1002"
+    },
+    {
+      "views": null,
+      "add_to_cart": null,
+      "orders": 1,
+      "buyouts": 1,
+      "view_to_order_conversion": null,
+      "cart_rate": null,
+      "cart_to_order": null,
+      "buyout_rate": 100.0,
+      "buyout_rate_over_100": false,
+      "buyout_rate_note": "",
+      "ads_spend": 0.0,
+      "cpo": 0.0,
+      "marketing_layer": {
+        "basis": "orders",
+        "orders": 1,
+        "ads_spend": 0.0,
+        "cpo": 0.0
+      },
+      "financial_layer": {
+        "basis": "buyouts",
+        "buyouts": 1,
+        "revenue": 880.0,
+        "commission": null,
+        "logistics": null,
+        "tax": null,
+        "cogs": null,
+        "profit": null
+      },
+      "sku": "1003"
+    }
+  ],
+  "sku_diagnostics": {
+    "date": "2026-04-15",
+    "status": "partial_success",
+    "thresholds": {
+      "min_views_for_analysis": 50.0,
+      "low_cart_rate": 0.03,
+      "low_conversion": 0.01,
+      "low_cart_to_order": 0.25,
+      "low_buyout_rate": 0.8,
+      "min_ads_spend_for_efficiency": 1.0,
+      "max_orders_for_ads_efficiency_problem": 0.0,
+      "weak_conversion_for_ads_efficiency": 0.005
+    },
+    "items": [
+      {
+        "sku": "1001",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 1,
+        "buyouts": 1,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 1.0,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": true,
+        "has_buyouts": true,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "1002",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 1,
+        "buyouts": 1,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 1.0,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": true,
+        "has_buyouts": true,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "1003",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 1,
+        "buyouts": 1,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": 1.0,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": true,
+        "has_buyouts": true,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      }
+    ],
+    "summary": {
+      "sku_count": 3,
+      "analyzed_sku_count": 0,
+      "issue_counts": {
+        "traffic_problem": 0,
+        "card_problem": 0,
+        "price_or_offer_problem": 0,
+        "buyout_problem": 0,
+        "ads_efficiency_problem": 0,
+        "healthy_funnel": 0,
+        "insufficient_data": 3
+      },
+      "top_problem_groups": [],
+      "top_problem_skus": []
+    },
+    "warnings": [
+      {
+        "code": "sales_funnel_insufficient_data",
+        "message": "Insufficient funnel data for 3 SKU."
+      }
+    ]
+  }
+}
