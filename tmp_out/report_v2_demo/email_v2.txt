@@ -1,0 +1,26 @@
+WB Core Report v2
+seller_001
+Date: 2026-04-21
+Operational date: 2026-04-21
+
+Commerce:
+Orders: 5
+Orders amount: 4 260.00
+Buyouts: 2
+Buyouts amount: 1 700.00
+
+Finance:
+Gross revenue: 4 652.00
+Seller payout: 4 868.22
+WB commission: -329.75
+Logistics: 3.00
+Storage: 68.37
+Acquiring: 186.08
+
+Live:
+Live orders: 3 / 2 500.00
+Live sales: 3 / 7 160.00
+Live stocks: 322
+
+Warnings:
+- [cabinet_commerce] Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them.

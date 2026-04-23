@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .builders.report_payload_builder import build_report_payload_v2
+from .renderers.email_renderer_v2 import write_email_files
 from .renderers.pdf_renderer_v2 import write_report_pdf_v2
 
 
@@ -46,11 +47,15 @@ def build_report_v2_from_files(
         json.dump(payload, file, ensure_ascii=False, indent=2)
 
     renderer_info = write_report_pdf_v2(pdf_target, payload)
+    email_info = write_email_files(payload, resolved_out_dir)
     return {
         "payload": payload,
         "payload_path": str(payload_target),
         "pdf_path": str(pdf_target),
+        "email_html_path": str(email_info["html_path"]),
+        "email_txt_path": str(email_info["txt_path"]),
         "renderer_info": renderer_info,
+        "email_info": email_info,
     }
 
 
@@ -70,7 +75,18 @@ def main() -> int:
         payload_path=args.payload_out or None,
         pdf_path=args.pdf_out or None,
     )
-    print(json.dumps({"payload_path": result["payload_path"], "pdf_path": result["pdf_path"]}, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "payload_path": result["payload_path"],
+                "pdf_path": result["pdf_path"],
+                "email_html_path": result["email_html_path"],
+                "email_txt_path": result["email_txt_path"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0
 
 
