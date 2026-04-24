@@ -5,8 +5,12 @@ from typing import Any
 from ..contracts.report_payload_schema import (
     DiagnosticsRowV2,
     DiagnosticsV2,
+    DisplayRowV2,
     FinanceAlignmentNoticeV2,
+    HeroBlockV2,
+    HeroKpiCardV2,
     ReportPayloadV2,
+    SectionV2,
     SourceFlagRowV2,
     WarningItemV2,
 )
@@ -34,6 +38,51 @@ def _safe_int(value: Any) -> int | None:
     if numeric is None:
         return None
     return int(round(numeric))
+
+
+def _format_display_int(value: Any, unit: str) -> str:
+    numeric = _safe_int(value)
+    if numeric is None:
+        return "нет данных"
+    return f"{numeric:,}".replace(",", " ") + f" {unit}"
+
+
+def _format_display_money(value: Any) -> str:
+    numeric = _safe_float(value)
+    if numeric is None:
+        return "нет данных"
+    if numeric.is_integer():
+        formatted = f"{int(numeric):,}".replace(",", " ")
+    else:
+        formatted = f"{numeric:,.2f}".replace(",", " ").replace(".", ",")
+    return f"{formatted} ₽"
+
+
+def _format_hero_int(value: Any, unit: str) -> str:
+    return _format_display_int(value, unit)
+
+
+def _format_hero_money(value: Any) -> str:
+    return _format_display_money(value)
+
+
+def _format_display_text(value: Any) -> str:
+    return _safe_str(value) or "нет данных"
+
+
+def _display_status(available: bool, value: Any = None, *, warning: bool = False) -> str:
+    if not available or value is None or value == "":
+        return "unavailable"
+    return "warning" if warning else "ok"
+
+
+def _display_row(label: str, value: str, *, note: str = "", status: str = "ok") -> DisplayRowV2:
+    return {
+        "label": _safe_str(label),
+        "value": _safe_str(value) or "нет данных",
+        "note": _safe_str(note),
+        "status": _safe_str(status) or "ok",
+    }
 
 
 def _warning(code: str, message: str, *, block: str, level: str = "warning") -> WarningItemV2:
@@ -289,6 +338,233 @@ def build_finance_alignment_notice_v2(finance_final: dict[str, Any] | None) -> F
     }
 
 
+def build_hero_v2(
+    *,
+    meta: dict[str, Any],
+    cabinet_commerce: dict[str, Any],
+    finance_final: dict[str, Any],
+    live_operational: dict[str, Any],
+    warnings: list[WarningItemV2],
+) -> HeroBlockV2:
+    cabinet = _safe_dict(cabinet_commerce)
+    finance = _safe_dict(finance_final)
+    live = _safe_dict(live_operational)
+    stocks = _safe_dict(live.get("stocks"))
+
+    cabinet_available = bool(cabinet.get("available", False))
+    finance_available = bool(finance.get("available", False))
+    finance_status = _safe_str(finance.get("status")) or ("ok" if finance_available else "unavailable")
+    stocks_available = bool(stocks.get("available", False))
+
+    orders_status = "ok" if cabinet_available and cabinet.get("orders_count") is not None else "unavailable"
+    buyouts_status = "ok" if cabinet_available and cabinet.get("buyouts_count") is not None else "unavailable"
+    payout_status = "unavailable"
+    if finance_available and finance.get("seller_payout") is not None:
+        payout_status = "warning" if finance_status == "lagged" else "ok"
+    stocks_status = "ok" if stocks_available and stocks.get("total_units") is not None else "unavailable"
+
+    cards: list[HeroKpiCardV2] = [
+        {
+            "label": "Заказы",
+            "value": _format_hero_int(cabinet.get("orders_count"), "шт"),
+            "subvalue": _format_hero_money(cabinet.get("orders_amount")),
+            "status": orders_status,
+        },
+        {
+            "label": "Выкупы",
+            "value": _format_hero_int(cabinet.get("buyouts_count"), "шт"),
+            "subvalue": _format_hero_money(cabinet.get("buyouts_amount")),
+            "status": buyouts_status,
+        },
+        {
+            "label": "К перечислению",
+            "value": _format_hero_money(finance.get("seller_payout")),
+            "subvalue": _safe_str(finance.get("source")) or "finance_final_daily",
+            "status": payout_status,
+        },
+        {
+            "label": "Остатки",
+            "value": _format_hero_int(stocks.get("total_units"), "шт"),
+            "subvalue": _safe_str(stocks.get("snapshot_date")) or "дата не указана",
+            "status": stocks_status,
+        },
+    ]
+
+    if not cabinet_available and not finance_available:
+        data_status = "unavailable"
+        data_status_message = "Основные данные кабинета и финансов недоступны."
+    elif not cabinet_available or not finance_available or finance_status == "lagged":
+        data_status = "partial"
+        data_status_message = "Часть основных данных недоступна или пришла с лагом."
+    elif warnings:
+        data_status = "warning"
+        data_status_message = "Данные получены, есть предупреждения по источникам."
+    else:
+        data_status = "ok"
+        data_status_message = "Данные получены из wb_api_core."
+
+    seller_id = _safe_str(meta.get("seller_id")) or "unknown"
+    report_date = _safe_str(meta.get("operational_date") or meta.get("report_date")) or "unknown"
+    return {
+        "title": "Ежедневный отчёт WB",
+        "subtitle": f"Кабинет: {seller_id} | Дата: {report_date}",
+        "cards": cards,
+        "data_status": data_status,
+        "data_status_message": data_status_message,
+    }
+
+
+def build_commerce_section_v2(cabinet_commerce: dict[str, Any]) -> SectionV2:
+    commerce = _safe_dict(cabinet_commerce)
+    available = bool(commerce.get("available", False))
+    source = _format_display_text(commerce.get("source"))
+    owner = _format_display_text(commerce.get("owner_block"))
+    target_date = _format_display_text(commerce.get("target_date"))
+    status = "ok" if available else "unavailable"
+
+    rows: list[DisplayRowV2] = [
+        _display_row(
+            "Заказы",
+            _format_display_int(commerce.get("orders_count"), "шт"),
+            note=f"Дата: {target_date}",
+            status=_display_status(available, commerce.get("orders_count")),
+        ),
+        _display_row(
+            "Сумма заказов",
+            _format_display_money(commerce.get("orders_amount")),
+            note=f"Источник: {source}",
+            status=_display_status(available, commerce.get("orders_amount")),
+        ),
+        _display_row(
+            "Выкупы",
+            _format_display_int(commerce.get("buyouts_count"), "шт"),
+            note=f"Владелец: {owner}",
+            status=_display_status(available, commerce.get("buyouts_count")),
+        ),
+        _display_row(
+            "Сумма выкупов",
+            _format_display_money(commerce.get("buyouts_amount")),
+            note=f"Источник: {source}",
+            status=_display_status(available, commerce.get("buyouts_amount")),
+        ),
+        _display_row(
+            "Источник",
+            source,
+            note=f"Блок: {owner}",
+            status=status,
+        ),
+    ]
+    return {
+        "title": "Коммерция",
+        "subtitle": "Заказы и выкупы из core-safe cabinet_commerce.",
+        "rows": rows,
+        "status": status,
+    }
+
+
+def build_finance_section_v2(finance_final: dict[str, Any]) -> SectionV2:
+    finance = _safe_dict(finance_final)
+    available = bool(finance.get("available", False))
+    finance_status = _safe_str(finance.get("status")) or ("ok" if available else "unavailable")
+    section_status = "warning" if finance_status == "lagged" else ("ok" if finance_status == "ok" else "unavailable")
+    row_warning = finance_status == "lagged"
+    source = _format_display_text(finance.get("source"))
+    target_date = _format_display_text(finance.get("target_date"))
+    actual_date = _format_display_text(finance.get("actual_date"))
+
+    rows: list[DisplayRowV2] = [
+        _display_row(
+            "Статус",
+            _format_display_text(finance_status),
+            note=f"Операционный день: {target_date}; финансы: {actual_date}",
+            status=section_status,
+        ),
+        _display_row(
+            "Валовая выручка",
+            _format_display_money(finance.get("gross_revenue")),
+            note=f"Источник: {source}",
+            status=_display_status(available, finance.get("gross_revenue"), warning=row_warning),
+        ),
+        _display_row(
+            "К перечислению продавцу",
+            _format_display_money(finance.get("seller_payout")),
+            note=f"Источник: {source}",
+            status=_display_status(available, finance.get("seller_payout"), warning=row_warning),
+        ),
+        _display_row(
+            "Комиссия WB",
+            _format_display_money(finance.get("wb_commission")),
+            note=f"Источник: {source}",
+            status=_display_status(available, finance.get("wb_commission"), warning=row_warning),
+        ),
+        _display_row(
+            "Логистика",
+            _format_display_money(finance.get("logistics")),
+            note=f"Источник: {source}",
+            status=_display_status(available, finance.get("logistics"), warning=row_warning),
+        ),
+        _display_row(
+            "Хранение",
+            _format_display_money(finance.get("storage")),
+            note=f"Источник: {source}",
+            status=_display_status(available, finance.get("storage"), warning=row_warning),
+        ),
+        _display_row(
+            "Эквайринг",
+            _format_display_money(finance.get("acquiring")),
+            note=f"Источник: {source}",
+            status=_display_status(available, finance.get("acquiring"), warning=row_warning),
+        ),
+    ]
+    return {
+        "title": "Финансы",
+        "subtitle": "Финальный финансовый контур за операционный день.",
+        "rows": rows,
+        "status": section_status,
+    }
+
+
+def build_live_section_v2(live_operational: dict[str, Any]) -> SectionV2:
+    live = _safe_dict(live_operational)
+    orders = _safe_dict(live.get("orders"))
+    sales = _safe_dict(live.get("sales"))
+    stocks = _safe_dict(live.get("stocks"))
+    section_status = _safe_str(live.get("status")) or "unavailable"
+
+    rows: list[DisplayRowV2] = [
+        _display_row(
+            "Live orders",
+            _format_display_int(orders.get("count"), "шт"),
+            note=f"{_format_display_money(orders.get('amount'))}; источник: {_format_display_text(orders.get('source'))}",
+            status=_display_status(bool(orders.get("available", False)), orders.get("count")),
+        ),
+        _display_row(
+            "Live sales",
+            _format_display_int(sales.get("count"), "шт"),
+            note=f"{_format_display_money(sales.get('amount'))}; источник: {_format_display_text(sales.get('source'))}",
+            status=_display_status(bool(sales.get("available", False)), sales.get("count")),
+        ),
+        _display_row(
+            "Остатки",
+            _format_display_int(stocks.get("total_units"), "шт"),
+            note=f"Источник: {_format_display_text(stocks.get('source'))}",
+            status=_display_status(bool(stocks.get("available", False)), stocks.get("total_units")),
+        ),
+        _display_row(
+            "Дата среза остатков",
+            _format_display_text(stocks.get("snapshot_date")),
+            note=f"Тип среза: {_format_display_text(stocks.get('snapshot_kind'))}",
+            status=_display_status(bool(stocks.get("available", False)), stocks.get("snapshot_date")),
+        ),
+    ]
+    return {
+        "title": "Оперативный срез",
+        "subtitle": "Live orders, sales и остатки без legacy fallback.",
+        "rows": rows,
+        "status": section_status,
+    }
+
+
 def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | None = None) -> ReportPayloadV2:
     if not isinstance(snapshot, dict):
         raise TypeError("snapshot must be a dict")
@@ -386,54 +662,69 @@ def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | No
     else:
         live_status = "unavailable"
 
+    meta_block = {
+        "contract_version": "report_payload_v2",
+        "seller_id": seller_id,
+        "report_date": report_date,
+        "operational_date": operational_date,
+        "snapshot_source_mode": snapshot_source_mode,
+        "debug_available": debug is not None,
+    }
+    cabinet_block = {
+        "available": bool(cabinet_daily.get("available", False)) and bool(cabinet_daily),
+        "source": _safe_str(cabinet_daily.get("source")) or "missing",
+        "owner_block": "cabinet_commerce_daily",
+        "target_date": _safe_str(cabinet_daily.get("target_date")) or None,
+        "orders_count": _safe_int(cabinet_daily.get("orders_count")),
+        "orders_amount": _safe_float(cabinet_daily.get("orders_amount")),
+        "buyouts_count": buyouts_count,
+        "buyouts_amount": buyouts_amount,
+    }
+    finance_block = {
+        "available": bool(finance_daily.get("available", False)) and bool(finance_daily),
+        "source": _safe_str(finance_daily.get("source")) or "missing",
+        "owner_block": "finance_final_daily",
+        "status": (
+            "unavailable"
+            if not bool(finance_daily.get("available", False))
+            else ("lagged" if finance_daily.get("date_aligned") is False else "ok")
+        ),
+        "target_date": _safe_str(finance_daily.get("target_date")) or None,
+        "actual_date": _safe_str(finance_daily.get("actual_date")) or None,
+        "date_aligned": finance_daily.get("date_aligned") if "date_aligned" in finance_daily else None,
+        "gross_revenue": _safe_float(finance_daily.get("gross_revenue")),
+        "seller_payout": _safe_float(finance_daily.get("seller_payout")),
+        "wb_commission": _safe_float(finance_daily.get("wb_commission")),
+        "logistics": _safe_float(finance_daily.get("logistics")),
+        "storage": _safe_float(finance_daily.get("storage")),
+        "acquiring": _safe_float(finance_daily.get("acquiring")),
+        "penalties": _safe_float(finance_daily.get("penalties")),
+        "deductions": _safe_float(finance_daily.get("deductions")),
+        "tax": _safe_float(finance_daily.get("tax")),
+    }
+    live_block = {
+        "status": live_status,
+        "orders": _build_live_metric(live_orders),
+        "sales": _build_live_metric(live_sales),
+        "stocks": _build_live_metric(live_stocks),
+    }
+
     payload: ReportPayloadV2 = {
-        "meta": {
-            "contract_version": "report_payload_v2",
-            "seller_id": seller_id,
-            "report_date": report_date,
-            "operational_date": operational_date,
-            "snapshot_source_mode": snapshot_source_mode,
-            "debug_available": debug is not None,
-        },
-        "cabinet_commerce": {
-            "available": bool(cabinet_daily.get("available", False)) and bool(cabinet_daily),
-            "source": _safe_str(cabinet_daily.get("source")) or "missing",
-            "owner_block": "cabinet_commerce_daily",
-            "target_date": _safe_str(cabinet_daily.get("target_date")) or None,
-            "orders_count": _safe_int(cabinet_daily.get("orders_count")),
-            "orders_amount": _safe_float(cabinet_daily.get("orders_amount")),
-            "buyouts_count": buyouts_count,
-            "buyouts_amount": buyouts_amount,
-        },
-        "finance_final": {
-            "available": bool(finance_daily.get("available", False)) and bool(finance_daily),
-            "source": _safe_str(finance_daily.get("source")) or "missing",
-            "owner_block": "finance_final_daily",
-            "status": (
-                "unavailable"
-                if not bool(finance_daily.get("available", False))
-                else ("lagged" if finance_daily.get("date_aligned") is False else "ok")
-            ),
-            "target_date": _safe_str(finance_daily.get("target_date")) or None,
-            "actual_date": _safe_str(finance_daily.get("actual_date")) or None,
-            "date_aligned": finance_daily.get("date_aligned") if "date_aligned" in finance_daily else None,
-            "gross_revenue": _safe_float(finance_daily.get("gross_revenue")),
-            "seller_payout": _safe_float(finance_daily.get("seller_payout")),
-            "wb_commission": _safe_float(finance_daily.get("wb_commission")),
-            "logistics": _safe_float(finance_daily.get("logistics")),
-            "storage": _safe_float(finance_daily.get("storage")),
-            "acquiring": _safe_float(finance_daily.get("acquiring")),
-            "penalties": _safe_float(finance_daily.get("penalties")),
-            "deductions": _safe_float(finance_daily.get("deductions")),
-            "tax": _safe_float(finance_daily.get("tax")),
-        },
+        "meta": meta_block,
+        "hero": build_hero_v2(
+            meta=meta_block,
+            cabinet_commerce=cabinet_block,
+            finance_final=finance_block,
+            live_operational=live_block,
+            warnings=warnings,
+        ),
+        "cabinet_commerce": cabinet_block,
+        "commerce_section": build_commerce_section_v2(cabinet_block),
+        "finance_final": finance_block,
+        "finance_section": build_finance_section_v2(finance_block),
         "finance_alignment_notice": build_finance_alignment_notice_v2(finance_daily),
-        "live_operational": {
-            "status": live_status,
-            "orders": _build_live_metric(live_orders),
-            "sales": _build_live_metric(live_sales),
-            "stocks": _build_live_metric(live_stocks),
-        },
+        "live_operational": live_block,
+        "live_section": build_live_section_v2(live_block),
         "warnings": warnings,
         "source_flags": {
             "snapshot_present": True,

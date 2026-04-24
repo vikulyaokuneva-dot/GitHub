@@ -58,6 +58,35 @@ class FinanceAlignmentNoticeV2(TypedDict, total=False):
     actual_date: str | None
 
 
+class HeroKpiCardV2(TypedDict, total=False):
+    label: str
+    value: str
+    subvalue: str
+    status: str
+
+
+class HeroBlockV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    cards: list[HeroKpiCardV2]
+    data_status: str
+    data_status_message: str
+
+
+class DisplayRowV2(TypedDict, total=False):
+    label: str
+    value: str
+    note: str
+    status: str
+
+
+class SectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    rows: list[DisplayRowV2]
+    status: str
+
+
 class LiveMetricBlockV2(TypedDict, total=False):
     available: bool
     source: str
@@ -107,10 +136,14 @@ class DiagnosticsV2(TypedDict, total=False):
 
 class ReportPayloadV2(TypedDict):
     meta: MetaBlockV2
+    hero: HeroBlockV2
     cabinet_commerce: CabinetCommerceBlockV2
+    commerce_section: SectionV2
     finance_final: FinanceFinalBlockV2
+    finance_section: SectionV2
     finance_alignment_notice: FinanceAlignmentNoticeV2
     live_operational: LiveOperationalBlockV2
+    live_section: SectionV2
     warnings: list[WarningItemV2]
     source_flags: SourceFlagsV2
     diagnostics: DiagnosticsV2
