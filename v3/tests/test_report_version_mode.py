@@ -171,6 +171,38 @@ class TestReportVersionMode(unittest.TestCase):
             self.assertEqual(os.path.basename(str(job.get("pdf_path") or "")), "report_v2.pdf")
             self.assertNotIn("report.pdf", json.dumps(job, ensure_ascii=False))
 
+    def test_daily_output_stage_v2_env_overrides_legacy_context_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as repo_root:
+            out_dir = os.path.join(repo_root, "cabinets", "seller_001", "artifacts")
+            core_dir = os.path.join(out_dir, "wb_api_core", "2026-04-21")
+            _write_json(os.path.join(core_dir, "snapshot.json"), _snapshot_payload())
+            _write_json(os.path.join(core_dir, "debug.json"), _debug_payload())
+
+            with patch.dict(os.environ, {"REPORT_VERSION": "v2"}, clear=False):
+                with patch(
+                    "v3.pipeline.daily_output_stage.run_daily_report_stage",
+                    side_effect=AssertionError("legacy report stage should not run when env REPORT_VERSION=v2"),
+                ), patch(
+                    "v3.pipeline.daily_output_stage.run_daily_email_stage",
+                    side_effect=AssertionError("legacy email stage should not run when env REPORT_VERSION=v2"),
+                ):
+                    result = run_daily_output_stage(
+                        {
+                            "repo_root": repo_root,
+                            "seller_id": "seller_001",
+                            "run_date": "2026-04-21",
+                            "out_dir": out_dir,
+                            "started_at": "2026-04-21T10:00:00Z",
+                            "report_version": "legacy",
+                        }
+                    )
+
+            self.assertEqual(result.get("report_version"), "v2")
+            self.assertEqual(result.get("status"), "success")
+            with open(os.path.join(out_dir, "report_meta.json"), "r", encoding="utf-8-sig") as file:
+                report_meta = json.load(file)
+            self.assertNotEqual(report_meta.get("pdf_source_mode"), "legacy")
+
     def test_entry_v2_full_run_keeps_v2_result_over_legacy_context(self) -> None:
         with tempfile.TemporaryDirectory() as repo_root:
             out_dir = os.path.join(repo_root, "cabinets", "seller_001", "artifacts")
@@ -191,6 +223,7 @@ class TestReportVersionMode(unittest.TestCase):
                 "started_at": "2026-04-21T10:00:00Z",
                 "discovered_files": {},
                 "api_debug": {},
+                "report_version": "legacy",
             }
             legacy_context = dict(base_context)
             legacy_context.update(

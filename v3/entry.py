@@ -89,7 +89,7 @@ _REPORT_VERSION_V2 = "v2"
 def _resolve_entry_report_version(context: Dict[str, Any] | None = None) -> str:
     raw_context_value = context.get("report_version") if isinstance(context, dict) else None
     raw_env_value = os.getenv(_REPORT_VERSION_ENV, "")
-    explicit_mode = str(raw_context_value or raw_env_value or "").strip().lower()
+    explicit_mode = str(raw_env_value or raw_context_value or "").strip().lower()
     return _REPORT_VERSION_V2 if explicit_mode == _REPORT_VERSION_V2 else _REPORT_VERSION_LEGACY
 
 
@@ -1077,7 +1077,7 @@ def _finalize_daily_delivery(result: Dict[str, Any], *, seller_id: str, run_date
     if str(result.get("status") or "") not in {"success", "partial_success"}:
         return result
 
-    report_version = str(result.get("report_version") or "").strip().lower()
+    report_version = _resolve_entry_report_version(result)
     finalize_branch = "v2" if report_version == _REPORT_VERSION_V2 else "legacy"
     print(f"[entry] finalize branch={finalize_branch} status={result.get('status')}")
     if report_version == _REPORT_VERSION_V2:

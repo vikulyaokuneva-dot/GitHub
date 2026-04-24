@@ -31,7 +31,7 @@ V2_ARTIFACT_FILENAMES = {
 def _resolve_report_version(context: Dict[str, Any]) -> str:
     raw_context_value = context.get("report_version") if isinstance(context, dict) else None
     raw_env_value = os.getenv(REPORT_VERSION_ENV, "")
-    explicit_mode = str(raw_context_value or raw_env_value or "").strip().lower()
+    explicit_mode = str(raw_env_value or raw_context_value or "").strip().lower()
     return REPORT_VERSION_V2 if explicit_mode == REPORT_VERSION_V2 else REPORT_VERSION_LEGACY
 
 
