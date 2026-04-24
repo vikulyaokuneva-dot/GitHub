@@ -1036,7 +1036,14 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     from .pipeline.daily_metrics_stage import run_daily_metrics_stage
     from .pipeline.daily_output_stage import run_daily_output_stage
 
-    print(f"[entry] REPORT_VERSION resolved={_resolve_entry_report_version()}")
+    print(
+        "[entry] REPORT_VERSION "
+        f"raw_env={os.environ.get(_REPORT_VERSION_ENV)!r} "
+        f"resolved={_resolve_entry_report_version()} "
+        f"cwd={os.getcwd()} "
+        f"repo_root={repo_root} "
+        f"repo_root_abs={os.path.abspath(repo_root)}"
+    )
     print("[pipeline] stage=load_reports started")
     context = run_daily_input_stage(repo_root=repo_root, seller_id=seller_id, run_date=run_date)
     print("[pipeline] stage=load_reports finished")
@@ -1079,7 +1086,13 @@ def _finalize_daily_delivery(result: Dict[str, Any], *, seller_id: str, run_date
 
     report_version = _resolve_entry_report_version(result)
     finalize_branch = "v2" if report_version == _REPORT_VERSION_V2 else "legacy"
-    print(f"[entry] finalize branch={finalize_branch} status={result.get('status')}")
+    print(
+        "[entry] finalize branch="
+        f"{finalize_branch} "
+        f"status={result.get('status')} "
+        f"raw_env={os.environ.get(_REPORT_VERSION_ENV)!r} "
+        f"resolved={report_version}"
+    )
     if report_version == _REPORT_VERSION_V2:
         return result
 

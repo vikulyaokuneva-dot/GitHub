@@ -21,6 +21,7 @@ jobs:
     env:
       WB_SELLER_ID: ${{ github.event.inputs.seller_id || 'seller_001' }}
       WB_REQUESTED_DATE: ${{ github.event.inputs.run_date || '' }}
+      REPORT_VERSION: "v2"
     steps:
       - uses: actions/checkout@v4
 
@@ -57,6 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "[workflow] pipeline started"
+          echo "[workflow] REPORT_VERSION=${REPORT_VERSION:-<empty>}"
           echo "[workflow] seller resolved: ${WB_SELLER_ID}"
           if [ -n "${WB_REQUESTED_DATE}" ]; then
             echo "[workflow] requested date: ${WB_REQUESTED_DATE}"
@@ -102,6 +104,7 @@ jobs:
           print(
               "[workflow] summary "
               f"seller_id={job.get('seller_id')} "
+              f"report_version={job.get('report_version')} "
               f"report_date={event.get('report_date') or job.get('run_date')} "
               f"input_files_detected={int(api.get('input_files_detected', 0) or 0)} "
               f"supplier_goods_found={bool(api.get('supplier_goods_daily_found', False))} "

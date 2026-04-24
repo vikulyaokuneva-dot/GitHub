@@ -35,6 +35,13 @@ def _resolve_report_version(context: Dict[str, Any]) -> str:
     return REPORT_VERSION_V2 if explicit_mode == REPORT_VERSION_V2 else REPORT_VERSION_LEGACY
 
 
+def _path_mtime(path: str | Path) -> str:
+    try:
+        return datetime.fromtimestamp(Path(path).stat().st_mtime, timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    except OSError:
+        return "<missing>"
+
+
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -69,6 +76,16 @@ def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("report_v2_mode_requires_out_dir")
 
     snapshot_paths = resolve_core_snapshot_paths(repo_root=repo_root, seller_id=seller_id, run_date=run_date)
+    print(
+        "[daily_output_stage] v2 output stage start "
+        f"cwd={os.getcwd()} "
+        f"repo_root={repo_root} "
+        f"repo_root_abs={os.path.abspath(repo_root)} "
+        f"out_dir={out_dir} "
+        f"out_dir_abs={os.path.abspath(out_dir)} "
+        f"snapshot_path={snapshot_paths['snapshot_path']} "
+        f"snapshot_mtime={_path_mtime(snapshot_paths['snapshot_path'])}"
+    )
     report_v2_result = build_report_v2_from_files(
         snapshot_path=snapshot_paths["snapshot_path"],
         debug_path=snapshot_paths["debug_path"],
@@ -150,15 +167,33 @@ def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
         f"artifacts={result.get('artifacts')}"
     )
     write_job(out_dir=out_dir, job=result)
+    print(
+        "[daily_output_stage] v2 output stage end "
+        f"job_path={Path(out_dir) / 'job.json'} "
+        f"job_mtime={_path_mtime(Path(out_dir) / 'job.json')} "
+        f"report_meta_path={Path(out_dir) / 'report_meta.json'} "
+        f"report_meta_mtime={_path_mtime(Path(out_dir) / 'report_meta.json')}"
+    )
     return result
 
 
 def run_daily_output_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     report_version = _resolve_report_version(context)
+    raw_context_value = context.get("report_version") if isinstance(context, dict) else None
+    raw_env_value = os.getenv(REPORT_VERSION_ENV)
+    print(
+        "[daily_output_stage] REPORT_VERSION "
+        f"raw_env={raw_env_value!r} "
+        f"context={raw_context_value!r} "
+        f"resolved={report_version}"
+    )
     print(f"[daily_output_stage] branch selected={report_version}")
     if report_version == REPORT_VERSION_V2:
         return _run_daily_output_stage_v2(context)
+    print("[daily_output_stage] legacy output stage start")
     payload = prepare_daily_output_payload(context)
     payload = run_daily_email_stage(payload)
     payload = run_daily_report_stage(payload)
-    return run_daily_history_stage(payload)
+    result = run_daily_history_stage(payload)
+    print("[daily_output_stage] legacy output stage end")
+    return result

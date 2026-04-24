@@ -5,7 +5,9 @@ import unittest
 from unittest.mock import patch
 
 from v3.entry import _finalize_daily_delivery, _run_daily_for_seller
+from v3.outputs.artifacts_writer import write_job, write_report_meta
 from v3.pipeline.daily_output_stage import run_daily_output_stage
+from v3.storage import LEGACY_WRITE_FORBIDDEN_MESSAGE
 
 
 def _write_json(path: str, payload: dict) -> None:
@@ -83,6 +85,39 @@ def _debug_payload() -> dict:
 
 
 class TestReportVersionMode(unittest.TestCase):
+    def test_report_version_v2_forbids_legacy_write_job(self) -> None:
+        with tempfile.TemporaryDirectory() as out_dir:
+            with patch.dict(os.environ, {"REPORT_VERSION": "v2"}, clear=False):
+                with self.assertRaisesRegex(RuntimeError, LEGACY_WRITE_FORBIDDEN_MESSAGE):
+                    write_job(
+                        out_dir=out_dir,
+                        job={
+                            "status": "partial_success",
+                            "artifacts": ["job.json", "report.pdf"],
+                        },
+                    )
+
+    def test_report_version_v2_forbids_legacy_write_report_meta(self) -> None:
+        with tempfile.TemporaryDirectory() as out_dir:
+            with patch.dict(os.environ, {"REPORT_VERSION": "v2"}, clear=False):
+                with self.assertRaisesRegex(RuntimeError, LEGACY_WRITE_FORBIDDEN_MESSAGE):
+                    write_report_meta(
+                        out_dir=out_dir,
+                        report_meta={
+                            "pdf_source_mode": "legacy",
+                            "pdf_path": os.path.join(out_dir, "report.pdf"),
+                        },
+                    )
+
+    def test_report_version_legacy_allows_legacy_job_meta_writers(self) -> None:
+        with tempfile.TemporaryDirectory() as out_dir:
+            with patch.dict(os.environ, {"REPORT_VERSION": "legacy"}, clear=False):
+                write_job(out_dir=out_dir, job={"status": "partial_success", "artifacts": ["report.pdf"]})
+                write_report_meta(out_dir=out_dir, report_meta={"pdf_source_mode": "legacy"})
+
+            self.assertTrue(os.path.isfile(os.path.join(out_dir, "job.json")))
+            self.assertTrue(os.path.isfile(os.path.join(out_dir, "report_meta.json")))
+
     def test_daily_output_stage_v2_mode_uses_report_v2_and_writes_meta(self) -> None:
         with tempfile.TemporaryDirectory() as repo_root:
             out_dir = os.path.join(repo_root, "cabinets", "seller_001", "artifacts")
