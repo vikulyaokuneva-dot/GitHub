@@ -21,11 +21,41 @@
   "email_txt_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\email_v2.txt",
   "warnings": [
     {
+      "code": "finance_final_api_unavailable",
+      "message": "WB_API_TOKEN not provided",
+      "level": "warning",
+      "block": "meta"
+    },
+    {
+      "code": "orders_api_unavailable",
+      "message": "WB_API_TOKEN not provided",
+      "level": "warning",
+      "block": "meta"
+    },
+    {
+      "code": "sales_api_unavailable",
+      "message": "WB_API_TOKEN not provided",
+      "level": "warning",
+      "block": "meta"
+    },
+    {
+      "code": "stocks_api_unavailable",
+      "message": "WB_API_TOKEN not provided",
+      "level": "warning",
+      "block": "meta"
+    },
+    {
+      "code": "finance_final_unavailable",
+      "message": "finance_final_daily is present but marked unavailable.",
+      "level": "warning",
+      "block": "finance_final"
+    },
+    {
       "code": "buyouts_owner_from_cabinet_commerce",
       "message": "Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them.",
       "level": "warning",
       "block": "cabinet_commerce"
     }
   ],
-  "warnings_count": 1
+  "warnings_count": 6
 }

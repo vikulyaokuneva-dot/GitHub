@@ -3,8 +3,8 @@
   "mode": "daily",
   "run_date": "2026-04-21",
   "status": "success",
-  "started_at": "2026-04-24T14:40:48Z",
-  "finished_at": "2026-04-24T14:40:50Z",
+  "started_at": "2026-04-24T18:52:09Z",
+  "finished_at": "2026-04-24T18:52:15Z",
   "error": null,
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
   "source_mode": "wb_api_core_v2",
@@ -47,13 +47,43 @@
     "email_txt_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\email_v2.txt",
     "warnings": [
       {
+        "code": "finance_final_api_unavailable",
+        "message": "WB_API_TOKEN not provided",
+        "level": "warning",
+        "block": "meta"
+      },
+      {
+        "code": "orders_api_unavailable",
+        "message": "WB_API_TOKEN not provided",
+        "level": "warning",
+        "block": "meta"
+      },
+      {
+        "code": "sales_api_unavailable",
+        "message": "WB_API_TOKEN not provided",
+        "level": "warning",
+        "block": "meta"
+      },
+      {
+        "code": "stocks_api_unavailable",
+        "message": "WB_API_TOKEN not provided",
+        "level": "warning",
+        "block": "meta"
+      },
+      {
+        "code": "finance_final_unavailable",
+        "message": "finance_final_daily is present but marked unavailable.",
+        "level": "warning",
+        "block": "finance_final"
+      },
+      {
         "code": "buyouts_owner_from_cabinet_commerce",
         "message": "Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them.",
         "level": "warning",
         "block": "cabinet_commerce"
       }
     ],
-    "warnings_count": 1
+    "warnings_count": 6
   },
   "payload_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_payload_v2.json",
   "pdf_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_v2.pdf",

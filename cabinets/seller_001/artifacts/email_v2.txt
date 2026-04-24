@@ -10,17 +10,22 @@ Buyouts: 2
 Buyouts amount: 1 700.00
 
 Finance:
-Gross revenue: 4 652.00
-Seller payout: 4 868.22
-WB commission: -329.75
-Logistics: 3.00
-Storage: 68.37
-Acquiring: 186.08
+Gross revenue: unavailable
+Seller payout: unavailable
+WB commission: unavailable
+Logistics: unavailable
+Storage: unavailable
+Acquiring: unavailable
 
 Live:
-Live orders: 3 / 2 500.00
-Live sales: 3 / 7 160.00
-Live stocks: 322
+Live orders: unavailable / unavailable
+Live sales: unavailable / unavailable
+Live stocks: unavailable
 
 Warnings:
+- [meta] WB_API_TOKEN not provided
+- [meta] WB_API_TOKEN not provided
+- [meta] WB_API_TOKEN not provided
+- [meta] WB_API_TOKEN not provided
+- [finance_final] finance_final_daily is present but marked unavailable.
 - [cabinet_commerce] Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them.

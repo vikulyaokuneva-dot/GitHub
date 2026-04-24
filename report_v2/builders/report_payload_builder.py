@@ -99,6 +99,23 @@ def _format_display_percent(value: float | None) -> str:
     return f"{formatted}%"
 
 
+def _safe_snapshot_float(value: Any) -> float | None:
+    if isinstance(value, str):
+        value = value.strip().replace(",", ".")
+    return _safe_float(value)
+
+
+def _format_snapshot_percent(value: Any) -> str:
+    numeric = _safe_snapshot_float(value)
+    if numeric is None:
+        return "нет данных"
+    if numeric.is_integer():
+        formatted = f"{int(numeric)}"
+    else:
+        formatted = f"{numeric:.2f}".rstrip("0").rstrip(".")
+    return f"{formatted}%"
+
+
 def _funnel_row(stage: str, value: str, *, source: str, status: str, note: str = "") -> FunnelStageRowV2:
     return {
         "stage": _safe_str(stage),
@@ -538,12 +555,63 @@ def _upper_funnel_stage_row(
     )
 
 
+def _funnel_daily_count_row(stage: str, block: dict[str, Any], field_name: str, *, source: str) -> FunnelStageRowV2:
+    value = _safe_int(block.get(field_name))
+    return _funnel_row(
+        stage,
+        _format_display_int(value, "шт"),
+        source=source,
+        status="ok" if value is not None else "unavailable",
+        note="Данные получены из snapshot.funnel_daily.",
+    )
+
+
+def _funnel_daily_rate_row(stage: str, block: dict[str, Any], field_name: str, *, source: str) -> FunnelStageRowV2:
+    value = _safe_snapshot_float(block.get(field_name))
+    return _funnel_row(
+        stage,
+        _format_snapshot_percent(value),
+        source=source,
+        status="ok" if value is not None else "unavailable",
+        note="Данные получены из snapshot.funnel_daily.",
+    )
+
+
 def build_funnel_section_v2(
     snapshot: dict[str, Any],
     cabinet_commerce: dict[str, Any],
     debug: dict[str, Any] | None,
 ) -> FunnelSectionV2:
     _ = debug
+    safe_snapshot = _safe_dict(snapshot)
+    funnel_daily = _safe_dict(safe_snapshot.get("funnel_daily"))
+    if funnel_daily and bool(funnel_daily.get("available", False)):
+        source = _safe_str(funnel_daily.get("source")) or "sales_funnel_api"
+        status = _safe_str(funnel_daily.get("status")).lower() or "ok"
+        if status not in {"ok", "partial"}:
+            status = "partial"
+        message = (
+            "Воронка собрана из sales_funnel_api."
+            if status == "ok"
+            else "Воронка частично доступна из sales_funnel_api."
+        )
+        rows: list[FunnelStageRowV2] = [
+            _funnel_daily_count_row("Открытия карточек", funnel_daily, "open_count", source=source),
+            _funnel_daily_count_row("Корзина", funnel_daily, "cart_count", source=source),
+            _funnel_daily_count_row("Заказы", funnel_daily, "orders_count", source=source),
+            _funnel_daily_count_row("Выкупы", funnel_daily, "buyouts_count", source=source),
+            _funnel_daily_rate_row("Открытие → корзина", funnel_daily, "open_to_cart_rate", source=source),
+            _funnel_daily_rate_row("Корзина → заказ", funnel_daily, "cart_to_order_rate", source=source),
+            _funnel_daily_rate_row("Заказ → выкуп", funnel_daily, "order_to_buyout_rate", source=source),
+        ]
+        return {
+            "title": "Воронка продаж",
+            "subtitle": "Воронка из snapshot.funnel_daily.",
+            "rows": rows,
+            "status": status,
+            "message": message,
+        }
+
     cabinet = _safe_dict(cabinet_commerce)
     cabinet_available = bool(cabinet.get("available", False))
     cabinet_source = _safe_str(cabinet.get("source")) or "cabinet_commerce_daily"

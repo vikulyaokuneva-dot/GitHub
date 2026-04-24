@@ -137,6 +137,50 @@ def test_funnel_section_v2_uses_cabinet_commerce_lower_funnel() -> None:
     assert rows["Выкупы"]["source"] == "sales_funnel_api"
 
 
+def test_report_payload_v2_uses_funnel_daily_when_present() -> None:
+    snapshot = _sample_snapshot()
+    snapshot["funnel_daily"] = {
+        "source": "sales_funnel_api",
+        "available": True,
+        "status": "ok",
+        "open_count": 423,
+        "cart_count": 42,
+        "orders_count": 5,
+        "buyouts_count": 2,
+        "open_to_cart_rate": 9.93,
+        "cart_to_order_rate": 11.9,
+        "order_to_buyout_rate": 40.0,
+    }
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+    rows = {item["stage"]: item for item in payload["funnel_section"]["rows"]}
+
+    assert payload["funnel_section"]["status"] == "ok"
+    assert payload["funnel_section"]["message"] == "Воронка собрана из sales_funnel_api."
+    assert rows["Открытия карточек"]["value"] == "423 шт"
+    assert rows["Открытия карточек"]["source"] == "sales_funnel_api"
+    assert rows["Корзина"]["value"] == "42 шт"
+    assert rows["Открытие → корзина"]["value"] == "9.93%"
+    assert rows["Корзина → заказ"]["value"] == "11.9%"
+    assert rows["Заказ → выкуп"]["value"] == "40%"
+    assert "Клики" not in rows
+
+
+def test_funnel_section_v2_uses_funnel_daily_partial_message() -> None:
+    snapshot = _sample_snapshot()
+    snapshot["funnel_daily"] = {
+        "source": "sales_funnel_api",
+        "available": True,
+        "status": "partial",
+        "open_count": 423,
+    }
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+
+    assert payload["funnel_section"]["status"] == "partial"
+    assert payload["funnel_section"]["message"] == "Воронка частично доступна из sales_funnel_api."
+
+
 def test_funnel_section_v2_does_not_fake_missing_upper_funnel_zeroes() -> None:
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
     rows = {item["stage"]: item for item in payload["funnel_section"]["rows"]}
@@ -543,6 +587,8 @@ def test_report_v2_does_not_import_legacy_daily_report_stage() -> None:
 
     for path in checked_files:
         content = path.read_text(encoding="utf-8")
+        assert "cabinet_funnel" not in content
+        assert "analytics_api" not in content
         assert "daily_report_stage" not in content
         assert "daily_kpi" not in content
         assert "render_kpi" not in content
