@@ -124,6 +124,9 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     meta = payload.get("meta", {}) if isinstance(payload, dict) else {}
     commerce = payload.get("cabinet_commerce", {}) if isinstance(payload, dict) else {}
     finance = payload.get("finance_final", {}) if isinstance(payload, dict) else {}
+    finance_notice = payload.get("finance_alignment_notice", {}) if isinstance(payload, dict) else {}
+    if not isinstance(finance_notice, dict):
+        finance_notice = {}
     live = payload.get("live_operational", {}) if isinstance(payload, dict) else {}
     warnings = payload.get("warnings", []) if isinstance(payload, dict) else []
 
@@ -171,7 +174,16 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     story.append(Spacer(1, 8))
 
     story.append(Paragraph("Finance", styles["section"]))
-    finance_available = bool(finance.get("available", False))
+    finance_notice_state = str(finance_notice.get("state") or "ok").strip().lower()
+    if finance_notice_state != "ok":
+        title = _format_text(finance_notice.get("title"))
+        lines = finance_notice.get("lines", [])
+        if not isinstance(lines, list):
+            lines = []
+        story.append(Paragraph(title, styles["warning"]))
+        for line in lines:
+            story.append(Paragraph(f"- {_format_text(line)}", styles["warning"]))
+        story.append(Spacer(1, 4))
     story.append(
         _section_table(
             [
@@ -188,9 +200,6 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             font_name=font_info["font_name"],
         )
     )
-    if not finance_available:
-        story.append(Spacer(1, 4))
-        story.append(Paragraph("Finance section state: unavailable", styles["warning"]))
     story.append(Spacer(1, 8))
 
     live_orders = live.get("orders", {}) if isinstance(live, dict) else {}
@@ -231,5 +240,6 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         "pdf_path": str(target),
         "font_name": font_info["font_name"],
         "font_path": font_info["font_path"],
-        "finance_section_state": "ok" if finance_available else "unavailable",
+        "finance_section_state": finance_notice_state or "ok",
+        "finance_notice_state": finance_notice_state or "ok",
     }

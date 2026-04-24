@@ -49,6 +49,15 @@ class FinanceFinalBlockV2(TypedDict, total=False):
     tax: float | None
 
 
+class FinanceAlignmentNoticeV2(TypedDict, total=False):
+    state: str
+    title: str
+    lines: list[str]
+    source: str
+    target_date: str | None
+    actual_date: str | None
+
+
 class LiveMetricBlockV2(TypedDict, total=False):
     available: bool
     source: str
@@ -81,6 +90,7 @@ class ReportPayloadV2(TypedDict):
     meta: MetaBlockV2
     cabinet_commerce: CabinetCommerceBlockV2
     finance_final: FinanceFinalBlockV2
+    finance_alignment_notice: FinanceAlignmentNoticeV2
     live_operational: LiveOperationalBlockV2
     warnings: list[WarningItemV2]
     source_flags: SourceFlagsV2

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..contracts.report_payload_schema import ReportPayloadV2, WarningItemV2
+from ..contracts.report_payload_schema import FinanceAlignmentNoticeV2, ReportPayloadV2, WarningItemV2
 
 
 def _safe_dict(value: Any) -> dict[str, Any]:
@@ -114,6 +114,46 @@ def _build_live_metric(block: dict[str, Any]) -> dict[str, Any]:
         "snapshot_date": _safe_str(block.get("snapshot_date")) or None,
         "snapshot_kind": _safe_str(block.get("snapshot_kind")) or None,
         "operational_date_reference": _safe_str(block.get("operational_date_reference")) or None,
+    }
+
+
+def build_finance_alignment_notice_v2(finance_final: dict[str, Any] | None) -> FinanceAlignmentNoticeV2:
+    finance = _safe_dict(finance_final)
+    source = _safe_str(finance.get("source")) or "finance_final_daily"
+    target_date = _safe_str(finance.get("target_date")) or None
+    actual_date = _safe_str(finance.get("actual_date")) or None
+
+    if not finance or not bool(finance.get("available", False)):
+        return {
+            "state": "unavailable",
+            "title": "Финансовый контур недоступен",
+            "lines": ["Финансовые данные за день не получены из wb_api_core."],
+            "source": source,
+            "target_date": target_date,
+            "actual_date": actual_date,
+        }
+
+    if finance.get("date_aligned") is False:
+        return {
+            "state": "lagged",
+            "title": "Финансовые данные с лагом",
+            "lines": [
+                "Финансовые данные относятся не к операционному дню отчёта.",
+                f"Операционный день: {target_date or 'unknown'}",
+                f"Фактическая дата финансов: {actual_date or 'unknown'}",
+            ],
+            "source": source,
+            "target_date": target_date,
+            "actual_date": actual_date,
+        }
+
+    return {
+        "state": "ok",
+        "title": "",
+        "lines": [],
+        "source": source,
+        "target_date": target_date,
+        "actual_date": actual_date,
     }
 
 
@@ -255,6 +295,7 @@ def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | No
             "deductions": _safe_float(finance_daily.get("deductions")),
             "tax": _safe_float(finance_daily.get("tax")),
         },
+        "finance_alignment_notice": build_finance_alignment_notice_v2(finance_daily),
         "live_operational": {
             "status": live_status,
             "orders": _build_live_metric(live_orders),
