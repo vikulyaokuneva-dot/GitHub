@@ -87,6 +87,22 @@ class SectionV2(TypedDict, total=False):
     status: str
 
 
+class FunnelStageRowV2(TypedDict, total=False):
+    stage: str
+    value: str
+    source: str
+    status: str
+    note: str
+
+
+class FunnelSectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    rows: list[FunnelStageRowV2]
+    status: str
+    message: str
+
+
 class LiveMetricBlockV2(TypedDict, total=False):
     available: bool
     source: str
@@ -139,6 +155,7 @@ class ReportPayloadV2(TypedDict):
     hero: HeroBlockV2
     cabinet_commerce: CabinetCommerceBlockV2
     commerce_section: SectionV2
+    funnel_section: FunnelSectionV2
     finance_final: FinanceFinalBlockV2
     finance_section: SectionV2
     finance_alignment_notice: FinanceAlignmentNoticeV2

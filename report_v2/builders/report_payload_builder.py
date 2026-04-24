@@ -7,6 +7,8 @@ from ..contracts.report_payload_schema import (
     DiagnosticsV2,
     DisplayRowV2,
     FinanceAlignmentNoticeV2,
+    FunnelSectionV2,
+    FunnelStageRowV2,
     HeroBlockV2,
     HeroKpiCardV2,
     ReportPayloadV2,
@@ -82,6 +84,26 @@ def _display_row(label: str, value: str, *, note: str = "", status: str = "ok") 
         "value": _safe_str(value) or "нет данных",
         "note": _safe_str(note),
         "status": _safe_str(status) or "ok",
+    }
+
+
+def _format_display_percent(value: float | None) -> str:
+    if value is None:
+        return "нет данных"
+    if float(value).is_integer():
+        formatted = f"{int(value)}"
+    else:
+        formatted = f"{value:.2f}".replace(".", ",")
+    return f"{formatted}%"
+
+
+def _funnel_row(stage: str, value: str, *, source: str, status: str, note: str = "") -> FunnelStageRowV2:
+    return {
+        "stage": _safe_str(stage),
+        "value": _safe_str(value) or "нет данных",
+        "source": _safe_str(source) or "нет данных",
+        "status": _safe_str(status) or "unavailable",
+        "note": _safe_str(note),
     }
 
 
@@ -462,6 +484,119 @@ def build_commerce_section_v2(cabinet_commerce: dict[str, Any]) -> SectionV2:
     }
 
 
+def _clean_core_upper_funnel(snapshot: dict[str, Any]) -> dict[str, Any]:
+    safe_snapshot = _safe_dict(snapshot)
+    candidates = (
+        safe_snapshot.get("funnel_core"),
+        safe_snapshot.get("core_funnel"),
+        safe_snapshot.get("upper_funnel_core"),
+        safe_snapshot.get("sales_funnel_core"),
+    )
+    for candidate in candidates:
+        block = _safe_dict(candidate)
+        if block and bool(block.get("available", False)):
+            return block
+    return {}
+
+
+def _upper_funnel_stage_row(
+    stage: str,
+    block: dict[str, Any],
+    field_names: tuple[str, ...],
+    *,
+    default_source: str = "wb_api_core",
+) -> FunnelStageRowV2:
+    for field_name in field_names:
+        if field_name in block:
+            value = _safe_int(block.get(field_name))
+            if value is not None:
+                return _funnel_row(
+                    stage,
+                    _format_display_int(value, "шт"),
+                    source=_safe_str(block.get("source")) or default_source,
+                    status="ok",
+                    note="Данные получены из clean core block.",
+                )
+    return _funnel_row(
+        stage,
+        "нет данных",
+        source="нет clean core source",
+        status="unavailable",
+        note="Источник верхней части воронки отсутствует в snapshot.",
+    )
+
+
+def build_funnel_section_v2(
+    snapshot: dict[str, Any],
+    cabinet_commerce: dict[str, Any],
+    debug: dict[str, Any] | None,
+) -> FunnelSectionV2:
+    _ = debug
+    cabinet = _safe_dict(cabinet_commerce)
+    cabinet_available = bool(cabinet.get("available", False))
+    cabinet_source = _safe_str(cabinet.get("source")) or "cabinet_commerce_daily"
+    orders_count = _safe_int(cabinet.get("orders_count"))
+    buyouts_count = _safe_int(cabinet.get("buyouts_count"))
+    upper = _clean_core_upper_funnel(snapshot)
+
+    rows: list[FunnelStageRowV2] = [
+        _upper_funnel_stage_row("Показы", upper, ("views", "impressions", "shows")),
+        _upper_funnel_stage_row("Клики", upper, ("clicks", "click_count")),
+        _upper_funnel_stage_row("Корзина", upper, ("add_to_cart", "cart_count", "basket_count")),
+        _funnel_row(
+            "Заказы",
+            _format_display_int(orders_count, "шт"),
+            source=cabinet_source,
+            status=_display_status(cabinet_available, orders_count),
+            note="Нижняя часть воронки из cabinet_commerce.",
+        ),
+        _funnel_row(
+            "Выкупы",
+            _format_display_int(buyouts_count, "шт"),
+            source=cabinet_source,
+            status=_display_status(cabinet_available, buyouts_count),
+            note="Нижняя часть воронки из cabinet_commerce.",
+        ),
+    ]
+
+    conversion: float | None = None
+    conversion_status = "unavailable"
+    conversion_note = "Недостаточно данных для расчёта."
+    if orders_count is not None and orders_count > 0 and buyouts_count is not None:
+        conversion = round(float(buyouts_count) / float(orders_count) * 100.0, 2)
+        conversion_status = "ok"
+        conversion_note = "Рассчитано в builder из заказов и выкупов."
+    rows.append(
+        _funnel_row(
+            "Конверсия заказ → выкуп",
+            _format_display_percent(conversion),
+            source=cabinet_source if conversion_status == "ok" else "нет данных",
+            status=conversion_status,
+            note=conversion_note,
+        )
+    )
+
+    lower_available = cabinet_available and (orders_count is not None or buyouts_count is not None)
+    all_rows_available = all(row.get("status") == "ok" for row in rows)
+    if all_rows_available:
+        status = "ok"
+        message = "Воронка собрана из clean core данных."
+    elif lower_available:
+        status = "partial"
+        message = "Верхняя часть воронки недоступна в clean core snapshot; нули не подставлялись."
+    else:
+        status = "unavailable"
+        message = "Нет core-safe данных для заказов и выкупов."
+
+    return {
+        "title": "Воронка продаж",
+        "subtitle": "Минимальная воронка только из wb_api_core snapshot.",
+        "rows": rows,
+        "status": status,
+        "message": message,
+    }
+
+
 def build_finance_section_v2(finance_final: dict[str, Any]) -> SectionV2:
     finance = _safe_dict(finance_final)
     available = bool(finance.get("available", False))
@@ -533,13 +668,13 @@ def build_live_section_v2(live_operational: dict[str, Any]) -> SectionV2:
 
     rows: list[DisplayRowV2] = [
         _display_row(
-            "Live orders",
+            "Оперативные заказы",
             _format_display_int(orders.get("count"), "шт"),
             note=f"{_format_display_money(orders.get('amount'))}; источник: {_format_display_text(orders.get('source'))}",
             status=_display_status(bool(orders.get("available", False)), orders.get("count")),
         ),
         _display_row(
-            "Live sales",
+            "Оперативные продажи",
             _format_display_int(sales.get("count"), "шт"),
             note=f"{_format_display_money(sales.get('amount'))}; источник: {_format_display_text(sales.get('source'))}",
             status=_display_status(bool(sales.get("available", False)), sales.get("count")),
@@ -559,7 +694,7 @@ def build_live_section_v2(live_operational: dict[str, Any]) -> SectionV2:
     ]
     return {
         "title": "Оперативный срез",
-        "subtitle": "Live orders, sales и остатки без legacy fallback.",
+        "subtitle": "Оперативные заказы, продажи и остатки без legacy fallback.",
         "rows": rows,
         "status": section_status,
     }
@@ -720,6 +855,7 @@ def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | No
         ),
         "cabinet_commerce": cabinet_block,
         "commerce_section": build_commerce_section_v2(cabinet_block),
+        "funnel_section": build_funnel_section_v2(snapshot, cabinet_block, debug),
         "finance_final": finance_block,
         "finance_section": build_finance_section_v2(finance_block),
         "finance_alignment_notice": build_finance_alignment_notice_v2(finance_daily),

@@ -8,6 +8,7 @@ from report_v2.builders.report_payload_builder import (
     build_diagnostics_v2,
     build_finance_section_v2,
     build_finance_alignment_notice_v2,
+    build_funnel_section_v2,
     build_hero_v2,
     build_live_section_v2,
     build_report_payload_v2,
@@ -93,6 +94,7 @@ def test_build_report_payload_v2_maps_valid_snapshot() -> None:
     assert payload["hero"]["title"] == "Ежедневный отчёт WB"
     assert len(payload["hero"]["cards"]) == 4
     assert payload["commerce_section"]["status"] == "ok"
+    assert payload["funnel_section"]["status"] == "partial"
     assert payload["finance_section"]["status"] == "ok"
     assert payload["live_section"]["status"] == "ok"
 
@@ -121,13 +123,55 @@ def test_finance_section_v2_contains_display_rows() -> None:
     assert rows["Эквайринг"]["value"] == "186,08 ₽"
 
 
+def test_funnel_section_v2_uses_cabinet_commerce_lower_funnel() -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+
+    rows = {item["stage"]: item for item in payload["funnel_section"]["rows"]}
+
+    assert payload["funnel_section"]["status"] == "partial"
+    assert rows["Заказы"]["value"] == "5 шт"
+    assert rows["Заказы"]["source"] == "sales_funnel_api"
+    assert rows["Выкупы"]["value"] == "2 шт"
+    assert rows["Выкупы"]["source"] == "sales_funnel_api"
+
+
+def test_funnel_section_v2_does_not_fake_missing_upper_funnel_zeroes() -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    rows = {item["stage"]: item for item in payload["funnel_section"]["rows"]}
+
+    for stage in ("Показы", "Клики", "Корзина"):
+        assert rows[stage]["value"] == "нет данных"
+        assert rows[stage]["status"] == "unavailable"
+        assert rows[stage]["value"] != "0 шт"
+
+
+def test_funnel_section_v2_computes_order_to_buyout_conversion_in_builder() -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    rows = {item["stage"]: item for item in payload["funnel_section"]["rows"]}
+
+    assert rows["Конверсия заказ → выкуп"]["value"] == "40%"
+    assert rows["Конверсия заказ → выкуп"]["status"] == "ok"
+    assert "builder" in rows["Конверсия заказ → выкуп"]["note"]
+
+
+def test_funnel_section_v2_unavailable_without_orders_and_buyouts() -> None:
+    funnel = build_funnel_section_v2({}, {"available": False}, debug=None)
+
+    rows = {item["stage"]: item for item in funnel["rows"]}
+
+    assert funnel["status"] == "unavailable"
+    assert rows["Заказы"]["value"] == "нет данных"
+    assert rows["Выкупы"]["value"] == "нет данных"
+    assert rows["Конверсия заказ → выкуп"]["value"] == "нет данных"
+
+
 def test_live_section_v2_contains_display_rows() -> None:
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
 
     rows = {item["label"]: item for item in payload["live_section"]["rows"]}
 
-    assert rows["Live orders"]["value"] == "3 шт"
-    assert rows["Live sales"]["value"] == "3 шт"
+    assert rows["Оперативные заказы"]["value"] == "3 шт"
+    assert rows["Оперативные продажи"]["value"] == "3 шт"
     assert rows["Остатки"]["value"] == "322 шт"
     assert rows["Дата среза остатков"]["value"] == "2026-04-22"
 
@@ -284,8 +328,11 @@ def test_write_report_pdf_v2_creates_pdf_for_valid_snapshot(tmp_path: Path) -> N
     assert info["hero_cards_count"] == 4
     assert info["hero_data_status"] == payload["hero"]["data_status"]
     assert info["commerce_section_rows_count"] == 5
+    assert info["funnel_section_rows_count"] == 6
+    assert info["funnel_section_status"] == payload["funnel_section"]["status"]
     assert info["finance_section_rows_count"] == 7
     assert info["live_section_rows_count"] == 4
+    assert info["diagnostics_on_new_page"] is True
     assert info["diagnostics_source_flags_count"] > 0
 
 
@@ -298,8 +345,22 @@ def test_write_report_pdf_v2_creates_pdf_with_display_sections(tmp_path: Path) -
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
     assert info["commerce_section_rows_count"] == len(payload["commerce_section"]["rows"])
+    assert info["funnel_section_rows_count"] == len(payload["funnel_section"]["rows"])
     assert info["finance_section_rows_count"] == len(payload["finance_section"]["rows"])
     assert info["live_section_rows_count"] == len(payload["live_section"]["rows"])
+
+
+def test_write_report_pdf_v2_creates_pdf_with_funnel_minimal(tmp_path: Path) -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    pdf_path = tmp_path / "report_v2_funnel.pdf"
+
+    info = write_report_pdf_v2(pdf_path, payload)
+
+    assert payload["funnel_section"]["title"] == "Воронка продаж"
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+    assert info["funnel_section_status"] == "partial"
+    assert info["funnel_section_rows_count"] == 6
 
 
 def test_write_report_pdf_v2_creates_pdf_with_hero_block(tmp_path: Path) -> None:
@@ -314,6 +375,15 @@ def test_write_report_pdf_v2_creates_pdf_with_hero_block(tmp_path: Path) -> None
     assert info["hero_cards_count"] == 4
 
 
+def test_pdf_renderer_visual_polish_removes_technical_hero_text() -> None:
+    renderer_source = (Path(__file__).resolve().parents[1] / "renderers" / "pdf_renderer_v2.py").read_text(encoding="utf-8")
+
+    assert "status:" not in renderer_source
+    assert "data_status:" not in renderer_source
+    assert "snapshot_source_mode:" not in renderer_source
+    assert "Источник данных" in renderer_source
+
+
 def test_write_report_pdf_v2_creates_pdf_with_diagnostics_section(tmp_path: Path) -> None:
     debug = {"warnings": [{"code": "debug_pdf_warning", "message": "Debug PDF warning.", "block": "debug"}]}
     payload = build_report_payload_v2(_sample_snapshot(), debug=debug)
@@ -324,8 +394,17 @@ def test_write_report_pdf_v2_creates_pdf_with_diagnostics_section(tmp_path: Path
     assert any(item.get("code") == "debug_pdf_warning" for item in payload["diagnostics"]["warnings"])
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
+    assert info["diagnostics_on_new_page"] is True
     assert info["diagnostics_warnings_count"] >= 1
     assert info["diagnostics_source_flags_count"] > 0
+
+
+def test_pdf_renderer_keeps_diagnostics_on_second_page() -> None:
+    renderer_source = (Path(__file__).resolve().parents[1] / "renderers" / "pdf_renderer_v2.py").read_text(encoding="utf-8")
+
+    assert "PageBreak" in renderer_source
+    assert "Диагностика источников" in renderer_source
+    assert "Предупреждения" in renderer_source
 
 
 def test_write_report_pdf_v2_creates_pdf_with_lagged_notice(tmp_path: Path) -> None:
