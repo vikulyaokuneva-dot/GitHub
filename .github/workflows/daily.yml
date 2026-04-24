@@ -45,11 +45,6 @@ jobs:
       - name: Run report
         env:
           WB_API_TOKEN: ${{ secrets.WB_API_TOKEN }}
-          WB_TOKEN: ${{ secrets.WB_TOKEN }}
-          WILDBERRIES_API_TOKEN: ${{ secrets.WILDBERRIES_API_TOKEN }}
-          WB_STATISTICS_TOKEN: ${{ secrets.WB_STATISTICS_TOKEN }}
-          WB_ANALYTICS_TOKEN: ${{ secrets.WB_ANALYTICS_TOKEN }}
-          WB_FINANCE_TOKEN: ${{ secrets.WB_FINANCE_TOKEN }}
           YANDEX_SMTP_USER: ${{ secrets.YANDEX_SMTP_USER }}
           YANDEX_SMTP_APP_PASS: ${{ secrets.YANDEX_SMTP_APP_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
@@ -65,6 +60,7 @@ jobs:
           echo "[workflow] pipeline started"
           echo "[workflow] REPORT_VERSION=${REPORT_VERSION:-<empty>}"
           echo "[workflow] seller resolved: ${WB_SELLER_ID}"
+          echo "[workflow] WB_API_TOKEN_present=$([ -n "${WB_API_TOKEN:-}" ] && echo true || echo false)"
           if [ -n "${WB_REQUESTED_DATE}" ]; then
             echo "[workflow] requested date: ${WB_REQUESTED_DATE}"
             DATE_ARGS=(--date "${WB_REQUESTED_DATE}")

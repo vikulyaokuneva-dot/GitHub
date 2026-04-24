@@ -16,11 +16,10 @@ class TestPhase3InputStageIntegration:
     def test_daily_input_stage_local_reports_initializes_financial_snapshot(self):
         """Local-reports path should return financial_snapshot=None instead of crashing."""
         from v3.pipeline.daily_input_stage import run_daily_input_stage
-        from wb_api_core.token_resolver import WB_TOKEN_ENV_NAMES
 
         with tempfile.TemporaryDirectory() as repo_root:
             os.makedirs(os.path.join(repo_root, "cabinets", "seller_001", "input"), exist_ok=True)
-            with patch.dict("os.environ", {name: "" for name in WB_TOKEN_ENV_NAMES}, clear=False):
+            with patch.dict("os.environ", {"WB_API_TOKEN": ""}, clear=False):
                 context = run_daily_input_stage(
                     repo_root=repo_root,
                     seller_id="seller_001",
