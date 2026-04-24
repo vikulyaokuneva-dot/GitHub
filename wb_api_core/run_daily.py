@@ -43,6 +43,11 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
     resolved_repo_root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
     client = WBApiClient()
+    print(
+        "[wb_api_core] token_resolution "
+        f"token_present={str(client.has_token()).lower()} "
+        f"token_env_name_used={client.token_env_name_used or '<none>'}"
+    )
     raw_bundle = load_bundle(client, operational_date, seller_id=seller_id, repo_root=resolved_repo_root)
     normalized_bundle = normalize_bundle(raw_bundle)
     reconcile_result = reconcile_bundle(

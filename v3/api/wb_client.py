@@ -6,12 +6,14 @@ from typing import Any, Dict, Iterable, List
 
 import requests
 
+from wb_api_core.token_resolver import resolve_wb_api_token
+
 from .endpoints import BASE_ADVERT, BASE_STATISTICS, WBEndpoint
 
 
 class WBApiClient:
     def __init__(self, token: str | None = None):
-        self.token = str(token or os.getenv("WB_API_TOKEN", "")).strip()
+        self.token, self.token_env_name_used = resolve_wb_api_token(token)
         if not self.token:
             raise ValueError("WB_API_TOKEN not provided")
 

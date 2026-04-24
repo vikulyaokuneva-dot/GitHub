@@ -111,6 +111,8 @@ def build_debug(
             "retry_count": int(debug.get("retry_count", 0) or 0),
             "retry_delays": list(debug.get("retry_delays", []) or []),
             "final_failure_reason": str(debug.get("final_failure_reason") or ""),
+            "token_present": bool(debug.get("token_present", False)),
+            "token_env_name_used": str(debug.get("token_env_name_used") or ""),
         }
         if key == "finance_final":
             endpoints[key]["finance_endpoint_used"] = str(debug.get("finance_endpoint_used") or "")

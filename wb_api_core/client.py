@@ -7,6 +7,8 @@ from typing import Any, Dict, Iterable, List
 
 import requests
 
+from .token_resolver import resolve_wb_api_token
+
 STATISTICS_BASE_URL = "https://statistics-api.wildberries.ru"
 FINANCE_BASE_URL = "https://finance-api.wildberries.ru"
 ANALYTICS_BASE_URL = "https://seller-analytics-api.wildberries.ru"
@@ -20,7 +22,7 @@ SALES_FUNNEL_PRODUCTS_PATH = "/api/analytics/v3/sales-funnel/products"
 
 class WBApiClient:
     def __init__(self, token: str | None = None) -> None:
-        self.token = str(token or os.getenv("WB_API_TOKEN", "")).strip()
+        self.token, self.token_env_name_used = resolve_wb_api_token(token)
         self.statistics_base_url = os.getenv("WB_STATISTICS_BASE_URL", STATISTICS_BASE_URL).rstrip("/")
         self.finance_base_url = os.getenv("WB_FINANCE_BASE_URL", FINANCE_BASE_URL).rstrip("/")
         self.analytics_base_url = os.getenv("WB_ANALYTICS_BASE_URL", ANALYTICS_BASE_URL).rstrip("/")
@@ -130,6 +132,8 @@ class WBApiClient:
                 "final_failure_reason": "WB_API_TOKEN not provided",
                 "method": str(method or "GET").strip().upper() or "GET",
                 "base_url": str(base_url or self.statistics_base_url).rstrip("/"),
+                "token_present": False,
+                "token_env_name_used": self.token_env_name_used,
             }
 
         request_method = str(method or "GET").strip().upper() or "GET"
@@ -177,6 +181,8 @@ class WBApiClient:
                         "final_failure_reason": "",
                         "method": request_method,
                         "base_url": resolved_base_url,
+                        "token_present": True,
+                        "token_env_name_used": self.token_env_name_used,
                     }
                 if response.status_code == 204 and allow_204:
                     return {
@@ -192,6 +198,8 @@ class WBApiClient:
                         "final_failure_reason": "",
                         "method": request_method,
                         "base_url": resolved_base_url,
+                        "token_present": True,
+                        "token_env_name_used": self.token_env_name_used,
                     }
                 if response.status_code in normalized_retry_policy.get("retryable_statuses", set()) and attempt < max_attempts:
                     last_error = f"{response.status_code}: {response.text[:300]}"
@@ -235,6 +243,8 @@ class WBApiClient:
             "final_failure_reason": last_error,
             "method": request_method,
             "base_url": resolved_base_url,
+            "token_present": True,
+            "token_env_name_used": self.token_env_name_used,
         }
 
     @staticmethod

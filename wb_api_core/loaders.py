@@ -227,6 +227,8 @@ def _build_debug(
         "retry_count": int(response.get("retry_count", 0) or 0),
         "retry_delays": list(response.get("retry_delays", []) or []),
         "final_failure_reason": str(response.get("final_failure_reason") or ""),
+        "token_present": bool(response.get("token_present", False)),
+        "token_env_name_used": str(response.get("token_env_name_used") or ""),
     }
     if isinstance(extra, dict):
         payload.update(extra)

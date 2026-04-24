@@ -45,6 +45,11 @@ jobs:
       - name: Run report
         env:
           WB_API_TOKEN: ${{ secrets.WB_API_TOKEN }}
+          WB_TOKEN: ${{ secrets.WB_TOKEN }}
+          WILDBERRIES_API_TOKEN: ${{ secrets.WILDBERRIES_API_TOKEN }}
+          WB_STATISTICS_TOKEN: ${{ secrets.WB_STATISTICS_TOKEN }}
+          WB_ANALYTICS_TOKEN: ${{ secrets.WB_ANALYTICS_TOKEN }}
+          WB_FINANCE_TOKEN: ${{ secrets.WB_FINANCE_TOKEN }}
           YANDEX_SMTP_USER: ${{ secrets.YANDEX_SMTP_USER }}
           YANDEX_SMTP_APP_PASS: ${{ secrets.YANDEX_SMTP_APP_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}

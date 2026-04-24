@@ -229,6 +229,30 @@ def _raw_bundle_fixture() -> Dict[str, Any]:
 
 
 class TestWbApiCoreSemantics(unittest.TestCase):
+    def test_wb_api_client_prefers_canonical_token_env(self) -> None:
+        with patch.dict(os.environ, {"WB_API_TOKEN": "canonical", "WB_TOKEN": "legacy"}, clear=True):
+            client = WBApiClient()
+
+        self.assertEqual(client.token, "canonical")
+        self.assertEqual(client.token_env_name_used, "WB_API_TOKEN")
+
+    def test_wb_api_client_resolves_backward_compatible_token_alias(self) -> None:
+        with patch.dict(os.environ, {"WB_TOKEN": "legacy-token"}, clear=True):
+            client = WBApiClient()
+
+        self.assertEqual(client.token, "legacy-token")
+        self.assertEqual(client.token_env_name_used, "WB_TOKEN")
+
+    def test_wb_api_client_missing_token_debug_is_safe(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            client = WBApiClient()
+            response = client.request_json(endpoint_name="orders", path="/api/v1/supplier/orders")
+
+        self.assertFalse(response["success"])
+        self.assertFalse(response["token_present"])
+        self.assertEqual(response["token_env_name_used"], "")
+        self.assertNotIn("Authorization", json.dumps(response, ensure_ascii=False))
+
     def test_load_cabinet_commerce_uses_analytics_host_and_period_body(self) -> None:
         client = _FakeClient(
             {

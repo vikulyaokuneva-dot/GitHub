@@ -4,6 +4,8 @@ import os
 from datetime import date, datetime, timedelta
 from typing import Any, Callable, Dict, List
 
+from wb_api_core.token_resolver import resolve_wb_api_token
+
 from ..domain.event_model import build_event_date_model
 from .daily_stage_support import sync_from_entry
 
@@ -189,7 +191,12 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     seller_name = str(cfg.get("seller_name") or seller_id)
 
     warnings_collector = WarningsCollector()
-    token = str(os.environ.get("WB_API_TOKEN", "")).strip()
+    token, token_env_name_used = resolve_wb_api_token()
+    print(
+        "[input] wb_token "
+        f"token_present={str(bool(token)).lower()} "
+        f"token_env_name_used={token_env_name_used or '<none>'}"
+    )
     ci_flag = str(os.environ.get("GITHUB_ACTIONS") or os.environ.get("CI") or "").strip().lower()
     if ci_flag in {"1", "true", "yes"} and not token:
         print("WB API token not configured in environment")
@@ -555,6 +562,8 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "finance_primary_endpoint_attempted": str(realization_loader_debug.get("finance_primary_endpoint_attempted") or ""),
             "finance_primary_status_code": realization_loader_debug.get("finance_primary_status_code"),
             "finance_primary_error_text": str(realization_loader_debug.get("finance_primary_error_text") or ""),
+            "token_present": bool(token),
+            "token_env_name_used": token_env_name_used,
         }
         print(
             "[wb] rows_loaded "
@@ -650,6 +659,8 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
             "finance_primary_endpoint_attempted": "",
             "finance_primary_status_code": None,
             "finance_primary_error_text": "",
+            "token_present": bool(token),
+            "token_env_name_used": token_env_name_used,
         }
         _log_api_probe_metrics(api_probe)
         print(
@@ -727,6 +738,7 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         "started_at": started_at,
         "seller_name": seller_name,
         "token": token,
+        "token_env_name_used": token_env_name_used,
         "source_mode": source_mode,
         "data_mode": data_mode,
         "non_api_mode": non_api_mode,
