@@ -114,6 +114,28 @@ def _section_table(rows: list[tuple[str, str]], *, width: float, font_name: str)
     return table
 
 
+def _source_flags_table(rows: list[tuple[str, str, str]], *, width: float, font_name: str) -> Table:
+    table = Table(rows, colWidths=[width * 0.42, width * 0.36, width * 0.22])
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E5E7EB")),
+                ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#111827")),
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("LEADING", (0, 0), (-1, -1), 10),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    return table
+
+
 def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
     font_info = _ensure_font_registered()
     styles = _styles(font_info["font_name"])
@@ -128,7 +150,9 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     if not isinstance(finance_notice, dict):
         finance_notice = {}
     live = payload.get("live_operational", {}) if isinstance(payload, dict) else {}
-    warnings = payload.get("warnings", []) if isinstance(payload, dict) else []
+    diagnostics = payload.get("diagnostics", {}) if isinstance(payload, dict) else {}
+    if not isinstance(diagnostics, dict):
+        diagnostics = {}
 
     doc = SimpleDocTemplate(
         str(target),
@@ -222,18 +246,41 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     )
     story.append(Spacer(1, 8))
 
-    story.append(Paragraph("Warnings", styles["section"]))
-    if isinstance(warnings, list) and warnings:
-        for item in warnings:
+    story.append(Paragraph("Диагностика источников", styles["section"]))
+    diagnostic_warnings = diagnostics.get("warnings", [])
+    if not isinstance(diagnostic_warnings, list):
+        diagnostic_warnings = []
+    if diagnostic_warnings:
+        story.append(Paragraph("Warnings", styles["body"]))
+        for item in diagnostic_warnings:
             if not isinstance(item, dict):
                 story.append(Paragraph(f"- {_format_text(item)}", styles["warning"]))
                 continue
             code = _format_text(item.get("code"))
             message = _format_text(item.get("message"))
             block = _format_text(item.get("block"))
-            story.append(Paragraph(f"- [{block}] {code}: {message}", styles["warning"]))
+            level = _format_text(item.get("level"))
+            story.append(Paragraph(f"- [{level}/{block}] {code}: {message}", styles["warning"]))
     else:
-        story.append(Paragraph("No warnings.", styles["body"]))
+        story.append(Paragraph("No diagnostics warnings.", styles["body"]))
+
+    source_flags = diagnostics.get("source_flags", [])
+    if not isinstance(source_flags, list):
+        source_flags = []
+    if source_flags:
+        story.append(Spacer(1, 6))
+        rows: list[tuple[str, str, str]] = [("Name", "Value", "Status")]
+        for item in source_flags:
+            if not isinstance(item, dict):
+                continue
+            rows.append(
+                (
+                    _format_text(item.get("name")),
+                    _format_text(item.get("value")),
+                    _format_text(item.get("status")),
+                )
+            )
+        story.append(_source_flags_table(rows, width=content_width, font_name=font_info["font_name"]))
 
     doc.build(story)
     return {
@@ -242,4 +289,6 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         "font_path": font_info["font_path"],
         "finance_section_state": finance_notice_state or "ok",
         "finance_notice_state": finance_notice_state or "ok",
+        "diagnostics_warnings_count": len(diagnostic_warnings),
+        "diagnostics_source_flags_count": len(source_flags),
     }

@@ -86,6 +86,25 @@ class SourceFlagsV2(TypedDict, total=False):
     warnings_count: int
 
 
+class DiagnosticsRowV2(TypedDict, total=False):
+    code: str
+    level: str
+    block: str
+    message: str
+
+
+class SourceFlagRowV2(TypedDict, total=False):
+    name: str
+    value: str
+    status: str
+
+
+class DiagnosticsV2(TypedDict, total=False):
+    warnings: list[DiagnosticsRowV2]
+    source_flags: list[SourceFlagRowV2]
+    warnings_count: int
+
+
 class ReportPayloadV2(TypedDict):
     meta: MetaBlockV2
     cabinet_commerce: CabinetCommerceBlockV2
@@ -94,4 +113,5 @@ class ReportPayloadV2(TypedDict):
     live_operational: LiveOperationalBlockV2
     warnings: list[WarningItemV2]
     source_flags: SourceFlagsV2
+    diagnostics: DiagnosticsV2
     debug_summary: NotRequired[dict[str, object]]

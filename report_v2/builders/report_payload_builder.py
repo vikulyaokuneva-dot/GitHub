@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..contracts.report_payload_schema import FinanceAlignmentNoticeV2, ReportPayloadV2, WarningItemV2
+from ..contracts.report_payload_schema import (
+    DiagnosticsRowV2,
+    DiagnosticsV2,
+    FinanceAlignmentNoticeV2,
+    ReportPayloadV2,
+    SourceFlagRowV2,
+    WarningItemV2,
+)
 
 
 def _safe_dict(value: Any) -> dict[str, Any]:
@@ -61,6 +68,131 @@ def _normalize_debug_warnings(items: Any) -> list[WarningItemV2]:
         if message:
             warnings.append(_warning("debug_warning", message, block="meta"))
     return warnings
+
+
+def _normalize_diagnostics_warning(item: Any, *, default_block: str) -> DiagnosticsRowV2 | None:
+    if isinstance(item, dict):
+        message = _safe_str(item.get("message") or item.get("text") or item.get("reason"))
+        if not message:
+            return None
+        return {
+            "code": _safe_str(item.get("code") or item.get("type")) or "warning",
+            "level": _safe_str(item.get("level") or item.get("severity")) or "warning",
+            "block": _safe_str(item.get("block") or item.get("source") or default_block) or default_block,
+            "message": message,
+        }
+    message = _safe_str(item)
+    if not message:
+        return None
+    return {
+        "code": "warning",
+        "level": "warning",
+        "block": default_block,
+        "message": message,
+    }
+
+
+def _dedupe_diagnostics_warnings(items: list[DiagnosticsRowV2]) -> list[DiagnosticsRowV2]:
+    deduped: list[DiagnosticsRowV2] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for item in items:
+        key = (
+            _safe_str(item.get("code")),
+            _safe_str(item.get("level")),
+            _safe_str(item.get("block")),
+            _safe_str(item.get("message")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped
+
+
+def _availability_status(block: dict[str, Any]) -> str:
+    if not block:
+        return "missing"
+    return "ok" if bool(block.get("available", False)) else "unavailable"
+
+
+def _source_flag(name: str, value: Any, status: str) -> SourceFlagRowV2:
+    if isinstance(value, bool):
+        value_text = "true" if value else "false"
+    elif value is None or value == "":
+        value_text = "unknown"
+    else:
+        value_text = _safe_str(value)
+    return {
+        "name": _safe_str(name),
+        "value": value_text,
+        "status": _safe_str(status) or "unknown",
+    }
+
+
+def build_diagnostics_v2(
+    snapshot: dict[str, Any],
+    debug: dict[str, Any] | None,
+    builder_warnings: list[dict[str, Any]],
+) -> DiagnosticsV2:
+    safe_snapshot = _safe_dict(snapshot)
+    safe_debug = _safe_dict(debug)
+    diagnostics_warnings: list[DiagnosticsRowV2] = []
+
+    for item in builder_warnings if isinstance(builder_warnings, list) else []:
+        normalized = _normalize_diagnostics_warning(item, default_block="builder")
+        if normalized is not None:
+            diagnostics_warnings.append(normalized)
+
+    for source_payload, default_block in (
+        (safe_debug.get("warnings"), "debug"),
+        (safe_debug.get("source_warnings"), "debug"),
+        (safe_snapshot.get("warnings"), "snapshot"),
+        (safe_snapshot.get("source_warnings"), "snapshot"),
+    ):
+        if not isinstance(source_payload, list):
+            continue
+        for item in source_payload:
+            normalized = _normalize_diagnostics_warning(item, default_block=default_block)
+            if normalized is not None:
+                diagnostics_warnings.append(normalized)
+
+    cabinet_daily = _safe_dict(safe_snapshot.get("cabinet_commerce_daily"))
+    finance_daily = _safe_dict(safe_snapshot.get("finance_final_daily"))
+    live_daily = _safe_dict(safe_snapshot.get("live_operational"))
+    live_orders = _safe_dict(live_daily.get("orders"))
+    live_sales = _safe_dict(live_daily.get("sales"))
+    live_stocks = _safe_dict(live_daily.get("stocks"))
+
+    cabinet_status = _availability_status(cabinet_daily)
+    finance_status = _availability_status(finance_daily)
+    if finance_status == "ok" and finance_daily.get("date_aligned") is False:
+        finance_status = "lagged"
+    debug_present = debug is not None
+
+    source_flags: list[SourceFlagRowV2] = [
+        _source_flag("cabinet_commerce.available", bool(cabinet_daily.get("available", False)), cabinet_status),
+        _source_flag("cabinet_commerce.status", cabinet_status, cabinet_status),
+        _source_flag("cabinet_commerce.source", _safe_str(cabinet_daily.get("source")) or "missing", cabinet_status),
+        _source_flag("finance_final.available", bool(finance_daily.get("available", False)), finance_status),
+        _source_flag("finance_final.status", finance_status, finance_status),
+        _source_flag("finance_final.source", _safe_str(finance_daily.get("source")) or "missing", finance_status),
+        _source_flag(
+            "finance_final.date_aligned",
+            finance_daily.get("date_aligned") if "date_aligned" in finance_daily else None,
+            finance_status,
+        ),
+        _source_flag("live_operational.orders.available", bool(live_orders.get("available", False)), _availability_status(live_orders)),
+        _source_flag("live_operational.sales.available", bool(live_sales.get("available", False)), _availability_status(live_sales)),
+        _source_flag("live_operational.stocks.available", bool(live_stocks.get("available", False)), _availability_status(live_stocks)),
+        _source_flag("debug_present", debug_present, "ok" if debug_present else "missing"),
+    ]
+
+    warnings = _dedupe_diagnostics_warnings(diagnostics_warnings)
+    return {
+        "warnings": warnings,
+        "source_flags": source_flags,
+        "warnings_count": len(warnings),
+    }
 
 
 def _resolve_buyouts_owner(
@@ -311,6 +443,7 @@ def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | No
             "buyouts_source": buyouts_source,
             "warnings_count": len(warnings),
         },
+        "diagnostics": build_diagnostics_v2(snapshot, debug, warnings),
     }
 
     if debug_payload:

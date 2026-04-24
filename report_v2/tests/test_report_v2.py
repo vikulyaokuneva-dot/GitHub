@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from report_v2.builders.report_payload_builder import build_finance_alignment_notice_v2, build_report_payload_v2
+from report_v2.builders.report_payload_builder import (
+    build_diagnostics_v2,
+    build_finance_alignment_notice_v2,
+    build_report_payload_v2,
+)
 from report_v2.renderers.pdf_renderer_v2 import write_report_pdf_v2
 from report_v2.run_report_v2 import build_report_v2_from_files
 
@@ -80,6 +84,58 @@ def test_build_report_payload_v2_maps_valid_snapshot() -> None:
     assert payload["finance_alignment_notice"]["state"] == "ok"
     assert payload["live_operational"]["stocks"]["total_units"] == 322
     assert payload["source_flags"]["buyouts_owner"] == "cabinet_commerce_daily"
+    assert payload["diagnostics"]["warnings_count"] == len(payload["diagnostics"]["warnings"])
+    assert any(item.get("code") == "buyouts_owner_from_cabinet_commerce" for item in payload["diagnostics"]["warnings"])
+
+
+def test_diagnostics_v2_contains_builder_warnings() -> None:
+    builder_warnings = [
+        {"code": "builder_warning", "level": "warning", "block": "builder", "message": "Builder warning."}
+    ]
+
+    diagnostics = build_diagnostics_v2(_sample_snapshot(), debug=None, builder_warnings=builder_warnings)
+
+    assert diagnostics["warnings_count"] == 1
+    assert diagnostics["warnings"][0] == {
+        "code": "builder_warning",
+        "level": "warning",
+        "block": "builder",
+        "message": "Builder warning.",
+    }
+
+
+def test_diagnostics_v2_contains_debug_warnings() -> None:
+    debug = {
+        "warnings": [
+            {"code": "debug_source_warning", "level": "info", "block": "debug", "message": "Debug warning."},
+            "Plain debug warning.",
+        ],
+    }
+
+    diagnostics = build_diagnostics_v2(_sample_snapshot(), debug=debug, builder_warnings=[])
+
+    warning_codes = {item.get("code") for item in diagnostics["warnings"]}
+    assert "debug_source_warning" in warning_codes
+    assert "warning" in warning_codes
+    assert diagnostics["warnings_count"] == 2
+
+
+def test_diagnostics_v2_contains_source_flags() -> None:
+    diagnostics = build_diagnostics_v2(_sample_snapshot(), debug=_sample_debug(), builder_warnings=[])
+
+    flags = {item["name"]: item for item in diagnostics["source_flags"]}
+
+    assert flags["cabinet_commerce.available"]["value"] == "true"
+    assert flags["cabinet_commerce.status"]["status"] == "ok"
+    assert flags["cabinet_commerce.source"]["value"] == "sales_funnel_api"
+    assert flags["finance_final.available"]["value"] == "true"
+    assert flags["finance_final.status"]["value"] == "ok"
+    assert flags["finance_final.source"]["value"] == "finance_detailed_api"
+    assert flags["finance_final.date_aligned"]["value"] == "true"
+    assert flags["live_operational.orders.available"]["value"] == "true"
+    assert flags["live_operational.sales.available"]["value"] == "true"
+    assert flags["live_operational.stocks.available"]["value"] == "true"
+    assert flags["debug_present"]["value"] == "true"
 
 
 def test_finance_alignment_notice_ok_for_aligned_finance() -> None:
@@ -128,6 +184,21 @@ def test_write_report_pdf_v2_creates_pdf_for_valid_snapshot(tmp_path: Path) -> N
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
     assert info["finance_section_state"] == "ok"
+    assert info["diagnostics_source_flags_count"] > 0
+
+
+def test_write_report_pdf_v2_creates_pdf_with_diagnostics_section(tmp_path: Path) -> None:
+    debug = {"warnings": [{"code": "debug_pdf_warning", "message": "Debug PDF warning.", "block": "debug"}]}
+    payload = build_report_payload_v2(_sample_snapshot(), debug=debug)
+    pdf_path = tmp_path / "report_v2_diagnostics.pdf"
+
+    info = write_report_pdf_v2(pdf_path, payload)
+
+    assert any(item.get("code") == "debug_pdf_warning" for item in payload["diagnostics"]["warnings"])
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+    assert info["diagnostics_warnings_count"] >= 1
+    assert info["diagnostics_source_flags_count"] > 0
 
 
 def test_write_report_pdf_v2_creates_pdf_with_lagged_notice(tmp_path: Path) -> None:
@@ -156,6 +227,7 @@ def test_missing_finance_block_keeps_pdf_v2_buildable(tmp_path: Path) -> None:
     assert payload["finance_final"]["available"] is False
     assert payload["finance_alignment_notice"]["state"] == "unavailable"
     assert any(item.get("code") == "finance_final_missing" for item in payload["warnings"])
+    assert any(item.get("code") == "finance_final_missing" for item in payload["diagnostics"]["warnings"])
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
     assert info["finance_section_state"] == "unavailable"
