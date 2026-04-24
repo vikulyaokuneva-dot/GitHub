@@ -258,6 +258,48 @@ def _funnel_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: s
     return table
 
 
+def _ads_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
+    table_rows: list[list[Paragraph]] = [
+        [
+            Paragraph("Показатель", style),
+            Paragraph("Значение", style),
+            Paragraph("Источник", style),
+            Paragraph("Статус", style),
+            Paragraph("Комментарий", style),
+        ]
+    ]
+    for item in rows:
+        row = item if isinstance(item, dict) else {}
+        table_rows.append(
+            [
+                Paragraph(_format_text(row.get("label")), style),
+                Paragraph(_format_text(row.get("value")), style),
+                Paragraph(_format_text(row.get("source")), style),
+                Paragraph(_status_label(row.get("status")), style),
+                Paragraph(_format_text(row.get("note")), style),
+            ]
+        )
+
+    table = Table(table_rows, colWidths=[width * 0.22, width * 0.18, width * 0.22, width * 0.14, width * 0.24])
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E5E7EB")),
+                ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#111827")),
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    return table
+
+
 def _source_flags_table(rows: list[tuple[str, str, str]], *, width: float, font_name: str) -> Table:
     table = Table(rows, colWidths=[width * 0.42, width * 0.36, width * 0.22])
     table.setStyle(
@@ -297,6 +339,9 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     funnel_section = payload.get("funnel_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(funnel_section, dict):
         funnel_section = {}
+    ads_section = payload.get("ads_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(ads_section, dict):
+        ads_section = {}
     finance_section = payload.get("finance_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(finance_section, dict):
         finance_section = {}
@@ -355,6 +400,15 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     story.append(Paragraph(_format_text(funnel_section.get("subtitle")), styles["meta"]))
     story.append(Paragraph(_format_text(funnel_section.get("message")), styles["warning"]))
     story.append(_funnel_rows_table(funnel_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+    story.append(Spacer(1, 6))
+
+    ads_rows = ads_section.get("rows", [])
+    if not isinstance(ads_rows, list):
+        ads_rows = []
+    story.append(Paragraph(_format_text(ads_section.get("title")), styles["section"]))
+    story.append(Paragraph(_format_text(ads_section.get("subtitle")), styles["meta"]))
+    story.append(Paragraph(_format_text(ads_section.get("message")), styles["warning"]))
+    story.append(_ads_rows_table(ads_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
     story.append(Spacer(1, 6))
 
     finance_notice_state = str(finance_notice.get("state") or "ok").strip().lower()
@@ -433,6 +487,8 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         "commerce_section_rows_count": len(commerce_rows),
         "funnel_section_rows_count": len(funnel_rows),
         "funnel_section_status": _format_text(funnel_section.get("status")),
+        "ads_section_rows_count": len(ads_rows),
+        "ads_section_status": _format_text(ads_section.get("status")),
         "finance_section_rows_count": len(finance_rows),
         "live_section_rows_count": len(live_rows),
         "diagnostics_on_new_page": True,

@@ -103,6 +103,22 @@ class FunnelSectionV2(TypedDict, total=False):
     message: str
 
 
+class AdsRowV2(TypedDict, total=False):
+    label: str
+    value: str
+    source: str
+    status: str
+    note: str
+
+
+class AdsSectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    rows: list[AdsRowV2]
+    status: str
+    message: str
+
+
 class LiveMetricBlockV2(TypedDict, total=False):
     available: bool
     source: str
@@ -156,6 +172,7 @@ class ReportPayloadV2(TypedDict):
     cabinet_commerce: CabinetCommerceBlockV2
     commerce_section: SectionV2
     funnel_section: FunnelSectionV2
+    ads_section: AdsSectionV2
     finance_final: FinanceFinalBlockV2
     finance_section: SectionV2
     finance_alignment_notice: FinanceAlignmentNoticeV2

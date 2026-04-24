@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from ..contracts.report_payload_schema import (
+    AdsRowV2,
+    AdsSectionV2,
     DiagnosticsRowV2,
     DiagnosticsV2,
     DisplayRowV2,
@@ -100,6 +102,16 @@ def _format_display_percent(value: float | None) -> str:
 def _funnel_row(stage: str, value: str, *, source: str, status: str, note: str = "") -> FunnelStageRowV2:
     return {
         "stage": _safe_str(stage),
+        "value": _safe_str(value) or "нет данных",
+        "source": _safe_str(source) or "нет данных",
+        "status": _safe_str(status) or "unavailable",
+        "note": _safe_str(note),
+    }
+
+
+def _ads_row(label: str, value: str, *, source: str, status: str, note: str = "") -> AdsRowV2:
+    return {
+        "label": _safe_str(label),
         "value": _safe_str(value) or "нет данных",
         "source": _safe_str(source) or "нет данных",
         "status": _safe_str(status) or "unavailable",
@@ -597,6 +609,114 @@ def build_funnel_section_v2(
     }
 
 
+def _clean_core_ads_block(snapshot: dict[str, Any]) -> dict[str, Any]:
+    safe_snapshot = _safe_dict(snapshot)
+    candidates = (
+        safe_snapshot.get("ads_efficiency_daily"),
+        safe_snapshot.get("advertising_daily"),
+        safe_snapshot.get("ads_daily"),
+        safe_snapshot.get("advertising_efficiency_daily"),
+    )
+    for candidate in candidates:
+        block = _safe_dict(candidate)
+        if not block:
+            continue
+        if "available" in block and not bool(block.get("available", False)):
+            continue
+        return block
+    return {}
+
+
+def _first_numeric(block: dict[str, Any], field_names: tuple[str, ...]) -> float | None:
+    for field_name in field_names:
+        if field_name in block:
+            value = _safe_float(block.get(field_name))
+            if value is not None:
+                return value
+    return None
+
+
+def build_ads_section_v2(snapshot: dict[str, Any], debug: dict[str, Any] | None) -> AdsSectionV2:
+    _ = debug
+    ads = _clean_core_ads_block(snapshot)
+    if not ads:
+        rows = [
+            _ads_row("Расход на рекламу", "нет данных", source="нет clean ads source", status="unavailable"),
+            _ads_row("Заказы из рекламы", "нет данных", source="нет clean ads source", status="unavailable"),
+            _ads_row("Выручка из рекламы", "нет данных", source="нет clean ads source", status="unavailable"),
+            _ads_row("ДРР", "нет данных", source="нет clean ads source", status="unavailable"),
+        ]
+        return {
+            "title": "Реклама",
+            "subtitle": "Минимальный рекламный блок только из clean ads snapshot.",
+            "rows": rows,
+            "status": "unavailable",
+            "message": "Данные по рекламе пока отсутствуют в core snapshot.",
+        }
+
+    source = _safe_str(ads.get("source")) or "wb_api_core_ads"
+    ads_spend = _first_numeric(ads, ("ads_spend", "ad_spend", "spend", "advertising_spend", "cost"))
+    ad_orders = _first_numeric(ads, ("ad_orders", "ads_orders", "orders_from_ads", "orders_count", "attributed_orders"))
+    ad_revenue = _first_numeric(
+        ads,
+        ("revenue_from_ads", "ads_revenue", "ad_revenue", "revenue_total", "revenue", "attributed_revenue"),
+    )
+
+    drr: float | None = None
+    if ads_spend is not None and ad_revenue is not None and ad_revenue > 0:
+        drr = round(float(ads_spend) / float(ad_revenue) * 100.0, 2)
+
+    rows = [
+        _ads_row(
+            "Расход на рекламу",
+            _format_display_money(ads_spend),
+            source=source,
+            status=_display_status(True, ads_spend),
+            note="Только из clean ads block.",
+        ),
+        _ads_row(
+            "Заказы из рекламы",
+            _format_display_int(ad_orders, "шт"),
+            source=source,
+            status=_display_status(True, ad_orders),
+            note="Только из clean ads block.",
+        ),
+        _ads_row(
+            "Выручка из рекламы",
+            _format_display_money(ad_revenue),
+            source=source,
+            status=_display_status(True, ad_revenue),
+            note="Только из clean ads block.",
+        ),
+        _ads_row(
+            "ДРР",
+            _format_display_percent(drr),
+            source=source if drr is not None else "нет данных",
+            status="ok" if drr is not None else "unavailable",
+            note="Рассчитано в builder только из clean ads spend и revenue.",
+        ),
+    ]
+
+    ok_count = sum(1 for row in rows if row.get("status") == "ok")
+    if ok_count == len(rows):
+        status = "ok"
+        message = "Рекламные данные получены из clean ads block."
+    elif ok_count > 0:
+        status = "partial"
+        message = "Рекламный блок есть, но часть значений отсутствует."
+    else:
+        status = "unavailable"
+        message = "Clean ads block есть, но полезные значения отсутствуют."
+
+    return {
+        "title": "Реклама",
+        "subtitle": "Минимальный рекламный блок только из clean ads snapshot.",
+        "rows": rows,
+        "status": status,
+        "message": message,
+    }
+
+
 def build_finance_section_v2(finance_final: dict[str, Any]) -> SectionV2:
     finance = _safe_dict(finance_final)
     available = bool(finance.get("available", False))
@@ -856,6 +976,7 @@ def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | No
         "cabinet_commerce": cabinet_block,
         "commerce_section": build_commerce_section_v2(cabinet_block),
         "funnel_section": build_funnel_section_v2(snapshot, cabinet_block, debug),
+        "ads_section": build_ads_section_v2(snapshot, debug),
         "finance_final": finance_block,
         "finance_section": build_finance_section_v2(finance_block),
         "finance_alignment_notice": build_finance_alignment_notice_v2(finance_daily),

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from report_v2.builders.report_payload_builder import (
+    build_ads_section_v2,
     build_commerce_section_v2,
     build_diagnostics_v2,
     build_finance_section_v2,
@@ -95,6 +96,7 @@ def test_build_report_payload_v2_maps_valid_snapshot() -> None:
     assert len(payload["hero"]["cards"]) == 4
     assert payload["commerce_section"]["status"] == "ok"
     assert payload["funnel_section"]["status"] == "partial"
+    assert payload["ads_section"]["status"] == "unavailable"
     assert payload["finance_section"]["status"] == "ok"
     assert payload["live_section"]["status"] == "ok"
 
@@ -163,6 +165,64 @@ def test_funnel_section_v2_unavailable_without_orders_and_buyouts() -> None:
     assert rows["Заказы"]["value"] == "нет данных"
     assert rows["Выкупы"]["value"] == "нет данных"
     assert rows["Конверсия заказ → выкуп"]["value"] == "нет данных"
+
+
+def test_ads_section_v2_exists_and_is_unavailable_without_clean_block() -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+
+    rows = {item["label"]: item for item in payload["ads_section"]["rows"]}
+
+    assert payload["ads_section"]["title"] == "Реклама"
+    assert payload["ads_section"]["status"] == "unavailable"
+    assert payload["ads_section"]["message"] == "Данные по рекламе пока отсутствуют в core snapshot."
+    assert rows["Расход на рекламу"]["value"] == "нет данных"
+    assert rows["Заказы из рекламы"]["value"] == "нет данных"
+    assert rows["Выручка из рекламы"]["value"] == "нет данных"
+    assert rows["ДРР"]["value"] == "нет данных"
+
+
+def test_ads_section_v2_missing_values_do_not_become_zero() -> None:
+    ads = build_ads_section_v2({}, debug=None)
+
+    for row in ads["rows"]:
+        assert row["value"] == "нет данных"
+        assert row["value"] != "0 ₽"
+        assert row["value"] != "0 шт"
+        assert row["status"] == "unavailable"
+
+
+def test_ads_section_v2_maps_clean_ads_block_values() -> None:
+    snapshot = {
+        "ads_efficiency_daily": {
+            "available": True,
+            "source": "ads_efficiency_api",
+            "ads_spend": 1200.0,
+            "orders_from_ads": 4,
+            "revenue_from_ads": 6000.0,
+        }
+    }
+
+    ads = build_ads_section_v2(snapshot, debug=None)
+    rows = {item["label"]: item for item in ads["rows"]}
+
+    assert ads["status"] == "ok"
+    assert rows["Расход на рекламу"]["value"] == "1 200 ₽"
+    assert rows["Расход на рекламу"]["source"] == "ads_efficiency_api"
+    assert rows["Заказы из рекламы"]["value"] == "4 шт"
+    assert rows["Выручка из рекламы"]["value"] == "6 000 ₽"
+    assert rows["ДРР"]["value"] == "20%"
+
+
+def test_ads_section_v2_drr_needs_clean_revenue() -> None:
+    snapshot = {"advertising_daily": {"available": True, "source": "advertising_api", "ads_spend": 1200.0}}
+
+    ads = build_ads_section_v2(snapshot, debug=None)
+    rows = {item["label"]: item for item in ads["rows"]}
+
+    assert ads["status"] == "partial"
+    assert rows["Расход на рекламу"]["value"] == "1 200 ₽"
+    assert rows["ДРР"]["value"] == "нет данных"
+    assert rows["ДРР"]["status"] == "unavailable"
 
 
 def test_live_section_v2_contains_display_rows() -> None:
@@ -330,6 +390,8 @@ def test_write_report_pdf_v2_creates_pdf_for_valid_snapshot(tmp_path: Path) -> N
     assert info["commerce_section_rows_count"] == 5
     assert info["funnel_section_rows_count"] == 6
     assert info["funnel_section_status"] == payload["funnel_section"]["status"]
+    assert info["ads_section_rows_count"] == 4
+    assert info["ads_section_status"] == payload["ads_section"]["status"]
     assert info["finance_section_rows_count"] == 7
     assert info["live_section_rows_count"] == 4
     assert info["diagnostics_on_new_page"] is True
@@ -346,6 +408,7 @@ def test_write_report_pdf_v2_creates_pdf_with_display_sections(tmp_path: Path) -
     assert pdf_path.stat().st_size > 0
     assert info["commerce_section_rows_count"] == len(payload["commerce_section"]["rows"])
     assert info["funnel_section_rows_count"] == len(payload["funnel_section"]["rows"])
+    assert info["ads_section_rows_count"] == len(payload["ads_section"]["rows"])
     assert info["finance_section_rows_count"] == len(payload["finance_section"]["rows"])
     assert info["live_section_rows_count"] == len(payload["live_section"]["rows"])
 
@@ -361,6 +424,19 @@ def test_write_report_pdf_v2_creates_pdf_with_funnel_minimal(tmp_path: Path) -> 
     assert pdf_path.stat().st_size > 0
     assert info["funnel_section_status"] == "partial"
     assert info["funnel_section_rows_count"] == 6
+
+
+def test_write_report_pdf_v2_creates_pdf_with_ads_minimal(tmp_path: Path) -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    pdf_path = tmp_path / "report_v2_ads.pdf"
+
+    info = write_report_pdf_v2(pdf_path, payload)
+
+    assert payload["ads_section"]["title"] == "Реклама"
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+    assert info["ads_section_status"] == "unavailable"
+    assert info["ads_section_rows_count"] == 4
 
 
 def test_write_report_pdf_v2_creates_pdf_with_hero_block(tmp_path: Path) -> None:
