@@ -12,6 +12,7 @@ def build_snapshot(
     reconcile_result: Dict[str, Any],
 ) -> Dict[str, Any]:
     cabinet_commerce = reconcile_result.get("cabinet_commerce_daily", {})
+    funnel = reconcile_result.get("funnel_daily", {})
     finance_final = reconcile_result.get("finance_final_daily", {})
     live_operational = reconcile_result.get("live_operational", {})
     live_orders = live_operational.get("orders", {}) if isinstance(live_operational, dict) else {}
@@ -32,6 +33,24 @@ def build_snapshot(
             "orders_amount": cabinet_commerce.get("orders_amount"),
             "buyouts_count": cabinet_commerce.get("buyouts_count"),
             "buyouts_amount": cabinet_commerce.get("buyouts_amount"),
+        },
+        "funnel_daily": {
+            "source": funnel.get("source"),
+            "owner_block": funnel.get("owner_block"),
+            "available": bool(funnel.get("available", False)),
+            "target_date": funnel.get("target_date"),
+            "open_count": funnel.get("open_count"),
+            "cart_count": funnel.get("cart_count"),
+            "orders_count": funnel.get("orders_count"),
+            "orders_amount": funnel.get("orders_amount"),
+            "buyouts_count": funnel.get("buyouts_count"),
+            "buyouts_amount": funnel.get("buyouts_amount"),
+            "open_to_cart_rate": funnel.get("open_to_cart_rate"),
+            "cart_to_order_rate": funnel.get("cart_to_order_rate"),
+            "order_to_buyout_rate": funnel.get("order_to_buyout_rate"),
+            "upper_funnel_status": funnel.get("upper_funnel_status"),
+            "lower_funnel_status": funnel.get("lower_funnel_status"),
+            "status": funnel.get("status"),
         },
         "finance_final_daily": {
             "source": finance_final.get("source"),

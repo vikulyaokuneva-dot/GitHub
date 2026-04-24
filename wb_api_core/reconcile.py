@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 SOURCE_RULES = {
     "cabinet_commerce_daily": "sales_funnel_api",
+    "funnel_daily": "sales_funnel_api",
     "finance_final_daily": "finance_detailed_api",
     "live_operational.orders": "orders_api",
     "live_operational.sales": "sales_api",
@@ -95,6 +96,31 @@ def _warning(code: str, message: str) -> Dict[str, str]:
     return {"code": code, "message": message}
 
 
+def _calculate_funnel_rate(numerator: float | None, denominator: float | None) -> float | None:
+    """Calculate percentage rate for funnel conversion (e.g., cart/open, order/cart)."""
+    if denominator and denominator > 0 and numerator is not None:
+        return round((numerator / denominator) * 100, 2)
+    return None
+
+
+def _determine_funnel_status(
+    open_count: float | None,
+    cart_count: float | None,
+    orders_count: float | None,
+    buyouts_count: float | None,
+) -> str:
+    """Determine overall funnel status based on data availability."""
+    has_upper = bool(open_count and open_count > 0) or bool(cart_count and cart_count > 0)
+    has_lower = bool(orders_count and orders_count > 0) or bool(buyouts_count and buyouts_count > 0)
+    
+    if has_upper and has_lower:
+        return "ok"
+    elif has_upper or has_lower:
+        return "partial"
+    else:
+        return "unavailable"
+
+
 def reconcile_bundle(
     *,
     raw_bundle: Dict[str, Any],
@@ -164,6 +190,34 @@ def reconcile_bundle(
         "buyouts_amount": _safe_total(cabinet_rows, "buyout_sum") if cabinet_available else None,
         "rows": cabinet_rows,
     }
+
+    # Build funnel_daily from same cabinet_rows (without rows field to avoid duplication)
+    funnel_open_count = _safe_total(cabinet_rows, "open_count") if cabinet_available else None
+    funnel_cart_count = _safe_total(cabinet_rows, "cart_count") if cabinet_available else None
+    funnel_orders_count = _safe_total(cabinet_rows, "order_count") if cabinet_available else None
+    funnel_orders_amount = _safe_total(cabinet_rows, "order_sum") if cabinet_available else None
+    funnel_buyouts_count = _safe_total(cabinet_rows, "buyout_count") if cabinet_available else None
+    funnel_buyouts_amount = _safe_total(cabinet_rows, "buyout_sum") if cabinet_available else None
+
+    funnel_daily = {
+        "source": SOURCE_RULES["funnel_daily"],
+        "owner_block": "funnel_daily",
+        "available": cabinet_available,
+        "target_date": target_date,
+        "open_count": funnel_open_count,
+        "cart_count": funnel_cart_count,
+        "orders_count": funnel_orders_count,
+        "orders_amount": funnel_orders_amount,
+        "buyouts_count": funnel_buyouts_count,
+        "buyouts_amount": funnel_buyouts_amount,
+        "open_to_cart_rate": _calculate_funnel_rate(funnel_cart_count, funnel_open_count),
+        "cart_to_order_rate": _calculate_funnel_rate(funnel_orders_count, funnel_cart_count),
+        "order_to_buyout_rate": _calculate_funnel_rate(funnel_buyouts_count, funnel_orders_count),
+        "upper_funnel_status": "ok" if (funnel_open_count and funnel_open_count > 0) or (funnel_cart_count and funnel_cart_count > 0) else "unavailable",
+        "lower_funnel_status": "ok" if (funnel_orders_count and funnel_orders_count > 0) or (funnel_buyouts_count and funnel_buyouts_count > 0) else "unavailable",
+        "status": _determine_funnel_status(funnel_open_count, funnel_cart_count, funnel_orders_count, funnel_buyouts_count),
+    }
+
 
     if finance_available:
         finance_effective_rows = [row for row in finance_rows if bool(row.get("include_in_totals", False))]
@@ -252,6 +306,7 @@ def reconcile_bundle(
         "source_rules": dict(SOURCE_RULES),
         "warnings": warnings,
         "cabinet_commerce_daily": cabinet_commerce_daily,
+        "funnel_daily": funnel_daily,
         "finance_final_daily": finance_final_daily,
         "live_operational": live_operational,
         "counts": {

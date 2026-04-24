@@ -6,6 +6,7 @@
   "source_mode": "wb_api_core_v2",
   "source_rules": {
     "cabinet_commerce_daily": "sales_funnel_api",
+    "funnel_daily": "sales_funnel_api",
     "finance_final_daily": "finance_detailed_api",
     "live_operational.orders": "orders_api",
     "live_operational.sales": "sales_api",
@@ -14,7 +15,7 @@
   "endpoints": {
     "cabinet_commerce": {
       "success": true,
-      "status_code": 200,
+      "status_code": null,
       "attempts": 0,
       "rows_loaded": 22,
       "error_text": "",
@@ -22,94 +23,94 @@
       "cache_hit": true,
       "retry_count": 0,
       "retry_delays": [],
-      "final_failure_reason": "",
+      "final_failure_reason": "WB_API_TOKEN not provided",
       "pages_loaded": 0,
       "page_limit": 1000,
-      "cache_mode": "fresh_local_cache",
+      "cache_mode": "failure_fallback",
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\cabinet_commerce_daily\\2026-04-21.json",
-      "cache_age_seconds": 11483.44,
-      "cache_fallback_used": false
+      "cache_age_seconds": 166065.58,
+      "cache_fallback_used": true
     },
     "finance_final": {
-      "success": true,
-      "status_code": 200,
-      "attempts": 1,
-      "rows_loaded": 20,
-      "error_text": "",
+      "success": false,
+      "status_code": null,
+      "attempts": 0,
+      "rows_loaded": 0,
+      "error_text": "WB_API_TOKEN not provided",
       "base_url": "https://finance-api.wildberries.ru",
       "cache_hit": false,
       "retry_count": 0,
       "retry_delays": [],
-      "final_failure_reason": "",
+      "final_failure_reason": "WB_API_TOKEN not provided",
       "finance_endpoint_used": "/api/finance/v1/sales-reports/detailed",
       "finance_requested_fields_count": 0,
       "finance_payload_incompatible": false
     },
     "orders": {
-      "success": true,
-      "status_code": 200,
-      "attempts": 1,
-      "rows_loaded": 11,
-      "error_text": "",
+      "success": false,
+      "status_code": null,
+      "attempts": 0,
+      "rows_loaded": 0,
+      "error_text": "WB_API_TOKEN not provided",
       "base_url": "https://statistics-api.wildberries.ru",
       "cache_hit": false,
       "retry_count": 0,
       "retry_delays": [],
-      "final_failure_reason": ""
+      "final_failure_reason": "WB_API_TOKEN not provided"
     },
     "sales": {
-      "success": true,
-      "status_code": 200,
-      "attempts": 1,
-      "rows_loaded": 3,
-      "error_text": "",
+      "success": false,
+      "status_code": null,
+      "attempts": 0,
+      "rows_loaded": 0,
+      "error_text": "WB_API_TOKEN not provided",
       "base_url": "https://statistics-api.wildberries.ru",
       "cache_hit": false,
       "retry_count": 0,
       "retry_delays": [],
-      "final_failure_reason": ""
+      "final_failure_reason": "WB_API_TOKEN not provided"
     },
     "stocks": {
-      "success": true,
-      "status_code": 200,
-      "attempts": 1,
-      "rows_loaded": 18,
-      "error_text": "",
+      "success": false,
+      "status_code": null,
+      "attempts": 0,
+      "rows_loaded": 0,
+      "error_text": "WB_API_TOKEN not provided",
       "base_url": "https://statistics-api.wildberries.ru",
       "cache_hit": false,
       "retry_count": 0,
       "retry_delays": [],
-      "final_failure_reason": ""
+      "final_failure_reason": "WB_API_TOKEN not provided"
     }
   },
   "counts": {
     "raw": {
       "cabinet_commerce": 22,
-      "finance_final": 20,
-      "orders": 11,
-      "sales": 3,
-      "stocks": 18
+      "finance_final": 0,
+      "orders": 0,
+      "sales": 0,
+      "stocks": 0
     },
     "normalized": {
       "cabinet_commerce": 22,
-      "finance_final": 20,
-      "orders": 11,
-      "sales": 3,
-      "stocks": 18
+      "finance_final": 0,
+      "orders": 0,
+      "sales": 0,
+      "stocks": 0
     },
     "reconciled": {
       "cabinet_commerce": 22,
-      "finance_final": 20,
-      "orders": 3,
-      "sales": 3,
-      "stocks": 18
+      "finance_final": 0,
+      "orders": 0,
+      "sales": 0,
+      "stocks": 0
     }
   },
   "reconcile": {
     "target_date": "2026-04-21",
-    "finance_final_actual_date": "2026-04-21",
-    "finance_final_date_aligned": true,
-    "live_stocks_snapshot_date": "2026-04-22",
+    "finance_final_actual_date": null,
+    "finance_final_date_aligned": null,
+    "live_stocks_snapshot_date": "",
     "selected_sources": {
       "cabinet_commerce_daily": "sales_funnel_api",
       "finance_final_daily": "finance_detailed_api",
@@ -119,87 +120,50 @@
     }
   },
   "orders_raw_inventory": {
-    "rows_loaded": 11,
-    "rows_matching_operational_date": 3,
+    "rows_loaded": 0,
+    "rows_matching_operational_date": 0,
     "requested_fields_present": {
       "quantity": 0,
-      "totalPrice": 3,
-      "priceWithDisc": 3,
-      "discountPercent": 3,
-      "warehouse": 3,
+      "totalPrice": 0,
+      "priceWithDisc": 0,
+      "discountPercent": 0,
+      "warehouse": 0,
       "status": 0,
-      "isCancel": 3,
-      "cancelDate": 3,
-      "date": 3,
-      "lastChangeDate": 3
+      "isCancel": 0,
+      "cancelDate": 0,
+      "date": 0,
+      "lastChangeDate": 0
     },
-    "rows": [
-      {
-        "date": "2026-04-21T13:43:37",
-        "lastChangeDate": "2026-04-21T14:25:05",
-        "srid": "106227775623361708.0.0",
-        "quantity": null,
-        "totalPrice": 2000,
-        "finishedPrice": 607,
-        "priceWithDisc": 900,
-        "discountPercent": 55,
-        "warehouse": "Тула",
-        "status": null,
-        "isCancel": false,
-        "cancelDate": "0001-01-01T00:00:00",
-        "_raw_row_index": 0
-      },
-      {
-        "date": "2026-04-21T13:59:38",
-        "lastChangeDate": "2026-04-21T14:44:59",
-        "srid": "5145751370950990059.0.0",
-        "quantity": null,
-        "totalPrice": 2000,
-        "finishedPrice": 556,
-        "priceWithDisc": 800,
-        "discountPercent": 60,
-        "warehouse": "Тула",
-        "status": null,
-        "isCancel": false,
-        "cancelDate": "0001-01-01T00:00:00",
-        "_raw_row_index": 1
-      },
-      {
-        "date": "2026-04-21T13:29:50",
-        "lastChangeDate": "2026-04-21T16:49:51",
-        "srid": "eBG.i626b8f309bb8d097edd3c921a0c2881e.0.0",
-        "quantity": null,
-        "totalPrice": 2000,
-        "finishedPrice": 548,
-        "priceWithDisc": 800,
-        "discountPercent": 60,
-        "warehouse": "Электросталь",
-        "status": null,
-        "isCancel": false,
-        "cancelDate": "0001-01-01T00:00:00",
-        "_raw_row_index": 2
-      }
-    ]
+    "rows": []
   },
   "orders_semantics": {
-    "target_day_rows_before_dedupe": 3,
-    "target_day_rows_after_dedupe": 3,
-    "target_day_quantity_sum": 3.0,
+    "target_day_rows_before_dedupe": 0,
+    "target_day_rows_after_dedupe": 0,
+    "target_day_quantity_sum": null,
     "count_formula": "len(unique order rows by order_id)",
     "amount_formula": "sum(amount) over the same unique order rows"
   },
   "finance_mapping": {
     "parse_errors_count": 0,
     "missing_required_fields": [],
-    "money_string_fields_parsed": [
-      "acquiringFee",
-      "deduction",
-      "forPay",
-      "paidStorage",
-      "penalty",
-      "ppvzSalesCommission",
-      "retailAmount"
-    ]
+    "money_string_fields_parsed": []
   },
-  "warnings": []
+  "warnings": [
+    {
+      "code": "finance_final_api_unavailable",
+      "message": "WB_API_TOKEN not provided"
+    },
+    {
+      "code": "orders_api_unavailable",
+      "message": "WB_API_TOKEN not provided"
+    },
+    {
+      "code": "sales_api_unavailable",
+      "message": "WB_API_TOKEN not provided"
+    },
+    {
+      "code": "stocks_api_unavailable",
+      "message": "WB_API_TOKEN not provided"
+    }
+  ]
 }

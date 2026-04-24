@@ -13,44 +13,62 @@
     "buyouts_count": 2.0,
     "buyouts_amount": 1700.0
   },
-  "finance_final_daily": {
-    "source": "finance_detailed_api",
+  "funnel_daily": {
+    "source": "sales_funnel_api",
+    "owner_block": "funnel_daily",
     "available": true,
     "target_date": "2026-04-21",
-    "actual_date": "2026-04-21",
-    "date_aligned": true,
-    "gross_revenue": 4652.0,
-    "seller_payout": 4868.22,
-    "wb_commission": -329.75,
-    "logistics": 3.0,
-    "storage": 68.37,
-    "penalties": 0.0,
-    "deductions": 0.0,
-    "acquiring": 186.08,
-    "tax": 0.0
+    "open_count": 423.0,
+    "cart_count": 42.0,
+    "orders_count": 5.0,
+    "orders_amount": 4260.0,
+    "buyouts_count": 2.0,
+    "buyouts_amount": 1700.0,
+    "open_to_cart_rate": 9.93,
+    "cart_to_order_rate": 11.9,
+    "order_to_buyout_rate": 40.0,
+    "upper_funnel_status": "ok",
+    "lower_funnel_status": "ok",
+    "status": "ok"
+  },
+  "finance_final_daily": {
+    "source": "finance_detailed_api",
+    "available": false,
+    "target_date": "2026-04-21",
+    "actual_date": null,
+    "date_aligned": null,
+    "gross_revenue": null,
+    "seller_payout": null,
+    "wb_commission": null,
+    "logistics": null,
+    "storage": null,
+    "penalties": null,
+    "deductions": null,
+    "acquiring": null,
+    "tax": null
   },
   "live_operational": {
     "orders": {
       "source": "orders_api",
-      "available": true,
+      "available": false,
       "target_date": "2026-04-21",
-      "count": 3.0,
-      "amount": 2500.0
+      "count": null,
+      "amount": null
     },
     "sales": {
       "source": "sales_api",
-      "available": true,
+      "available": false,
       "target_date": "2026-04-21",
-      "count": 3.0,
-      "amount": 7160.0
+      "count": null,
+      "amount": null
     },
     "stocks": {
       "source": "stocks_api",
-      "available": true,
+      "available": false,
       "snapshot_kind": "live_snapshot",
       "operational_date_reference": "2026-04-21",
-      "snapshot_date": "2026-04-22",
-      "total_units": 322.0
+      "snapshot_date": null,
+      "total_units": null
     }
   }
 }

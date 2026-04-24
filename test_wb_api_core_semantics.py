@@ -293,6 +293,25 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         self.assertEqual(reconciled["cabinet_commerce_daily"]["orders_amount"], 4000.0)
         self.assertEqual(reconciled["cabinet_commerce_daily"]["buyouts_count"], 3.0)
         self.assertEqual(reconciled["cabinet_commerce_daily"]["buyouts_amount"], 2500.0)
+        # Test funnel_daily aggregation from same cabinet_commerce_rows
+        # Note: test fixture doesn't include openCount/cartCount, so they're 0
+        self.assertEqual(reconciled["funnel_daily"]["open_count"], 0.0)
+        self.assertEqual(reconciled["funnel_daily"]["cart_count"], 0.0)
+        self.assertEqual(reconciled["funnel_daily"]["orders_count"], 5.0)
+        self.assertEqual(reconciled["funnel_daily"]["orders_amount"], 4000.0)
+        self.assertEqual(reconciled["funnel_daily"]["buyouts_count"], 3.0)
+        self.assertEqual(reconciled["funnel_daily"]["buyouts_amount"], 2500.0)
+        self.assertEqual(reconciled["funnel_daily"]["available"], True)
+        self.assertEqual(reconciled["funnel_daily"]["source"], "sales_funnel_api")
+        self.assertEqual(reconciled["funnel_daily"]["owner_block"], "funnel_daily")
+        # Status should be "partial" because we have lower funnel but no upper funnel
+        self.assertEqual(reconciled["funnel_daily"]["status"], "partial")
+        self.assertEqual(reconciled["funnel_daily"]["upper_funnel_status"], "unavailable")
+        self.assertEqual(reconciled["funnel_daily"]["lower_funnel_status"], "ok")
+        # Verify rates are None when denominator is 0
+        self.assertIsNone(reconciled["funnel_daily"]["open_to_cart_rate"])
+        self.assertIsNone(reconciled["funnel_daily"]["cart_to_order_rate"])
+        self.assertAlmostEqual(reconciled["funnel_daily"]["order_to_buyout_rate"], 60.0, places=1)
         self.assertEqual(reconciled["finance_final_daily"]["gross_revenue"], 1800.0)
         self.assertEqual(reconciled["finance_final_daily"]["acquiring"], -15.0)
         self.assertEqual(reconciled["live_operational"]["orders"]["count"], 1.0)
@@ -443,6 +462,13 @@ class TestWbApiCoreSemantics(unittest.TestCase):
 
         self.assertEqual(snapshot["source_mode"], "wb_api_core_v2")
         self.assertEqual(snapshot["cabinet_commerce_daily"]["orders_count"], 5.0)
+        # Verify funnel_daily in snapshot (from test fixture without openCount/cartCount)
+        self.assertEqual(snapshot["funnel_daily"]["open_count"], 0.0)
+        self.assertEqual(snapshot["funnel_daily"]["cart_count"], 0.0)
+        self.assertEqual(snapshot["funnel_daily"]["orders_count"], 5.0)
+        self.assertEqual(snapshot["funnel_daily"]["buyouts_count"], 3.0)
+        self.assertEqual(snapshot["funnel_daily"]["status"], "partial")
+        self.assertIsNone(snapshot["funnel_daily"].get("rows"), "rows should not be in snapshot")
         self.assertEqual(snapshot["finance_final_daily"]["gross_revenue"], 1800.0)
         self.assertEqual(snapshot["live_operational"]["orders"]["count"], 1.0)
         self.assertEqual(snapshot["live_operational"]["stocks"]["snapshot_kind"], "live_snapshot")
@@ -606,6 +632,106 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         self.assertEqual(response["retry_delays"], [3.0, 6.0])
         self.assertEqual(response["final_failure_reason"], "")
         self.assertEqual(sleep_mock.call_count, 2)
+
+    def test_funnel_daily_status_calculation(self) -> None:
+        """Test funnel_daily status determination for various data scenarios."""
+        raw_bundle = _raw_bundle_fixture()
+        normalized = normalize_bundle(raw_bundle)
+        reconciled = reconcile_bundle(
+            raw_bundle=raw_bundle,
+            normalized_bundle=normalized,
+            target_date="2026-04-21",
+        )
+
+        # Verify funnel_daily is created from cabinet_commerce_rows
+        funnel = reconciled["funnel_daily"]
+        self.assertEqual(funnel["source"], "sales_funnel_api")
+        self.assertEqual(funnel["available"], True)
+        
+        # Verify all funnel stages are aggregated (test fixture has no open/cart data)
+        self.assertEqual(funnel["open_count"], 0.0)
+        self.assertEqual(funnel["cart_count"], 0.0)
+        self.assertEqual(funnel["orders_count"], 5.0)
+        self.assertEqual(funnel["buyouts_count"], 3.0)
+        
+        # Verify rates when denominator is 0 returns None
+        self.assertIsNone(funnel["open_to_cart_rate"])
+        self.assertIsNone(funnel["cart_to_order_rate"])
+        self.assertAlmostEqual(funnel["order_to_buyout_rate"], 60.0, places=1)
+        
+        # Verify status fields - partial because only lower funnel available
+        self.assertEqual(funnel["upper_funnel_status"], "unavailable")
+        self.assertEqual(funnel["lower_funnel_status"], "ok")
+        self.assertEqual(funnel["status"], "partial")
+
+    def test_funnel_daily_no_rows_unavailable_status(self) -> None:
+        """Test funnel_daily status when no cabinet_commerce data available."""
+        raw_bundle = {
+            "cabinet_commerce": {
+                "success": False,
+                "error_text": "API error",
+                "rows_raw": [],
+            },
+            "finance_final": {"success": False, "error_text": "API error", "rows_raw": []},
+            "orders": {"success": False, "error_text": "API error", "rows_raw": []},
+            "sales": {"success": False, "error_text": "API error", "rows_raw": []},
+            "stocks": {"success": False, "error_text": "API error", "rows_raw": []},
+        }
+        
+        normalized = normalize_bundle(raw_bundle)
+        reconciled = reconcile_bundle(
+            raw_bundle=raw_bundle,
+            normalized_bundle=normalized,
+            target_date="2026-04-21",
+        )
+        
+        funnel = reconciled["funnel_daily"]
+        self.assertEqual(funnel["available"], False)
+        self.assertIsNone(funnel["open_count"])
+        self.assertIsNone(funnel["cart_count"])
+        self.assertEqual(funnel["status"], "unavailable")
+        self.assertEqual(funnel["upper_funnel_status"], "unavailable")
+        self.assertEqual(funnel["lower_funnel_status"], "unavailable")
+
+    def test_funnel_daily_rates_null_when_zero_denominator(self) -> None:
+        """Test that conversion rates are null when denominator is zero."""
+        raw_bundle = {
+            "cabinet_commerce": {
+                "success": True,
+                "error_text": "",
+                "rows_raw": [
+                    {
+                        "product": {"nmId": 1001},
+                        "statistic": {
+                            "selected": {
+                                "period": {"begin": "2026-04-21", "end": "2026-04-21"},
+                                "openCardCount": 0,
+                                "cartCount": 0,
+                                "orderCount": 5,
+                                "orderSum": 1000,
+                                "buyoutCount": 0,
+                                "buyoutSum": 0,
+                            }
+                        },
+                    }
+                ],
+            },
+            "finance_final": {"success": False, "error_text": "API error", "rows_raw": []},
+            "orders": {"success": False, "error_text": "API error", "rows_raw": []},
+            "sales": {"success": False, "error_text": "API error", "rows_raw": []},
+            "stocks": {"success": False, "error_text": "API error", "rows_raw": []},
+        }
+        
+        normalized = normalize_bundle(raw_bundle)
+        reconciled = reconcile_bundle(
+            raw_bundle=raw_bundle,
+            normalized_bundle=normalized,
+            target_date="2026-04-21",
+        )
+        
+        funnel = reconciled["funnel_daily"]
+        self.assertIsNone(funnel["open_to_cart_rate"], "Rate should be None when denominator is 0")
+        self.assertIsNone(funnel["cart_to_order_rate"], "Rate should be None when denominator is 0")
 
 
 if __name__ == "__main__":
