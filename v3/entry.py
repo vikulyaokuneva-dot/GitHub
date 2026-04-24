@@ -81,6 +81,16 @@ from .sources import wb_reports_loader as _wb_reports_loader
 _FALLBACK_SELLER_ID = "__missing_seller__"
 _ALLOW_FALLBACK_ENV = "WB_ALLOW_MISSING_SELLER"
 _BOOTSTRAP_MODE_ENV = "WB_BOOTSTRAP_MODE"
+_REPORT_VERSION_ENV = "REPORT_VERSION"
+_REPORT_VERSION_LEGACY = "legacy"
+_REPORT_VERSION_V2 = "v2"
+
+
+def _resolve_entry_report_version(context: Dict[str, Any] | None = None) -> str:
+    raw_context_value = context.get("report_version") if isinstance(context, dict) else None
+    raw_env_value = os.getenv(_REPORT_VERSION_ENV, "")
+    explicit_mode = str(raw_context_value or raw_env_value or "").strip().lower()
+    return _REPORT_VERSION_V2 if explicit_mode == _REPORT_VERSION_V2 else _REPORT_VERSION_LEGACY
 
 
 def _bootstrap_mode_enabled() -> bool:
@@ -1026,6 +1036,7 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
     from .pipeline.daily_metrics_stage import run_daily_metrics_stage
     from .pipeline.daily_output_stage import run_daily_output_stage
 
+    print(f"[entry] REPORT_VERSION resolved={_resolve_entry_report_version()}")
     print("[pipeline] stage=load_reports started")
     context = run_daily_input_stage(repo_root=repo_root, seller_id=seller_id, run_date=run_date)
     print("[pipeline] stage=load_reports finished")
@@ -1067,7 +1078,9 @@ def _finalize_daily_delivery(result: Dict[str, Any], *, seller_id: str, run_date
         return result
 
     report_version = str(result.get("report_version") or "").strip().lower()
-    if report_version == "v2":
+    finalize_branch = "v2" if report_version == _REPORT_VERSION_V2 else "legacy"
+    print(f"[entry] finalize branch={finalize_branch} status={result.get('status')}")
+    if report_version == _REPORT_VERSION_V2:
         return result
 
     report_pdf_path = os.path.join(str(result.get("artifacts_dir") or ""), "report.pdf")

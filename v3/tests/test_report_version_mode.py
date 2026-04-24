@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from v3.entry import _finalize_daily_delivery
+from v3.entry import _finalize_daily_delivery, _run_daily_for_seller
 from v3.pipeline.daily_output_stage import run_daily_output_stage
 
 
@@ -162,11 +162,81 @@ class TestReportVersionMode(unittest.TestCase):
                 "email_txt": "email_v2.txt",
             }
             self.assertEqual(result.get("report_version"), "v2")
+            self.assertEqual(result.get("status"), "success")
             self.assertEqual(job.get("report_version"), "v2")
+            self.assertEqual(job.get("status"), "success")
             self.assertEqual(job.get("renderer"), "report_v2")
             self.assertEqual(job.get("source_of_truth"), "snapshot.json")
             self.assertEqual(job.get("artifacts"), expected_artifacts)
             self.assertEqual(os.path.basename(str(job.get("pdf_path") or "")), "report_v2.pdf")
+            self.assertNotIn("report.pdf", json.dumps(job, ensure_ascii=False))
+
+    def test_entry_v2_full_run_keeps_v2_result_over_legacy_context(self) -> None:
+        with tempfile.TemporaryDirectory() as repo_root:
+            out_dir = os.path.join(repo_root, "cabinets", "seller_001", "artifacts")
+            input_dir = os.path.join(repo_root, "cabinets", "seller_001", "input")
+            core_dir = os.path.join(out_dir, "wb_api_core", "2026-04-21")
+            os.makedirs(input_dir, exist_ok=True)
+            _write_json(os.path.join(core_dir, "snapshot.json"), _snapshot_payload())
+            _write_json(os.path.join(core_dir, "debug.json"), _debug_payload())
+            with open(os.path.join(out_dir, "report.pdf"), "wb") as file:
+                file.write(b"legacy pdf")
+
+            base_context = {
+                "repo_root": repo_root,
+                "seller_id": "seller_001",
+                "run_date": "2026-04-21",
+                "seller_input_dir": input_dir,
+                "out_dir": out_dir,
+                "started_at": "2026-04-21T10:00:00Z",
+                "discovered_files": {},
+                "api_debug": {},
+            }
+            legacy_context = dict(base_context)
+            legacy_context.update(
+                {
+                    "status": "partial_success",
+                    "error": "данные о продажах не получены",
+                    "job": {
+                        "status": "partial_success",
+                        "error": "данные о продажах не получены",
+                        "artifacts": ["job.json", "report.pdf"],
+                    },
+                }
+            )
+
+            with patch.dict(os.environ, {"REPORT_VERSION": "v2"}, clear=False):
+                with patch(
+                    "v3.pipeline.daily_input_stage.run_daily_input_stage",
+                    return_value=base_context,
+                ), patch("v3.entry._parse_local_daily_payload", return_value={}), patch(
+                    "v3.entry._parse_local_funnel_payload",
+                    return_value={},
+                ), patch(
+                    "v3.entry.build_metrics",
+                    return_value=base_context,
+                ), patch(
+                    "v3.pipeline.daily_ai_stage.run_daily_ai_stage",
+                    return_value=legacy_context,
+                ), patch(
+                    "v3.entry.orchestrate_daily_email_send",
+                    side_effect=AssertionError("legacy email send should not run for report_v2"),
+                ):
+                    result = _run_daily_for_seller(repo_root, "seller_001", "2026-04-21")
+                    result = _finalize_daily_delivery(result, seller_id="seller_001", run_date="2026-04-21")
+
+            with open(os.path.join(out_dir, "job.json"), "r", encoding="utf-8-sig") as file:
+                job = json.load(file)
+            with open(os.path.join(out_dir, "report_meta.json"), "r", encoding="utf-8-sig") as file:
+                report_meta = json.load(file)
+
+            self.assertEqual(result.get("status"), "success")
+            self.assertIsNone(result.get("error"))
+            self.assertEqual(job.get("status"), "success")
+            self.assertIsNone(job.get("error"))
+            self.assertEqual(job.get("report_version"), "v2")
+            self.assertEqual(report_meta.get("report_version"), "v2")
+            self.assertEqual(job.get("artifacts", {}).get("pdf"), "report_v2.pdf")
             self.assertNotIn("report.pdf", json.dumps(job, ensure_ascii=False))
 
     def test_daily_output_stage_legacy_mode_keeps_legacy_chain(self) -> None:

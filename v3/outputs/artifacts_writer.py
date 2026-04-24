@@ -9,6 +9,17 @@ from ..analytics.territorial_distribution import save_territorial_distribution
 from ..storage import write_json
 
 
+def _writer_source(payload: Dict[str, Any]) -> str:
+    if not isinstance(payload, dict):
+        return "legacy"
+    report_version = str(payload.get("report_version") or "").strip().lower()
+    renderer = str(payload.get("renderer") or "").strip().lower()
+    source_of_truth = str(payload.get("source_of_truth") or "").strip().lower()
+    if report_version == "v2" or renderer == "report_v2" or source_of_truth == "snapshot.json":
+        return "v2"
+    return "legacy"
+
+
 def write_daily_metrics_artifacts(
     *,
     out_dir: str,
@@ -121,11 +132,15 @@ def write_facts_and_warnings(*, out_dir: str, facts: Dict[str, Any], warnings: L
 
 
 def write_report_meta(*, out_dir: str, report_meta: Dict[str, Any]) -> None:
-    write_json(os.path.join(out_dir, "report_meta.json"), report_meta)
+    path = os.path.join(out_dir, "report_meta.json")
+    print(f"[report_meta_writer] writing meta source={_writer_source(report_meta)} path={path}")
+    write_json(path, report_meta)
 
 
 def write_job(*, out_dir: str, job: Dict[str, Any]) -> None:
-    write_json(os.path.join(out_dir, "job.json"), job)
+    path = os.path.join(out_dir, "job.json")
+    print(f"[job_writer] writing job source={_writer_source(job)} path={path}")
+    write_json(path, job)
 
 
 def write_weekly_facts_and_warnings(

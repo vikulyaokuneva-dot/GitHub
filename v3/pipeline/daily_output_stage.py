@@ -43,6 +43,18 @@ def _v2_artifact_registry() -> Dict[str, str]:
     return dict(V2_ARTIFACT_FILENAMES)
 
 
+def _require_v2_output_files(report_v2_result: Dict[str, Any]) -> None:
+    required_path_keys = ("payload_path", "pdf_path", "email_html_path", "email_txt_path")
+    missing = [
+        str(report_v2_result.get(key) or "")
+        for key in required_path_keys
+        if not str(report_v2_result.get(key) or "").strip()
+        or not os.path.isfile(str(report_v2_result.get(key) or ""))
+    ]
+    if missing:
+        raise FileNotFoundError("report_v2_required_outputs_missing: " + ", ".join(missing))
+
+
 def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
     payload: Dict[str, Any] = dict(context or {})
     repo_root = str(payload.get("repo_root") or "").strip()
@@ -64,6 +76,7 @@ def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
         payload_path=Path(out_dir) / "report_payload_v2.json",
         pdf_path=Path(out_dir) / "report_v2.pdf",
     )
+    _require_v2_output_files(report_v2_result if isinstance(report_v2_result, dict) else {})
 
     report_payload = report_v2_result.get("payload", {}) if isinstance(report_v2_result, dict) else {}
     if not isinstance(report_payload, dict):
@@ -130,12 +143,20 @@ def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
             "artifacts_dir": out_dir,
         }
     )
+    print(
+        "[daily_output_stage] v2 output result "
+        f"status={result.get('status')} "
+        f"pdf_path={result.get('pdf_path')} "
+        f"artifacts={result.get('artifacts')}"
+    )
     write_job(out_dir=out_dir, job=result)
     return result
 
 
 def run_daily_output_stage(context: Dict[str, Any]) -> Dict[str, Any]:
-    if _resolve_report_version(context) == REPORT_VERSION_V2:
+    report_version = _resolve_report_version(context)
+    print(f"[daily_output_stage] branch selected={report_version}")
+    if report_version == REPORT_VERSION_V2:
         return _run_daily_output_stage_v2(context)
     payload = prepare_daily_output_payload(context)
     payload = run_daily_email_stage(payload)
