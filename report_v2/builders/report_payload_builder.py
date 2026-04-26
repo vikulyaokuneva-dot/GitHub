@@ -349,6 +349,127 @@ def _build_live_metric(block: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _metric_has_value(*values: Any) -> bool:
+    return any(_safe_float(value) is not None for value in values)
+
+
+def _live_metric_available(block: dict[str, Any], *field_names: str) -> bool:
+    if not bool(block.get("available", False)):
+        return False
+    return any(_safe_float(block.get(field_name)) is not None for field_name in field_names)
+
+
+def _append_once(warnings: list[WarningItemV2], warning: WarningItemV2) -> None:
+    code = _safe_str(warning.get("code"))
+    if code and any(_safe_str(item.get("code")) == code for item in warnings if isinstance(item, dict)):
+        return
+    warnings.append(warning)
+
+
+def _build_commerce_block_with_live_fallback(
+    *,
+    cabinet_daily: dict[str, Any],
+    live_block: dict[str, Any],
+    buyouts_count: int | None,
+    buyouts_amount: float | None,
+    buyouts_owner: str,
+    buyouts_source: str,
+    warnings: list[WarningItemV2],
+) -> dict[str, Any]:
+    cabinet_available = bool(cabinet_daily.get("available", False)) and bool(cabinet_daily)
+    cabinet_source = _safe_str(cabinet_daily.get("source")) or "missing"
+    cabinet_status = "ok" if cabinet_available else "unavailable"
+    live_orders = _safe_dict(live_block.get("orders"))
+    live_sales = _safe_dict(live_block.get("sales"))
+
+    orders_count = _safe_int(cabinet_daily.get("orders_count"))
+    orders_amount = _safe_float(cabinet_daily.get("orders_amount"))
+    orders_source = cabinet_source
+    orders_note = "Источник: cabinet_commerce_daily"
+    orders_status = "ok" if cabinet_available and _metric_has_value(orders_count, orders_amount) else "unavailable"
+    orders_fallback = False
+
+    if (not cabinet_available or not _metric_has_value(orders_count, orders_amount)) and _live_metric_available(
+        live_orders, "count", "amount"
+    ):
+        orders_count = _safe_int(live_orders.get("count"))
+        orders_amount = _safe_float(live_orders.get("amount"))
+        orders_source = _safe_str(live_orders.get("source")) or "orders_api"
+        orders_note = "Оперативные заказы из live_operational.orders; fallback because cabinet_commerce_daily is unavailable."
+        orders_status = "partial"
+        orders_fallback = True
+
+    confirmed_buyouts = _metric_has_value(buyouts_count, buyouts_amount)
+    buyouts_status = "ok" if confirmed_buyouts else "unavailable"
+    buyouts_note = (
+        f"Подтвержденные выкупы из {buyouts_owner}."
+        if confirmed_buyouts
+        else "Подтвержденные выкупы отсутствуют в finance_final_daily и cabinet_commerce_daily."
+    )
+
+    sales_count = None
+    sales_amount = None
+    sales_source = "missing"
+    sales_note = ""
+    sales_status = "unavailable"
+    sales_fallback = False
+    if _live_metric_available(live_sales, "count", "amount"):
+        sales_count = _safe_int(live_sales.get("count"))
+        sales_amount = _safe_float(live_sales.get("amount"))
+        sales_source = _safe_str(live_sales.get("source")) or "sales_api"
+        sales_status = "partial" if not confirmed_buyouts else "ok"
+        sales_fallback = not cabinet_available or not confirmed_buyouts
+        sales_note = (
+            "Оперативные продажи из live_operational.sales; это не подтвержденные выкупы."
+            if sales_fallback
+            else "Оперативные продажи из live_operational.sales."
+        )
+
+    if orders_fallback or sales_fallback:
+        _append_once(
+            warnings,
+            _warning(
+                "commerce_filled_from_live_operational",
+                "Коммерческий блок частично заполнен из live_operational, потому что cabinet_commerce_daily недоступен.",
+                block="report_payload_builder",
+            ),
+        )
+    if sales_fallback:
+        _append_once(
+            warnings,
+            _warning(
+                "operational_sales_not_confirmed_buyouts",
+                "Оперативные продажи из sales_api показаны отдельно и не считаются подтвержденными выкупами.",
+                block="live_operational_fallback",
+            ),
+        )
+
+    return {
+        "available": cabinet_available,
+        "status": cabinet_status,
+        "source": cabinet_source,
+        "owner_block": "cabinet_commerce_daily",
+        "target_date": _safe_str(cabinet_daily.get("target_date")) or None,
+        "orders_count": orders_count,
+        "orders_amount": orders_amount,
+        "orders_source": orders_source,
+        "orders_note": orders_note,
+        "orders_status": orders_status,
+        "orders_fallback": orders_fallback,
+        "buyouts_count": buyouts_count,
+        "buyouts_amount": buyouts_amount,
+        "buyouts_source": buyouts_source,
+        "buyouts_note": buyouts_note,
+        "buyouts_status": buyouts_status,
+        "sales_count": sales_count,
+        "sales_amount": sales_amount,
+        "sales_source": sales_source,
+        "sales_note": sales_note,
+        "sales_status": sales_status,
+        "sales_fallback": sales_fallback,
+    }
+
+
 def build_finance_alignment_notice_v2(finance_final: dict[str, Any] | None) -> FinanceAlignmentNoticeV2:
     finance = _safe_dict(finance_final)
     source = _safe_str(finance.get("source")) or "finance_final_daily"
@@ -407,25 +528,47 @@ def build_hero_v2(
     finance_status = _safe_str(finance.get("status")) or ("ok" if finance_available else "unavailable")
     stocks_available = bool(stocks.get("available", False))
 
-    orders_status = "ok" if cabinet_available and cabinet.get("orders_count") is not None else "unavailable"
-    buyouts_status = "ok" if cabinet_available and cabinet.get("buyouts_count") is not None else "unavailable"
+    orders_status = _safe_str(cabinet.get("orders_status")) or (
+        "ok" if cabinet_available and cabinet.get("orders_count") is not None else "unavailable"
+    )
+    buyouts_status = _safe_str(cabinet.get("buyouts_status")) or (
+        "ok" if cabinet_available and cabinet.get("buyouts_count") is not None else "unavailable"
+    )
+    sales_status = _safe_str(cabinet.get("sales_status")) or "unavailable"
+    show_operational_sales = (
+        cabinet.get("buyouts_count") is None
+        and cabinet.get("buyouts_amount") is None
+        and (cabinet.get("sales_count") is not None or cabinet.get("sales_amount") is not None)
+    )
     payout_status = "unavailable"
     if finance_available and finance.get("seller_payout") is not None:
         payout_status = "warning" if finance_status == "lagged" else "ok"
     stocks_status = "ok" if stocks_available and stocks.get("total_units") is not None else "unavailable"
+    orders_subvalue = _format_hero_money(cabinet.get("orders_amount"))
+    if bool(cabinet.get("orders_fallback", False)):
+        orders_subvalue = (
+            f"{orders_subvalue}; {_safe_str(cabinet.get('orders_source')) or 'orders_api'}; оперативно"
+        )
 
     cards: list[HeroKpiCardV2] = [
         {
             "label": "Заказы",
             "value": _format_hero_int(cabinet.get("orders_count"), "шт"),
-            "subvalue": _format_hero_money(cabinet.get("orders_amount")),
+            "subvalue": orders_subvalue,
             "status": orders_status,
         },
         {
-            "label": "Выкупы",
-            "value": _format_hero_int(cabinet.get("buyouts_count"), "шт"),
-            "subvalue": _format_hero_money(cabinet.get("buyouts_amount")),
-            "status": buyouts_status,
+            "label": "Продажи" if show_operational_sales else "Выкупы",
+            "value": _format_hero_int(
+                cabinet.get("sales_count") if show_operational_sales else cabinet.get("buyouts_count"),
+                "шт",
+            ),
+            "subvalue": (
+                f"{_format_hero_money(cabinet.get('sales_amount'))}; {_safe_str(cabinet.get('sales_source')) or 'sales_api'}; оперативно"
+                if show_operational_sales
+                else _format_hero_money(cabinet.get("buyouts_amount"))
+            ),
+            "status": sales_status if show_operational_sales else buyouts_status,
         },
         {
             "label": "К перечислению",
@@ -469,45 +612,98 @@ def build_commerce_section_v2(cabinet_commerce: dict[str, Any]) -> SectionV2:
     commerce = _safe_dict(cabinet_commerce)
     available = bool(commerce.get("available", False))
     source = _format_display_text(commerce.get("source"))
+    orders_source = _format_display_text(commerce.get("orders_source") or commerce.get("source"))
+    buyouts_source = _format_display_text(commerce.get("buyouts_source") or commerce.get("source"))
+    sales_source = _format_display_text(commerce.get("sales_source"))
     owner = _format_display_text(commerce.get("owner_block"))
     target_date = _format_display_text(commerce.get("target_date"))
-    status = "ok" if available else "unavailable"
+    orders_fallback = bool(commerce.get("orders_fallback", False))
+    sales_fallback = bool(commerce.get("sales_fallback", False))
+    has_buyouts = _metric_has_value(commerce.get("buyouts_count"), commerce.get("buyouts_amount"))
+    has_sales = _metric_has_value(commerce.get("sales_count"), commerce.get("sales_amount"))
+    status = "ok" if available else ("partial" if (orders_fallback or sales_fallback) else "unavailable")
 
     rows: list[DisplayRowV2] = [
         _display_row(
             "Заказы",
             _format_display_int(commerce.get("orders_count"), "шт"),
-            note=f"Дата: {target_date}",
-            status=_display_status(available, commerce.get("orders_count")),
+            note=_safe_str(commerce.get("orders_note")) or f"Дата: {target_date}; источник: {orders_source}",
+            status=_safe_str(commerce.get("orders_status")) or _display_status(available, commerce.get("orders_count")),
         ),
         _display_row(
             "Сумма заказов",
             _format_display_money(commerce.get("orders_amount")),
-            note=f"Источник: {source}",
-            status=_display_status(available, commerce.get("orders_amount")),
+            note=f"Источник: {orders_source}",
+            status=_safe_str(commerce.get("orders_status")) or _display_status(available, commerce.get("orders_amount")),
         ),
-        _display_row(
-            "Выкупы",
-            _format_display_int(commerce.get("buyouts_count"), "шт"),
-            note=f"Владелец: {owner}",
-            status=_display_status(available, commerce.get("buyouts_count")),
-        ),
-        _display_row(
-            "Сумма выкупов",
-            _format_display_money(commerce.get("buyouts_amount")),
-            note=f"Источник: {source}",
-            status=_display_status(available, commerce.get("buyouts_amount")),
-        ),
+    ]
+    if has_buyouts:
+        rows.extend(
+            [
+                _display_row(
+                    "Выкупы",
+                    _format_display_int(commerce.get("buyouts_count"), "шт"),
+                    note=_safe_str(commerce.get("buyouts_note")) or f"Владелец: {owner}",
+                    status=_safe_str(commerce.get("buyouts_status")) or _display_status(available, commerce.get("buyouts_count")),
+                ),
+                _display_row(
+                    "Сумма выкупов",
+                    _format_display_money(commerce.get("buyouts_amount")),
+                    note=f"Источник: {buyouts_source}",
+                    status=_safe_str(commerce.get("buyouts_status")) or _display_status(available, commerce.get("buyouts_amount")),
+                ),
+            ]
+        )
+    elif has_sales:
+        rows.extend(
+            [
+                _display_row(
+                    "Оперативные продажи",
+                    _format_display_int(commerce.get("sales_count"), "шт"),
+                    note=_safe_str(commerce.get("sales_note"))
+                    or "Оперативные продажи из live_operational.sales; не подтвержденные выкупы.",
+                    status=_safe_str(commerce.get("sales_status")) or "partial",
+                ),
+                _display_row(
+                    "Сумма оперативных продаж",
+                    _format_display_money(commerce.get("sales_amount")),
+                    note=f"Источник: {sales_source}; не confirmed buyouts",
+                    status=_safe_str(commerce.get("sales_status")) or "partial",
+                ),
+            ]
+        )
+    else:
+        rows.extend(
+            [
+                _display_row(
+                    "Выкупы",
+                    _format_display_int(None, "шт"),
+                    note=_safe_str(commerce.get("buyouts_note")) or "Подтвержденные выкупы отсутствуют.",
+                    status="unavailable",
+                ),
+                _display_row(
+                    "Сумма выкупов",
+                    _format_display_money(None),
+                    note=f"Источник: {buyouts_source}",
+                    status="unavailable",
+                ),
+            ]
+        )
+    rows.append(
         _display_row(
             "Источник",
             source,
-            note=f"Блок: {owner}",
+            note=f"Блок: {owner}; fallback: {'live_operational' if (orders_fallback or sales_fallback) else 'нет'}",
             status=status,
-        ),
-    ]
+        )
+    )
     return {
         "title": "Коммерция",
-        "subtitle": "Заказы и выкупы из core-safe cabinet_commerce.",
+        "subtitle": (
+            "Заказы и оперативные продажи частично заполнены из live_operational."
+            if (orders_fallback or sales_fallback)
+            else "Заказы и выкупы из core-safe cabinet_commerce."
+        ),
         "rows": rows,
         "status": status,
     }
@@ -615,8 +811,29 @@ def build_funnel_section_v2(
     cabinet = _safe_dict(cabinet_commerce)
     cabinet_available = bool(cabinet.get("available", False))
     cabinet_source = _safe_str(cabinet.get("source")) or "cabinet_commerce_daily"
+    live_daily = _safe_dict(safe_snapshot.get("live_operational"))
+    live_orders = _safe_dict(live_daily.get("orders"))
+    live_sales = _safe_dict(live_daily.get("sales"))
     orders_count = _safe_int(cabinet.get("orders_count"))
     buyouts_count = _safe_int(cabinet.get("buyouts_count"))
+    sales_count = None
+    orders_source = cabinet_source
+    sales_source = "нет данных"
+    orders_note = "Нижняя часть воронки из cabinet_commerce."
+    sales_note = "Нижняя часть воронки из cabinet_commerce."
+    orders_status = _display_status(cabinet_available, orders_count)
+    buyouts_status = _display_status(cabinet_available, buyouts_count)
+    if (not cabinet_available or orders_count is None) and _live_metric_available(live_orders, "count"):
+        orders_count = _safe_int(live_orders.get("count"))
+        orders_source = _safe_str(live_orders.get("source")) or "orders_api"
+        orders_status = "partial"
+        orders_note = "Оперативные заказы из live_operational.orders; fallback, не cabinet_commerce."
+    if buyouts_count is None and _live_metric_available(live_sales, "count"):
+        sales_count = _safe_int(live_sales.get("count"))
+        sales_source = _safe_str(live_sales.get("source")) or "sales_api"
+        sales_note = "Оперативные продажи из live_operational.sales; не подтвержденные выкупы."
+        if not cabinet_available:
+            buyouts_status = "unavailable"
     upper = _clean_core_upper_funnel(snapshot)
 
     rows: list[FunnelStageRowV2] = [
@@ -626,18 +843,41 @@ def build_funnel_section_v2(
         _funnel_row(
             "Заказы",
             _format_display_int(orders_count, "шт"),
-            source=cabinet_source,
-            status=_display_status(cabinet_available, orders_count),
-            note="Нижняя часть воронки из cabinet_commerce.",
-        ),
-        _funnel_row(
-            "Выкупы",
-            _format_display_int(buyouts_count, "шт"),
-            source=cabinet_source,
-            status=_display_status(cabinet_available, buyouts_count),
-            note="Нижняя часть воронки из cabinet_commerce.",
+            source=orders_source,
+            status=orders_status,
+            note=orders_note,
         ),
     ]
+    if buyouts_count is not None:
+        rows.append(
+            _funnel_row(
+                "Выкупы",
+                _format_display_int(buyouts_count, "шт"),
+                source=cabinet_source,
+                status=buyouts_status,
+                note=sales_note,
+            )
+        )
+    elif sales_count is not None:
+        rows.append(
+            _funnel_row(
+                "Оперативные продажи",
+                _format_display_int(sales_count, "шт"),
+                source=sales_source,
+                status="partial",
+                note=sales_note,
+            )
+        )
+    else:
+        rows.append(
+            _funnel_row(
+                "Выкупы",
+                _format_display_int(buyouts_count, "шт"),
+                source=cabinet_source,
+                status=buyouts_status,
+                note=sales_note,
+            )
+        )
 
     conversion: float | None = None
     conversion_status = "unavailable"
@@ -656,14 +896,14 @@ def build_funnel_section_v2(
         )
     )
 
-    lower_available = cabinet_available and (orders_count is not None or buyouts_count is not None)
+    lower_available = orders_count is not None or buyouts_count is not None or sales_count is not None
     all_rows_available = all(row.get("status") == "ok" for row in rows)
     if all_rows_available:
         status = "ok"
         message = "Воронка собрана из clean core данных."
     elif lower_available:
         status = "partial"
-        message = "Верхняя часть воронки недоступна в clean core snapshot; нули не подставлялись."
+        message = "Воронка частично заполнена из core snapshot; оперативные продажи не считаются подтвержденными выкупами."
     else:
         status = "unavailable"
         message = "Нет core-safe данных для заказов и выкупов."
@@ -984,6 +1224,12 @@ def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | No
         live_status = "partial"
     else:
         live_status = "unavailable"
+    live_block = {
+        "status": live_status,
+        "orders": _build_live_metric(live_orders),
+        "sales": _build_live_metric(live_sales),
+        "stocks": _build_live_metric(live_stocks),
+    }
 
     meta_block = {
         "contract_version": "report_payload_v2",
@@ -993,16 +1239,15 @@ def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | No
         "snapshot_source_mode": snapshot_source_mode,
         "debug_available": debug is not None,
     }
-    cabinet_block = {
-        "available": bool(cabinet_daily.get("available", False)) and bool(cabinet_daily),
-        "source": _safe_str(cabinet_daily.get("source")) or "missing",
-        "owner_block": "cabinet_commerce_daily",
-        "target_date": _safe_str(cabinet_daily.get("target_date")) or None,
-        "orders_count": _safe_int(cabinet_daily.get("orders_count")),
-        "orders_amount": _safe_float(cabinet_daily.get("orders_amount")),
-        "buyouts_count": buyouts_count,
-        "buyouts_amount": buyouts_amount,
-    }
+    cabinet_block = _build_commerce_block_with_live_fallback(
+        cabinet_daily=cabinet_daily,
+        live_block=live_block,
+        buyouts_count=buyouts_count,
+        buyouts_amount=buyouts_amount,
+        buyouts_owner=buyouts_owner,
+        buyouts_source=buyouts_source,
+        warnings=warnings,
+    )
     finance_block = {
         "available": bool(finance_daily.get("available", False)) and bool(finance_daily),
         "source": _safe_str(finance_daily.get("source")) or "missing",
@@ -1024,12 +1269,6 @@ def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | No
         "penalties": _safe_float(finance_daily.get("penalties")),
         "deductions": _safe_float(finance_daily.get("deductions")),
         "tax": _safe_float(finance_daily.get("tax")),
-    }
-    live_block = {
-        "status": live_status,
-        "orders": _build_live_metric(live_orders),
-        "sales": _build_live_metric(live_sales),
-        "stocks": _build_live_metric(live_stocks),
     }
 
     payload: ReportPayloadV2 = {

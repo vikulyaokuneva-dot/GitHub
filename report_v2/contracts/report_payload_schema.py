@@ -21,13 +21,27 @@ class MetaBlockV2(TypedDict, total=False):
 
 class CabinetCommerceBlockV2(TypedDict, total=False):
     available: bool
+    status: str
     source: str
     owner_block: str
     target_date: str | None
     orders_count: int | None
     orders_amount: float | None
+    orders_source: str
+    orders_note: str
+    orders_status: str
+    orders_fallback: bool
     buyouts_count: int | None
     buyouts_amount: float | None
+    buyouts_source: str
+    buyouts_note: str
+    buyouts_status: str
+    sales_count: int | None
+    sales_amount: float | None
+    sales_source: str
+    sales_note: str
+    sales_status: str
+    sales_fallback: bool
 
 
 class FinanceFinalBlockV2(TypedDict, total=False):

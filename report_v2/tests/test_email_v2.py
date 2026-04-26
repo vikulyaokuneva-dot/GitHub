@@ -73,7 +73,7 @@ def test_render_email_html_contains_seller_and_orders_count() -> None:
     html = render_email_html(payload)
 
     assert "seller_001" in html
-    assert "orders_count" in html
+    assert "Заказы" in html
     assert "5" in html
 
 

@@ -1,0 +1,17 @@
+{
+  "warnings": [
+    {
+      "code": "cabinet_commerce_rate_limited",
+      "level": "warning",
+      "block": "cabinet_commerce",
+      "message": "429 too many requests from cabinet_commerce_daily."
+    }
+  ],
+  "endpoints": {
+    "cabinet_commerce": {},
+    "finance_final": {},
+    "orders": {},
+    "sales": {},
+    "stocks": {}
+  }
+}

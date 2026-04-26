@@ -58,9 +58,32 @@ def _html_table(title: str, rows: list[tuple[str, str]]) -> str:
     )
 
 
+def _section_rows(section: dict[str, Any], fallback_rows: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    rows = section.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return fallback_rows
+
+    rendered: list[tuple[str, str]] = []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        label = _format_text(item.get("label"))
+        value = _format_text(item.get("value"))
+        status = _format_text(item.get("status"))
+        note = str(item.get("note") or "").strip()
+        if note:
+            value = f"{value} ({status}; {note})"
+        else:
+            value = f"{value} ({status})"
+        rendered.append((label, value))
+
+    return rendered or fallback_rows
+
+
 def render_email_html(payload: dict) -> str:
     meta = _safe_dict(payload.get("meta"))
     commerce = _safe_dict(payload.get("cabinet_commerce"))
+    commerce_section = _safe_dict(payload.get("commerce_section"))
     finance = _safe_dict(payload.get("finance_final"))
     live = _safe_dict(payload.get("live_operational"))
     warnings = payload.get("warnings", [])
@@ -69,12 +92,15 @@ def render_email_html(payload: dict) -> str:
     live_sales = _safe_dict(live.get("sales"))
     live_stocks = _safe_dict(live.get("stocks"))
 
-    commerce_rows = [
-        ("orders_count", _format_count(commerce.get("orders_count"))),
-        ("orders_amount", _format_money(commerce.get("orders_amount"))),
-        ("buyouts_count", _format_count(commerce.get("buyouts_count"))),
-        ("buyouts_amount", _format_money(commerce.get("buyouts_amount"))),
-    ]
+    commerce_rows = _section_rows(
+        commerce_section,
+        [
+            ("orders_count", _format_count(commerce.get("orders_count"))),
+            ("orders_amount", _format_money(commerce.get("orders_amount"))),
+            ("buyouts_count", _format_count(commerce.get("buyouts_count"))),
+            ("buyouts_amount", _format_money(commerce.get("buyouts_amount"))),
+        ],
+    )
     finance_rows = [
         ("gross_revenue", _format_money(finance.get("gross_revenue"))),
         ("seller_payout", _format_money(finance.get("seller_payout"))),
@@ -132,6 +158,7 @@ def render_email_html(payload: dict) -> str:
 def render_email_text(payload: dict) -> str:
     meta = _safe_dict(payload.get("meta"))
     commerce = _safe_dict(payload.get("cabinet_commerce"))
+    commerce_section = _safe_dict(payload.get("commerce_section"))
     finance = _safe_dict(payload.get("finance_final"))
     live = _safe_dict(payload.get("live_operational"))
     warnings = payload.get("warnings", [])
@@ -140,6 +167,16 @@ def render_email_text(payload: dict) -> str:
     live_sales = _safe_dict(live.get("sales"))
     live_stocks = _safe_dict(live.get("stocks"))
 
+    commerce_rows = _section_rows(
+        commerce_section,
+        [
+            ("Orders", _format_count(commerce.get("orders_count"))),
+            ("Orders amount", _format_money(commerce.get("orders_amount"))),
+            ("Buyouts", _format_count(commerce.get("buyouts_count"))),
+            ("Buyouts amount", _format_money(commerce.get("buyouts_amount"))),
+        ],
+    )
+
     lines = [
         "WB Core Report v2",
         _format_text(meta.get("seller_id")),
@@ -147,10 +184,7 @@ def render_email_text(payload: dict) -> str:
         f"Operational date: {_format_text(meta.get('operational_date'))}",
         "",
         "Commerce:",
-        f"Orders: {_format_count(commerce.get('orders_count'))}",
-        f"Orders amount: {_format_money(commerce.get('orders_amount'))}",
-        f"Buyouts: {_format_count(commerce.get('buyouts_count'))}",
-        f"Buyouts amount: {_format_money(commerce.get('buyouts_amount'))}",
+        *[f"{label}: {value}" for label, value in commerce_rows],
         "",
         "Finance:",
         f"Gross revenue: {_format_money(finance.get('gross_revenue'))}",

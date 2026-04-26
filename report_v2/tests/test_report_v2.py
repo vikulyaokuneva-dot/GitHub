@@ -77,6 +77,68 @@ def _sample_debug() -> dict:
     return {"warnings": [], "endpoints": {"cabinet_commerce": {}, "finance_final": {}, "orders": {}, "sales": {}, "stocks": {}}}
 
 
+def _rate_limited_commerce_snapshot() -> dict:
+    snapshot = _sample_snapshot()
+    snapshot["run_date"] = "2026-04-25"
+    snapshot["operational_date"] = "2026-04-25"
+    snapshot["cabinet_commerce_daily"] = {
+        "source": "cabinet_commerce_daily",
+        "available": False,
+        "status": "unavailable",
+        "target_date": "2026-04-25",
+    }
+    snapshot["finance_final_daily"].update(
+        {
+            "target_date": "2026-04-25",
+            "actual_date": "2026-04-25",
+            "date_aligned": True,
+            "gross_revenue": 2680.0,
+            "seller_payout": 2751.30,
+            "source": "finance_detailed_api",
+        }
+    )
+    snapshot["live_operational"]["orders"].update(
+        {
+            "target_date": "2026-04-25",
+            "available": True,
+            "count": 8.0,
+            "amount": 6657.60,
+            "source": "orders_api",
+        }
+    )
+    snapshot["live_operational"]["sales"].update(
+        {
+            "target_date": "2026-04-25",
+            "available": True,
+            "count": 5.0,
+            "amount": 4020.20,
+            "source": "sales_api",
+        }
+    )
+    snapshot["live_operational"]["stocks"].update(
+        {
+            "available": True,
+            "snapshot_date": "2026-04-25",
+            "total_units": 337.0,
+            "source": "stocks_api",
+        }
+    )
+    return snapshot
+
+
+def _rate_limited_debug() -> dict:
+    debug = _sample_debug()
+    debug["warnings"] = [
+        {
+            "code": "cabinet_commerce_rate_limited",
+            "level": "warning",
+            "block": "cabinet_commerce",
+            "message": "429 too many requests from cabinet_commerce_daily.",
+        }
+    ]
+    return debug
+
+
 def test_build_report_payload_v2_maps_valid_snapshot() -> None:
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
 
@@ -209,6 +271,97 @@ def test_funnel_section_v2_unavailable_without_orders_and_buyouts() -> None:
     assert rows["Заказы"]["value"] == "нет данных"
     assert rows["Выкупы"]["value"] == "нет данных"
     assert rows["Конверсия заказ → выкуп"]["value"] == "нет данных"
+
+
+def test_report_payload_v2_fills_orders_from_live_operational_when_cabinet_commerce_rate_limited() -> None:
+    payload = build_report_payload_v2(_rate_limited_commerce_snapshot(), debug=_rate_limited_debug())
+
+    warning_codes = {item.get("code") for item in payload["warnings"]}
+    diagnostic_codes = {item.get("code") for item in payload["diagnostics"]["warnings"]}
+    orders_card = payload["hero"]["cards"][0]
+    sales_card = payload["hero"]["cards"][1]
+    commerce_rows = {item["label"]: item for item in payload["commerce_section"]["rows"]}
+
+    assert payload["cabinet_commerce"]["available"] is False
+    assert payload["cabinet_commerce"]["status"] == "unavailable"
+    assert payload["cabinet_commerce"]["orders_count"] == 8
+    assert payload["cabinet_commerce"]["orders_amount"] == 6657.60
+    assert payload["cabinet_commerce"]["orders_source"] == "orders_api"
+    assert payload["cabinet_commerce"]["orders_fallback"] is True
+    assert orders_card["value"] == "8 шт"
+    assert "6 657,60" in orders_card["subvalue"]
+    assert "orders_api" in orders_card["subvalue"]
+    assert orders_card["status"] != "unavailable"
+    assert sales_card["value"] == "5 шт"
+    assert "4 020,20" in sales_card["subvalue"]
+    assert "sales_api" in sales_card["subvalue"]
+    assert payload["commerce_section"]["status"] == "partial"
+    assert commerce_rows["Заказы"]["value"] == "8 шт"
+    assert "live_operational.orders" in commerce_rows["Заказы"]["note"]
+    assert "cabinet_commerce_rate_limited" in warning_codes
+    assert "commerce_filled_from_live_operational" in warning_codes
+    assert "cabinet_commerce_rate_limited" in diagnostic_codes
+    assert "commerce_filled_from_live_operational" in diagnostic_codes
+
+
+def test_report_payload_v2_does_not_label_sales_api_as_confirmed_buyouts() -> None:
+    payload = build_report_payload_v2(_rate_limited_commerce_snapshot(), debug=_rate_limited_debug())
+
+    commerce_rows = {item["label"]: item for item in payload["commerce_section"]["rows"]}
+    funnel_rows = {item["stage"]: item for item in payload["funnel_section"]["rows"]}
+    warning_codes = {item.get("code") for item in payload["warnings"]}
+
+    assert payload["cabinet_commerce"]["buyouts_count"] is None
+    assert payload["cabinet_commerce"]["buyouts_amount"] is None
+    assert payload["cabinet_commerce"]["sales_count"] == 5
+    assert payload["cabinet_commerce"]["sales_amount"] == 4020.20
+    assert payload["cabinet_commerce"]["sales_source"] == "sales_api"
+    assert payload["hero"]["cards"][1]["label"] == "Продажи"
+    assert "Выкупы" not in {card["label"] for card in payload["hero"]["cards"]}
+    assert "Оперативные продажи" in commerce_rows
+    assert commerce_rows["Оперативные продажи"]["value"] == "5 шт"
+    assert "live_operational.sales" in commerce_rows["Оперативные продажи"]["note"]
+    assert "confirmed buyouts" in commerce_rows["Сумма оперативных продаж"]["note"]
+    assert "Оперативные продажи" in funnel_rows
+    assert "Выкупы" not in funnel_rows
+    assert funnel_rows["Конверсия заказ → выкуп"]["status"] == "unavailable"
+    assert "operational_sales_not_confirmed_buyouts" in warning_codes
+
+
+def test_report_payload_v2_keeps_no_data_when_no_cabinet_and_no_live_operational() -> None:
+    snapshot = _rate_limited_commerce_snapshot()
+    snapshot["live_operational"]["orders"] = {"source": "orders_api", "available": False}
+    snapshot["live_operational"]["sales"] = {"source": "sales_api", "available": False}
+
+    payload = build_report_payload_v2(snapshot, debug=_rate_limited_debug())
+    warning_codes = {item.get("code") for item in payload["warnings"]}
+
+    assert payload["cabinet_commerce"]["orders_count"] is None
+    assert payload["cabinet_commerce"]["orders_amount"] is None
+    assert payload["cabinet_commerce"]["sales_count"] is None
+    assert payload["cabinet_commerce"]["sales_amount"] is None
+    assert payload["hero"]["cards"][0]["status"] == "unavailable"
+    assert payload["hero"]["cards"][1]["status"] == "unavailable"
+    assert payload["commerce_section"]["status"] == "unavailable"
+    assert "commerce_filled_from_live_operational" not in warning_codes
+    assert "cabinet_commerce_unavailable" in warning_codes
+
+
+def test_report_payload_v2_preserves_finance_when_commerce_unavailable() -> None:
+    payload = build_report_payload_v2(_rate_limited_commerce_snapshot(), debug=_rate_limited_debug())
+
+    finance_rows = {item["label"]: item for item in payload["finance_section"]["rows"]}
+    finance_card = payload["hero"]["cards"][2]
+
+    assert payload["finance_final"]["available"] is True
+    assert payload["finance_final"]["status"] == "ok"
+    assert payload["finance_final"]["date_aligned"] is True
+    assert payload["finance_final"]["seller_payout"] == 2751.30
+    assert payload["finance_final"]["gross_revenue"] == 2680.0
+    assert payload["finance_section"]["status"] == "ok"
+    assert finance_card["value"] == "2 751,30 ₽"
+    assert finance_card["subvalue"] == "finance_detailed_api"
+    assert finance_rows["К перечислению продавцу"]["value"] == "2 751,30 ₽"
 
 
 def test_ads_section_v2_exists_and_is_unavailable_without_clean_block() -> None:
