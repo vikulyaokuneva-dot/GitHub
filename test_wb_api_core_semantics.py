@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from typing import Any, Dict, Iterable, List
 from unittest.mock import MagicMock, patch
 
@@ -13,6 +14,7 @@ from wb_api_core.loaders import load_cabinet_commerce, load_finance_final, load_
 from wb_api_core.normalize import normalize_bundle
 from wb_api_core.reconcile import reconcile_bundle
 from wb_api_core.snapshot import build_snapshot
+from wb_api_core.token_resolver import resolve_wb_api_token
 
 
 class _FakeClient:
@@ -254,6 +256,42 @@ class TestWbApiCoreSemantics(unittest.TestCase):
         self.assertFalse(response["token_present"])
         self.assertEqual(response["token_env_name_used"], "WB_API_TOKEN")
         self.assertNotIn("Authorization", json.dumps(response, ensure_ascii=False))
+
+    def test_empty_explicit_token_does_not_override_wb_api_token_env(self) -> None:
+        with patch.dict(os.environ, {"WB_API_TOKEN": "env-token"}, clear=True):
+            token, env_name = resolve_wb_api_token("")
+
+        self.assertEqual(token, "env-token")
+        self.assertEqual(env_name, "WB_API_TOKEN")
+
+    def test_project_dotenv_loader_does_not_override_existing_wb_api_token(self) -> None:
+        import v3
+
+        with patch.dict(os.environ, {"WB_API_TOKEN": "env-token"}, clear=False):
+            v3._load_project_dotenv()
+            token, env_name = resolve_wb_api_token()
+
+        self.assertEqual(token, "env-token")
+        self.assertEqual(env_name, "WB_API_TOKEN")
+
+    def test_daily_workflow_generates_wb_api_core_snapshot_before_v2_report(self) -> None:
+        workflow_path = Path(__file__).resolve().parent / ".github" / "workflows" / "daily.yml"
+        workflow = workflow_path.read_text(encoding="utf-8")
+        run_report = workflow.split("- name: Run report", 1)[1]
+
+        self.assertIn("WB_API_TOKEN: ${{ secrets.WB_API_TOKEN }}", run_report)
+        self.assertIn("WB_API_TOKEN_secret_present=${{ secrets.WB_API_TOKEN != '' }}", run_report)
+        self.assertIn("WB_API_TOKEN_len=${#WB_API_TOKEN}", run_report)
+        self.assertIn('if [ -z "${WB_API_TOKEN:-}" ]; then', run_report)
+        self.assertIn("CORE_STARTED_AT=", run_report)
+        self.assertIn("CORE_SNAPSHOT_PATH=", run_report)
+        self.assertIn("CORE_DEBUG_PATH=", run_report)
+        self.assertIn("wb_api_core did not create required snapshot/debug artifacts", run_report)
+        self.assertIn("wb_api_core snapshot/debug artifacts are stale", run_report)
+        self.assertLess(
+            run_report.index("python -m wb_api_core.run_daily"),
+            run_report.index("python -m v3.entry daily"),
+        )
 
     def test_load_cabinet_commerce_uses_analytics_host_and_period_body(self) -> None:
         client = _FakeClient(

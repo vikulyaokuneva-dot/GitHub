@@ -60,13 +60,45 @@ jobs:
           echo "[workflow] pipeline started"
           echo "[workflow] REPORT_VERSION=${REPORT_VERSION:-<empty>}"
           echo "[workflow] seller resolved: ${WB_SELLER_ID}"
+          echo "[workflow] WB_API_TOKEN_secret_present=${{ secrets.WB_API_TOKEN != '' }}"
           echo "[workflow] WB_API_TOKEN_present=$([ -n "${WB_API_TOKEN:-}" ] && echo true || echo false)"
+          echo "[workflow] WB_API_TOKEN_len=${#WB_API_TOKEN}"
+          if [ -z "${WB_API_TOKEN:-}" ]; then
+            echo "::error::WB_API_TOKEN is empty in the Run report step environment"
+            exit 1
+          fi
           if [ -n "${WB_REQUESTED_DATE}" ]; then
             echo "[workflow] requested date: ${WB_REQUESTED_DATE}"
+            CORE_RUN_DATE="${WB_REQUESTED_DATE}"
             DATE_ARGS=(--date "${WB_REQUESTED_DATE}")
           else
             echo "[workflow] requested date: <empty> (pipeline auto-resolve by timezone)"
+            CORE_RUN_DATE="$(python - <<'PY'
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          print(datetime.now(ZoneInfo("Europe/Moscow")).date().isoformat())
+          PY
+          )"
             DATE_ARGS=()
+          fi
+          echo "[workflow] core_run_date=${CORE_RUN_DATE}"
+          CORE_STARTED_AT="$(date +%s)"
+          python -m wb_api_core.run_daily --seller "${WB_SELLER_ID}" --date "${CORE_RUN_DATE}"
+          CORE_ARTIFACTS_DIR="cabinets/${WB_SELLER_ID}/artifacts/wb_api_core/${CORE_RUN_DATE}"
+          CORE_SNAPSHOT_PATH="${CORE_ARTIFACTS_DIR}/snapshot.json"
+          CORE_DEBUG_PATH="${CORE_ARTIFACTS_DIR}/debug.json"
+          echo "[workflow] core_snapshot_path=${CORE_SNAPSHOT_PATH}"
+          echo "[workflow] core_debug_path=${CORE_DEBUG_PATH}"
+          if [ ! -f "${CORE_SNAPSHOT_PATH}" ] || [ ! -f "${CORE_DEBUG_PATH}" ]; then
+            echo "::error::wb_api_core did not create required snapshot/debug artifacts"
+            exit 1
+          fi
+          SNAPSHOT_MTIME="$(stat -c %Y "${CORE_SNAPSHOT_PATH}")"
+          DEBUG_MTIME="$(stat -c %Y "${CORE_DEBUG_PATH}")"
+          if [ "${SNAPSHOT_MTIME}" -lt "${CORE_STARTED_AT}" ] || [ "${DEBUG_MTIME}" -lt "${CORE_STARTED_AT}" ]; then
+            echo "::error::wb_api_core snapshot/debug artifacts are stale"
+            exit 1
           fi
           python -m v3.entry daily --seller "${WB_SELLER_ID}" "${DATE_ARGS[@]}"
           echo "[workflow] pipeline finished"

@@ -1044,6 +1044,12 @@ def _run_daily_for_seller(repo_root: str, seller_id: str, run_date: str) -> Dict
         f"repo_root={repo_root} "
         f"repo_root_abs={os.path.abspath(repo_root)}"
     )
+    wb_api_token_value = os.getenv("WB_API_TOKEN", "")
+    print(
+        "[python-entry] WB_API_TOKEN "
+        f"present={str(bool(wb_api_token_value)).lower()} "
+        f"len={len(wb_api_token_value)}"
+    )
     print("[pipeline] stage=load_reports started")
     context = run_daily_input_stage(repo_root=repo_root, seller_id=seller_id, run_date=run_date)
     print("[pipeline] stage=load_reports finished")

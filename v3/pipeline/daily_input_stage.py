@@ -291,6 +291,13 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         )
 
         api_endpoint_debug: List[Dict[str, Any]] = []
+        wb_api_token_value = os.getenv("WB_API_TOKEN", "")
+        print(
+            "[before-client] WB_API_TOKEN "
+            f"present={str(bool(wb_api_token_value)).lower()} "
+            f"len={len(wb_api_token_value)} "
+            f"explicit_token_present={str(bool(token)).lower()}"
+        )
         client = WBApiClient(token)
 
         try:

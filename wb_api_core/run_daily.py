@@ -42,6 +42,12 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
     operational_date = _resolve_operational_date(resolved_run_date, timezone_name)
     resolved_repo_root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
+    wb_api_token_value = os.getenv("WB_API_TOKEN", "")
+    print(
+        "[wb_api_core-entry] WB_API_TOKEN "
+        f"present={str(bool(wb_api_token_value)).lower()} "
+        f"len={len(wb_api_token_value)}"
+    )
     client = WBApiClient()
     print(
         "[wb_api_core] token_resolution "
