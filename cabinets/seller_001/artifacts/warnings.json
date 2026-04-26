@@ -1,5 +1,13 @@
 [
   {
+    "code": "wb_api_endpoint_failed",
+    "message": "WB API endpoint failed: realization, ads_legacy"
+  },
+  {
+    "code": "wb_api_realization_missing",
+    "message": "WB API sales rows are present, but realization rows are empty; financial contour is not confirmed."
+  },
+  {
     "code": "input_files_found",
     "message": "Input files found: total=0, sales=0, ads=0, stocks=0, funnel=0, supplier_goods=0, unknown=0"
   },
@@ -20,6 +28,10 @@
     "message": "No valid stocks report found in input/."
   },
   {
+    "code": "financial_data_missing",
+    "message": "Financial contour is missing: no realization rows and no local financial fallback."
+  },
+  {
     "code": "financial_kernel_input_missing_groups",
     "message": "Missing required semantic groups: operation_name, quantity, row_amount"
   },
@@ -32,8 +44,8 @@
     "message": "Financial contour missing: realization rows are unavailable for current operational day."
   },
   {
-    "code": "sales_funnel_sku_metrics_missing",
-    "message": "SKU-level metrics for sales funnel are missing."
+    "code": "sales_funnel_insufficient_data",
+    "message": "Insufficient funnel data for 11 SKU."
   },
   {
     "code": "keyword_source_rows_missing",
@@ -56,28 +68,8 @@
     "message": "Query-level advertising rows are missing; query analysis is limited."
   },
   {
-    "code": "daily_orders_count_unknown",
-    "message": "daily_orders_count is unknown: no_candidates_found"
-  },
-  {
-    "code": "daily_buyouts_count_unknown",
-    "message": "daily_buyouts_count is unknown: no_candidates_found"
-  },
-  {
-    "code": "daily_kpi_unknown",
-    "message": "daily orders/buyouts counts remain unknown because no confirmed source is available"
-  },
-  {
-    "code": "financial_data_missing",
-    "message": "Financial contour is missing: no realization rows and no local financial fallback."
-  },
-  {
-    "code": "profit_contribution_partial_data",
-    "message": "Profit contribution computed with status=insufficient_data."
-  },
-  {
-    "code": "territorial_distribution_sku_missing",
-    "message": "No SKU rows available for territorial distribution analysis."
+    "code": "territorial_distribution_demand_geo_partial",
+    "message": "Demand geography is missing for 6 SKU rows."
   },
   {
     "code": "territorial_distribution_suppressed_due_to_data_quality",
@@ -85,15 +77,19 @@
   },
   {
     "code": "territorial_distribution_built",
-    "message": "Territorial distribution built for 0 SKU with KTR"
+    "message": "Territorial distribution built for 5 SKU with KTR"
   },
   {
     "code": "territorial_distribution_preview_only",
     "message": "Territorial conclusions are preview-only due to limited evidence coverage."
   },
   {
-    "code": "sku_health_partial_data",
-    "message": "SKU health score computed with status=insufficient_data."
+    "code": "insufficient_warehouse_data",
+    "message": "Insufficient warehouse-level data for full territorial analysis"
+  },
+  {
+    "code": "decision_memory_updated",
+    "message": "Decision memory updated: added 11 records."
   },
   {
     "code": "no_decisions_ready_for_outcome",
