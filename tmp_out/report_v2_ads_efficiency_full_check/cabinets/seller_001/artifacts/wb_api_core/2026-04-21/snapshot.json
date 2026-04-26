@@ -1,0 +1,52 @@
+{
+  "seller_id": "seller_001",
+  "run_date": "2026-04-21",
+  "operational_date": "2026-04-21",
+  "source_mode": "wb_api_core_v2",
+  "cabinet_commerce_daily": {
+    "source": "sales_funnel_api",
+    "available": true,
+    "target_date": "2026-04-21",
+    "orders_count": 5.0,
+    "orders_amount": 4260.0,
+    "buyouts_count": 2.0,
+    "buyouts_amount": 1700.0
+  },
+  "finance_final_daily": {
+    "source": "finance_detailed_api",
+    "available": true,
+    "target_date": "2026-04-21",
+    "actual_date": "2026-04-21",
+    "date_aligned": true,
+    "gross_revenue": 4652.0,
+    "seller_payout": 4868.22,
+    "wb_commission": -329.75,
+    "logistics": 3.0,
+    "storage": 68.37,
+    "acquiring": 186.08
+  },
+  "live_operational": {
+    "orders": {
+      "source": "orders_api",
+      "available": true,
+      "target_date": "2026-04-21",
+      "count": 3.0,
+      "amount": 2500.0
+    },
+    "sales": {
+      "source": "sales_api",
+      "available": true,
+      "target_date": "2026-04-21",
+      "count": 3.0,
+      "amount": 7160.0
+    },
+    "stocks": {
+      "source": "stocks_api",
+      "available": true,
+      "snapshot_kind": "live_snapshot",
+      "operational_date_reference": "2026-04-21",
+      "snapshot_date": "2026-04-22",
+      "total_units": 322.0
+    }
+  }
+}

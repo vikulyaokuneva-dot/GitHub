@@ -109,6 +109,9 @@ def _status_label(value: Any) -> str:
         "partial": "Частично",
         "lagged": "С лагом",
         "unavailable": "Нет данных",
+        "no_data": "Нет данных",
+        "disabled": "Отключено",
+        "insufficient_data": "Недостаточно данных",
         "missing": "Нет данных",
         "true": "Да",
         "false": "Нет",
@@ -300,6 +303,129 @@ def _ads_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str,
     return table
 
 
+def _format_query_money(value: Any) -> str:
+    try:
+        if value is None or value == "":
+            return "нет данных"
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "нет данных"
+    if numeric.is_integer():
+        formatted = f"{int(numeric):,}".replace(",", " ")
+    else:
+        formatted = f"{numeric:,.2f}".replace(",", " ").replace(".", ",")
+    return f"{formatted} ₽"
+
+
+def _format_query_number(value: Any) -> str:
+    try:
+        if value is None or value == "":
+            return "нет данных"
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "нет данных"
+    if numeric.is_integer():
+        return f"{int(numeric):,}".replace(",", " ")
+    return f"{numeric:,.2f}".replace(",", " ").replace(".", ",")
+
+
+def _ads_query_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
+    table_rows: list[list[Paragraph]] = [
+        [
+            Paragraph("Запрос", style),
+            Paragraph("Расход", style),
+            Paragraph("Заказы", style),
+            Paragraph("Выручка", style),
+            Paragraph("Прибыль / ROMI", style),
+            Paragraph("Статус", style),
+        ]
+    ]
+    for item in rows[:8]:
+        row = item if isinstance(item, dict) else {}
+        profit = _format_query_money(row.get("profit"))
+        romi = _format_query_number(row.get("ROMI") if row.get("ROMI") is not None else row.get("romi"))
+        table_rows.append(
+            [
+                Paragraph(_format_text(row.get("query")), style),
+                Paragraph(_format_query_money(row.get("ad_spend")), style),
+                Paragraph(_format_query_number(row.get("orders")), style),
+                Paragraph(_format_query_money(row.get("revenue")), style),
+                Paragraph(f"{profit} / {romi}%", style),
+                Paragraph(_format_text(row.get("classification") or row.get("confidence")), style),
+            ]
+        )
+
+    table = Table(
+        table_rows,
+        colWidths=[width * 0.24, width * 0.15, width * 0.12, width * 0.16, width * 0.20, width * 0.13],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E5E7EB")),
+                ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#111827")),
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    return table
+
+
+def _sku_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
+    table_rows: list[list[Paragraph]] = [
+        [
+            Paragraph("SKU", style),
+            Paragraph("Score", style),
+            Paragraph("Attention", style),
+            Paragraph("Статус", style),
+            Paragraph("Причина", style),
+            Paragraph("Действие", style),
+        ]
+    ]
+    for item in rows[:10]:
+        row = item if isinstance(item, dict) else {}
+        score = row.get("health_score") if row.get("health_score") is not None else row.get("score")
+        table_rows.append(
+            [
+                Paragraph(_format_text(row.get("sku") or row.get("nm_id") or row.get("article")), style),
+                Paragraph(_format_query_number(score), style),
+                Paragraph(_format_query_number(row.get("attention_score")), style),
+                Paragraph(_format_text(row.get("status")), style),
+                Paragraph(_format_text(row.get("reason")), style),
+                Paragraph(_format_text(row.get("recommended_action")), style),
+            ]
+        )
+
+    table = Table(
+        table_rows,
+        colWidths=[width * 0.13, width * 0.10, width * 0.11, width * 0.13, width * 0.27, width * 0.26],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E5E7EB")),
+                ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#111827")),
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    return table
+
+
 def _source_flags_table(rows: list[tuple[str, str, str]], *, width: float, font_name: str) -> Table:
     table = Table(rows, colWidths=[width * 0.42, width * 0.36, width * 0.22])
     table.setStyle(
@@ -339,9 +465,15 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     funnel_section = payload.get("funnel_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(funnel_section, dict):
         funnel_section = {}
+    ads_efficiency_section = payload.get("ads_efficiency_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(ads_efficiency_section, dict):
+        ads_efficiency_section = {}
     ads_section = payload.get("ads_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(ads_section, dict):
         ads_section = {}
+    sku_health_section = payload.get("sku_health_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(sku_health_section, dict):
+        sku_health_section = {}
     finance_section = payload.get("finance_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(finance_section, dict):
         finance_section = {}
@@ -402,13 +534,66 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     story.append(_funnel_rows_table(funnel_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
     story.append(Spacer(1, 6))
 
-    ads_rows = ads_section.get("rows", [])
+    ads_rows = ads_efficiency_section.get("metric_rows") or ads_section.get("rows", [])
     if not isinstance(ads_rows, list):
         ads_rows = []
-    story.append(Paragraph(_format_text(ads_section.get("title")), styles["section"]))
-    story.append(Paragraph(_format_text(ads_section.get("subtitle")), styles["meta"]))
-    story.append(Paragraph(_format_text(ads_section.get("message")), styles["warning"]))
+    story.append(Paragraph(_format_text(ads_efficiency_section.get("title") or ads_section.get("title")), styles["section"]))
+    story.append(Paragraph(_format_text(ads_efficiency_section.get("subtitle") or ads_section.get("subtitle")), styles["meta"]))
+    story.append(Paragraph(_format_text(ads_efficiency_section.get("message") or ads_section.get("message")), styles["warning"]))
     story.append(_ads_rows_table(ads_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+    loss_rows = ads_efficiency_section.get("loss_rows", [])
+    if not isinstance(loss_rows, list):
+        loss_rows = []
+    opportunity_rows = ads_efficiency_section.get("opportunity_rows", [])
+    if not isinstance(opportunity_rows, list):
+        opportunity_rows = []
+    recommendations = ads_efficiency_section.get("recommendations", [])
+    if not isinstance(recommendations, list):
+        recommendations = []
+    if loss_rows:
+        story.append(Paragraph("Потери рекламы", styles["section"]))
+        story.append(_ads_query_rows_table(loss_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+    if opportunity_rows:
+        story.append(Paragraph("Прибыльные и перспективные запросы", styles["section"]))
+        story.append(_ads_query_rows_table(opportunity_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+    if recommendations:
+        story.append(Paragraph("Рекомендации по рекламе", styles["section"]))
+        for item in recommendations[:5]:
+            story.append(Paragraph(f"- {_format_text(item)}", styles["warning"]))
+    story.append(Spacer(1, 6))
+
+    sku_summary_rows = sku_health_section.get("summary_rows", [])
+    if not isinstance(sku_summary_rows, list):
+        sku_summary_rows = []
+    sku_risk_rows = sku_health_section.get("risk_rows", [])
+    if not isinstance(sku_risk_rows, list):
+        sku_risk_rows = []
+    sku_growth_rows = sku_health_section.get("growth_rows", [])
+    if not isinstance(sku_growth_rows, list):
+        sku_growth_rows = []
+    sku_attention_rows = sku_health_section.get("attention_rows", [])
+    if not isinstance(sku_attention_rows, list):
+        sku_attention_rows = []
+    sku_alert_rows = sku_health_section.get("alerts", [])
+    if not isinstance(sku_alert_rows, list):
+        sku_alert_rows = []
+    story.append(Paragraph(_format_text(sku_health_section.get("title")), styles["section"]))
+    story.append(Paragraph(_format_text(sku_health_section.get("subtitle")), styles["meta"]))
+    story.append(Paragraph(_format_text(sku_health_section.get("message")), styles["warning"]))
+    if sku_summary_rows:
+        story.append(_display_rows_table(sku_summary_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+    if sku_risk_rows:
+        story.append(Paragraph("SKU под риском", styles["section"]))
+        story.append(_sku_rows_table(sku_risk_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+    if sku_growth_rows:
+        story.append(Paragraph("SKU для роста", styles["section"]))
+        story.append(_sku_rows_table(sku_growth_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+    if sku_attention_rows:
+        story.append(Paragraph("SKU требуют внимания", styles["section"]))
+        story.append(_sku_rows_table(sku_attention_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+    if sku_alert_rows:
+        story.append(Paragraph("Alert-ы по SKU", styles["section"]))
+        story.append(_sku_rows_table(sku_alert_rows[:10], width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
     story.append(Spacer(1, 6))
 
     finance_notice_state = str(finance_notice.get("state") or "ok").strip().lower()
@@ -488,7 +673,16 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         "funnel_section_rows_count": len(funnel_rows),
         "funnel_section_status": _format_text(funnel_section.get("status")),
         "ads_section_rows_count": len(ads_rows),
-        "ads_section_status": _format_text(ads_section.get("status")),
+        "ads_section_status": _format_text(ads_efficiency_section.get("status") or ads_section.get("status")),
+        "ads_efficiency_section_status": _format_text(ads_efficiency_section.get("status")),
+        "ads_efficiency_loss_rows_count": len(loss_rows),
+        "ads_efficiency_opportunity_rows_count": len(opportunity_rows),
+        "sku_health_section_status": _format_text(sku_health_section.get("status")),
+        "sku_health_summary_rows_count": len(sku_summary_rows),
+        "sku_health_risk_rows_count": len(sku_risk_rows),
+        "sku_health_growth_rows_count": len(sku_growth_rows),
+        "sku_health_attention_rows_count": len(sku_attention_rows),
+        "sku_health_alert_rows_count": len(sku_alert_rows),
         "finance_section_rows_count": len(finance_rows),
         "live_section_rows_count": len(live_rows),
         "diagnostics_on_new_page": True,

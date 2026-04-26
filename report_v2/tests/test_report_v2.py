@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from report_v2.builders.report_payload_builder import (
+    build_ads_efficiency_section_v2,
     build_ads_section_v2,
     build_commerce_section_v2,
     build_diagnostics_v2,
@@ -13,6 +14,7 @@ from report_v2.builders.report_payload_builder import (
     build_hero_v2,
     build_live_section_v2,
     build_report_payload_v2,
+    build_sku_health_section_v2,
 )
 from report_v2.renderers.pdf_renderer_v2 import write_report_pdf_v2
 from report_v2.run_report_v2 import build_report_v2_from_files
@@ -139,6 +141,226 @@ def _rate_limited_debug() -> dict:
     return debug
 
 
+def _sample_ads_efficiency_artifact() -> dict:
+    return {
+        "seller_id": "seller_001",
+        "report_date": "2026-04-21",
+        "status": "ok",
+        "analysis_mode": "full",
+        "data_quality_status": "ok",
+        "warnings": [],
+        "summary": {
+            "analysis_mode": "full",
+            "portfolio_ad_spend": 1200.0,
+            "portfolio_orders_from_ads": 10.0,
+            "portfolio_buyouts_from_ads": 4.0,
+            "portfolio_revenue_from_ads": 6000.0,
+            "portfolio_profit_from_ads": 1800.0,
+            "portfolio_ROMI": 150.0,
+            "portfolio_DRR": 20.0,
+            "portfolio_CPO": 120.0,
+            "top_profitable_queries": [
+                {
+                    "query": "winner",
+                    "ad_spend": 500.0,
+                    "orders": 10.0,
+                    "revenue": 6000.0,
+                    "profit": 2500.0,
+                    "ROMI": 500.0,
+                    "classification": "profitable",
+                }
+            ],
+            "top_unprofitable_queries": [
+                {
+                    "query": "leak",
+                    "ad_spend": 700.0,
+                    "orders": 0.0,
+                    "revenue": 0.0,
+                    "profit": -700.0,
+                    "ROMI": -100.0,
+                    "classification": "unprofitable",
+                }
+            ],
+            "high_potential_queries": [
+                {
+                    "query": "scale-me",
+                    "ad_spend": 100.0,
+                    "orders": 2.0,
+                    "revenue": 1000.0,
+                    "profit": 600.0,
+                    "ROMI": 600.0,
+                    "classification": "profitable",
+                }
+            ],
+        },
+        "query_profitability": {
+            "analysis_mode": "full",
+            "status": "ok",
+            "summary": {
+                "query_count": 2,
+                "profitable": 1,
+                "neutral": 0,
+                "unprofitable": 1,
+                "insufficient_data": 0,
+            },
+            "items": [
+                {
+                    "query": "winner",
+                    "impressions": 500,
+                    "clicks": 50,
+                    "ad_spend": 500.0,
+                    "orders": 10.0,
+                    "revenue": 6000.0,
+                    "profit": 2500.0,
+                    "ROMI": 500.0,
+                    "classification": "profitable",
+                    "confidence": "high",
+                },
+                {
+                    "query": "leak",
+                    "impressions": 1000,
+                    "clicks": 100,
+                    "ad_spend": 700.0,
+                    "orders": 0.0,
+                    "revenue": 0.0,
+                    "profit": -700.0,
+                    "ROMI": -100.0,
+                    "classification": "unprofitable",
+                    "confidence": "medium",
+                },
+            ],
+        },
+        "signals": [
+            {
+                "type": "ads_budget_leak",
+                "recommendation": "Pause leak query and reallocate budget to profitable search traffic.",
+            }
+        ],
+        "source": {"query_source": "advertising_efficiency.json"},
+    }
+
+
+def _sample_sku_health_artifacts() -> dict:
+    return {
+        "health_score": {
+            "status": "ok",
+            "warnings": ["funnel_insufficient_data"],
+            "summary": {
+                "status": "ok",
+                "total_skus": 4,
+                "sku_count": 4,
+                "status_counts": {"risk": 1, "unstable": 1, "healthy": 1, "strong": 1},
+                "average_health_score": 7.25,
+                "LIQUIDATE": 1,
+                "confidence": "medium",
+                "reasons": ["partial funnel"],
+            },
+            "items": [
+                {
+                    "sku": "SKU-GROW",
+                    "health_score": 8.8,
+                    "health_status": "strong",
+                    "status": "SCALE",
+                    "reasons": ["growth"],
+                    "actions": [{"title": "Scale SKU-GROW carefully"}],
+                },
+                {
+                    "sku": "SKU-RISK",
+                    "health_score": 2.1,
+                    "health_status": "risk",
+                    "status": "LIQUIDATE",
+                    "warnings": ["dead_stock"],
+                    "actions": [{"title": "Liquidate SKU-RISK stock"}],
+                },
+            ],
+        },
+        "sku_watchlists": {
+            "date": "2026-04-21",
+            "watchlists": {
+                "top_growth": [
+                    {
+                        "sku": "SKU-GROW",
+                        "attention_score": 12,
+                        "reason": "Orders and revenue are growing",
+                        "metrics": {"orders": 9, "stock": 12},
+                    }
+                ],
+                "top_risk": [
+                    {
+                        "sku": "SKU-RISK",
+                        "attention_score": 95,
+                        "reason": "Low health score and stock pressure",
+                        "metrics": {"stock": 50},
+                    }
+                ],
+                "dead_stock": [
+                    {
+                        "sku": "SKU-RISK",
+                        "attention_score": 95,
+                        "reason": "Dead stock with no sales",
+                        "metrics": {"stock": 50},
+                    }
+                ],
+                "ad_inefficiency": [
+                    {
+                        "sku": "SKU-AD",
+                        "attention_score": 70,
+                        "reason": "Ads spend without confirmed orders",
+                        "metrics": {"ads_spend": 300},
+                    }
+                ],
+                "conversion_drop": [
+                    {
+                        "sku": "SKU-CONV",
+                        "attention_score": 55,
+                        "reason": "Conversion drop",
+                        "metrics": {"orders": 1},
+                    }
+                ],
+                "logistics_risk": [
+                    {
+                        "sku": "SKU-LOG",
+                        "attention_score": 45,
+                        "reason": "KTR risk",
+                        "metrics": {"stock": 8},
+                    }
+                ],
+            },
+        },
+        "sku_alerts": {
+            "date": "2026-04-21",
+            "items": [
+                {
+                    "sku": "SKU-RISK",
+                    "attention_score": 95,
+                    "alerts": [
+                        {"type": "dead_stock", "status": "critical", "reason": "Stock exists without orders."}
+                    ],
+                },
+                {
+                    "sku": "SKU-AD",
+                    "attention_score": 70,
+                    "alerts": [
+                        {
+                            "type": "ad_inefficiency",
+                            "status": "warning",
+                            "reason": "Ads spend is inefficient.",
+                        }
+                    ],
+                },
+            ],
+        },
+        "sku_daily_dynamics": {
+            "date": "2026-04-21",
+            "sku_count": 4,
+            "items": [
+                {"sku": "SKU-GROW", "orders": 9, "stock": 12, "data_confidence": "medium"},
+                {"sku": "SKU-RISK", "stock": 50, "data_confidence": "low"},
+            ],
+        },
+    }
+
+
 def test_build_report_payload_v2_maps_valid_snapshot() -> None:
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
 
@@ -158,7 +380,7 @@ def test_build_report_payload_v2_maps_valid_snapshot() -> None:
     assert len(payload["hero"]["cards"]) == 4
     assert payload["commerce_section"]["status"] == "ok"
     assert payload["funnel_section"]["status"] == "partial"
-    assert payload["ads_section"]["status"] == "unavailable"
+    assert payload["ads_section"]["status"] == "no_data"
     assert payload["finance_section"]["status"] == "ok"
     assert payload["live_section"]["status"] == "ok"
 
@@ -364,34 +586,89 @@ def test_report_payload_v2_preserves_finance_when_commerce_unavailable() -> None
     assert finance_rows["К перечислению продавцу"]["value"] == "2 751,30 ₽"
 
 
-def test_ads_section_v2_exists_and_is_unavailable_without_clean_block() -> None:
+def test_ads_section_renders_no_data_when_artifacts_missing() -> None:
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
 
     rows = {item["label"]: item for item in payload["ads_section"]["rows"]}
 
     assert payload["ads_section"]["title"] == "Реклама"
-    assert payload["ads_section"]["status"] == "unavailable"
-    assert payload["ads_section"]["message"] == "Данные по рекламе пока отсутствуют в core snapshot."
+    assert payload["ads_section"]["status"] == "no_data"
+    assert payload["ads_efficiency_section"]["status"] == "no_data"
+    assert payload["ads_section"]["message"] == "Данные advertising_efficiency отсутствуют в snapshot и artifacts."
     assert rows["Расход на рекламу"]["value"] == "нет данных"
+    assert rows["Показы"]["value"] == "нет данных"
+    assert rows["Клики"]["value"] == "нет данных"
     assert rows["Заказы из рекламы"]["value"] == "нет данных"
     assert rows["Выручка из рекламы"]["value"] == "нет данных"
     assert rows["ДРР"]["value"] == "нет данных"
 
 
 def test_ads_section_v2_missing_values_do_not_become_zero() -> None:
-    ads = build_ads_section_v2({}, debug=None)
+    snapshot = {
+        "advertising_efficiency": {
+            "status": "ok",
+            "analysis_mode": "full",
+            "summary": {"portfolio_ad_spend": 1200.0},
+        }
+    }
 
-    for row in ads["rows"]:
-        assert row["value"] == "нет данных"
-        assert row["value"] != "0 ₽"
-        assert row["value"] != "0 шт"
-        assert row["status"] == "unavailable"
+    ads = build_ads_section_v2(snapshot, debug=None)
+    rows = {item["label"]: item for item in ads["rows"]}
+
+    assert ads["status"] == "partial"
+    assert rows["Расход на рекламу"]["value"] == "1 200 ₽"
+    assert rows["Выручка из рекламы"]["value"] == "нет данных"
+    assert rows["Выручка из рекламы"]["value"] != "0 ₽"
+    assert rows["ДРР"]["value"] == "нет данных"
+    assert rows["Заказы из рекламы"]["value"] != "0 шт"
 
 
-def test_ads_section_v2_maps_clean_ads_block_values() -> None:
+def test_ads_section_uses_advertising_efficiency_artifact_when_present() -> None:
+    snapshot = {"advertising_efficiency": _sample_ads_efficiency_artifact()}
+
+    ads_efficiency = build_ads_efficiency_section_v2(snapshot, debug=None)
+    ads = build_ads_section_v2(snapshot, debug=None, ads_efficiency_section=ads_efficiency)
+    rows = {item["label"]: item for item in ads["rows"]}
+
+    assert ads["status"] == "ok"
+    assert ads_efficiency["source"] == "advertising_efficiency.json"
+    assert ads_efficiency["spend"] == 1200.0
+    assert ads_efficiency["impressions"] == 1500
+    assert ads_efficiency["clicks"] == 150
+    assert ads_efficiency["ctr"] == 10.0
+    assert ads_efficiency["cpc"] == 8.0
+    assert ads_efficiency["cpm"] == 800.0
+    assert ads_efficiency["ad_orders"] == 10.0
+    assert ads_efficiency["ad_revenue"] == 6000.0
+    assert ads_efficiency["ad_buyouts"] == 4.0
+    assert ads_efficiency["drr"] == 20.0
+    assert ads_efficiency["roas"] == 5.0
+    assert ads_efficiency["romi"] == 150.0
+    assert ads_efficiency["cpo"] == 120.0
+    assert ads_efficiency["profit_from_ads"] == 1800.0
+    assert ads_efficiency["wasted_spend"] == 700.0
+    assert ads_efficiency["inefficient_items_count"] == 1
+    assert ads_efficiency["top_unprofitable_queries"][0]["query"] == "leak"
+    assert ads_efficiency["top_profitable_queries"][0]["query"] == "winner"
+    assert ads_efficiency["high_potential_queries"][0]["query"] == "scale-me"
+    assert rows["Расход на рекламу"]["value"] == "1 200 ₽"
+    assert rows["Расход на рекламу"]["source"] == "advertising_efficiency.json"
+    assert rows["Показы"]["value"] == "1 500 шт"
+    assert rows["Клики"]["value"] == "150 шт"
+    assert rows["CTR"]["value"] == "10%"
+    assert rows["CPC"]["value"] == "8 ₽"
+    assert rows["CPM"]["value"] == "800 ₽"
+    assert rows["Заказы из рекламы"]["value"] == "10"
+    assert rows["Выручка из рекламы"]["value"] == "6 000 ₽"
+    assert rows["ДРР"]["value"] == "20%"
+    assert rows["ROAS"]["value"] == "5,00x"
+    assert rows["ROMI"]["value"] == "150%"
+    assert rows["Потери рекламы"]["value"] == "700 ₽"
+
+
+def test_ads_section_v2_maps_ads_efficiency_daily_values() -> None:
     snapshot = {
         "ads_efficiency_daily": {
-            "available": True,
             "source": "ads_efficiency_api",
             "ads_spend": 1200.0,
             "orders_from_ads": 4,
@@ -405,13 +682,14 @@ def test_ads_section_v2_maps_clean_ads_block_values() -> None:
     assert ads["status"] == "ok"
     assert rows["Расход на рекламу"]["value"] == "1 200 ₽"
     assert rows["Расход на рекламу"]["source"] == "ads_efficiency_api"
-    assert rows["Заказы из рекламы"]["value"] == "4 шт"
+    assert rows["Заказы из рекламы"]["value"] == "4"
     assert rows["Выручка из рекламы"]["value"] == "6 000 ₽"
     assert rows["ДРР"]["value"] == "20%"
+    assert rows["ROAS"]["value"] == "5,00x"
 
 
-def test_ads_section_v2_drr_needs_clean_revenue() -> None:
-    snapshot = {"advertising_daily": {"available": True, "source": "advertising_api", "ads_spend": 1200.0}}
+def test_ads_section_v2_partial_data_produces_partial_status() -> None:
+    snapshot = {"advertising_efficiency": {"status": "ok", "analysis_mode": "full", "summary": {"portfolio_ad_spend": 1200.0}}}
 
     ads = build_ads_section_v2(snapshot, debug=None)
     rows = {item["label"]: item for item in ads["rows"]}
@@ -420,6 +698,93 @@ def test_ads_section_v2_drr_needs_clean_revenue() -> None:
     assert rows["Расход на рекламу"]["value"] == "1 200 ₽"
     assert rows["ДРР"]["value"] == "нет данных"
     assert rows["ДРР"]["status"] == "unavailable"
+
+
+def test_sku_health_section_is_no_data_when_artifacts_missing() -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    section = payload["sku_health_section"]
+    rows = {item["label"]: item for item in section["summary_rows"]}
+
+    assert section["status"] == "no_data"
+    assert section["summary"]["total_skus"] is None
+    assert rows["Всего SKU"]["value"] == "нет данных"
+    assert rows["Всего SKU"]["value"] != "0 шт"
+
+
+def test_sku_health_section_is_partial_when_only_sku_watchlists_exists() -> None:
+    artifacts = _sample_sku_health_artifacts()
+    snapshot = {"sku_watchlists": artifacts["sku_watchlists"]}
+
+    section = build_sku_health_section_v2(snapshot, debug=None)
+
+    assert section["status"] == "partial"
+    assert section["source"] == "sku_watchlists.json"
+    assert section["summary"]["growth_count"] == 1
+    assert section["summary"]["risk_count"] == 1
+    assert section["summary"]["total_skus"] is None
+    assert section["watchlists"]["top_growth"][0]["sku"] == "SKU-GROW"
+    assert section["watchlists"]["top_growth"][0]["reason"] == "Orders and revenue are growing"
+
+
+def test_sku_health_section_is_ok_when_health_score_watchlists_and_alerts_exist() -> None:
+    artifacts = _sample_sku_health_artifacts()
+    snapshot = {
+        "health_score": artifacts["health_score"],
+        "sku_watchlists": artifacts["sku_watchlists"],
+        "sku_alerts": artifacts["sku_alerts"],
+        "sku_daily_dynamics": artifacts["sku_daily_dynamics"],
+    }
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+    section = payload["sku_health_section"]
+    warning_codes = {item.get("code") for item in payload["warnings"]}
+    diagnostic_codes = {item.get("code") for item in payload["diagnostics"]["warnings"]}
+
+    assert section["status"] == "ok"
+    assert section["summary"]["total_skus"] == 4
+    assert section["summary"]["healthy_count"] == 2
+    assert section["summary"]["growth_count"] == 1
+    assert section["summary"]["risk_count"] == 1
+    assert section["summary"]["dead_stock_count"] == 1
+    assert section["summary"]["ad_inefficiency_count"] == 1
+    assert section["summary"]["conversion_drop_count"] == 1
+    assert section["summary"]["logistics_risk_count"] == 1
+    assert section["health_score"]["value"] == 7.25
+    assert section["risk_rows"][0]["sku"] == "SKU-RISK"
+    assert section["growth_rows"][0]["sku"] == "SKU-GROW"
+    assert "sku_health_warning" in warning_codes
+    assert "sku_health_warning" in diagnostic_codes
+
+
+def test_sku_health_missing_numeric_values_are_not_converted_to_zero() -> None:
+    snapshot = {
+        "sku_watchlists": {
+            "watchlists": {
+                "top_risk": [
+                    {"sku": "SKU-MISSING", "reason": "Metrics are missing"}
+                ]
+            }
+        }
+    }
+
+    section = build_sku_health_section_v2(snapshot, debug=None)
+    item = section["watchlists"]["top_risk"][0]
+
+    assert section["status"] == "partial"
+    assert item["sku"] == "SKU-MISSING"
+    assert item["attention_score"] is None
+    assert item["metric_value"] is None
+    assert item["metric_value"] != 0
+
+
+def test_sku_health_watchlists_preserve_sku_ids_and_reasons() -> None:
+    artifacts = _sample_sku_health_artifacts()
+    section = build_sku_health_section_v2({"sku_watchlists": artifacts["sku_watchlists"]}, debug=None)
+
+    assert section["watchlists"]["dead_stock"][0]["sku"] == "SKU-RISK"
+    assert section["watchlists"]["dead_stock"][0]["reason"] == "Dead stock with no sales"
+    assert section["watchlists"]["ad_inefficiency"][0]["sku"] == "SKU-AD"
+    assert section["watchlists"]["conversion_drop"][0]["reason"] == "Conversion drop"
 
 
 def test_live_section_v2_contains_display_rows() -> None:
@@ -587,7 +952,7 @@ def test_write_report_pdf_v2_creates_pdf_for_valid_snapshot(tmp_path: Path) -> N
     assert info["commerce_section_rows_count"] == 5
     assert info["funnel_section_rows_count"] == 6
     assert info["funnel_section_status"] == payload["funnel_section"]["status"]
-    assert info["ads_section_rows_count"] == 4
+    assert info["ads_section_rows_count"] == len(payload["ads_section"]["rows"])
     assert info["ads_section_status"] == payload["ads_section"]["status"]
     assert info["finance_section_rows_count"] == 7
     assert info["live_section_rows_count"] == 4
@@ -632,8 +997,65 @@ def test_write_report_pdf_v2_creates_pdf_with_ads_minimal(tmp_path: Path) -> Non
     assert payload["ads_section"]["title"] == "Реклама"
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
-    assert info["ads_section_status"] == "unavailable"
-    assert info["ads_section_rows_count"] == 4
+    assert info["ads_section_status"] == "no_data"
+    assert info["ads_section_rows_count"] == len(payload["ads_section"]["rows"])
+
+
+def test_pdf_contains_ads_spend_drr_roas_when_data_exists(tmp_path: Path) -> None:
+    snapshot = _sample_snapshot()
+    snapshot["advertising_efficiency"] = _sample_ads_efficiency_artifact()
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+    pdf_path = tmp_path / "report_v2_ads_efficiency.pdf"
+
+    info = write_report_pdf_v2(pdf_path, payload)
+    rows = {item["label"]: item for item in payload["ads_section"]["rows"]}
+
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+    assert info["ads_section_status"] == "ok"
+    assert info["ads_efficiency_section_status"] == "ok"
+    assert info["ads_efficiency_loss_rows_count"] == 1
+    assert rows["Расход на рекламу"]["value"] == "1 200 ₽"
+    assert rows["ДРР"]["value"] == "20%"
+    assert rows["ROAS"]["value"] == "5,00x"
+
+
+def test_pdf_renders_top_risk_and_top_growth_sku(tmp_path: Path) -> None:
+    artifacts = _sample_sku_health_artifacts()
+    snapshot = _sample_snapshot()
+    snapshot.update(
+        {
+            "health_score": artifacts["health_score"],
+            "sku_watchlists": artifacts["sku_watchlists"],
+            "sku_alerts": artifacts["sku_alerts"],
+            "sku_daily_dynamics": artifacts["sku_daily_dynamics"],
+        }
+    )
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+    pdf_path = tmp_path / "report_v2_sku_health.pdf"
+
+    info = write_report_pdf_v2(pdf_path, payload)
+
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+    assert info["sku_health_section_status"] == "ok"
+    assert info["sku_health_risk_rows_count"] >= 1
+    assert info["sku_health_growth_rows_count"] >= 1
+    assert payload["sku_health_section"]["risk_rows"][0]["sku"] == "SKU-RISK"
+    assert payload["sku_health_section"]["growth_rows"][0]["sku"] == "SKU-GROW"
+
+
+def test_pdf_renderer_accepts_payload_without_sku_health_section(tmp_path: Path) -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    payload.pop("sku_health_section")
+    pdf_path = tmp_path / "report_v2_without_sku_health.pdf"
+
+    info = write_report_pdf_v2(pdf_path, payload)
+
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+    assert info["sku_health_section_status"] == "нет данных"
+    assert info["sku_health_summary_rows_count"] == 0
 
 
 def test_write_report_pdf_v2_creates_pdf_with_hero_block(tmp_path: Path) -> None:
@@ -728,6 +1150,55 @@ def test_build_report_v2_from_files_writes_payload_and_pdf(tmp_path: Path) -> No
     assert pdf_path.exists()
     assert saved_payload["meta"]["seller_id"] == "seller_001"
     assert saved_payload["finance_alignment_notice"]["state"] == "ok"
+
+
+def test_build_report_v2_from_files_reads_advertising_artifact_from_artifacts_root(tmp_path: Path) -> None:
+    artifacts_dir = tmp_path / "cabinets" / "seller_001" / "artifacts"
+    snapshot_dir = artifacts_dir / "wb_api_core" / "2026-04-21"
+    snapshot_dir.mkdir(parents=True)
+    snapshot_path = snapshot_dir / "snapshot.json"
+    debug_path = snapshot_dir / "debug.json"
+    snapshot_path.write_text(json.dumps(_sample_snapshot(), ensure_ascii=False), encoding="utf-8")
+    debug_path.write_text(json.dumps(_sample_debug(), ensure_ascii=False), encoding="utf-8")
+    (artifacts_dir / "advertising_efficiency.json").write_text(
+        json.dumps(_sample_ads_efficiency_artifact(), ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    result = build_report_v2_from_files(snapshot_path=snapshot_path, debug_path=debug_path, out_dir=tmp_path / "out")
+    payload = result["payload"]
+
+    assert payload["ads_efficiency_section"]["status"] == "ok"
+    assert payload["ads_efficiency_section"]["source"] == "advertising_efficiency.json"
+    assert payload["ads_efficiency_section"]["spend"] == 1200.0
+    assert payload["ads_section"]["status"] == "ok"
+
+
+def test_build_report_v2_from_files_reads_sku_artifacts_from_artifacts_root(tmp_path: Path) -> None:
+    artifacts_dir = tmp_path / "cabinets" / "seller_001" / "artifacts"
+    snapshot_dir = artifacts_dir / "wb_api_core" / "2026-04-21"
+    snapshot_dir.mkdir(parents=True)
+    snapshot_path = snapshot_dir / "snapshot.json"
+    debug_path = snapshot_dir / "debug.json"
+    snapshot_path.write_text(json.dumps(_sample_snapshot(), ensure_ascii=False), encoding="utf-8")
+    debug_path.write_text(json.dumps(_sample_debug(), ensure_ascii=False), encoding="utf-8")
+    sku_artifacts = _sample_sku_health_artifacts()
+    for name, payload in (
+        ("health_score.json", sku_artifacts["health_score"]),
+        ("sku_watchlists.json", sku_artifacts["sku_watchlists"]),
+        ("sku_alerts.json", sku_artifacts["sku_alerts"]),
+        ("sku_daily_dynamics.json", sku_artifacts["sku_daily_dynamics"]),
+    ):
+        (artifacts_dir / name).write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    result = build_report_v2_from_files(snapshot_path=snapshot_path, debug_path=debug_path, out_dir=tmp_path / "out")
+    payload = result["payload"]
+
+    assert payload["sku_health_section"]["status"] == "ok"
+    assert payload["sku_health_section"]["source"] == (
+        "health_score.json, sku_watchlists.json, sku_alerts.json, sku_daily_dynamics.json"
+    )
+    assert payload["sku_health_section"]["risk_rows"][0]["sku"] == "SKU-RISK"
 
 
 def test_report_v2_does_not_import_legacy_daily_report_stage() -> None:

@@ -67,6 +67,80 @@ def _sample_debug() -> dict:
     return {"warnings": [], "endpoints": {"cabinet_commerce": {}, "finance_final": {}, "orders": {}, "sales": {}, "stocks": {}}}
 
 
+def _sample_ads_efficiency() -> dict:
+    return {
+        "status": "ok",
+        "analysis_mode": "full",
+        "summary": {
+            "portfolio_ad_spend": 1200.0,
+            "portfolio_revenue_from_ads": 6000.0,
+            "portfolio_profit_from_ads": 1800.0,
+            "portfolio_ROMI": 150.0,
+            "portfolio_DRR": 20.0,
+            "portfolio_CPO": 120.0,
+        },
+        "query_profitability": {
+            "status": "ok",
+            "analysis_mode": "full",
+            "items": [
+                {
+                    "query": "leak",
+                    "impressions": 1000,
+                    "clicks": 100,
+                    "ad_spend": 700.0,
+                    "orders": 0.0,
+                    "revenue": 0.0,
+                    "profit": -700.0,
+                    "ROMI": -100.0,
+                    "classification": "unprofitable",
+                }
+            ],
+        },
+        "signals": [
+            {
+                "type": "ads_budget_leak",
+                "recommendation": "Pause leak query and move budget to profitable traffic.",
+            }
+        ],
+        "source": {"query_source": "advertising_efficiency.json"},
+    }
+
+
+def _sample_sku_health() -> dict:
+    return {
+        "health_score": {
+            "status": "ok",
+            "summary": {
+                "status": "ok",
+                "total_skus": 3,
+                "status_counts": {"risk": 1, "healthy": 1, "strong": 1},
+                "average_health_score": 7.4,
+                "LIQUIDATE": 1,
+            },
+            "items": [{"sku": "SKU-RISK", "health_score": 2.0, "status": "LIQUIDATE"}],
+        },
+        "sku_watchlists": {
+            "watchlists": {
+                "top_growth": [{"sku": "SKU-GROW", "attention_score": 10, "reason": "Growth"}],
+                "top_risk": [{"sku": "SKU-RISK", "attention_score": 90, "reason": "Risk"}],
+                "dead_stock": [{"sku": "SKU-RISK", "attention_score": 90, "reason": "Dead stock"}],
+                "ad_inefficiency": [],
+                "conversion_drop": [],
+                "logistics_risk": [],
+            }
+        },
+        "sku_alerts": {
+            "items": [
+                {
+                    "sku": "SKU-RISK",
+                    "attention_score": 90,
+                    "alerts": [{"type": "dead_stock", "status": "critical", "reason": "Liquidate stale stock."}],
+                }
+            ]
+        },
+    }
+
+
 def test_render_email_html_contains_seller_and_orders_count() -> None:
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
 
@@ -85,6 +159,48 @@ def test_render_email_text_contains_finance_block() -> None:
     assert "Finance:" in text
     assert "Gross revenue: 4 652.00" in text
     assert "Seller payout: 4 868.22" in text
+
+
+def test_email_contains_ads_summary_when_data_exists() -> None:
+    snapshot = _sample_snapshot()
+    snapshot["advertising_efficiency"] = _sample_ads_efficiency()
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+
+    html = render_email_html(payload)
+    text = render_email_text(payload)
+
+    assert "Advertising" in html
+    assert "1 200.00" in html
+    assert "20,00%" in html
+    assert "5,00x" in html
+    assert "Wasted spend: 700.00" in text
+    assert "Pause leak query" in text
+
+
+def test_email_renders_sku_summary_when_data_exists() -> None:
+    snapshot = _sample_snapshot()
+    snapshot.update(_sample_sku_health())
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+
+    html = render_email_html(payload)
+    text = render_email_text(payload)
+
+    assert "Товары" in html
+    assert "SKU в росте: 1" in text
+    assert "SKU под риском: 1" in text
+    assert "Требуют внимания: 1" in text
+    assert "Liquidate stale stock." in text
+
+
+def test_email_renderer_accepts_payload_without_sku_health_section() -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    payload.pop("sku_health_section")
+
+    html = render_email_html(payload)
+    text = render_email_text(payload)
+
+    assert "Товары" in html
+    assert "SKU-аналитика недоступна" in text
 
 
 def test_runner_writes_email_files(tmp_path: Path) -> None:

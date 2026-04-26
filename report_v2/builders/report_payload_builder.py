@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from ..contracts.report_payload_schema import (
+    AdsEfficiencySectionV2,
     AdsRowV2,
     AdsSectionV2,
     DiagnosticsRowV2,
@@ -16,6 +19,8 @@ from ..contracts.report_payload_schema import (
     ReportPayloadV2,
     SectionV2,
     SourceFlagRowV2,
+    SkuHealthItemV2,
+    SkuHealthSectionV2,
     WarningItemV2,
 )
 
@@ -917,24 +922,6 @@ def build_funnel_section_v2(
     }
 
 
-def _clean_core_ads_block(snapshot: dict[str, Any]) -> dict[str, Any]:
-    safe_snapshot = _safe_dict(snapshot)
-    candidates = (
-        safe_snapshot.get("ads_efficiency_daily"),
-        safe_snapshot.get("advertising_daily"),
-        safe_snapshot.get("ads_daily"),
-        safe_snapshot.get("advertising_efficiency_daily"),
-    )
-    for candidate in candidates:
-        block = _safe_dict(candidate)
-        if not block:
-            continue
-        if "available" in block and not bool(block.get("available", False)):
-            continue
-        return block
-    return {}
-
-
 def _first_numeric(block: dict[str, Any], field_names: tuple[str, ...]) -> float | None:
     for field_name in field_names:
         if field_name in block:
@@ -944,85 +931,958 @@ def _first_numeric(block: dict[str, Any], field_names: tuple[str, ...]) -> float
     return None
 
 
-def build_ads_section_v2(snapshot: dict[str, Any], debug: dict[str, Any] | None) -> AdsSectionV2:
-    _ = debug
-    ads = _clean_core_ads_block(snapshot)
-    if not ads:
-        rows = [
-            _ads_row("Расход на рекламу", "нет данных", source="нет clean ads source", status="unavailable"),
-            _ads_row("Заказы из рекламы", "нет данных", source="нет clean ads source", status="unavailable"),
-            _ads_row("Выручка из рекламы", "нет данных", source="нет clean ads source", status="unavailable"),
-            _ads_row("ДРР", "нет данных", source="нет clean ads source", status="unavailable"),
-        ]
-        return {
-            "title": "Реклама",
-            "subtitle": "Минимальный рекламный блок только из clean ads snapshot.",
-            "rows": rows,
-            "status": "unavailable",
-            "message": "Данные по рекламе пока отсутствуют в core snapshot.",
-        }
+def _safe_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return list(value)
+    if isinstance(value, dict):
+        return [item for item in value.values()]
+    return []
 
-    source = _safe_str(ads.get("source")) or "wb_api_core_ads"
-    ads_spend = _first_numeric(ads, ("ads_spend", "ad_spend", "spend", "advertising_spend", "cost"))
-    ad_orders = _first_numeric(ads, ("ad_orders", "ads_orders", "orders_from_ads", "orders_count", "attributed_orders"))
-    ad_revenue = _first_numeric(
-        ads,
-        ("revenue_from_ads", "ads_revenue", "ad_revenue", "revenue_total", "revenue", "attributed_revenue"),
+
+def _safe_dict_list(value: Any) -> list[dict[str, Any]]:
+    return [dict(item) for item in _safe_list(value) if isinstance(item, dict)]
+
+
+def _read_json_dict(path: Path) -> dict[str, Any]:
+    try:
+        if not path.is_file():
+            return {}
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _artifact_dirs(artifact_dir: str | Path | None) -> list[Path]:
+    if artifact_dir is None:
+        return []
+    start = Path(artifact_dir)
+    if start.is_file():
+        start = start.parent
+
+    candidates: list[Path] = []
+    for item in (start, *start.parents):
+        candidates.append(item)
+        if item.name == "artifacts":
+            candidates.append(item)
+        nested = item / "artifacts"
+        if nested.is_dir():
+            candidates.append(nested)
+
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for item in candidates:
+        try:
+            key = str(item.resolve())
+        except OSError:
+            key = str(item)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
+
+
+def _ads_artifact_dirs(artifact_dir: str | Path | None) -> list[Path]:
+    return _artifact_dirs(artifact_dir)
+
+
+def _load_ads_artifacts_from_dir(artifact_dir: str | Path | None) -> dict[str, dict[str, Any]]:
+    loaded: dict[str, dict[str, Any]] = {}
+    filenames = {
+        "advertising_efficiency": "advertising_efficiency.json",
+        "advertising_efficiency_summary": "advertising_efficiency_summary.json",
+        "portfolio_ads_summary": "portfolio_ads_summary.json",
+        "query_profitability": "query_profitability.json",
+    }
+    for directory in _ads_artifact_dirs(artifact_dir):
+        for key, filename in filenames.items():
+            if key in loaded:
+                continue
+            payload = _read_json_dict(directory / filename)
+            if payload:
+                loaded[key] = payload
+        if len(loaded) == len(filenames):
+            break
+    return loaded
+
+
+def _first_dict(*values: Any) -> dict[str, Any]:
+    for value in values:
+        block = _safe_dict(value)
+        if block:
+            return block
+    return {}
+
+
+def _pick_numeric(*candidates: tuple[dict[str, Any], tuple[str, ...]]) -> float | None:
+    for block, names in candidates:
+        value = _first_numeric(block, names)
+        if value is not None:
+            return value
+    return None
+
+
+def _sum_row_numeric(rows: list[dict[str, Any]], *field_names: str) -> float | None:
+    total = 0.0
+    seen = False
+    for row in rows:
+        for field_name in field_names:
+            if field_name not in row:
+                continue
+            value = _safe_float(row.get(field_name))
+            if value is None:
+                continue
+            total += value
+            seen = True
+            break
+    return round(total, 4) if seen else None
+
+
+def _safe_divide(numerator: Any, denominator: Any) -> float | None:
+    top = _safe_float(numerator)
+    bottom = _safe_float(denominator)
+    if top is None or bottom is None or bottom <= 0:
+        return None
+    return top / bottom
+
+
+def _format_display_number(value: Any, *, digits: int = 2) -> str:
+    numeric = _safe_float(value)
+    if numeric is None:
+        return "нет данных"
+    if numeric.is_integer():
+        return f"{int(numeric):,}".replace(",", " ")
+    return f"{numeric:,.{digits}f}".replace(",", " ").replace(".", ",")
+
+
+def _format_display_multiplier(value: Any) -> str:
+    numeric = _safe_float(value)
+    if numeric is None:
+        return "нет данных"
+    return f"{numeric:,.2f}x".replace(",", " ").replace(".", ",")
+
+
+def _normalize_ads_warnings(items: Any) -> list[WarningItemV2]:
+    warnings: list[WarningItemV2] = []
+    for item in _safe_list(items):
+        if isinstance(item, dict):
+            message = _safe_str(item.get("message") or item.get("text") or item.get("reason"))
+            if not message:
+                continue
+            warnings.append(
+                _warning(
+                    _safe_str(item.get("code")) or "advertising_efficiency_warning",
+                    message,
+                    block=_safe_str(item.get("block")) or "advertising_efficiency",
+                    level=_safe_str(item.get("level")) or "warning",
+                )
+            )
+            continue
+        message = _safe_str(item)
+        if message:
+            warnings.append(_warning("advertising_efficiency_warning", message, block="advertising_efficiency"))
+    return warnings
+
+
+def _query_key(row: dict[str, Any]) -> tuple[float, float, str]:
+    return (
+        _safe_float(row.get("profit")) or 0.0,
+        _safe_float(row.get("ROMI")) or _safe_float(row.get("romi")) or 0.0,
+        _safe_str(row.get("query")),
     )
 
-    drr: float | None = None
-    if ads_spend is not None and ad_revenue is not None and ad_revenue > 0:
-        drr = round(float(ads_spend) / float(ad_revenue) * 100.0, 2)
 
-    rows = [
-        _ads_row(
-            "Расход на рекламу",
-            _format_display_money(ads_spend),
-            source=source,
-            status=_display_status(True, ads_spend),
-            note="Только из clean ads block.",
-        ),
-        _ads_row(
-            "Заказы из рекламы",
-            _format_display_int(ad_orders, "шт"),
-            source=source,
-            status=_display_status(True, ad_orders),
-            note="Только из clean ads block.",
-        ),
-        _ads_row(
-            "Выручка из рекламы",
-            _format_display_money(ad_revenue),
-            source=source,
-            status=_display_status(True, ad_revenue),
-            note="Только из clean ads block.",
-        ),
-        _ads_row(
-            "ДРР",
-            _format_display_percent(drr),
-            source=source if drr is not None else "нет данных",
-            status="ok" if drr is not None else "unavailable",
-            note="Рассчитано в builder только из clean ads spend и revenue.",
-        ),
-    ]
+def _brief_query_rows(rows: list[dict[str, Any]], *, classification: str | None = None, limit: int = 5) -> list[dict[str, Any]]:
+    selected: list[dict[str, Any]] = []
+    for row in rows:
+        row_classification = _safe_str(row.get("classification")).lower()
+        if classification is not None and row_classification != classification:
+            continue
+        selected.append(
+            {
+                "query": _safe_str(row.get("query")),
+                "sku": row.get("sku"),
+                "ad_spend": _safe_float(row.get("ad_spend")),
+                "orders": _safe_float(row.get("orders")),
+                "buyouts": _safe_float(row.get("buyouts")),
+                "revenue": _safe_float(row.get("revenue")),
+                "profit": _safe_float(row.get("profit")),
+                "ROMI": _safe_float(row.get("ROMI") or row.get("romi")),
+                "classification": row_classification or _safe_str(row.get("classification")),
+                "confidence": _safe_str(row.get("confidence")),
+            }
+        )
 
-    ok_count = sum(1 for row in rows if row.get("status") == "ok")
-    if ok_count == len(rows):
-        status = "ok"
-        message = "Рекламные данные получены из clean ads block."
-    elif ok_count > 0:
-        status = "partial"
-        message = "Рекламный блок есть, но часть значений отсутствует."
+    if classification == "unprofitable":
+        selected.sort(key=_query_key)
     else:
-        status = "unavailable"
-        message = "Clean ads block есть, но полезные значения отсутствуют."
+        selected.sort(key=_query_key, reverse=True)
+    return selected[:limit]
 
-    return {
+
+def _ads_query_rows_from_sources(
+    advertising_efficiency: dict[str, Any],
+    query_profitability: dict[str, Any],
+) -> list[dict[str, Any]]:
+    rows = _safe_dict_list(query_profitability.get("items"))
+    if rows:
+        return rows
+    rows = _safe_dict_list(advertising_efficiency.get("query_performance"))
+    if rows:
+        return rows
+    return _safe_dict_list(advertising_efficiency.get("queries"))
+
+
+def _ads_recommendations(signals: list[dict[str, Any]], top_unprofitable: list[dict[str, Any]]) -> list[str]:
+    recommendations: list[str] = []
+    for signal in signals:
+        recommendation = _safe_str(signal.get("recommendation"))
+        if recommendation and recommendation not in recommendations:
+            recommendations.append(recommendation)
+        if len(recommendations) >= 5:
+            return recommendations
+    if top_unprofitable:
+        recommendations.append("Сократить ставки или остановить запросы с отрицательной прибылью до пересборки семантики.")
+    return recommendations
+
+
+def _ads_status(
+    *,
+    artifact_present: bool,
+    raw_status: str,
+    analysis_mode: str,
+    values: list[Any],
+) -> str:
+    if not artifact_present:
+        return "no_data"
+    if raw_status == "disabled" or analysis_mode == "disabled":
+        return "disabled"
+    useful_values = [value for value in values if _safe_float(value) is not None]
+    if not useful_values:
+        return "insufficient_data"
+    if raw_status == "partial" or analysis_mode == "preview":
+        return "partial"
+    required_values = values[:4]
+    if any(_safe_float(value) is None for value in required_values):
+        return "partial"
+    return "ok"
+
+
+def _ads_metric_status(section_status: str, value: Any) -> str:
+    if _safe_float(value) is not None:
+        return "ok"
+    if section_status in {"no_data", "disabled", "insufficient_data"}:
+        return section_status
+    return "unavailable"
+
+
+def _build_ads_metric_rows(section: AdsEfficiencySectionV2) -> list[AdsRowV2]:
+    source = _safe_str(section.get("source")) or "advertising_efficiency"
+    status = _safe_str(section.get("status")) or "no_data"
+    metric_specs: list[tuple[str, Any, str, str]] = [
+        ("Расход на рекламу", section.get("spend"), "money", "portfolio_ad_spend / total_ad_spend"),
+        ("Показы", section.get("impressions"), "int", "aggregated from advertising efficiency rows"),
+        ("Клики", section.get("clicks"), "int", "aggregated from advertising efficiency rows"),
+        ("CTR", section.get("ctr"), "percent", "clicks / impressions"),
+        ("CPC", section.get("cpc"), "money", "spend / clicks"),
+        ("CPM", section.get("cpm"), "money", "spend * 1000 / impressions"),
+        ("Заказы из рекламы", section.get("ad_orders"), "number", "portfolio_orders_from_ads"),
+        ("Выручка из рекламы", section.get("ad_revenue"), "money", "portfolio_revenue_from_ads"),
+        ("Выкупы из рекламы", section.get("ad_buyouts"), "number", "portfolio_buyouts_from_ads"),
+        ("ДРР", section.get("drr"), "percent", "portfolio_DRR"),
+        ("ROAS", section.get("roas"), "multiplier", "revenue / spend"),
+        ("ROMI", section.get("romi"), "percent", "portfolio_ROMI"),
+        ("CPO", section.get("cpo"), "money", "portfolio_CPO"),
+        ("Прибыль от рекламы", section.get("profit_from_ads"), "money", "portfolio_profit_from_ads"),
+        ("Потери рекламы", section.get("wasted_spend"), "money", "sum of unprofitable query spend"),
+        ("Неэффективных запросов", section.get("inefficient_items_count"), "int", "query_profitability summary"),
+    ]
+    rows: list[AdsRowV2] = []
+    for label, value, value_type, note in metric_specs:
+        if value_type == "money":
+            formatted = _format_display_money(value)
+        elif value_type == "int":
+            formatted = _format_display_int(value, "шт")
+        elif value_type == "number":
+            formatted = _format_display_number(value, digits=2)
+        elif value_type == "percent":
+            formatted = _format_display_percent(_safe_float(value))
+        elif value_type == "multiplier":
+            formatted = _format_display_multiplier(value)
+        else:
+            formatted = _format_display_text(value)
+        rows.append(
+            _ads_row(
+                label,
+                formatted,
+                source=source if _safe_float(value) is not None else "нет данных",
+                status=_ads_metric_status(status, value),
+                note=note,
+            )
+        )
+    return rows
+
+
+def build_ads_efficiency_section_v2(
+    snapshot: dict[str, Any],
+    debug: dict[str, Any] | None,
+    *,
+    artifact_dir: str | Path | None = None,
+) -> AdsEfficiencySectionV2:
+    _ = debug
+    safe_snapshot = _safe_dict(snapshot)
+    artifacts = _load_ads_artifacts_from_dir(artifact_dir)
+
+    advertising_efficiency = _first_dict(
+        safe_snapshot.get("advertising_efficiency"),
+        artifacts.get("advertising_efficiency"),
+        safe_snapshot.get("advertising_efficiency_daily"),
+        safe_snapshot.get("ads_efficiency_daily"),
+    )
+    summary = _first_dict(
+        advertising_efficiency.get("portfolio_ads_summary"),
+        advertising_efficiency.get("advertising_efficiency_summary"),
+        advertising_efficiency.get("summary"),
+        safe_snapshot.get("portfolio_ads_summary"),
+        safe_snapshot.get("advertising_efficiency_summary"),
+        artifacts.get("portfolio_ads_summary"),
+        artifacts.get("advertising_efficiency_summary"),
+    )
+    query_profitability = _first_dict(
+        advertising_efficiency.get("query_profitability"),
+        safe_snapshot.get("query_profitability"),
+        artifacts.get("query_profitability"),
+    )
+    query_summary = _safe_dict(query_profitability.get("summary"))
+    query_rows = _ads_query_rows_from_sources(advertising_efficiency, query_profitability)
+    sku_rows = _safe_dict_list(advertising_efficiency.get("sku_performance"))
+    signals = _safe_dict_list(advertising_efficiency.get("signals"))
+    artifact_present = bool(advertising_efficiency or summary or query_profitability)
+
+    source_payload = _safe_dict(advertising_efficiency.get("source"))
+    source = (
+        _safe_str(source_payload.get("query_source"))
+        or _safe_str(advertising_efficiency.get("source"))
+        or _safe_str(summary.get("source"))
+        or "advertising_efficiency_artifacts"
+    )
+    raw_status = _safe_str(advertising_efficiency.get("status") or query_profitability.get("status")).lower()
+    analysis_mode = _safe_str(
+        advertising_efficiency.get("analysis_mode")
+        or summary.get("analysis_mode")
+        or query_profitability.get("analysis_mode")
+    ).lower()
+
+    spend = _pick_numeric(
+        (summary, ("portfolio_ad_spend", "total_ad_spend", "spend", "ad_spend", "ads_spend")),
+        (advertising_efficiency, ("portfolio_ad_spend", "total_ad_spend", "spend", "ad_spend", "ads_spend")),
+    )
+    impressions = _safe_int(
+        _pick_numeric(
+            (summary, ("impressions", "ad_impressions")),
+            (advertising_efficiency, ("impressions", "ad_impressions")),
+        )
+    )
+    clicks = _safe_int(
+        _pick_numeric(
+            (summary, ("clicks", "ad_clicks")),
+            (advertising_efficiency, ("clicks", "ad_clicks")),
+        )
+    )
+    if impressions is None:
+        impressions = _safe_int(_sum_row_numeric(query_rows or sku_rows, "impressions"))
+    if clicks is None:
+        clicks = _safe_int(_sum_row_numeric(query_rows or sku_rows, "clicks"))
+
+    ad_orders = _pick_numeric(
+        (summary, ("portfolio_orders_from_ads", "orders_from_ads", "ad_orders", "ads_orders")),
+        (advertising_efficiency, ("portfolio_orders_from_ads", "orders_from_ads", "ad_orders", "ads_orders")),
+    )
+    ad_revenue = _pick_numeric(
+        (summary, ("portfolio_revenue_from_ads", "revenue_from_ads", "ad_revenue", "ads_revenue")),
+        (advertising_efficiency, ("portfolio_revenue_from_ads", "revenue_from_ads", "ad_revenue", "ads_revenue")),
+    )
+    ad_buyouts = _pick_numeric(
+        (summary, ("portfolio_buyouts_from_ads", "buyouts_from_ads", "ad_buyouts", "ads_buyouts")),
+        (advertising_efficiency, ("portfolio_buyouts_from_ads", "buyouts_from_ads", "ad_buyouts", "ads_buyouts")),
+    )
+    profit_from_ads = _pick_numeric(
+        (summary, ("portfolio_profit_from_ads", "profit_from_ads")),
+        (advertising_efficiency, ("portfolio_profit_from_ads", "profit_from_ads")),
+    )
+    drr = _pick_numeric((summary, ("portfolio_DRR", "DRR", "drr")), (advertising_efficiency, ("DRR", "drr")))
+    if drr is None:
+        drr_rate = _safe_divide(spend, ad_revenue)
+        drr = round(drr_rate * 100.0, 4) if drr_rate is not None else None
+    romi = _pick_numeric(
+        (summary, ("portfolio_ROMI", "ROMI", "romi")),
+        (advertising_efficiency, ("portfolio_ROMI", "ROMI", "romi")),
+    )
+    cpo = _pick_numeric((summary, ("portfolio_CPO", "CPO", "cpo")), (advertising_efficiency, ("CPO", "cpo")))
+    if cpo is None:
+        cpo = _safe_divide(spend, ad_orders)
+    ctr = _pick_numeric((summary, ("CTR", "ctr")), (advertising_efficiency, ("CTR", "ctr")))
+    if ctr is None:
+        ctr_rate = _safe_divide(clicks, impressions)
+        ctr = round(ctr_rate * 100.0, 4) if ctr_rate is not None else None
+    cpc = _pick_numeric((summary, ("CPC", "cpc")), (advertising_efficiency, ("CPC", "cpc")))
+    if cpc is None:
+        cpc = _safe_divide(spend, clicks)
+    cpm = _pick_numeric((summary, ("CPM", "cpm")), (advertising_efficiency, ("CPM", "cpm")))
+    if cpm is None:
+        cpm_rate = _safe_divide(spend, impressions)
+        cpm = round(cpm_rate * 1000.0, 4) if cpm_rate is not None else None
+    roas = _pick_numeric((summary, ("ROAS", "roas")), (advertising_efficiency, ("ROAS", "roas")))
+    if roas is None:
+        roas = _safe_divide(ad_revenue, spend)
+
+    top_profitable_queries = _safe_dict_list(summary.get("top_profitable_queries")) or _brief_query_rows(
+        query_rows, classification="profitable", limit=5
+    )
+    top_unprofitable_queries = _safe_dict_list(summary.get("top_unprofitable_queries")) or _brief_query_rows(
+        query_rows, classification="unprofitable", limit=5
+    )
+    high_potential_queries = _safe_dict_list(summary.get("high_potential_queries")) or [
+        row for row in top_profitable_queries if (_safe_float(row.get("ROMI")) or 0.0) >= 20.0
+    ][:5]
+    all_unprofitable = _brief_query_rows(query_rows, classification="unprofitable", limit=1000)
+    if query_rows:
+        wasted_spend = _sum_row_numeric(all_unprofitable, "ad_spend")
+        inefficient_items_count = len(all_unprofitable)
+    else:
+        wasted_spend = None
+        inefficient_items_count = _safe_int(query_summary.get("unprofitable"))
+    if inefficient_items_count is None:
+        inefficient_items_count = _safe_int(summary.get("inefficient_items_count"))
+
+    warnings = _normalize_ads_warnings(advertising_efficiency.get("warnings"))
+    values_for_status = [spend, ad_orders, ad_revenue, drr, romi, cpo, impressions, clicks]
+    status = _ads_status(
+        artifact_present=artifact_present,
+        raw_status=raw_status,
+        analysis_mode=analysis_mode,
+        values=values_for_status,
+    )
+
+    if status == "no_data":
+        message = "Данные advertising_efficiency отсутствуют в snapshot и artifacts."
+    elif status == "disabled":
+        message = "Рекламная аналитика отключена или рекламные данные отсутствуют."
+    elif status == "insufficient_data":
+        message = "Advertising artifacts найдены, но полезных метрик недостаточно."
+    elif status == "partial":
+        message = "Рекламная эффективность доступна частично; пропуски не заменялись нулями."
+    else:
+        message = "Рекламная эффективность собрана из advertising_efficiency artifacts."
+
+    section: AdsEfficiencySectionV2 = {
         "title": "Реклама",
-        "subtitle": "Минимальный рекламный блок только из clean ads snapshot.",
-        "rows": rows,
+        "subtitle": "Эффективность рекламы из advertising_efficiency artifacts.",
         "status": status,
+        "source": source,
         "message": message,
+        "spend": spend,
+        "impressions": impressions,
+        "clicks": clicks,
+        "ctr": ctr,
+        "cpc": cpc,
+        "cpm": cpm,
+        "ad_orders": ad_orders,
+        "ad_revenue": ad_revenue,
+        "ad_buyouts": ad_buyouts,
+        "drr": drr,
+        "roas": roas,
+        "romi": romi,
+        "cpo": cpo,
+        "profit_from_ads": profit_from_ads,
+        "wasted_spend": wasted_spend,
+        "inefficient_items_count": inefficient_items_count,
+        "top_profitable_queries": top_profitable_queries,
+        "top_unprofitable_queries": top_unprofitable_queries,
+        "high_potential_queries": high_potential_queries,
+        "warnings": warnings,
+        "loss_rows": top_unprofitable_queries,
+        "opportunity_rows": high_potential_queries or top_profitable_queries,
+        "recommendations": _ads_recommendations(signals, top_unprofitable_queries),
     }
+    section["metric_rows"] = _build_ads_metric_rows(section)
+    return section
+
+
+def build_ads_section_v2(
+    snapshot: dict[str, Any],
+    debug: dict[str, Any] | None,
+    *,
+    artifact_dir: str | Path | None = None,
+    ads_efficiency_section: AdsEfficiencySectionV2 | None = None,
+) -> AdsSectionV2:
+    section = ads_efficiency_section or build_ads_efficiency_section_v2(
+        snapshot,
+        debug,
+        artifact_dir=artifact_dir,
+    )
+    rows = section.get("metric_rows", [])
+    if not isinstance(rows, list):
+        rows = []
+    return {
+        "title": _safe_str(section.get("title")) or "Реклама",
+        "subtitle": _safe_str(section.get("subtitle")) or "Эффективность рекламы из advertising_efficiency artifacts.",
+        "rows": rows,
+        "status": _safe_str(section.get("status")) or "no_data",
+        "message": _safe_str(section.get("message")),
+    }
+
+
+def _load_sku_artifacts_from_dir(artifact_dir: str | Path | None) -> dict[str, dict[str, Any]]:
+    loaded: dict[str, dict[str, Any]] = {}
+    filenames = {
+        "health_score": "health_score.json",
+        "sku_watchlists": "sku_watchlists.json",
+        "sku_alerts": "sku_alerts.json",
+        "sku_daily_dynamics": "sku_daily_dynamics.json",
+    }
+    for directory in _artifact_dirs(artifact_dir):
+        for key, filename in filenames.items():
+            if key in loaded:
+                continue
+            payload = _read_json_dict(directory / filename)
+            if payload:
+                loaded[key] = payload
+        if len(loaded) == len(filenames):
+            break
+    return loaded
+
+
+def _first_text(*values: Any) -> str:
+    for value in values:
+        text = _safe_str(value)
+        if text:
+            return text
+    return ""
+
+
+def _first_list_text(value: Any) -> str:
+    rows = _safe_list(value)
+    for item in rows:
+        text = _safe_str(item)
+        if text:
+            return text
+    return ""
+
+
+def _first_action_text(row: dict[str, Any]) -> str:
+    explicit = _first_text(row.get("recommended_action"), row.get("action"), row.get("next_action"))
+    if explicit:
+        return explicit
+    actions = _safe_list(row.get("actions"))
+    for item in actions:
+        if not isinstance(item, dict):
+            continue
+        text = _first_text(item.get("title"), item.get("recommendation"), item.get("details"))
+        if text:
+            return text
+    alerts = _safe_list(row.get("alerts"))
+    for item in alerts:
+        if not isinstance(item, dict):
+            continue
+        status = _safe_str(item.get("status")).lower()
+        if status not in {"critical", "warning"}:
+            continue
+        reason = _safe_str(item.get("reason"))
+        if reason:
+            return reason
+    return ""
+
+
+def _nested_numeric(row: dict[str, Any], *path: str) -> float | None:
+    current: Any = row
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return _safe_float(current)
+
+
+def _first_sku_metric(row: dict[str, Any]) -> float | str | None:
+    for key in ("metric_value", "current_value", "health_score", "attention_score", "score"):
+        if key in row:
+            value = row.get(key)
+            numeric = _safe_float(value)
+            return numeric if numeric is not None else (_safe_str(value) or None)
+    for path in (
+        ("metrics", "stock"),
+        ("metrics", "orders"),
+        ("metrics", "revenue"),
+        ("metrics", "net_profit"),
+        ("deltas", "orders_vs_7d_pct"),
+        ("deltas", "revenue_vs_7d_pct"),
+    ):
+        value = _nested_numeric(row, *path)
+        if value is not None:
+            return value
+    return None
+
+
+def _normalize_sku_item(row: dict[str, Any], *, source: str, default_status: str = "") -> SkuHealthItemV2:
+    sku = _first_text(row.get("sku"), row.get("nm_id"), row.get("nmId"), row.get("article"), row.get("vendor_code"))
+    health_score = _safe_float(row.get("health_score"))
+    attention_score = _safe_float(row.get("attention_score"))
+    score = _safe_float(row.get("score"))
+    if score is None:
+        score = health_score if health_score is not None else attention_score
+    reason = _first_text(
+        row.get("reason"),
+        row.get("comment"),
+        row.get("message"),
+        _first_list_text(row.get("reasons")),
+        _first_list_text(row.get("warnings")),
+    )
+    if not reason:
+        alerts = _safe_list(row.get("alerts"))
+        for alert in alerts:
+            if isinstance(alert, dict):
+                reason = _safe_str(alert.get("reason"))
+                if reason:
+                    break
+    item: SkuHealthItemV2 = {
+        "sku": sku,
+        "nm_id": _first_text(row.get("nm_id"), row.get("nmId")) or None,
+        "article": _first_text(row.get("article"), row.get("vendor_code"), row.get("supplierArticle")) or None,
+        "name": _first_text(row.get("name"), row.get("product_name"), row.get("title")) or None,
+        "score": score,
+        "attention_score": attention_score,
+        "health_score": health_score,
+        "reason": reason,
+        "metric_value": _first_sku_metric(row),
+        "recommended_action": _first_action_text(row),
+        "status": _first_text(row.get("status"), row.get("health_status"), row.get("scoring_status"), default_status),
+        "source": source,
+    }
+    return item
+
+
+def _normalize_alert_item(row: dict[str, Any]) -> SkuHealthItemV2:
+    status = "unknown"
+    reason = ""
+    for alert in _safe_list(row.get("alerts")):
+        if not isinstance(alert, dict):
+            continue
+        alert_status = _safe_str(alert.get("status")).lower()
+        if alert_status in {"critical", "warning"}:
+            status = alert_status
+            reason = _safe_str(alert.get("reason"))
+            break
+        if not reason:
+            status = alert_status or status
+            reason = _safe_str(alert.get("reason"))
+    item = _normalize_sku_item(row, source="sku_alerts.json", default_status=status)
+    if reason:
+        item["reason"] = reason
+    if not item.get("recommended_action"):
+        item["recommended_action"] = reason
+    item["status"] = status
+    return item
+
+
+def _enrich_sku_item(item: SkuHealthItemV2, context: SkuHealthItemV2 | None) -> SkuHealthItemV2:
+    if not context:
+        return item
+    for key in ("nm_id", "article", "name", "score", "health_score", "recommended_action"):
+        if item.get(key) is None or item.get(key) == "":
+            value = context.get(key)
+            if value is not None and value != "":
+                item[key] = value  # type: ignore[literal-required]
+    if not item.get("reason") and context.get("reason"):
+        item["reason"] = context.get("reason", "")
+    return item
+
+
+def _watchlist_rows(watchlists_payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    root = _safe_dict(watchlists_payload.get("watchlists")) or watchlists_payload
+    return _safe_dict_list(root.get(key))
+
+
+def _count_or_none(rows: list[Any] | None, *, artifact_present: bool) -> int | None:
+    if rows is None and not artifact_present:
+        return None
+    return len(rows or [])
+
+
+def _normalize_sku_warnings(*payloads: dict[str, Any]) -> list[WarningItemV2]:
+    warnings: list[WarningItemV2] = []
+    for payload in payloads:
+        for item in _safe_list(payload.get("warnings")):
+            if isinstance(item, dict):
+                message = _safe_str(item.get("message") or item.get("reason") or item.get("text"))
+                if not message:
+                    continue
+                _append_once(
+                    warnings,
+                    _warning(
+                        _safe_str(item.get("code")) or "sku_health_warning",
+                        message,
+                        block=_safe_str(item.get("block")) or "sku_health",
+                        level=_safe_str(item.get("level")) or "warning",
+                    ),
+                )
+                continue
+            message = _safe_str(item)
+            if message:
+                _append_once(warnings, _warning("sku_health_warning", message, block="sku_health"))
+    return warnings
+
+
+def _sku_source_names(
+    *,
+    health_score: dict[str, Any],
+    sku_watchlists: dict[str, Any],
+    sku_alerts: dict[str, Any],
+    sku_daily_dynamics: dict[str, Any],
+) -> str:
+    sources: list[str] = []
+    if health_score:
+        sources.append("health_score.json")
+    if sku_watchlists:
+        sources.append("sku_watchlists.json")
+    if sku_alerts:
+        sources.append("sku_alerts.json")
+    if sku_daily_dynamics:
+        sources.append("sku_daily_dynamics.json")
+    return ", ".join(sources) or "missing"
+
+
+def _sku_section_status(
+    *,
+    artifact_present: bool,
+    health_score: dict[str, Any],
+    sku_watchlists: dict[str, Any],
+    sku_alerts: dict[str, Any],
+    useful_count: int,
+) -> str:
+    if not artifact_present:
+        return "no_data"
+    if useful_count <= 0:
+        return "insufficient_data"
+    health_status = _safe_str(health_score.get("status") or _safe_dict(health_score.get("summary")).get("status")).lower()
+    required_present = bool(health_score and sku_watchlists and sku_alerts)
+    if health_status == "insufficient_data":
+        return "insufficient_data"
+    if health_status == "partial" or not required_present:
+        return "partial"
+    return "ok"
+
+
+def _build_sku_summary_rows(summary: dict[str, Any], health_score: dict[str, Any]) -> list[DisplayRowV2]:
+    score = _safe_dict(health_score)
+    rows = [
+        ("Всего SKU", summary.get("total_skus")),
+        ("Здоровые SKU", summary.get("healthy_count")),
+        ("SKU в росте", summary.get("growth_count")),
+        ("SKU под риском", summary.get("risk_count")),
+        ("Ликвидация", summary.get("liquidation_count")),
+        ("Dead stock", summary.get("dead_stock_count")),
+        ("Неэффективная реклама", summary.get("ad_inefficiency_count")),
+        ("Падение конверсии", summary.get("conversion_drop_count")),
+        ("Логистический риск", summary.get("logistics_risk_count")),
+    ]
+    out: list[DisplayRowV2] = []
+    for label, value in rows:
+        out.append(
+            _display_row(
+                label,
+                _format_display_int(value, "шт"),
+                note="SKU health / watchlists",
+                status="ok" if _safe_float(value) is not None else "unavailable",
+            )
+        )
+    out.append(
+        _display_row(
+            "Средний health score",
+            _format_display_number(score.get("value"), digits=2),
+            note=_safe_str(score.get("comment")),
+            status=_safe_str(score.get("status")) or "unavailable",
+        )
+    )
+    return out
+
+
+def _sku_unique_attention_rows(*groups: list[SkuHealthItemV2], limit: int = 10) -> list[SkuHealthItemV2]:
+    rows: list[SkuHealthItemV2] = []
+    seen: set[str] = set()
+    index: dict[str, SkuHealthItemV2] = {}
+    for group in groups:
+        for item in group:
+            sku = _safe_str(item.get("sku"))
+            key = sku or f"{item.get('source')}:{len(rows)}"
+            if key in seen:
+                existing = index.get(key)
+                if existing is not None:
+                    if not existing.get("recommended_action") and item.get("recommended_action"):
+                        existing["recommended_action"] = item.get("recommended_action", "")
+                    if not existing.get("reason") and item.get("reason"):
+                        existing["reason"] = item.get("reason", "")
+                continue
+            seen.add(key)
+            index[key] = item
+            rows.append(item)
+    rows.sort(
+        key=lambda item: (
+            -(_safe_float(item.get("attention_score")) or 0.0),
+            _safe_float(item.get("health_score")) if _safe_float(item.get("health_score")) is not None else 9999.0,
+            _safe_str(item.get("sku")),
+        )
+    )
+    return rows[:limit]
+
+
+def build_sku_health_section_v2(
+    snapshot: dict[str, Any],
+    debug: dict[str, Any] | None,
+    *,
+    artifact_dir: str | Path | None = None,
+) -> SkuHealthSectionV2:
+    _ = debug
+    safe_snapshot = _safe_dict(snapshot)
+    artifacts = _load_sku_artifacts_from_dir(artifact_dir)
+    health_score = _first_dict(safe_snapshot.get("health_score"), artifacts.get("health_score"))
+    sku_watchlists = _first_dict(safe_snapshot.get("sku_watchlists"), artifacts.get("sku_watchlists"))
+    sku_alerts = _first_dict(safe_snapshot.get("sku_alerts"), artifacts.get("sku_alerts"))
+    sku_daily_dynamics = _first_dict(safe_snapshot.get("sku_daily_dynamics"), artifacts.get("sku_daily_dynamics"))
+
+    health_summary = _safe_dict(health_score.get("summary"))
+    status_counts = _safe_dict(health_summary.get("status_counts"))
+    watchlists: dict[str, list[SkuHealthItemV2]] = {}
+    for key in (
+        "top_growth",
+        "top_risk",
+        "dead_stock",
+        "ad_inefficiency",
+        "conversion_drop",
+        "logistics_risk",
+    ):
+        watchlists[key] = [
+            _normalize_sku_item(row, source=f"sku_watchlists.json:{key}", default_status=key)
+            for row in _watchlist_rows(sku_watchlists, key)
+        ]
+
+    health_items = [_normalize_sku_item(row, source="health_score.json") for row in _safe_dict_list(health_score.get("items"))]
+    alert_items = [_normalize_alert_item(row) for row in _safe_dict_list(sku_alerts.get("items"))]
+    health_by_sku = {_safe_str(item.get("sku")): item for item in health_items if _safe_str(item.get("sku"))}
+    for group_rows in watchlists.values():
+        for item in group_rows:
+            _enrich_sku_item(item, health_by_sku.get(_safe_str(item.get("sku"))))
+    for item in alert_items:
+        _enrich_sku_item(item, health_by_sku.get(_safe_str(item.get("sku"))))
+    dynamics_items = _safe_dict_list(sku_daily_dynamics.get("items"))
+
+    total_skus = _safe_int(
+        health_summary.get("total_skus")
+        if health_summary.get("total_skus") is not None
+        else health_summary.get("sku_count")
+    )
+    if total_skus is None:
+        total_skus = _safe_int(sku_daily_dynamics.get("sku_count"))
+    if total_skus is None and health_items:
+        total_skus = len(health_items)
+
+    healthy_count = None
+    healthy = _safe_int(status_counts.get("healthy"))
+    strong = _safe_int(status_counts.get("strong"))
+    if healthy is not None or strong is not None:
+        healthy_count = int(healthy or 0) + int(strong or 0)
+
+    risk_count = _safe_int(status_counts.get("risk"))
+    if risk_count is None and watchlists["top_risk"]:
+        risk_count = len(watchlists["top_risk"])
+
+    summary = {
+        "total_skus": total_skus,
+        "healthy_count": healthy_count,
+        "growth_count": len(watchlists["top_growth"]) if sku_watchlists else None,
+        "risk_count": risk_count,
+        "liquidation_count": _safe_int(health_summary.get("LIQUIDATE")),
+        "dead_stock_count": len(watchlists["dead_stock"]) if sku_watchlists else None,
+        "ad_inefficiency_count": len(watchlists["ad_inefficiency"]) if sku_watchlists else None,
+        "conversion_drop_count": len(watchlists["conversion_drop"]) if sku_watchlists else None,
+        "logistics_risk_count": len(watchlists["logistics_risk"]) if sku_watchlists else None,
+    }
+    if summary["liquidation_count"] is None and watchlists["dead_stock"]:
+        summary["liquidation_count"] = len(watchlists["dead_stock"])
+
+    health_value = _safe_float(health_summary.get("average_health_score"))
+    health_comment_parts = [
+        f"confidence={_safe_str(health_summary.get('confidence'))}" if _safe_str(health_summary.get("confidence")) else "",
+        _first_list_text(health_summary.get("reasons")),
+    ]
+    health_score_block = {
+        "value": health_value,
+        "status": _safe_str(health_score.get("status") or health_summary.get("status")) or "unavailable",
+        "comment": "; ".join([part for part in health_comment_parts if part]) or "health_score artifact",
+    }
+
+    artifact_present = bool(health_score or sku_watchlists or sku_alerts or sku_daily_dynamics)
+    useful_count = len(health_items) + sum(len(rows) for rows in watchlists.values()) + len(alert_items) + len(dynamics_items)
+    status = _sku_section_status(
+        artifact_present=artifact_present,
+        health_score=health_score,
+        sku_watchlists=sku_watchlists,
+        sku_alerts=sku_alerts,
+        useful_count=useful_count,
+    )
+    if status == "no_data":
+        message = "SKU health artifacts отсутствуют в snapshot и artifacts."
+    elif status == "insufficient_data":
+        message = "SKU health artifacts найдены, но полезных SKU-данных недостаточно."
+    elif status == "partial":
+        message = "SKU health доступен частично; отсутствующие значения не заменялись нулями."
+    else:
+        message = "SKU health собран из health_score, watchlists и alerts artifacts."
+
+    warnings = _normalize_sku_warnings(health_score, sku_watchlists, sku_alerts, sku_daily_dynamics)
+    risk_rows = watchlists["top_risk"] or [
+        item for item in health_items if _safe_str(item.get("status")).upper() in {"LIQUIDATE", "FIX"} or _safe_str(item.get("status")) == "risk"
+    ][:10]
+    growth_rows = watchlists["top_growth"] or [
+        item for item in health_items if _safe_str(item.get("status")).upper() == "SCALE"
+    ][:10]
+    attention_rows = _sku_unique_attention_rows(
+        watchlists["dead_stock"],
+        watchlists["ad_inefficiency"],
+        watchlists["conversion_drop"],
+        watchlists["logistics_risk"],
+        alert_items,
+        limit=10,
+    )
+    daily_dynamics = {
+        "date": _safe_str(sku_daily_dynamics.get("date")) or None,
+        "sku_count": _safe_int(sku_daily_dynamics.get("sku_count")),
+        "items_preview": dynamics_items[:10],
+    } if sku_daily_dynamics else {}
+
+    section: SkuHealthSectionV2 = {
+        "title": "Состояние товаров / SKU health",
+        "subtitle": "Списки SKU из health_score, sku_watchlists, sku_alerts и sku_daily_dynamics.",
+        "status": status,
+        "source": _sku_source_names(
+            health_score=health_score,
+            sku_watchlists=sku_watchlists,
+            sku_alerts=sku_alerts,
+            sku_daily_dynamics=sku_daily_dynamics,
+        ),
+        "message": message,
+        "summary": summary,
+        "health_score": health_score_block,
+        "watchlists": watchlists,
+        "alerts": alert_items,
+        "daily_dynamics": daily_dynamics,
+        "warnings": warnings,
+        "risk_rows": risk_rows[:10],
+        "growth_rows": growth_rows[:10],
+        "attention_rows": attention_rows[:10],
+    }
+    section["summary_rows"] = _build_sku_summary_rows(summary, health_score_block)
+    return section
 
 
 def build_finance_section_v2(finance_final: dict[str, Any]) -> SectionV2:
@@ -1128,7 +1988,12 @@ def build_live_section_v2(live_operational: dict[str, Any]) -> SectionV2:
     }
 
 
-def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | None = None) -> ReportPayloadV2:
+def build_report_payload_v2(
+    snapshot: dict[str, Any],
+    debug: dict[str, Any] | None = None,
+    *,
+    artifact_dir: str | Path | None = None,
+) -> ReportPayloadV2:
     if not isinstance(snapshot, dict):
         raise TypeError("snapshot must be a dict")
     if debug is not None and not isinstance(debug, dict):
@@ -1270,6 +2135,14 @@ def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | No
         "deductions": _safe_float(finance_daily.get("deductions")),
         "tax": _safe_float(finance_daily.get("tax")),
     }
+    ads_efficiency_section = build_ads_efficiency_section_v2(snapshot, debug, artifact_dir=artifact_dir)
+    for item in ads_efficiency_section.get("warnings", []):
+        if isinstance(item, dict):
+            _append_once(warnings, item)
+    sku_health_section = build_sku_health_section_v2(snapshot, debug, artifact_dir=artifact_dir)
+    for item in sku_health_section.get("warnings", []):
+        if isinstance(item, dict):
+            _append_once(warnings, item)
 
     payload: ReportPayloadV2 = {
         "meta": meta_block,
@@ -1283,7 +2156,14 @@ def build_report_payload_v2(snapshot: dict[str, Any], debug: dict[str, Any] | No
         "cabinet_commerce": cabinet_block,
         "commerce_section": build_commerce_section_v2(cabinet_block),
         "funnel_section": build_funnel_section_v2(snapshot, cabinet_block, debug),
-        "ads_section": build_ads_section_v2(snapshot, debug),
+        "ads_efficiency_section": ads_efficiency_section,
+        "ads_section": build_ads_section_v2(
+            snapshot,
+            debug,
+            artifact_dir=artifact_dir,
+            ads_efficiency_section=ads_efficiency_section,
+        ),
+        "sku_health_section": sku_health_section,
         "finance_final": finance_block,
         "finance_section": build_finance_section_v2(finance_block),
         "finance_alignment_notice": build_finance_alignment_notice_v2(finance_daily),

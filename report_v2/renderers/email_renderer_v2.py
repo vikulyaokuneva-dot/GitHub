@@ -27,6 +27,24 @@ def _format_money(value: Any) -> str:
         return "unavailable"
 
 
+def _format_percent(value: Any) -> str:
+    if value is None:
+        return "unavailable"
+    try:
+        return f"{float(value):,.2f}%".replace(",", " ").replace(".", ",")
+    except (TypeError, ValueError):
+        return "unavailable"
+
+
+def _format_multiplier(value: Any) -> str:
+    if value is None:
+        return "unavailable"
+    try:
+        return f"{float(value):,.2f}x".replace(",", " ").replace(".", ",")
+    except (TypeError, ValueError):
+        return "unavailable"
+
+
 def _format_text(value: Any) -> str:
     text = str(value or "").strip()
     return text or "unavailable"
@@ -85,6 +103,8 @@ def render_email_html(payload: dict) -> str:
     commerce = _safe_dict(payload.get("cabinet_commerce"))
     commerce_section = _safe_dict(payload.get("commerce_section"))
     finance = _safe_dict(payload.get("finance_final"))
+    ads_efficiency = _safe_dict(payload.get("ads_efficiency_section"))
+    sku_health = _safe_dict(payload.get("sku_health_section"))
     live = _safe_dict(payload.get("live_operational"))
     warnings = payload.get("warnings", [])
 
@@ -113,6 +133,34 @@ def render_email_html(payload: dict) -> str:
         ("live orders", f"{_format_count(live_orders.get('count'))} / {_format_money(live_orders.get('amount'))}"),
         ("live sales", f"{_format_count(live_sales.get('count'))} / {_format_money(live_sales.get('amount'))}"),
         ("live stocks", _format_count(live_stocks.get("total_units"))),
+    ]
+    recommendations = ads_efficiency.get("recommendations", [])
+    if not isinstance(recommendations, list):
+        recommendations = []
+    ads_action = _format_text(recommendations[0] if recommendations else ads_efficiency.get("message"))
+    ads_rows = [
+        ("Spend", _format_money(ads_efficiency.get("spend"))),
+        ("DRR", _format_percent(ads_efficiency.get("drr"))),
+        ("ROAS", _format_multiplier(ads_efficiency.get("roas"))),
+        ("ROMI", _format_percent(ads_efficiency.get("romi"))),
+        ("Wasted spend", _format_money(ads_efficiency.get("wasted_spend"))),
+        ("Action", ads_action),
+    ]
+    sku_summary = _safe_dict(sku_health.get("summary"))
+    sku_status = str(sku_health.get("status") or "no_data").strip()
+    sku_action = "SKU-аналитика недоступна"
+    attention_rows = sku_health.get("attention_rows", [])
+    if isinstance(attention_rows, list) and attention_rows:
+        first_attention = _safe_dict(attention_rows[0])
+        sku_action = _format_text(first_attention.get("recommended_action") or first_attention.get("reason"))
+    elif sku_status not in {"no_data", "insufficient_data"}:
+        sku_action = _format_text(sku_health.get("message"))
+    sku_rows = [
+        ("Growth SKU", _format_count(sku_summary.get("growth_count"))),
+        ("Risk SKU", _format_count(sku_summary.get("risk_count"))),
+        ("Need attention", _format_count(len(attention_rows) if isinstance(attention_rows, list) else None)),
+        ("Dead stock", _format_count(sku_summary.get("dead_stock_count"))),
+        ("Action", sku_action),
     ]
 
     warnings_html = "<p style=\"margin:0;font-size:13px;line-height:20px;color:#111827;\">No warnings.</p>"
@@ -147,6 +195,8 @@ def render_email_html(payload: dict) -> str:
         f"<p style=\"margin:0 0 4px 0;font-size:14px;line-height:20px;color:#374151;\">report_date: {escape(_format_text(meta.get('report_date')))}</p>"
         f"<p style=\"margin:0;font-size:14px;line-height:20px;color:#374151;\">operational_date: {escape(_format_text(meta.get('operational_date')))}</p>"
         f"{_html_table('Commerce', commerce_rows)}"
+        f"{_html_table('Advertising', ads_rows)}"
+        f"{_html_table('Товары', sku_rows)}"
         f"{_html_table('Finance', finance_rows)}"
         f"{_html_table('Live', live_rows)}"
         "<h2 style=\"margin:24px 0 10px 0;font-size:18px;line-height:24px;color:#111827;\">Warnings</h2>"
@@ -160,6 +210,8 @@ def render_email_text(payload: dict) -> str:
     commerce = _safe_dict(payload.get("cabinet_commerce"))
     commerce_section = _safe_dict(payload.get("commerce_section"))
     finance = _safe_dict(payload.get("finance_final"))
+    ads_efficiency = _safe_dict(payload.get("ads_efficiency_section"))
+    sku_health = _safe_dict(payload.get("sku_health_section"))
     live = _safe_dict(payload.get("live_operational"))
     warnings = payload.get("warnings", [])
 
@@ -176,6 +228,18 @@ def render_email_text(payload: dict) -> str:
             ("Buyouts amount", _format_money(commerce.get("buyouts_amount"))),
         ],
     )
+    recommendations = ads_efficiency.get("recommendations", [])
+    if not isinstance(recommendations, list):
+        recommendations = []
+    ads_action = _format_text(recommendations[0] if recommendations else ads_efficiency.get("message"))
+    sku_summary = _safe_dict(sku_health.get("summary"))
+    attention_rows = sku_health.get("attention_rows", [])
+    sku_action = "SKU-аналитика недоступна"
+    if isinstance(attention_rows, list) and attention_rows:
+        first_attention = _safe_dict(attention_rows[0])
+        sku_action = _format_text(first_attention.get("recommended_action") or first_attention.get("reason"))
+    elif str(sku_health.get("status") or "no_data") not in {"no_data", "insufficient_data"}:
+        sku_action = _format_text(sku_health.get("message"))
 
     lines = [
         "WB Core Report v2",
@@ -185,6 +249,21 @@ def render_email_text(payload: dict) -> str:
         "",
         "Commerce:",
         *[f"{label}: {value}" for label, value in commerce_rows],
+        "",
+        "Advertising:",
+        f"Spend: {_format_money(ads_efficiency.get('spend'))}",
+        f"DRR: {_format_percent(ads_efficiency.get('drr'))}",
+        f"ROAS: {_format_multiplier(ads_efficiency.get('roas'))}",
+        f"ROMI: {_format_percent(ads_efficiency.get('romi'))}",
+        f"Wasted spend: {_format_money(ads_efficiency.get('wasted_spend'))}",
+        f"Action: {ads_action}",
+        "",
+        "Товары:",
+        f"SKU в росте: {_format_count(sku_summary.get('growth_count'))}",
+        f"SKU под риском: {_format_count(sku_summary.get('risk_count'))}",
+        f"Требуют внимания: {_format_count(len(attention_rows) if isinstance(attention_rows, list) else None)}",
+        f"Dead stock: {_format_count(sku_summary.get('dead_stock_count'))}",
+        f"Действие: {sku_action}",
         "",
         "Finance:",
         f"Gross revenue: {_format_money(finance.get('gross_revenue'))}",

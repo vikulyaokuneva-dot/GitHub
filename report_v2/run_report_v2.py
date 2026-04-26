@@ -41,7 +41,7 @@ def build_report_v2_from_files(
     payload_target = Path(payload_path) if payload_path else resolved_out_dir / "report_payload_v2.json"
     pdf_target = Path(pdf_path) if pdf_path else resolved_out_dir / "report_v2.pdf"
 
-    payload = build_report_payload_v2(snapshot or {}, debug=debug)
+    payload = build_report_payload_v2(snapshot or {}, debug=debug, artifact_dir=snapshot_target.resolve().parent)
 
     with open(payload_target, "w", encoding="utf-8") as file:
         json.dump(payload, file, ensure_ascii=False, indent=2)

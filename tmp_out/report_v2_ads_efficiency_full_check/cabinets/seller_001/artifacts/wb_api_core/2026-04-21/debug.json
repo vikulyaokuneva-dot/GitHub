@@ -1,0 +1,10 @@
+{
+  "warnings": [],
+  "endpoints": {
+    "cabinet_commerce": {},
+    "finance_final": {},
+    "orders": {},
+    "sales": {},
+    "stocks": {}
+  }
+}

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 
 class WarningItemV2(TypedDict, total=False):
@@ -133,6 +133,98 @@ class AdsSectionV2(TypedDict, total=False):
     message: str
 
 
+class AdsEfficiencySectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    status: str
+    source: str
+    message: str
+    spend: float | None
+    impressions: int | None
+    clicks: int | None
+    ctr: float | None
+    cpc: float | None
+    cpm: float | None
+    ad_orders: float | None
+    ad_revenue: float | None
+    ad_buyouts: float | None
+    drr: float | None
+    roas: float | None
+    romi: float | None
+    cpo: float | None
+    profit_from_ads: float | None
+    wasted_spend: float | None
+    inefficient_items_count: int | None
+    top_profitable_queries: list[dict[str, Any]]
+    top_unprofitable_queries: list[dict[str, Any]]
+    high_potential_queries: list[dict[str, Any]]
+    warnings: list[WarningItemV2]
+    metric_rows: list[AdsRowV2]
+    loss_rows: list[dict[str, Any]]
+    opportunity_rows: list[dict[str, Any]]
+    recommendations: list[str]
+
+
+class SkuHealthItemV2(TypedDict, total=False):
+    sku: str
+    nm_id: str | None
+    article: str | None
+    name: str | None
+    score: float | None
+    attention_score: float | None
+    health_score: float | None
+    reason: str
+    metric_value: float | str | None
+    recommended_action: str
+    status: str
+    source: str
+
+
+class SkuHealthSummaryV2(TypedDict, total=False):
+    total_skus: int | None
+    healthy_count: int | None
+    growth_count: int | None
+    risk_count: int | None
+    liquidation_count: int | None
+    dead_stock_count: int | None
+    ad_inefficiency_count: int | None
+    conversion_drop_count: int | None
+    logistics_risk_count: int | None
+
+
+class SkuHealthScoreV2(TypedDict, total=False):
+    value: float | None
+    status: str
+    comment: str
+
+
+class SkuHealthWatchlistsV2(TypedDict, total=False):
+    top_growth: list[SkuHealthItemV2]
+    top_risk: list[SkuHealthItemV2]
+    dead_stock: list[SkuHealthItemV2]
+    ad_inefficiency: list[SkuHealthItemV2]
+    conversion_drop: list[SkuHealthItemV2]
+    logistics_risk: list[SkuHealthItemV2]
+
+
+class SkuHealthSectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    status: str
+    source: str
+    message: str
+    summary: SkuHealthSummaryV2
+    health_score: SkuHealthScoreV2
+    watchlists: SkuHealthWatchlistsV2
+    alerts: list[SkuHealthItemV2]
+    daily_dynamics: dict[str, Any]
+    warnings: list[WarningItemV2]
+    summary_rows: list[DisplayRowV2]
+    risk_rows: list[SkuHealthItemV2]
+    growth_rows: list[SkuHealthItemV2]
+    attention_rows: list[SkuHealthItemV2]
+
+
 class LiveMetricBlockV2(TypedDict, total=False):
     available: bool
     source: str
@@ -186,7 +278,9 @@ class ReportPayloadV2(TypedDict):
     cabinet_commerce: CabinetCommerceBlockV2
     commerce_section: SectionV2
     funnel_section: FunnelSectionV2
+    ads_efficiency_section: AdsEfficiencySectionV2
     ads_section: AdsSectionV2
+    sku_health_section: NotRequired[SkuHealthSectionV2]
     finance_final: FinanceFinalBlockV2
     finance_section: SectionV2
     finance_alignment_notice: FinanceAlignmentNoticeV2

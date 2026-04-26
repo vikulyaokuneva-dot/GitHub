@@ -1,0 +1,706 @@
+{
+  "meta": {
+    "contract_version": "report_payload_v2",
+    "seller_id": "seller_001",
+    "report_date": "2026-04-21",
+    "operational_date": "2026-04-21",
+    "snapshot_source_mode": "wb_api_core_v2",
+    "debug_available": true
+  },
+  "hero": {
+    "title": "Ежедневный отчёт WB",
+    "subtitle": "Кабинет: seller_001 | Дата: 2026-04-21",
+    "cards": [
+      {
+        "label": "Заказы",
+        "value": "5 шт",
+        "subvalue": "4 260 ₽",
+        "status": "ok"
+      },
+      {
+        "label": "Выкупы",
+        "value": "2 шт",
+        "subvalue": "1 700 ₽",
+        "status": "ok"
+      },
+      {
+        "label": "К перечислению",
+        "value": "4 868,22 ₽",
+        "subvalue": "finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "Остатки",
+        "value": "322 шт",
+        "subvalue": "2026-04-22",
+        "status": "ok"
+      }
+    ],
+    "data_status": "warning",
+    "data_status_message": "Данные получены, есть предупреждения по источникам."
+  },
+  "cabinet_commerce": {
+    "available": true,
+    "status": "ok",
+    "source": "sales_funnel_api",
+    "owner_block": "cabinet_commerce_daily",
+    "target_date": "2026-04-21",
+    "orders_count": 5,
+    "orders_amount": 4260.0,
+    "orders_source": "sales_funnel_api",
+    "orders_note": "Источник: cabinet_commerce_daily",
+    "orders_status": "ok",
+    "orders_fallback": false,
+    "buyouts_count": 2,
+    "buyouts_amount": 1700.0,
+    "buyouts_source": "sales_funnel_api",
+    "buyouts_note": "Подтвержденные выкупы из cabinet_commerce_daily.",
+    "buyouts_status": "ok",
+    "sales_count": 3,
+    "sales_amount": 7160.0,
+    "sales_source": "sales_api",
+    "sales_note": "Оперативные продажи из live_operational.sales.",
+    "sales_status": "ok",
+    "sales_fallback": false
+  },
+  "commerce_section": {
+    "title": "Коммерция",
+    "subtitle": "Заказы и выкупы из core-safe cabinet_commerce.",
+    "rows": [
+      {
+        "label": "Заказы",
+        "value": "5 шт",
+        "note": "Источник: cabinet_commerce_daily",
+        "status": "ok"
+      },
+      {
+        "label": "Сумма заказов",
+        "value": "4 260 ₽",
+        "note": "Источник: sales_funnel_api",
+        "status": "ok"
+      },
+      {
+        "label": "Выкупы",
+        "value": "2 шт",
+        "note": "Подтвержденные выкупы из cabinet_commerce_daily.",
+        "status": "ok"
+      },
+      {
+        "label": "Сумма выкупов",
+        "value": "1 700 ₽",
+        "note": "Источник: sales_funnel_api",
+        "status": "ok"
+      },
+      {
+        "label": "Источник",
+        "value": "sales_funnel_api",
+        "note": "Блок: cabinet_commerce_daily; fallback: нет",
+        "status": "ok"
+      }
+    ],
+    "status": "ok"
+  },
+  "funnel_section": {
+    "title": "Воронка продаж",
+    "subtitle": "Минимальная воронка только из wb_api_core snapshot.",
+    "rows": [
+      {
+        "stage": "Показы",
+        "value": "нет данных",
+        "source": "нет clean core source",
+        "status": "unavailable",
+        "note": "Источник верхней части воронки отсутствует в snapshot."
+      },
+      {
+        "stage": "Клики",
+        "value": "нет данных",
+        "source": "нет clean core source",
+        "status": "unavailable",
+        "note": "Источник верхней части воронки отсутствует в snapshot."
+      },
+      {
+        "stage": "Корзина",
+        "value": "нет данных",
+        "source": "нет clean core source",
+        "status": "unavailable",
+        "note": "Источник верхней части воронки отсутствует в snapshot."
+      },
+      {
+        "stage": "Заказы",
+        "value": "5 шт",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Нижняя часть воронки из cabinet_commerce."
+      },
+      {
+        "stage": "Выкупы",
+        "value": "2 шт",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Нижняя часть воронки из cabinet_commerce."
+      },
+      {
+        "stage": "Конверсия заказ → выкуп",
+        "value": "40%",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Рассчитано в builder из заказов и выкупов."
+      }
+    ],
+    "status": "partial",
+    "message": "Воронка частично заполнена из core snapshot; оперативные продажи не считаются подтвержденными выкупами."
+  },
+  "ads_efficiency_section": {
+    "title": "Реклама",
+    "subtitle": "Эффективность рекламы из advertising_efficiency artifacts.",
+    "status": "ok",
+    "source": "advertising_efficiency.json",
+    "message": "Рекламная эффективность собрана из advertising_efficiency artifacts.",
+    "spend": 1200.0,
+    "impressions": 1500,
+    "clicks": 150,
+    "ctr": 10.0,
+    "cpc": 8.0,
+    "cpm": 800.0,
+    "ad_orders": 10.0,
+    "ad_revenue": 6000.0,
+    "ad_buyouts": 4.0,
+    "drr": 20.0,
+    "roas": 5.0,
+    "romi": 150.0,
+    "cpo": 120.0,
+    "profit_from_ads": 1800.0,
+    "wasted_spend": 700.0,
+    "inefficient_items_count": 1,
+    "top_profitable_queries": [
+      {
+        "query": "winner",
+        "ad_spend": 500.0,
+        "orders": 10.0,
+        "revenue": 6000.0,
+        "profit": 2500.0,
+        "ROMI": 500.0,
+        "classification": "profitable"
+      }
+    ],
+    "top_unprofitable_queries": [
+      {
+        "query": "leak",
+        "ad_spend": 700.0,
+        "orders": 0.0,
+        "revenue": 0.0,
+        "profit": -700.0,
+        "ROMI": -100.0,
+        "classification": "unprofitable"
+      }
+    ],
+    "high_potential_queries": [
+      {
+        "query": "scale-me",
+        "ad_spend": 100.0,
+        "orders": 2.0,
+        "revenue": 1000.0,
+        "profit": 600.0,
+        "ROMI": 600.0,
+        "classification": "profitable"
+      }
+    ],
+    "warnings": [],
+    "loss_rows": [
+      {
+        "query": "leak",
+        "ad_spend": 700.0,
+        "orders": 0.0,
+        "revenue": 0.0,
+        "profit": -700.0,
+        "ROMI": -100.0,
+        "classification": "unprofitable"
+      }
+    ],
+    "opportunity_rows": [
+      {
+        "query": "scale-me",
+        "ad_spend": 100.0,
+        "orders": 2.0,
+        "revenue": 1000.0,
+        "profit": 600.0,
+        "ROMI": 600.0,
+        "classification": "profitable"
+      }
+    ],
+    "recommendations": [
+      "Pause leak query and reallocate budget to profitable search traffic.",
+      "Сократить ставки или остановить запросы с отрицательной прибылью до пересборки семантики."
+    ],
+    "metric_rows": [
+      {
+        "label": "Расход на рекламу",
+        "value": "1 200 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_ad_spend / total_ad_spend"
+      },
+      {
+        "label": "Показы",
+        "value": "1 500 шт",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "Клики",
+        "value": "150 шт",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "CTR",
+        "value": "10%",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "clicks / impressions"
+      },
+      {
+        "label": "CPC",
+        "value": "8 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "spend / clicks"
+      },
+      {
+        "label": "CPM",
+        "value": "800 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "spend * 1000 / impressions"
+      },
+      {
+        "label": "Заказы из рекламы",
+        "value": "10",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_orders_from_ads"
+      },
+      {
+        "label": "Выручка из рекламы",
+        "value": "6 000 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_revenue_from_ads"
+      },
+      {
+        "label": "Выкупы из рекламы",
+        "value": "4",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_buyouts_from_ads"
+      },
+      {
+        "label": "ДРР",
+        "value": "20%",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_DRR"
+      },
+      {
+        "label": "ROAS",
+        "value": "5,00x",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "revenue / spend"
+      },
+      {
+        "label": "ROMI",
+        "value": "150%",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_ROMI"
+      },
+      {
+        "label": "CPO",
+        "value": "120 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_CPO"
+      },
+      {
+        "label": "Прибыль от рекламы",
+        "value": "1 800 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_profit_from_ads"
+      },
+      {
+        "label": "Потери рекламы",
+        "value": "700 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "sum of unprofitable query spend"
+      },
+      {
+        "label": "Неэффективных запросов",
+        "value": "1 шт",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "query_profitability summary"
+      }
+    ]
+  },
+  "ads_section": {
+    "title": "Реклама",
+    "subtitle": "Эффективность рекламы из advertising_efficiency artifacts.",
+    "rows": [
+      {
+        "label": "Расход на рекламу",
+        "value": "1 200 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_ad_spend / total_ad_spend"
+      },
+      {
+        "label": "Показы",
+        "value": "1 500 шт",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "Клики",
+        "value": "150 шт",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "CTR",
+        "value": "10%",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "clicks / impressions"
+      },
+      {
+        "label": "CPC",
+        "value": "8 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "spend / clicks"
+      },
+      {
+        "label": "CPM",
+        "value": "800 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "spend * 1000 / impressions"
+      },
+      {
+        "label": "Заказы из рекламы",
+        "value": "10",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_orders_from_ads"
+      },
+      {
+        "label": "Выручка из рекламы",
+        "value": "6 000 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_revenue_from_ads"
+      },
+      {
+        "label": "Выкупы из рекламы",
+        "value": "4",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_buyouts_from_ads"
+      },
+      {
+        "label": "ДРР",
+        "value": "20%",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_DRR"
+      },
+      {
+        "label": "ROAS",
+        "value": "5,00x",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "revenue / spend"
+      },
+      {
+        "label": "ROMI",
+        "value": "150%",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_ROMI"
+      },
+      {
+        "label": "CPO",
+        "value": "120 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_CPO"
+      },
+      {
+        "label": "Прибыль от рекламы",
+        "value": "1 800 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "portfolio_profit_from_ads"
+      },
+      {
+        "label": "Потери рекламы",
+        "value": "700 ₽",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "sum of unprofitable query spend"
+      },
+      {
+        "label": "Неэффективных запросов",
+        "value": "1 шт",
+        "source": "advertising_efficiency.json",
+        "status": "ok",
+        "note": "query_profitability summary"
+      }
+    ],
+    "status": "ok",
+    "message": "Рекламная эффективность собрана из advertising_efficiency artifacts."
+  },
+  "finance_final": {
+    "available": true,
+    "source": "finance_detailed_api",
+    "owner_block": "finance_final_daily",
+    "status": "ok",
+    "target_date": "2026-04-21",
+    "actual_date": "2026-04-21",
+    "date_aligned": true,
+    "gross_revenue": 4652.0,
+    "seller_payout": 4868.22,
+    "wb_commission": -329.75,
+    "logistics": 3.0,
+    "storage": 68.37,
+    "acquiring": 186.08,
+    "penalties": null,
+    "deductions": null,
+    "tax": null
+  },
+  "finance_section": {
+    "title": "Финансы",
+    "subtitle": "Финальный финансовый контур за операционный день.",
+    "rows": [
+      {
+        "label": "Статус",
+        "value": "ok",
+        "note": "Операционный день: 2026-04-21; финансы: 2026-04-21",
+        "status": "ok"
+      },
+      {
+        "label": "Валовая выручка",
+        "value": "4 652 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "К перечислению продавцу",
+        "value": "4 868,22 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "Комиссия WB",
+        "value": "-329,75 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "Логистика",
+        "value": "3 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "Хранение",
+        "value": "68,37 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "Эквайринг",
+        "value": "186,08 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      }
+    ],
+    "status": "ok"
+  },
+  "finance_alignment_notice": {
+    "state": "ok",
+    "title": "",
+    "lines": [],
+    "source": "finance_detailed_api",
+    "target_date": "2026-04-21",
+    "actual_date": "2026-04-21"
+  },
+  "live_operational": {
+    "status": "ok",
+    "orders": {
+      "available": true,
+      "source": "orders_api",
+      "target_date": "2026-04-21",
+      "count": 3,
+      "amount": 2500.0,
+      "total_units": null,
+      "snapshot_date": null,
+      "snapshot_kind": null,
+      "operational_date_reference": null
+    },
+    "sales": {
+      "available": true,
+      "source": "sales_api",
+      "target_date": "2026-04-21",
+      "count": 3,
+      "amount": 7160.0,
+      "total_units": null,
+      "snapshot_date": null,
+      "snapshot_kind": null,
+      "operational_date_reference": null
+    },
+    "stocks": {
+      "available": true,
+      "source": "stocks_api",
+      "target_date": null,
+      "count": null,
+      "amount": null,
+      "total_units": 322,
+      "snapshot_date": "2026-04-22",
+      "snapshot_kind": "live_snapshot",
+      "operational_date_reference": "2026-04-21"
+    }
+  },
+  "live_section": {
+    "title": "Оперативный срез",
+    "subtitle": "Оперативные заказы, продажи и остатки без legacy fallback.",
+    "rows": [
+      {
+        "label": "Оперативные заказы",
+        "value": "3 шт",
+        "note": "2 500 ₽; источник: orders_api",
+        "status": "ok"
+      },
+      {
+        "label": "Оперативные продажи",
+        "value": "3 шт",
+        "note": "7 160 ₽; источник: sales_api",
+        "status": "ok"
+      },
+      {
+        "label": "Остатки",
+        "value": "322 шт",
+        "note": "Источник: stocks_api",
+        "status": "ok"
+      },
+      {
+        "label": "Дата среза остатков",
+        "value": "2026-04-22",
+        "note": "Тип среза: live_snapshot",
+        "status": "ok"
+      }
+    ],
+    "status": "ok"
+  },
+  "warnings": [
+    {
+      "code": "buyouts_owner_from_cabinet_commerce",
+      "message": "Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them.",
+      "level": "warning",
+      "block": "cabinet_commerce"
+    }
+  ],
+  "source_flags": {
+    "snapshot_present": true,
+    "debug_present": true,
+    "snapshot_source_mode": "wb_api_core_v2",
+    "buyouts_owner": "cabinet_commerce_daily",
+    "buyouts_source": "sales_funnel_api",
+    "warnings_count": 1
+  },
+  "diagnostics": {
+    "warnings": [
+      {
+        "code": "buyouts_owner_from_cabinet_commerce",
+        "level": "warning",
+        "block": "cabinet_commerce",
+        "message": "Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them."
+      }
+    ],
+    "source_flags": [
+      {
+        "name": "cabinet_commerce.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "cabinet_commerce.status",
+        "value": "ok",
+        "status": "ok"
+      },
+      {
+        "name": "cabinet_commerce.source",
+        "value": "sales_funnel_api",
+        "status": "ok"
+      },
+      {
+        "name": "finance_final.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "finance_final.status",
+        "value": "ok",
+        "status": "ok"
+      },
+      {
+        "name": "finance_final.source",
+        "value": "finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "name": "finance_final.date_aligned",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.orders.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.sales.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.stocks.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "debug_present",
+        "value": "true",
+        "status": "ok"
+      }
+    ],
+    "warnings_count": 1
+  },
+  "debug_summary": {
+    "endpoints_present": [
+      "cabinet_commerce",
+      "finance_final",
+      "orders",
+      "sales",
+      "stocks"
+    ],
+    "warnings_count": 0
+  }
+}
