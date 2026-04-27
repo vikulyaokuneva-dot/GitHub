@@ -72,6 +72,24 @@
       ],
       "max_iterations": 3,
       "iterations": 0
+    },
+    {
+      "id": "next-ai-director-step_20260428_021606",
+      "title": "Next AI Director step",
+      "description": "Предложи следующий безопасный шаг развития AI Director WB",
+      "status": "DONE",
+      "mode": "planner_only",
+      "priority": "low",
+      "created_at": "2026-04-28T02:16:06",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0
     }
   ]
 }

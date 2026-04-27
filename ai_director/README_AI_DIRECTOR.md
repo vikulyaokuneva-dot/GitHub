@@ -206,6 +206,14 @@ python ai_director/orchestrator.py
 }
 ```
 
+Planner-only задачу можно добавить через CLI:
+
+```bash
+python ai_director/create_task.py --title "Next AI Director step" --prompt "Предложи следующий безопасный шаг развития AI Director WB" --mode planner_only
+```
+
+CLI добавляет задачу в `ai_director/tasks/tasks.json` со статусом `NEW`, полем `created_at`, безопасным `id` на основе slug и timestamp, и не перезаписывает существующие задачи.
+
 ## Apply Stage безопасный dry-run
 
 `apply_engine.py` - это слой будущего применения фиксов от Fixer Agent.
