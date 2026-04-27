@@ -142,7 +142,32 @@ Stage 2 добавляет подготовку Fixer Agent без примен�
 Текущий LLM Client является заглушкой и возвращает:
 
 ```text
-MOCK_RESPONSE: LLM not connected yet
+MOCK_RESPONSE: Local LLM is not available. Start Ollama and pull the configured model.
+```
+
+## Local LLM через Ollama
+
+Fixer Agent может использовать локальную модель через Ollama без API-ключей.
+
+Настройки находятся в `ai_director/config.py`:
+
+- `LOCAL_LLM_PROVIDER = "ollama"`
+- `LOCAL_LLM_BASE_URL = "http://localhost:11434"`
+- `LOCAL_LLM_MODEL = "qwen2.5-coder:7b"`
+- `LOCAL_LLM_TIMEOUT_SEC = 120`
+
+Команды для проверки локальной модели:
+
+```bash
+ollama pull qwen2.5-coder:7b
+ollama run qwen2.5-coder:7b
+python ai_director/orchestrator.py
+```
+
+Если Ollama не запущена или модель не скачана, `llm_client.py` вернёт безопасный fallback:
+
+```text
+MOCK_RESPONSE: Local LLM is not available. Start Ollama and pull the configured model.
 ```
 
 ## Apply Stage безопасный dry-run

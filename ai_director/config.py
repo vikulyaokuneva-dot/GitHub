@@ -14,6 +14,11 @@ PROMPTS_DIR = AI_DIRECTOR_DIR / "prompts"
 DEFAULT_CHECKS = ["python -m pytest"]
 MAX_ITERATIONS_DEFAULT = 5
 
+LOCAL_LLM_PROVIDER = "ollama"
+LOCAL_LLM_BASE_URL = "http://localhost:11434"
+LOCAL_LLM_MODEL = "qwen2.5-coder:7b"
+LOCAL_LLM_TIMEOUT_SEC = 120
+
 ALLOWED_WRITE_PATHS = (
     PROJECT_ROOT / "src",
     PROJECT_ROOT / "tests",

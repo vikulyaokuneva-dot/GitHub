@@ -34,6 +34,26 @@
       ],
       "max_iterations": 3,
       "iterations": 1
+    },
+    {
+      "id": "task_004",
+      "title": "Проверить failure pipeline Apply Stage",
+      "status": "FAILED",
+      "priority": "high",
+      "description": "Специально запустить падающую проверку, чтобы убедиться, что создаются failure_snapshot, fix_prompt, fix_response, apply_plan и apply_result.",
+      "acceptance_criteria": [
+        "задача переходит в FAILED",
+        "создаётся failure_snapshot.json",
+        "создаётся fix_prompt.md",
+        "создаётся fix_response.md",
+        "создаётся apply_plan.json",
+        "создаётся apply_result.json"
+      ],
+      "checks": [
+        "python -c \"raise Exception('test failure for apply stage')\""
+      ],
+      "max_iterations": 3,
+      "iterations": 1
     }
   ]
 }
