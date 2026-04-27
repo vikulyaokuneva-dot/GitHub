@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from ..contracts.report_payload_schema import (
+    AbcAnalysisSectionV2,
+    AbcSkuItemV2,
     AdsEfficiencySectionV2,
     AdsRowV2,
     AdsSectionV2,
@@ -16,6 +18,8 @@ from ..contracts.report_payload_schema import (
     FunnelStageRowV2,
     HeroBlockV2,
     HeroKpiCardV2,
+    ProfitContributionSectionV2,
+    ProfitSkuItemV2,
     ReportPayloadV2,
     SectionV2,
     SourceFlagRowV2,
@@ -102,6 +106,14 @@ def _format_display_percent(value: float | None) -> str:
     else:
         formatted = f"{value:.2f}".replace(".", ",")
     return f"{formatted}%"
+
+
+def _format_display_share_percent(value: Any) -> str:
+    numeric = _safe_float(value)
+    if numeric is None:
+        return "РЅРµС‚ РґР°РЅРЅС‹С…"
+    display_value = numeric * 100.0 if abs(numeric) <= 1.0 else numeric
+    return _format_display_percent(display_value)
 
 
 def _safe_snapshot_float(value: Any) -> float | None:
@@ -951,6 +963,15 @@ def _read_json_dict(path: Path) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _read_json_value(path: Path) -> Any:
+    try:
+        if not path.is_file():
+            return None
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
 
 
 def _artifact_dirs(artifact_dir: str | Path | None) -> list[Path]:
@@ -1885,6 +1906,533 @@ def build_sku_health_section_v2(
     return section
 
 
+def _load_profit_contribution_artifact(artifact_dir: str | Path | None) -> dict[str, Any]:
+    for directory in _artifact_dirs(artifact_dir):
+        payload = _read_json_dict(directory / "profit_contribution.json")
+        if payload:
+            return payload
+    return {}
+
+
+def _load_abc_analysis_artifact(artifact_dir: str | Path | None) -> Any:
+    for directory in _artifact_dirs(artifact_dir):
+        payload = _read_json_value(directory / "abc_analysis.json")
+        if isinstance(payload, (dict, list)) and payload:
+            return payload
+    return None
+
+
+def _normalize_artifact_warnings(items: Any, *, block: str, default_code: str) -> list[WarningItemV2]:
+    warnings: list[WarningItemV2] = []
+    for item in _safe_list(items):
+        if isinstance(item, dict):
+            message = _safe_str(item.get("message") or item.get("text") or item.get("reason") or item.get("code"))
+            if not message:
+                continue
+            _append_once(
+                warnings,
+                _warning(
+                    _safe_str(item.get("code")) or default_code,
+                    message,
+                    block=_safe_str(item.get("block") or item.get("source")) or block,
+                    level=_safe_str(item.get("level") or item.get("severity")) or "warning",
+                ),
+            )
+            continue
+        message = _safe_str(item)
+        if message:
+            _append_once(warnings, _warning(default_code, message, block=block))
+    return warnings
+
+
+def _sum_present_numeric(rows: list[dict[str, Any]], field_name: str) -> float | None:
+    total = 0.0
+    seen = False
+    for row in rows:
+        if field_name not in row:
+            continue
+        value = _safe_float(row.get(field_name))
+        if value is None:
+            continue
+        total += value
+        seen = True
+    return round(total, 6) if seen else None
+
+
+def _sku_action_index_from_health(sku_health_section: dict[str, Any] | None) -> dict[str, str]:
+    section = _safe_dict(sku_health_section)
+    watchlists = _safe_dict(section.get("watchlists"))
+    indexed: dict[str, str] = {}
+    for key in ("top_risk", "top_growth"):
+        for row in _safe_dict_list(watchlists.get(key)):
+            sku = _first_text(row.get("sku"), row.get("nm_id"), row.get("nmId"), row.get("article"))
+            action = _first_text(row.get("recommended_action"), row.get("reason"))
+            if sku and action and sku not in indexed:
+                indexed[sku] = action
+    return indexed
+
+
+def _profit_row_source(row: dict[str, Any], default_source: str) -> str:
+    return _first_text(row.get("source"), row.get("artifact_source"), default_source) or default_source
+
+
+def _normalize_profit_sku_item(
+    row: dict[str, Any],
+    *,
+    source: str,
+    actions_by_sku: dict[str, str],
+) -> ProfitSkuItemV2:
+    sku = _first_text(row.get("sku"), row.get("nm_id"), row.get("nmId"), row.get("article"), row.get("vendor_code"))
+    nm_id = _first_text(row.get("nm_id"), row.get("nmId"))
+    action = _first_text(row.get("recommended_action"), row.get("action"), row.get("next_action"))
+    if not action and sku:
+        action = actions_by_sku.get(sku, "")
+
+    item: ProfitSkuItemV2 = {
+        "sku": sku,
+        "nm_id": nm_id or None,
+        "name": _first_text(row.get("name"), row.get("product_name"), row.get("title")) or None,
+        "revenue": _first_numeric(row, ("revenue", "revenue_total", "buyouts_amount", "orders_amount", "sales_amount")),
+        "profit": _first_numeric(row, ("profit", "net_profit", "total_profit")),
+        "profit_margin": _first_numeric(row, ("profit_margin", "margin_pct", "margin")),
+        "contribution_share": _first_numeric(row, ("contribution_share", "profit_share", "share")),
+        "status": _first_text(row.get("status"), row.get("profit_group"), row.get("class")) or "unknown",
+        "recommended_action": action,
+        "source": _profit_row_source(row, source),
+    }
+    return item
+
+
+def _profit_source_rows(payload: dict[str, Any], *keys: str) -> list[dict[str, Any]]:
+    for key in keys:
+        rows = _safe_dict_list(payload.get(key))
+        if rows:
+            return rows
+    summary = _safe_dict(payload.get("summary"))
+    for key in keys:
+        rows = _safe_dict_list(summary.get(key))
+        if rows:
+            return rows
+    return []
+
+
+def _profit_all_source_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = _profit_source_rows(payload, "sku_pnl", "items")
+    if rows:
+        return rows
+
+    combined: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for key in ("p1", "p2", "p3", "p4"):
+        for row in _safe_dict_list(payload.get(key)):
+            sku = _first_text(row.get("sku"), row.get("nm_id"), row.get("nmId"))
+            dedupe_key = sku or f"{key}:{len(combined)}"
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            combined.append(row)
+    return combined
+
+
+def _derive_profit_top_rows(rows: list[ProfitSkuItemV2], *, limit: int = 10) -> list[ProfitSkuItemV2]:
+    candidates = [row for row in rows if _safe_float(row.get("profit")) is not None]
+    candidates.sort(key=lambda row: (_safe_float(row.get("profit")) or float("-inf"), _safe_str(row.get("sku"))), reverse=True)
+    return candidates[:limit]
+
+
+def _derive_profit_loss_rows(rows: list[ProfitSkuItemV2], *, limit: int = 10) -> list[ProfitSkuItemV2]:
+    candidates = [row for row in rows if (_safe_float(row.get("profit")) is not None and (_safe_float(row.get("profit")) or 0.0) < 0)]
+    candidates.sort(key=lambda row: (_safe_float(row.get("profit")) or 0.0, _safe_str(row.get("sku"))))
+    return candidates[:limit]
+
+
+def _profit_status(
+    *,
+    artifact_present: bool,
+    raw_status: str,
+    rows: list[ProfitSkuItemV2],
+    summary: dict[str, Any],
+) -> str:
+    if not artifact_present:
+        return "no_data"
+    if raw_status in {"no_data", "missing"}:
+        return "no_data"
+    if raw_status and raw_status not in {"ok", "success"}:
+        return "partial"
+    if not rows and all(_safe_float(summary.get(key)) is None for key in ("total_profit", "total_revenue", "top_sku_share")):
+        return "partial"
+    for row in rows:
+        if _safe_float(row.get("profit")) is None or _safe_float(row.get("revenue")) is None:
+            return "partial"
+    return "ok"
+
+
+def _build_profit_summary_rows(summary: dict[str, Any]) -> list[DisplayRowV2]:
+    return [
+        _display_row(
+            "Общая прибыль",
+            _format_display_money(summary.get("total_profit")),
+            note="profit_contribution.json",
+            status="ok" if _safe_float(summary.get("total_profit")) is not None else "unavailable",
+        ),
+        _display_row(
+            "Общая выручка",
+            _format_display_money(summary.get("total_revenue")),
+            note="profit_contribution.json",
+            status="ok" if _safe_float(summary.get("total_revenue")) is not None else "unavailable",
+        ),
+        _display_row(
+            "Доля топ SKU",
+            _format_display_share_percent(summary.get("top_sku_share")),
+            note="profit contribution share",
+            status="ok" if _safe_float(summary.get("top_sku_share")) is not None else "unavailable",
+        ),
+        _display_row(
+            "Убыточные SKU",
+            _format_display_int(summary.get("loss_sku_count"), "шт"),
+            note="profit_contribution.json",
+            status="ok" if _safe_float(summary.get("loss_sku_count")) is not None else "unavailable",
+        ),
+    ]
+
+
+def build_profit_contribution_section_v2(
+    snapshot: dict[str, Any],
+    debug: dict[str, Any] | None,
+    *,
+    artifact_dir: str | Path | None = None,
+    sku_health_section: dict[str, Any] | None = None,
+) -> ProfitContributionSectionV2:
+    _ = snapshot, debug
+    payload = _load_profit_contribution_artifact(artifact_dir)
+    source = "profit_contribution.json" if payload else "missing"
+    if not payload:
+        summary = {
+            "total_profit": None,
+            "total_revenue": None,
+            "top_sku_share": None,
+            "loss_sku_count": None,
+        }
+        section: ProfitContributionSectionV2 = {
+            "title": "Прибыль по товарам",
+            "subtitle": "Вклад SKU в прибыль по artifact profit_contribution.json.",
+            "status": "no_data",
+            "source": "missing",
+            "message": "Данные profit_contribution.json недоступны.",
+            "summary": summary,
+            "top_profit_skus": [],
+            "loss_skus": [],
+            "sku_pnl": [],
+            "warnings": [],
+        }
+        section["summary_rows"] = _build_profit_summary_rows(summary)
+        return section
+
+    actions_by_sku = _sku_action_index_from_health(sku_health_section)
+    all_rows = [
+        _normalize_profit_sku_item(row, source=source, actions_by_sku=actions_by_sku)
+        for row in _profit_all_source_rows(payload)
+    ]
+    top_profit_skus = [
+        _normalize_profit_sku_item(row, source=source, actions_by_sku=actions_by_sku)
+        for row in _profit_source_rows(payload, "top_profit_skus", "top_profit_sku")
+    ]
+    if not top_profit_skus and all_rows:
+        top_profit_skus = _derive_profit_top_rows(all_rows)
+
+    loss_skus = [
+        _normalize_profit_sku_item(row, source=source, actions_by_sku=actions_by_sku)
+        for row in _profit_source_rows(payload, "loss_skus", "top_loss_skus", "top_loss_sku")
+    ]
+    if not loss_skus:
+        p4_rows = [
+            _normalize_profit_sku_item(row, source=source, actions_by_sku=actions_by_sku)
+            for row in _safe_dict_list(payload.get("p4"))
+        ]
+        loss_skus = p4_rows or _derive_profit_loss_rows(all_rows)
+
+    summary_payload = _safe_dict(payload.get("summary"))
+    meta_payload = _safe_dict(payload.get("meta"))
+    total_profit = _pick_numeric(
+        (summary_payload, ("total_profit", "profit")),
+        (meta_payload, ("total_profit", "profit")),
+        (payload, ("total_profit", "profit")),
+    )
+    if total_profit is None:
+        total_profit = _sum_present_numeric(all_rows, "profit")
+    total_revenue = _pick_numeric(
+        (summary_payload, ("total_revenue", "revenue")),
+        (meta_payload, ("total_revenue", "revenue")),
+        (payload, ("total_revenue", "revenue")),
+    )
+    if total_revenue is None:
+        total_revenue = _sum_present_numeric(all_rows, "revenue")
+
+    top_sku_share = _pick_numeric(
+        (summary_payload, ("top_sku_share", "top_profit_share", "top_20_profit_share")),
+        (meta_payload, ("top_sku_share", "top_profit_share", "top_20_profit_share")),
+        (payload, ("top_sku_share", "top_profit_share", "top_20_profit_share")),
+    )
+    if top_sku_share is None:
+        top_sku_share = _sum_present_numeric(top_profit_skus, "contribution_share")
+    loss_sku_count = _safe_int(
+        _pick_numeric(
+            (summary_payload, ("loss_sku_count", "loss_count")),
+            (meta_payload, ("loss_sku_count", "loss_count")),
+            (payload, ("loss_sku_count", "loss_count")),
+        )
+    )
+    if loss_sku_count is None and loss_skus:
+        loss_sku_count = len(loss_skus)
+    elif loss_sku_count is None and all_rows:
+        derived_losses = [row for row in all_rows if (_safe_float(row.get("profit")) is not None and (_safe_float(row.get("profit")) or 0.0) < 0)]
+        known_profit_rows = [row for row in all_rows if _safe_float(row.get("profit")) is not None]
+        loss_sku_count = len(derived_losses) if derived_losses or len(known_profit_rows) == len(all_rows) else None
+
+    summary = {
+        "total_profit": total_profit,
+        "total_revenue": total_revenue,
+        "top_sku_share": top_sku_share,
+        "loss_sku_count": loss_sku_count,
+    }
+    warnings = _normalize_artifact_warnings(payload.get("warnings"), block="profit_contribution", default_code="profit_contribution_warning")
+    raw_status = _safe_str(payload.get("status") or summary_payload.get("status")).lower()
+    status = _profit_status(artifact_present=True, raw_status=raw_status, rows=all_rows, summary=summary)
+    if status == "no_data":
+        message = "Данные profit_contribution.json недоступны."
+    elif status == "partial":
+        message = "Profit contribution доступен частично; пропуски не заменялись нулями."
+    else:
+        message = "Profit contribution собран из artifact profit_contribution.json."
+
+    section = {
+        "title": "Прибыль по товарам",
+        "subtitle": "Вклад SKU в прибыль по artifact profit_contribution.json.",
+        "status": status,
+        "source": source,
+        "message": message,
+        "summary": summary,
+        "top_profit_skus": top_profit_skus[:10],
+        "loss_skus": loss_skus[:10],
+        "sku_pnl": all_rows,
+        "warnings": warnings,
+    }
+    section["summary_rows"] = _build_profit_summary_rows(summary)
+    return section
+
+
+def _abc_category_value(row: dict[str, Any]) -> str:
+    return _first_text(row.get("category"), row.get("abc_class"), row.get("class")).upper()
+
+
+def _normalize_abc_item(row: dict[str, Any], *, category: str = "") -> AbcSkuItemV2:
+    resolved_category = _abc_category_value(row) or _safe_str(category).upper()
+    metric_value = _first_numeric(row, ("metric_value", "profit", "revenue"))
+    sku = _first_text(row.get("sku"), row.get("nm_id"), row.get("nmId"), row.get("article"), row.get("vendor_code"))
+    return {
+        "sku": sku,
+        "nm_id": _first_text(row.get("nm_id"), row.get("nmId")) or None,
+        "name": _first_text(row.get("name"), row.get("product_name"), row.get("title")) or None,
+        "category": resolved_category,
+        "metric_value": metric_value,
+        "cumulative_share": _first_numeric(row, ("cumulative_share", "cumulative_profit_share")),
+        "status": _first_text(row.get("status")) or "ok",
+    }
+
+
+def _abc_rows_from_payload(payload: Any) -> list[AbcSkuItemV2]:
+    if isinstance(payload, list):
+        return [_normalize_abc_item(row) for row in _safe_dict_list(payload)]
+    if not isinstance(payload, dict):
+        return []
+    rows: list[AbcSkuItemV2] = []
+    direct_rows = _safe_dict_list(payload.get("items"))
+    if direct_rows:
+        return [_normalize_abc_item(row) for row in direct_rows]
+    for category in ("A", "B", "C"):
+        for row in _safe_dict_list(payload.get(category)):
+            rows.append(_normalize_abc_item(row, category=category))
+    return rows
+
+
+def _abc_categories(rows: list[AbcSkuItemV2]) -> dict[str, list[AbcSkuItemV2]]:
+    categories: dict[str, list[AbcSkuItemV2]] = {"A": [], "B": [], "C": []}
+    for row in rows:
+        category = _safe_str(row.get("category")).upper()
+        if category not in categories:
+            continue
+        categories[category].append(row)
+    return categories
+
+
+def _abc_share_from_rows(rows: list[dict[str, Any]], category: str) -> float | None:
+    total = 0.0
+    seen = False
+    for row in rows:
+        if _abc_category_value(row) != category:
+            continue
+        value = _first_numeric(row, ("category_share", "profit_share", "share", "contribution_share"))
+        if value is None:
+            continue
+        total += value
+        seen = True
+    return round(total, 6) if seen else None
+
+
+def _abc_raw_rows(payload: Any) -> list[dict[str, Any]]:
+    if isinstance(payload, list):
+        return _safe_dict_list(payload)
+    if not isinstance(payload, dict):
+        return []
+    rows = _safe_dict_list(payload.get("items"))
+    if rows:
+        return rows
+    out: list[dict[str, Any]] = []
+    for category in ("A", "B", "C"):
+        for row in _safe_dict_list(payload.get(category)):
+            item = dict(row)
+            item.setdefault("category", category)
+            out.append(item)
+    return out
+
+
+def _abc_summary_from_payload(payload: Any, rows: list[AbcSkuItemV2]) -> dict[str, Any]:
+    root = _safe_dict(payload)
+    summary_payload = _safe_dict(root.get("summary"))
+    categories = _abc_categories(rows)
+    raw_rows = _abc_raw_rows(payload)
+
+    total_skus = _safe_int(
+        _pick_numeric((summary_payload, ("total_skus", "sku_count")), (root, ("total_skus", "sku_count")))
+    )
+    if total_skus is None and rows:
+        total_skus = len(rows)
+
+    summary = {
+        "total_skus": total_skus,
+        "category_A_count": _safe_int(_pick_numeric((summary_payload, ("category_A_count", "A_count")), (root, ("category_A_count", "A_count")))),
+        "category_B_count": _safe_int(_pick_numeric((summary_payload, ("category_B_count", "B_count")), (root, ("category_B_count", "B_count")))),
+        "category_C_count": _safe_int(_pick_numeric((summary_payload, ("category_C_count", "C_count")), (root, ("category_C_count", "C_count")))),
+        "category_A_share": _pick_numeric((summary_payload, ("category_A_share", "A_share")), (root, ("category_A_share", "A_share"))),
+        "category_B_share": _pick_numeric((summary_payload, ("category_B_share", "B_share")), (root, ("category_B_share", "B_share"))),
+        "category_C_share": _pick_numeric((summary_payload, ("category_C_share", "C_share")), (root, ("category_C_share", "C_share"))),
+    }
+    for category in ("A", "B", "C"):
+        count_key = f"category_{category}_count"
+        if summary[count_key] is None and rows:
+            summary[count_key] = len(categories[category])
+        share_key = f"category_{category}_share"
+        if summary[share_key] is None and raw_rows:
+            summary[share_key] = _abc_share_from_rows(raw_rows, category)
+    return summary
+
+
+def _abc_status(*, artifact_present: bool, raw_status: str, rows: list[AbcSkuItemV2], summary: dict[str, Any]) -> str:
+    if not artifact_present:
+        return "no_data"
+    if raw_status in {"no_data", "missing"}:
+        return "no_data"
+    if raw_status and raw_status not in {"ok", "success"}:
+        return "partial"
+    if not rows and _safe_float(summary.get("total_skus")) is None:
+        return "partial"
+    for row in rows:
+        if not _safe_str(row.get("category")) or _safe_float(row.get("metric_value")) is None:
+            return "partial"
+    return "ok"
+
+
+def _build_abc_summary_rows(summary: dict[str, Any]) -> list[DisplayRowV2]:
+    return [
+        _display_row(
+            "Всего SKU",
+            _format_display_int(summary.get("total_skus"), "шт"),
+            note="abc_analysis.json",
+            status="ok" if _safe_float(summary.get("total_skus")) is not None else "unavailable",
+        ),
+        _display_row(
+            "Категория A",
+            f"{_format_display_int(summary.get('category_A_count'), 'шт')} / {_format_display_share_percent(summary.get('category_A_share'))}",
+            note="ABC share",
+            status="ok" if _safe_float(summary.get("category_A_count")) is not None else "unavailable",
+        ),
+        _display_row(
+            "Категория B",
+            f"{_format_display_int(summary.get('category_B_count'), 'шт')} / {_format_display_share_percent(summary.get('category_B_share'))}",
+            note="ABC share",
+            status="ok" if _safe_float(summary.get("category_B_count")) is not None else "unavailable",
+        ),
+        _display_row(
+            "Категория C",
+            f"{_format_display_int(summary.get('category_C_count'), 'шт')} / {_format_display_share_percent(summary.get('category_C_share'))}",
+            note="ABC share",
+            status="ok" if _safe_float(summary.get("category_C_count")) is not None else "unavailable",
+        ),
+    ]
+
+
+def build_abc_analysis_section_v2(
+    snapshot: dict[str, Any],
+    debug: dict[str, Any] | None,
+    *,
+    artifact_dir: str | Path | None = None,
+) -> AbcAnalysisSectionV2:
+    _ = snapshot, debug
+    payload = _load_abc_analysis_artifact(artifact_dir)
+    source = "abc_analysis.json" if payload else "missing"
+    if payload is None:
+        summary = {
+            "total_skus": None,
+            "category_A_count": None,
+            "category_B_count": None,
+            "category_C_count": None,
+            "category_A_share": None,
+            "category_B_share": None,
+            "category_C_share": None,
+        }
+        section: AbcAnalysisSectionV2 = {
+            "title": "ABC-анализ",
+            "subtitle": "ABC-категории SKU по artifact abc_analysis.json.",
+            "status": "no_data",
+            "source": "missing",
+            "message": "Данные abc_analysis.json недоступны.",
+            "summary": summary,
+            "categories": {"A": [], "B": [], "C": []},
+            "warnings": [],
+        }
+        section["summary_rows"] = _build_abc_summary_rows(summary)
+        return section
+
+    rows = _abc_rows_from_payload(payload)
+    categories = _abc_categories(rows)
+    summary = _abc_summary_from_payload(payload, rows)
+    root = _safe_dict(payload)
+    warnings = _normalize_artifact_warnings(root.get("warnings"), block="abc_analysis", default_code="abc_analysis_warning")
+    if _safe_str(root.get("abc_message")):
+        _append_once(warnings, _warning("abc_message", _safe_str(root.get("abc_message")), block="abc_analysis", level="info"))
+    raw_status = _safe_str(root.get("status") or _safe_dict(root.get("summary")).get("status")).lower()
+    status = _abc_status(artifact_present=True, raw_status=raw_status, rows=rows, summary=summary)
+    if status == "no_data":
+        message = "Данные abc_analysis.json недоступны."
+    elif status == "partial":
+        message = "ABC-анализ доступен частично; пропуски не заменялись нулями."
+    else:
+        message = "ABC-анализ собран из artifact abc_analysis.json."
+
+    section = {
+        "title": "ABC-анализ",
+        "subtitle": "ABC-категории SKU по artifact abc_analysis.json.",
+        "status": status,
+        "source": source,
+        "message": message,
+        "summary": summary,
+        "categories": categories,
+        "warnings": warnings,
+    }
+    section["summary_rows"] = _build_abc_summary_rows(summary)
+    return section
+
+
 def build_finance_section_v2(finance_final: dict[str, Any]) -> SectionV2:
     finance = _safe_dict(finance_final)
     available = bool(finance.get("available", False))
@@ -2143,6 +2691,19 @@ def build_report_payload_v2(
     for item in sku_health_section.get("warnings", []):
         if isinstance(item, dict):
             _append_once(warnings, item)
+    profit_contribution_section = build_profit_contribution_section_v2(
+        snapshot,
+        debug,
+        artifact_dir=artifact_dir,
+        sku_health_section=sku_health_section,
+    )
+    for item in profit_contribution_section.get("warnings", []):
+        if isinstance(item, dict):
+            _append_once(warnings, item)
+    abc_analysis_section = build_abc_analysis_section_v2(snapshot, debug, artifact_dir=artifact_dir)
+    for item in abc_analysis_section.get("warnings", []):
+        if isinstance(item, dict):
+            _append_once(warnings, item)
 
     payload: ReportPayloadV2 = {
         "meta": meta_block,
@@ -2164,6 +2725,8 @@ def build_report_payload_v2(
             ads_efficiency_section=ads_efficiency_section,
         ),
         "sku_health_section": sku_health_section,
+        "profit_contribution_section": profit_contribution_section,
+        "abc_analysis_section": abc_analysis_section,
         "finance_final": finance_block,
         "finance_section": build_finance_section_v2(finance_block),
         "finance_alignment_notice": build_finance_alignment_notice_v2(finance_daily),

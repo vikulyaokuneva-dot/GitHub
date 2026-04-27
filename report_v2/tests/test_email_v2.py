@@ -141,6 +141,35 @@ def _sample_sku_health() -> dict:
     }
 
 
+def _sample_profit_contribution() -> dict:
+    return {
+        "status": "ok",
+        "summary": {
+            "total_profit": 800.0,
+            "total_revenue": 5000.0,
+            "top_sku_share": 0.875,
+            "loss_sku_count": 1,
+        },
+        "items": [
+            {"sku": "SKU-GROW", "revenue": 3000.0, "profit": 700.0, "profit_share": 0.875, "status": "ok"},
+            {"sku": "SKU-RISK", "revenue": 1000.0, "profit": -100.0, "profit_share": -0.125, "status": "ok"},
+        ],
+        "top_profit_skus": [
+            {"sku": "SKU-GROW", "revenue": 3000.0, "profit": 700.0, "profit_share": 0.875, "status": "ok"}
+        ],
+        "top_loss_sku": [
+            {"sku": "SKU-RISK", "revenue": 1000.0, "profit": -100.0, "profit_share": -0.125, "status": "ok"}
+        ],
+    }
+
+
+def _sample_abc_analysis() -> list[dict]:
+    return [
+        {"sku": "SKU-GROW", "profit": 700.0, "share": 0.70, "cumulative_share": 0.70, "abc_class": "A"},
+        {"sku": "SKU-RISK", "profit": -100.0, "share": -0.10, "cumulative_share": 0.80, "abc_class": "C"},
+    ]
+
+
 def test_render_email_html_contains_seller_and_orders_count() -> None:
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
 
@@ -192,15 +221,49 @@ def test_email_renders_sku_summary_when_data_exists() -> None:
     assert "Liquidate stale stock." in text
 
 
+def test_email_renders_profit_and_assortment_summary(tmp_path: Path) -> None:
+    (tmp_path / "profit_contribution.json").write_text(
+        json.dumps(_sample_profit_contribution(), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (tmp_path / "abc_analysis.json").write_text(
+        json.dumps(_sample_abc_analysis(), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
+
+    html = render_email_html(payload)
+    text = render_email_text(payload)
+
+    assert "Прибыль и ассортимент" in html
+    assert "Прибыль и ассортимент:" in text
+    assert "1 SKU дают 87,50% прибыли" in text
+    assert "Убыточные SKU: 1" in text
+    assert "A-категория: 1 SKU" in text
+
+
+def test_email_profit_and_assortment_no_data_message() -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+
+    text = render_email_text(payload)
+
+    assert "Данные по прибыли и ассортименту недоступны" in text
+
+
 def test_email_renderer_accepts_payload_without_sku_health_section() -> None:
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
     payload.pop("sku_health_section")
+    payload.pop("profit_contribution_section")
+    payload.pop("abc_analysis_section")
 
     html = render_email_html(payload)
     text = render_email_text(payload)
 
     assert "Товары" in html
     assert "SKU-аналитика недоступна" in text
+
+
+    assert "Данные по прибыли и ассортименту недоступны" in text
 
 
 def test_runner_writes_email_files(tmp_path: Path) -> None:

@@ -36,6 +36,17 @@ def _format_percent(value: Any) -> str:
         return "unavailable"
 
 
+def _format_share_percent(value: Any) -> str:
+    if value is None:
+        return "unavailable"
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "unavailable"
+    display_value = numeric * 100.0 if abs(numeric) <= 1.0 else numeric
+    return f"{display_value:,.2f}%".replace(",", " ").replace(".", ",")
+
+
 def _format_multiplier(value: Any) -> str:
     if value is None:
         return "unavailable"
@@ -98,6 +109,28 @@ def _section_rows(section: dict[str, Any], fallback_rows: list[tuple[str, str]])
     return rendered or fallback_rows
 
 
+def _profit_assortment_rows(profit_section: dict[str, Any], abc_section: dict[str, Any]) -> list[tuple[str, str]]:
+    profit_status = str(profit_section.get("status") or "no_data").strip()
+    abc_status = str(abc_section.get("status") or "no_data").strip()
+    if profit_status == "no_data" and abc_status == "no_data":
+        return [("Статус", "Данные по прибыли и ассортименту недоступны")]
+
+    profit_summary = _safe_dict(profit_section.get("summary"))
+    abc_summary = _safe_dict(abc_section.get("summary"))
+    top_profit_skus = profit_section.get("top_profit_skus", [])
+    top_count = len(top_profit_skus) if isinstance(top_profit_skus, list) else None
+    top_share = _format_share_percent(profit_summary.get("top_sku_share"))
+    if top_share == "unavailable":
+        top_value = f"{_format_count(top_count)} SKU; доля прибыли недоступна"
+    else:
+        top_value = f"{_format_count(top_count)} SKU дают {top_share} прибыли"
+    return [
+        ("Топ прибыльных SKU", top_value),
+        ("Убыточные SKU", _format_count(profit_summary.get("loss_sku_count"))),
+        ("A-категория", f"{_format_count(abc_summary.get('category_A_count'))} SKU"),
+    ]
+
+
 def render_email_html(payload: dict) -> str:
     meta = _safe_dict(payload.get("meta"))
     commerce = _safe_dict(payload.get("cabinet_commerce"))
@@ -105,6 +138,8 @@ def render_email_html(payload: dict) -> str:
     finance = _safe_dict(payload.get("finance_final"))
     ads_efficiency = _safe_dict(payload.get("ads_efficiency_section"))
     sku_health = _safe_dict(payload.get("sku_health_section"))
+    profit_contribution = _safe_dict(payload.get("profit_contribution_section"))
+    abc_analysis = _safe_dict(payload.get("abc_analysis_section"))
     live = _safe_dict(payload.get("live_operational"))
     warnings = payload.get("warnings", [])
 
@@ -162,6 +197,7 @@ def render_email_html(payload: dict) -> str:
         ("Dead stock", _format_count(sku_summary.get("dead_stock_count"))),
         ("Action", sku_action),
     ]
+    profit_assortment_rows = _profit_assortment_rows(profit_contribution, abc_analysis)
 
     warnings_html = "<p style=\"margin:0;font-size:13px;line-height:20px;color:#111827;\">No warnings.</p>"
     if isinstance(warnings, list) and warnings:
@@ -197,6 +233,7 @@ def render_email_html(payload: dict) -> str:
         f"{_html_table('Commerce', commerce_rows)}"
         f"{_html_table('Advertising', ads_rows)}"
         f"{_html_table('Товары', sku_rows)}"
+        f"{_html_table('Прибыль и ассортимент', profit_assortment_rows)}"
         f"{_html_table('Finance', finance_rows)}"
         f"{_html_table('Live', live_rows)}"
         "<h2 style=\"margin:24px 0 10px 0;font-size:18px;line-height:24px;color:#111827;\">Warnings</h2>"
@@ -212,6 +249,8 @@ def render_email_text(payload: dict) -> str:
     finance = _safe_dict(payload.get("finance_final"))
     ads_efficiency = _safe_dict(payload.get("ads_efficiency_section"))
     sku_health = _safe_dict(payload.get("sku_health_section"))
+    profit_contribution = _safe_dict(payload.get("profit_contribution_section"))
+    abc_analysis = _safe_dict(payload.get("abc_analysis_section"))
     live = _safe_dict(payload.get("live_operational"))
     warnings = payload.get("warnings", [])
 
@@ -240,6 +279,7 @@ def render_email_text(payload: dict) -> str:
         sku_action = _format_text(first_attention.get("recommended_action") or first_attention.get("reason"))
     elif str(sku_health.get("status") or "no_data") not in {"no_data", "insufficient_data"}:
         sku_action = _format_text(sku_health.get("message"))
+    profit_assortment_rows = _profit_assortment_rows(profit_contribution, abc_analysis)
 
     lines = [
         "WB Core Report v2",
@@ -264,6 +304,9 @@ def render_email_text(payload: dict) -> str:
         f"Требуют внимания: {_format_count(len(attention_rows) if isinstance(attention_rows, list) else None)}",
         f"Dead stock: {_format_count(sku_summary.get('dead_stock_count'))}",
         f"Действие: {sku_action}",
+        "",
+        "Прибыль и ассортимент:",
+        *[f"{label}: {value}" for label, value in profit_assortment_rows],
         "",
         "Finance:",
         f"Gross revenue: {_format_money(finance.get('gross_revenue'))}",

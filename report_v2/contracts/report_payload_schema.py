@@ -225,6 +225,72 @@ class SkuHealthSectionV2(TypedDict, total=False):
     attention_rows: list[SkuHealthItemV2]
 
 
+class ProfitSkuItemV2(TypedDict, total=False):
+    sku: str
+    nm_id: str | None
+    name: str | None
+    revenue: float | None
+    profit: float | None
+    profit_margin: float | None
+    contribution_share: float | None
+    status: str
+    recommended_action: str
+    source: str
+
+
+class ProfitContributionSummaryV2(TypedDict, total=False):
+    total_profit: float | None
+    total_revenue: float | None
+    top_sku_share: float | None
+    loss_sku_count: int | None
+
+
+class ProfitContributionSectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    status: str
+    source: str
+    message: str
+    summary: ProfitContributionSummaryV2
+    top_profit_skus: list[ProfitSkuItemV2]
+    loss_skus: list[ProfitSkuItemV2]
+    sku_pnl: list[ProfitSkuItemV2]
+    warnings: list[WarningItemV2]
+    summary_rows: list[DisplayRowV2]
+
+
+class AbcSkuItemV2(TypedDict, total=False):
+    sku: str
+    nm_id: str | None
+    name: str | None
+    category: str
+    metric_value: float | None
+    cumulative_share: float | None
+    status: str
+
+
+class AbcAnalysisSummaryV2(TypedDict, total=False):
+    total_skus: int | None
+    category_A_count: int | None
+    category_B_count: int | None
+    category_C_count: int | None
+    category_A_share: float | None
+    category_B_share: float | None
+    category_C_share: float | None
+
+
+class AbcAnalysisSectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    status: str
+    source: str
+    message: str
+    summary: AbcAnalysisSummaryV2
+    categories: dict[str, list[AbcSkuItemV2]]
+    warnings: list[WarningItemV2]
+    summary_rows: list[DisplayRowV2]
+
+
 class LiveMetricBlockV2(TypedDict, total=False):
     available: bool
     source: str
@@ -281,6 +347,8 @@ class ReportPayloadV2(TypedDict):
     ads_efficiency_section: AdsEfficiencySectionV2
     ads_section: AdsSectionV2
     sku_health_section: NotRequired[SkuHealthSectionV2]
+    profit_contribution_section: NotRequired[ProfitContributionSectionV2]
+    abc_analysis_section: NotRequired[AbcAnalysisSectionV2]
     finance_final: FinanceFinalBlockV2
     finance_section: SectionV2
     finance_alignment_notice: FinanceAlignmentNoticeV2

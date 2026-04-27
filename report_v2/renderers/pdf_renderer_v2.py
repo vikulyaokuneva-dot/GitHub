@@ -329,6 +329,21 @@ def _format_query_number(value: Any) -> str:
     return f"{numeric:,.2f}".replace(",", " ").replace(".", ",")
 
 
+def _format_share_percent(value: Any) -> str:
+    try:
+        if value is None or value == "":
+            return "РЅРµС‚ РґР°РЅРЅС‹С…"
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "РЅРµС‚ РґР°РЅРЅС‹С…"
+    display_value = numeric * 100.0 if abs(numeric) <= 1.0 else numeric
+    if float(display_value).is_integer():
+        formatted = f"{int(display_value):,}".replace(",", " ")
+    else:
+        formatted = f"{display_value:,.2f}".replace(",", " ").replace(".", ",")
+    return f"{formatted}%"
+
+
 def _ads_query_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
     table_rows: list[list[Paragraph]] = [
         [
@@ -426,6 +441,103 @@ def _sku_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str,
     return table
 
 
+def _profit_sku_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str, style: ParagraphStyle, limit: int = 10) -> Table:
+    table_rows: list[list[Paragraph]] = [
+        [
+            Paragraph("SKU", style),
+            Paragraph("Название", style),
+            Paragraph("Выручка", style),
+            Paragraph("Прибыль", style),
+            Paragraph("Доля", style),
+            Paragraph("Статус / действие", style),
+        ]
+    ]
+    for item in rows[:limit]:
+        row = item if isinstance(item, dict) else {}
+        action = str(row.get("recommended_action") or "").strip()
+        status = _format_text(row.get("status"))
+        status_action = f"{status}<br/>{_format_text(action)}" if action else status
+        table_rows.append(
+            [
+                Paragraph(_format_text(row.get("sku") or row.get("nm_id")), style),
+                Paragraph(_format_text(row.get("name")), style),
+                Paragraph(_format_query_money(row.get("revenue")), style),
+                Paragraph(_format_query_money(row.get("profit")), style),
+                Paragraph(_format_share_percent(row.get("contribution_share")), style),
+                Paragraph(status_action, style),
+            ]
+        )
+
+    table = Table(
+        table_rows,
+        colWidths=[width * 0.14, width * 0.20, width * 0.14, width * 0.14, width * 0.12, width * 0.26],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E5E7EB")),
+                ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#111827")),
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    return table
+
+
+def _abc_sku_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str, style: ParagraphStyle, limit: int = 10) -> Table:
+    table_rows: list[list[Paragraph]] = [
+        [
+            Paragraph("SKU", style),
+            Paragraph("Название", style),
+            Paragraph("Категория", style),
+            Paragraph("Значение", style),
+            Paragraph("Накопленная доля", style),
+            Paragraph("Статус", style),
+        ]
+    ]
+    for item in rows[:limit]:
+        row = item if isinstance(item, dict) else {}
+        table_rows.append(
+            [
+                Paragraph(_format_text(row.get("sku") or row.get("nm_id")), style),
+                Paragraph(_format_text(row.get("name")), style),
+                Paragraph(_format_text(row.get("category")), style),
+                Paragraph(_format_query_money(row.get("metric_value")), style),
+                Paragraph(_format_share_percent(row.get("cumulative_share")), style),
+                Paragraph(_format_text(row.get("status")), style),
+            ]
+        )
+
+    table = Table(
+        table_rows,
+        colWidths=[width * 0.16, width * 0.22, width * 0.12, width * 0.16, width * 0.18, width * 0.16],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E5E7EB")),
+                ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#111827")),
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    return table
+
+
 def _source_flags_table(rows: list[tuple[str, str, str]], *, width: float, font_name: str) -> Table:
     table = Table(rows, colWidths=[width * 0.42, width * 0.36, width * 0.22])
     table.setStyle(
@@ -474,6 +586,12 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     sku_health_section = payload.get("sku_health_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(sku_health_section, dict):
         sku_health_section = {}
+    profit_contribution_section = payload.get("profit_contribution_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(profit_contribution_section, dict):
+        profit_contribution_section = {}
+    abc_analysis_section = payload.get("abc_analysis_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(abc_analysis_section, dict):
+        abc_analysis_section = {}
     finance_section = payload.get("finance_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(finance_section, dict):
         finance_section = {}
@@ -596,6 +714,63 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         story.append(_sku_rows_table(sku_alert_rows[:10], width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
     story.append(Spacer(1, 6))
 
+    profit_summary_rows = profit_contribution_section.get("summary_rows", [])
+    if not isinstance(profit_summary_rows, list):
+        profit_summary_rows = []
+    profit_top_rows = profit_contribution_section.get("top_profit_skus", [])
+    if not isinstance(profit_top_rows, list):
+        profit_top_rows = []
+    profit_loss_rows = profit_contribution_section.get("loss_skus", [])
+    if not isinstance(profit_loss_rows, list):
+        profit_loss_rows = []
+    profit_status = str(profit_contribution_section.get("status") or "no_data").strip().lower()
+    story.append(Paragraph(_format_text(profit_contribution_section.get("title") or "Прибыль по товарам"), styles["section"]))
+    story.append(Paragraph(_format_text(profit_contribution_section.get("subtitle") or "Вклад SKU в прибыль."), styles["meta"]))
+    story.append(Paragraph(_format_text(profit_contribution_section.get("message") or "Данные profit_contribution.json недоступны."), styles["warning"]))
+    if profit_status != "no_data":
+        if profit_summary_rows:
+            story.append(_display_rows_table(profit_summary_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+        if profit_top_rows:
+            story.append(Paragraph("Топ прибыльных SKU", styles["section"]))
+            story.append(_profit_sku_rows_table(profit_top_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=10))
+        if profit_loss_rows:
+            story.append(Paragraph("Убыточные SKU", styles["section"]))
+            story.append(_profit_sku_rows_table(profit_loss_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=10))
+    story.append(Spacer(1, 6))
+
+    abc_summary_rows = abc_analysis_section.get("summary_rows", [])
+    if not isinstance(abc_summary_rows, list):
+        abc_summary_rows = []
+    abc_categories = abc_analysis_section.get("categories", {})
+    if not isinstance(abc_categories, dict):
+        abc_categories = {}
+    abc_a_rows = abc_categories.get("A", [])
+    if not isinstance(abc_a_rows, list):
+        abc_a_rows = []
+    abc_b_rows = abc_categories.get("B", [])
+    if not isinstance(abc_b_rows, list):
+        abc_b_rows = []
+    abc_c_rows = abc_categories.get("C", [])
+    if not isinstance(abc_c_rows, list):
+        abc_c_rows = []
+    abc_status = str(abc_analysis_section.get("status") or "no_data").strip().lower()
+    story.append(Paragraph(_format_text(abc_analysis_section.get("title") or "ABC-анализ"), styles["section"]))
+    story.append(Paragraph(_format_text(abc_analysis_section.get("subtitle") or "ABC-категории SKU."), styles["meta"]))
+    story.append(Paragraph(_format_text(abc_analysis_section.get("message") or "Данные abc_analysis.json недоступны."), styles["warning"]))
+    if abc_status != "no_data":
+        if abc_summary_rows:
+            story.append(_display_rows_table(abc_summary_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+        if abc_a_rows:
+            story.append(Paragraph("A-SKU: ключевые товары", styles["section"]))
+            story.append(_abc_sku_rows_table(abc_a_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=10))
+        if abc_b_rows:
+            story.append(Paragraph("B-SKU", styles["section"]))
+            story.append(_abc_sku_rows_table(abc_b_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=5))
+        if abc_c_rows:
+            story.append(Paragraph("C-SKU", styles["section"]))
+            story.append(_abc_sku_rows_table(abc_c_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=5))
+    story.append(Spacer(1, 6))
+
     finance_notice_state = str(finance_notice.get("state") or "ok").strip().lower()
     if finance_notice_state != "ok":
         title = _format_text(finance_notice.get("title"))
@@ -683,6 +858,13 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         "sku_health_growth_rows_count": len(sku_growth_rows),
         "sku_health_attention_rows_count": len(sku_attention_rows),
         "sku_health_alert_rows_count": len(sku_alert_rows),
+        "profit_contribution_section_status": _format_text(profit_contribution_section.get("status")),
+        "profit_contribution_top_rows_count": len(profit_top_rows),
+        "profit_contribution_loss_rows_count": len(profit_loss_rows),
+        "abc_analysis_section_status": _format_text(abc_analysis_section.get("status")),
+        "abc_analysis_a_rows_count": len(abc_a_rows),
+        "abc_analysis_b_rows_count": len(abc_b_rows),
+        "abc_analysis_c_rows_count": len(abc_c_rows),
         "finance_section_rows_count": len(finance_rows),
         "live_section_rows_count": len(live_rows),
         "diagnostics_on_new_page": True,

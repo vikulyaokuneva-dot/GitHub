@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from report_v2.builders.report_payload_builder import (
+    build_abc_analysis_section_v2,
     build_ads_efficiency_section_v2,
     build_ads_section_v2,
     build_commerce_section_v2,
@@ -13,6 +14,7 @@ from report_v2.builders.report_payload_builder import (
     build_funnel_section_v2,
     build_hero_v2,
     build_live_section_v2,
+    build_profit_contribution_section_v2,
     build_report_payload_v2,
     build_sku_health_section_v2,
 )
@@ -359,6 +361,39 @@ def _sample_sku_health_artifacts() -> dict:
             ],
         },
     }
+
+
+def _sample_profit_contribution_artifact() -> dict:
+    return {
+        "status": "ok",
+        "warnings": [{"code": "profit_note", "message": "profit artifact warning"}],
+        "summary": {
+            "sku_count": 3,
+            "loss_sku_count": 1,
+            "total_profit": 800.0,
+            "total_revenue": 5000.0,
+            "top_sku_share": 0.875,
+        },
+        "items": [
+            {"sku": "SKU-GROW", "name": "Growth item", "revenue": 3000.0, "profit": 700.0, "profit_share": 0.875, "status": "ok"},
+            {"sku": "SKU-RISK", "name": "Risk item", "revenue": 1000.0, "profit": -100.0, "profit_share": -0.125, "status": "ok"},
+            {"sku": "SKU-FLAT", "name": "Flat item", "revenue": 1000.0, "profit": 200.0, "profit_share": 0.25, "status": "ok"},
+        ],
+        "top_profit_skus": [
+            {"sku": "SKU-GROW", "name": "Growth item", "revenue": 3000.0, "profit": 700.0, "profit_share": 0.875, "status": "ok"}
+        ],
+        "top_loss_sku": [
+            {"sku": "SKU-RISK", "name": "Risk item", "revenue": 1000.0, "profit": -100.0, "profit_share": -0.125, "status": "ok"}
+        ],
+    }
+
+
+def _sample_abc_analysis_artifact() -> list[dict]:
+    return [
+        {"sku": "SKU-GROW", "name": "Growth item", "profit": 700.0, "share": 0.70, "cumulative_share": 0.70, "abc_class": "A"},
+        {"sku": "SKU-FLAT", "name": "Flat item", "profit": 200.0, "share": 0.20, "cumulative_share": 0.90, "abc_class": "B"},
+        {"sku": "SKU-RISK", "name": "Risk item", "profit": -100.0, "share": -0.10, "cumulative_share": 0.80, "abc_class": "C"},
+    ]
 
 
 def test_build_report_payload_v2_maps_valid_snapshot() -> None:
@@ -1199,6 +1234,163 @@ def test_build_report_v2_from_files_reads_sku_artifacts_from_artifacts_root(tmp_
         "health_score.json, sku_watchlists.json, sku_alerts.json, sku_daily_dynamics.json"
     )
     assert payload["sku_health_section"]["risk_rows"][0]["sku"] == "SKU-RISK"
+
+
+def test_profit_contribution_section_is_no_data_when_artifact_missing(tmp_path: Path) -> None:
+    section = build_profit_contribution_section_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
+
+    assert section["status"] == "no_data"
+    assert section["source"] == "missing"
+    assert section["summary"]["total_profit"] is None
+    assert section["top_profit_skus"] == []
+
+
+def test_abc_analysis_section_is_no_data_when_artifact_missing(tmp_path: Path) -> None:
+    section = build_abc_analysis_section_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
+
+    assert section["status"] == "no_data"
+    assert section["source"] == "missing"
+    assert section["summary"]["total_skus"] is None
+    assert section["categories"] == {"A": [], "B": [], "C": []}
+
+
+def test_profit_contribution_section_is_ok_when_artifact_exists(tmp_path: Path) -> None:
+    (tmp_path / "profit_contribution.json").write_text(
+        json.dumps(_sample_profit_contribution_artifact(), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    sku_health_section = build_sku_health_section_v2(
+        {**_sample_snapshot(), **_sample_sku_health_artifacts()},
+        debug=_sample_debug(),
+    )
+
+    section = build_profit_contribution_section_v2(
+        _sample_snapshot(),
+        debug=_sample_debug(),
+        artifact_dir=tmp_path,
+        sku_health_section=sku_health_section,
+    )
+
+    assert section["status"] == "ok"
+    assert section["source"] == "profit_contribution.json"
+    assert section["summary"]["total_profit"] == 800.0
+    assert section["summary"]["total_revenue"] == 5000.0
+    assert section["summary"]["top_sku_share"] == 0.875
+    assert section["top_profit_skus"][0]["sku"] == "SKU-GROW"
+    assert section["loss_skus"][0]["sku"] == "SKU-RISK"
+    assert section["loss_skus"][0]["recommended_action"] == "Liquidate SKU-RISK stock"
+
+
+def test_abc_analysis_section_is_ok_when_artifact_exists(tmp_path: Path) -> None:
+    (tmp_path / "abc_analysis.json").write_text(
+        json.dumps(_sample_abc_analysis_artifact(), ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    section = build_abc_analysis_section_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
+
+    assert section["status"] == "ok"
+    assert section["source"] == "abc_analysis.json"
+    assert section["summary"]["total_skus"] == 3
+    assert section["summary"]["category_A_count"] == 1
+    assert section["summary"]["category_B_count"] == 1
+    assert section["summary"]["category_C_count"] == 1
+    assert section["summary"]["category_A_share"] == 0.70
+    assert section["categories"]["A"][0]["sku"] == "SKU-GROW"
+
+
+def test_profit_and_abc_missing_values_are_not_converted_to_zero(tmp_path: Path) -> None:
+    (tmp_path / "profit_contribution.json").write_text(
+        json.dumps(
+            {
+                "status": "ok",
+                "items": [{"sku": "SKU-MISSING", "profit": None}],
+                "top_profit_skus": [{"sku": "SKU-MISSING", "profit": None}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "abc_analysis.json").write_text(
+        json.dumps([{"sku": "SKU-MISSING", "abc_class": "A", "cumulative_share": None}], ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    profit = build_profit_contribution_section_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
+    abc = build_abc_analysis_section_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
+
+    assert profit["status"] == "partial"
+    assert profit["top_profit_skus"][0]["profit"] is None
+    assert profit["summary"]["total_profit"] is None
+    assert abc["status"] == "partial"
+    assert abc["categories"]["A"][0]["metric_value"] is None
+
+
+def test_payload_includes_profit_and_abc_sections_from_artifacts_root(tmp_path: Path) -> None:
+    artifacts_dir = tmp_path / "cabinets" / "seller_001" / "artifacts"
+    snapshot_dir = artifacts_dir / "wb_api_core" / "2026-04-21"
+    snapshot_dir.mkdir(parents=True)
+    snapshot_path = snapshot_dir / "snapshot.json"
+    debug_path = snapshot_dir / "debug.json"
+    snapshot_path.write_text(json.dumps(_sample_snapshot(), ensure_ascii=False), encoding="utf-8")
+    debug_path.write_text(json.dumps(_sample_debug(), ensure_ascii=False), encoding="utf-8")
+    (artifacts_dir / "profit_contribution.json").write_text(
+        json.dumps(_sample_profit_contribution_artifact(), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (artifacts_dir / "abc_analysis.json").write_text(
+        json.dumps(_sample_abc_analysis_artifact(), ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    result = build_report_v2_from_files(snapshot_path=snapshot_path, debug_path=debug_path, out_dir=tmp_path / "out")
+    payload = result["payload"]
+
+    assert payload["profit_contribution_section"]["status"] == "ok"
+    assert payload["profit_contribution_section"]["top_profit_skus"][0]["sku"] == "SKU-GROW"
+    assert payload["abc_analysis_section"]["status"] == "ok"
+    assert payload["abc_analysis_section"]["categories"]["A"][0]["sku"] == "SKU-GROW"
+
+
+def test_pdf_renders_profit_and_abc_sections(tmp_path: Path) -> None:
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+    (artifacts_dir / "profit_contribution.json").write_text(
+        json.dumps(_sample_profit_contribution_artifact(), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (artifacts_dir / "abc_analysis.json").write_text(
+        json.dumps(_sample_abc_analysis_artifact(), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=artifacts_dir)
+    pdf_path = tmp_path / "report_v2_profit_abc.pdf"
+
+    info = write_report_pdf_v2(pdf_path, payload)
+
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+    assert info["profit_contribution_section_status"] == "ok"
+    assert info["profit_contribution_top_rows_count"] == 1
+    assert info["profit_contribution_loss_rows_count"] == 1
+    assert info["abc_analysis_section_status"] == "ok"
+    assert info["abc_analysis_a_rows_count"] == 1
+    assert info["abc_analysis_b_rows_count"] == 1
+    assert info["abc_analysis_c_rows_count"] == 1
+
+
+def test_pdf_renderer_accepts_payload_without_profit_and_abc_sections(tmp_path: Path) -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    payload.pop("profit_contribution_section")
+    payload.pop("abc_analysis_section")
+    pdf_path = tmp_path / "report_v2_without_profit_abc.pdf"
+
+    info = write_report_pdf_v2(pdf_path, payload)
+
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+    assert info["profit_contribution_top_rows_count"] == 0
+    assert info["abc_analysis_a_rows_count"] == 0
 
 
 def test_report_v2_does_not_import_legacy_daily_report_stage() -> None:
