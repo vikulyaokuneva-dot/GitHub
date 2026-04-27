@@ -139,36 +139,25 @@ Stage 2 добавляет подготовку Fixer Agent без примен�
 - реальные API пока НЕ подключаются;
 - цель этапа - отладить формат взаимодействия с ИИ и будущий цикл исправлений.
 
-Текущий LLM Client является заглушкой и возвращает:
+Текущий LLM Client использует OpenRouter через `src.openrouter_client.generate_text`.
 
-```text
-MOCK_RESPONSE: Local LLM is not available. Start Ollama and pull the configured model.
-```
+## OpenRouter LLM
 
-## Local LLM через Ollama
+Fixer Agent отправляет prompt в OpenRouter и не запускает локальные модели.
 
-Fixer Agent может использовать локальную модель через Ollama без API-ключей.
+Настройки:
 
-Настройки находятся в `ai_director/config.py`:
+- `OPENROUTER_API_KEY` должен быть задан в окружении.
+- `AI_DIRECTOR_MODEL` по умолчанию: `qwen/qwen3-coder:free`.
+- `ai_director/config.py` хранит `LLM_PROVIDER = "openrouter"`.
 
-- `LOCAL_LLM_PROVIDER = "ollama"`
-- `LOCAL_LLM_BASE_URL = "http://localhost:11434"`
-- `LOCAL_LLM_MODEL = "qwen2.5-coder:7b"`
-- `LOCAL_LLM_TIMEOUT_SEC = 120`
-
-Команды для проверки локальной модели:
+Команда для smoke-проверки:
 
 ```bash
-ollama pull qwen2.5-coder:7b
-ollama run qwen2.5-coder:7b
 python ai_director/orchestrator.py
 ```
 
-Если Ollama не запущена или модель не скачана, `llm_client.py` вернёт безопасный fallback:
-
-```text
-MOCK_RESPONSE: Local LLM is not available. Start Ollama and pull the configured model.
-```
+Если OpenRouter возвращает ошибку, отсутствующий ключ, rate limit или timeout, задача получает статус `no_llm` или `api_error`, а детали сохраняются в `llm_result.json`.
 
 ## Apply Stage безопасный dry-run
 

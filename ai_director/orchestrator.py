@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +12,7 @@ try:
     from .config import DEFAULT_CHECKS, PROMPTS_DIR
     from .executor import run_checks
     from .file_guard import validate_changed_files
-    from .llm_client import call_llm, generate_fix_prompt
+    from .llm_client import generate_fix_prompt
     from .reporter import build_run_summary, create_run_dir, write_json, write_text
     from .task_manager import get_next_task, increment_iteration, load_tasks, save_tasks, update_task_status
 except ImportError:
@@ -19,16 +21,28 @@ except ImportError:
     from config import DEFAULT_CHECKS, PROMPTS_DIR
     from executor import run_checks
     from file_guard import validate_changed_files
-    from llm_client import call_llm, generate_fix_prompt
+    from llm_client import generate_fix_prompt
     from reporter import build_run_summary, create_run_dir, write_json, write_text
     from task_manager import get_next_task, increment_iteration, load_tasks, save_tasks, update_task_status
+
+try:
+    from src.openrouter_client import generate_text
+except ModuleNotFoundError:
+    project_root = Path(__file__).resolve().parents[1]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    from src.openrouter_client import generate_text
+
+
+LLM_PROVIDER = getattr(config, "LLM_PROVIDER", "openrouter")
+DEFAULT_OPENROUTER_MODEL = getattr(config, "DEFAULT_AI_DIRECTOR_MODEL", "qwen/qwen3-coder:free")
 
 
 def main() -> int:
     tasks_payload = load_tasks()
     task = get_next_task(tasks_payload)
     if task is None:
-        print("AI Director: нет задач со статусом NEW.")
+        print("AI Director: no tasks with status NEW.")
         return 0
 
     task_id = str(task.get("id") or "task")
@@ -74,31 +88,40 @@ def main() -> int:
 
         fix_prompt = generate_fix_prompt(task, failure_snapshot)
         write_text(run_dir / "fix_prompt.md", fix_prompt)
-        print("🤖 Fixer Agent prompt создан")
+        print("Fixer Agent prompt created")
 
-        llm_response = call_llm(fix_prompt)
+        llm_result = _call_llm(fix_prompt)
+        write_json(run_dir / "llm_result.json", llm_result)
+        llm_response = str(llm_result.get("text") or "")
         write_text(run_dir / "fix_response.md", llm_response)
 
-        apply_plan_data = build_apply_plan(llm_response, config.PROJECT_ROOT)
-        write_json(run_dir / "apply_plan.json", apply_plan_data)
-
-        apply_result = apply_plan(apply_plan_data, config.PROJECT_ROOT, dry_run=True)
-        write_json(run_dir / "apply_result.json", apply_result)
-
-        print("🛡️ Apply plan создан")
-        print("🛡️ Apply stage выполнен в dry-run режиме")
-        print("🤖 Ответ LLM сохранён (mock)")
-
-        iterations = int(task.get("iterations") or 0)
-        max_iterations = int(task.get("max_iterations") or 3)
-        if iterations >= max_iterations:
-            final_status = "NEEDS_HUMAN"
+        if not llm_result["ok"]:
+            final_status = str(llm_result["status"])
             update_task_status(tasks_payload, task_id, final_status)
-            print(f"❌ Задача {task_id} требует вмешательства человека")
+            write_json(run_dir / "apply_plan.json", _build_skipped_apply_plan(final_status, llm_result))
+            write_json(run_dir / "apply_result.json", _build_skipped_apply_result(final_status))
+            print(f"LLM unavailable: {final_status}. Details saved to llm_result.json")
         else:
-            final_status = "FAILED"
-            update_task_status(tasks_payload, task_id, final_status)
-            print(f"⚠️ Задача {task_id} не прошла проверки, можно повторить")
+            apply_plan_data = build_apply_plan(llm_response, config.PROJECT_ROOT)
+            write_json(run_dir / "apply_plan.json", apply_plan_data)
+
+            apply_result = apply_plan(apply_plan_data, config.PROJECT_ROOT, dry_run=True)
+            write_json(run_dir / "apply_result.json", apply_result)
+
+            print("Apply plan created")
+            print("Apply stage completed in dry-run mode")
+            print("LLM response saved")
+
+            iterations = int(task.get("iterations") or 0)
+            max_iterations = int(task.get("max_iterations") or 3)
+            if iterations >= max_iterations:
+                final_status = "NEEDS_HUMAN"
+                update_task_status(tasks_payload, task_id, final_status)
+                print(f"Task {task_id} needs human intervention")
+            else:
+                final_status = "FAILED"
+                update_task_status(tasks_payload, task_id, final_status)
+                print(f"Task {task_id} failed checks and can be retried")
 
     print("Checks passed:", all_checks_passed)
     print("Guard ok:", guard_ok)
@@ -128,6 +151,102 @@ def main() -> int:
         )
     )
     return 0 if final_status == "DONE" else 1
+
+
+def _call_llm(prompt: str) -> dict[str, Any]:
+    provider = LLM_PROVIDER
+    model = os.getenv("AI_DIRECTOR_MODEL", DEFAULT_OPENROUTER_MODEL)
+    print(f"LLM provider={provider} model={model}")
+
+    try:
+        text = generate_text(prompt)
+    except Exception as exc:
+        return _llm_error_result(
+            status="api_error",
+            provider=provider,
+            model=model,
+            text=f"ERROR: {exc}",
+        )
+
+    if not isinstance(text, str) or not text.strip():
+        return _llm_error_result(
+            status="api_error",
+            provider=provider,
+            model=model,
+            text="ERROR: empty OpenRouter response",
+        )
+
+    error_status = _classify_llm_error(text)
+    if error_status:
+        return _llm_error_result(
+            status=error_status,
+            provider=provider,
+            model=model,
+            text=text,
+        )
+
+    return {
+        "ok": True,
+        "status": "ok",
+        "provider": provider,
+        "model": model,
+        "text": text,
+        "error": "",
+    }
+
+
+def _llm_error_result(*, status: str, provider: str, model: str, text: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "status": status,
+        "provider": provider,
+        "model": model,
+        "text": text,
+        "error": text,
+    }
+
+
+def _build_skipped_apply_plan(status: str, llm_result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "dry_run": True,
+        "skipped": True,
+        "reason": status,
+        "llm": {
+            "provider": llm_result.get("provider"),
+            "model": llm_result.get("model"),
+            "status": llm_result.get("status"),
+            "error": llm_result.get("error"),
+        },
+    }
+
+
+def _build_skipped_apply_result(status: str) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "dry_run": True,
+        "applied": False,
+        "skipped": True,
+        "actions": [],
+        "message": f"Apply skipped because LLM status is {status}.",
+    }
+
+
+def _classify_llm_error(text: str) -> str | None:
+    normalized = text.strip().lower()
+    if not normalized.startswith("error"):
+        return None
+
+    if (
+        "openrouter_api_key" in normalized
+        or "api key" in normalized
+        or "401" in normalized
+        or "403" in normalized
+        or "unauthorized" in normalized
+        or "forbidden" in normalized
+    ):
+        return "no_llm"
+    return "api_error"
 
 
 def _build_developer_prompt(task: dict[str, Any]) -> str:

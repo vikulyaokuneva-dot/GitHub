@@ -49,7 +49,7 @@ def get_next_task(tasks_payload: dict[str, Any]) -> dict[str, Any] | None:
 
 def update_task_status(tasks_payload: dict[str, Any], task_id: str, status: str) -> dict[str, Any]:
     task = _find_task(tasks_payload, task_id)
-    task["status"] = str(status).strip().upper()
+    task["status"] = str(status).strip()
     return task
 
 
