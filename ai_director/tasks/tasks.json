@@ -54,6 +54,26 @@
       ],
       "max_iterations": 3,
       "iterations": 1
+    },
+    {
+      "id": "task_openrouter_demo",
+      "title": "OpenRouter demo: план развития AI Director WB",
+      "description": "Проанализируй структуру проекта и предложи минимальный следующий шаг для развития AI Director WB после подключения OpenRouter. Не меняй код. Сохрани краткий план действий.",
+      "status": "api_error",
+      "priority": "low",
+      "checks": [
+        "python -c \"raise SystemExit('analysis-only demo: trigger OpenRouter planning cycle')\""
+      ],
+      "acceptance_criteria": [
+        "orchestrator.py видит NEW-задачу",
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "бизнес-логика проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 1
     }
   ]
 }

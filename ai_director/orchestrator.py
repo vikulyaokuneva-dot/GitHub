@@ -26,12 +26,12 @@ except ImportError:
     from task_manager import get_next_task, increment_iteration, load_tasks, save_tasks, update_task_status
 
 try:
-    from src.openrouter_client import generate_text
+    from src.openrouter_client import generate_text_result
 except ModuleNotFoundError:
     project_root = Path(__file__).resolve().parents[1]
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
-    from src.openrouter_client import generate_text
+    from src.openrouter_client import generate_text_result
 
 
 LLM_PROVIDER = getattr(config, "LLM_PROVIDER", "openrouter")
@@ -156,17 +156,31 @@ def main() -> int:
 def _call_llm(prompt: str) -> dict[str, Any]:
     provider = LLM_PROVIDER
     model = os.getenv("AI_DIRECTOR_MODEL", DEFAULT_OPENROUTER_MODEL)
-    print(f"LLM provider={provider} model={model}")
+    fallback_models = [
+        item.strip()
+        for item in os.getenv("AI_DIRECTOR_MODEL_FALLBACKS", "").split(",")
+        if item.strip()
+    ]
+    print(f"LLM provider={provider} model={model} fallbacks={fallback_models}")
 
     try:
-        text = generate_text(prompt)
+        result = generate_text_result(prompt)
     except Exception as exc:
         return _llm_error_result(
             status="api_error",
             provider=provider,
             model=model,
             text=f"ERROR: {exc}",
+            attempted_models=[],
+            selected_model="",
+            last_error=f"ERROR: {exc}",
         )
+
+    attempted_models = list(result.get("attempted_models") or [])
+    selected_model = str(result.get("selected_model") or "")
+    final_status = str(result.get("final_status") or result.get("status") or "api_error")
+    last_error = str(result.get("last_error") or result.get("error") or "")
+    text = str(result.get("text") or "")
 
     if not isinstance(text, str) or not text.strip():
         return _llm_error_result(
@@ -174,35 +188,63 @@ def _call_llm(prompt: str) -> dict[str, Any]:
             provider=provider,
             model=model,
             text="ERROR: empty OpenRouter response",
+            attempted_models=attempted_models,
+            selected_model=selected_model,
+            last_error="ERROR: empty OpenRouter response",
         )
 
-    error_status = _classify_llm_error(text)
-    if error_status:
+    if not bool(result.get("ok")):
         return _llm_error_result(
-            status=error_status,
+            status=final_status,
             provider=provider,
             model=model,
             text=text,
+            attempted_models=attempted_models,
+            selected_model=selected_model,
+            last_error=last_error or text,
+            errors=list(result.get("errors") or []),
         )
 
     return {
         "ok": True,
         "status": "ok",
+        "final_status": "ok",
         "provider": provider,
-        "model": model,
+        "model": selected_model or model,
+        "configured_model": model,
+        "attempted_models": attempted_models,
+        "selected_model": selected_model or model,
         "text": text,
         "error": "",
+        "last_error": last_error,
+        "errors": list(result.get("errors") or []),
     }
 
 
-def _llm_error_result(*, status: str, provider: str, model: str, text: str) -> dict[str, Any]:
+def _llm_error_result(
+    *,
+    status: str,
+    provider: str,
+    model: str,
+    text: str,
+    attempted_models: list[str] | None = None,
+    selected_model: str = "",
+    last_error: str = "",
+    errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     return {
         "ok": False,
         "status": status,
+        "final_status": status,
         "provider": provider,
         "model": model,
+        "configured_model": model,
+        "attempted_models": attempted_models or [],
+        "selected_model": selected_model,
         "text": text,
-        "error": text,
+        "error": last_error or text,
+        "last_error": last_error or text,
+        "errors": errors or [],
     }
 
 
@@ -215,8 +257,13 @@ def _build_skipped_apply_plan(status: str, llm_result: dict[str, Any]) -> dict[s
         "llm": {
             "provider": llm_result.get("provider"),
             "model": llm_result.get("model"),
+            "configured_model": llm_result.get("configured_model"),
+            "attempted_models": llm_result.get("attempted_models"),
+            "selected_model": llm_result.get("selected_model"),
             "status": llm_result.get("status"),
+            "final_status": llm_result.get("final_status"),
             "error": llm_result.get("error"),
+            "last_error": llm_result.get("last_error"),
         },
     }
 

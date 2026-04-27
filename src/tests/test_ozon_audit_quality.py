@@ -3,10 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from audit.audit_ozon.facts_builder import build_ozon_facts
 from audit.audit_ozon.loader import load_ozon_excel
 from audit.audit_ozon.report import build_ozon_report
+
+pytestmark = pytest.mark.ozon_audit
 
 
 def test_ozon_consistency_top_vs_zero_orders() -> None:

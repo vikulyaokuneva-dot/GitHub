@@ -5,8 +5,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
 from audit.run_audit import run_audit_mode
+
+pytestmark = pytest.mark.ozon_audit
 
 
 def _write_ozon_products_xlsx(path: Path) -> None:
@@ -71,4 +74,3 @@ def test_ozon_audit_smoke(tmp_path: Path):
     assert "decision_layer" in facts
     assert "abc_analysis" in facts
     assert len((facts.get("sku_profit") or {}).get("items") or []) > 0
-

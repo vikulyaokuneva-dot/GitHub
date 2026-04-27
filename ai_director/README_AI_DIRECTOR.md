@@ -139,7 +139,7 @@ Stage 2 добавляет подготовку Fixer Agent без примен�
 - реальные API пока НЕ подключаются;
 - цель этапа - отладить формат взаимодействия с ИИ и будущий цикл исправлений.
 
-Текущий LLM Client использует OpenRouter через `src.openrouter_client.generate_text`.
+Текущий LLM Client использует OpenRouter через `src.openrouter_client.generate_text` / `generate_text_result`.
 
 ## OpenRouter LLM
 
@@ -149,15 +149,20 @@ Fixer Agent отправляет prompt в OpenRouter и не запускает
 
 - `OPENROUTER_API_KEY` должен быть задан в окружении.
 - `AI_DIRECTOR_MODEL` по умолчанию: `qwen/qwen3-coder:free`.
+- `AI_DIRECTOR_MODEL_FALLBACKS` можно задать списком через запятую, например:
+  `qwen/qwen3-coder:free,deepseek/deepseek-chat-v3-0324:free,mistralai/mistral-7b-instruct:free`.
 - `ai_director/config.py` хранит `LLM_PROVIDER = "openrouter"`.
 
 Команда для smoke-проверки:
 
 ```bash
+python -m src.openrouter_client
 python ai_director/orchestrator.py
 ```
 
-Если OpenRouter возвращает ошибку, отсутствующий ключ, rate limit или timeout, задача получает статус `no_llm` или `api_error`, а детали сохраняются в `llm_result.json`.
+Если OpenRouter возвращает 429, 5xx, HTTP 400 `invalid model` или 404 `no endpoints`, клиент пробует следующую модель из `AI_DIRECTOR_MODEL_FALLBACKS`. В `llm_result.json` сохраняются `attempted_models`, `selected_model`, `final_status` и `last_error`.
+
+Если все модели недоступны, отсутствует ключ, rate limit не снялся или случился timeout, задача получает статус `no_llm` или `api_error`, а apply stage сохраняется как `skipped`.
 
 ## Apply Stage безопасный dry-run
 

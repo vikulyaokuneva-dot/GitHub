@@ -3,10 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from audit.ozon_facts_builder import build_ozon_audit_facts
 from audit.ozon_loader import parse_ozon_products_file
 from audit.ozon_report import build_ozon_audit_markdown
+
+pytestmark = pytest.mark.ozon_audit
 
 
 def _write_products_with_offer_id_header(path: Path) -> None:
