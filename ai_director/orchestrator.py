@@ -53,8 +53,17 @@ def main() -> int:
     update_task_status(tasks_payload, task_id, "IN_PROGRESS")
     save_tasks(tasks_payload)
 
-    developer_prompt = _build_developer_prompt(task)
+    developer_prompt = _build_planner_prompt(task) if _is_planner_only(task) else _build_developer_prompt(task)
     write_text(run_dir / "prompt_for_developer.md", developer_prompt)
+
+    if _is_planner_only(task):
+        return _run_planner_only_task(
+            task=task,
+            tasks_payload=tasks_payload,
+            task_id=task_id,
+            run_dir=run_dir,
+            planner_prompt=developer_prompt,
+        )
 
     update_task_status(tasks_payload, task_id, "READY_TO_CHECK")
     save_tasks(tasks_payload)
@@ -145,6 +154,73 @@ def main() -> int:
                 "run_dir": str(run_dir),
                 "checks_ok": all_checks_passed,
                 "file_guard_ok": guard_ok,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0 if final_status == "DONE" else 1
+
+
+def _run_planner_only_task(
+    *,
+    task: dict[str, Any],
+    tasks_payload: dict[str, Any],
+    task_id: str,
+    run_dir: Path,
+    planner_prompt: str,
+) -> int:
+    update_task_status(tasks_payload, task_id, "PLANNING")
+    save_tasks(tasks_payload)
+
+    print("Planner-only prompt created")
+    llm_result = _call_llm(planner_prompt)
+    write_json(run_dir / "llm_result.json", llm_result)
+    llm_response = str(llm_result.get("text") or "")
+    write_text(run_dir / "planner_response.md", llm_response)
+
+    check_results = _build_skipped_checks_result("planner_only")
+    guard_result = _build_skipped_guard_result("planner_only")
+    write_json(run_dir / "check_results.json", check_results)
+    write_json(run_dir / "guard_result.json", guard_result)
+
+    if not llm_result["ok"]:
+        final_status = str(llm_result["status"])
+        update_task_status(tasks_payload, task_id, final_status)
+        write_json(run_dir / "apply_plan.json", _build_skipped_apply_plan(final_status, llm_result))
+        write_json(run_dir / "apply_result.json", _build_skipped_apply_result(final_status))
+        print(f"LLM unavailable: {final_status}. Details saved to llm_result.json")
+    else:
+        final_status = "DONE"
+        update_task_status(tasks_payload, task_id, final_status)
+        write_json(run_dir / "apply_plan.json", _build_planner_apply_plan(llm_result))
+        write_json(run_dir / "apply_result.json", _build_planner_apply_result())
+        print("Planner-only plan saved")
+        print("Apply stage skipped by planner_only mode")
+
+    save_tasks(tasks_payload)
+
+    final_report = build_run_summary(
+        task=task,
+        final_status=final_status,
+        checks_result=check_results,
+        guard_result=guard_result,
+        run_dir=run_dir,
+    )
+    write_text(run_dir / "final_report.md", final_report)
+
+    print("Checks skipped: planner_only")
+    print("Guard skipped: planner_only")
+    print("Iterations:", task["iterations"])
+    print(
+        json.dumps(
+            {
+                "task_id": task_id,
+                "status": final_status,
+                "mode": "planner_only",
+                "run_dir": str(run_dir),
+                "checks_ok": True,
+                "file_guard_ok": True,
             },
             ensure_ascii=False,
             indent=2,
@@ -274,8 +350,62 @@ def _build_skipped_apply_result(status: str) -> dict[str, Any]:
         "dry_run": True,
         "applied": False,
         "skipped": True,
+        "reason": status,
         "actions": [],
         "message": f"Apply skipped because LLM status is {status}.",
+    }
+
+
+def _build_planner_apply_plan(llm_result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "mode": "planner_only",
+        "dry_run": True,
+        "skipped": True,
+        "reason": "planner_only",
+        "plan": str(llm_result.get("text") or ""),
+        "actions": [],
+        "llm": {
+            "provider": llm_result.get("provider"),
+            "model": llm_result.get("model"),
+            "configured_model": llm_result.get("configured_model"),
+            "attempted_models": llm_result.get("attempted_models"),
+            "selected_model": llm_result.get("selected_model"),
+            "status": llm_result.get("status"),
+            "final_status": llm_result.get("final_status"),
+            "last_error": llm_result.get("last_error"),
+        },
+    }
+
+
+def _build_planner_apply_result() -> dict[str, Any]:
+    return {
+        "ok": True,
+        "dry_run": True,
+        "applied": False,
+        "skipped": True,
+        "reason": "planner_only",
+        "actions": [],
+        "message": "Planner-only mode: plan saved, no code changes applied.",
+    }
+
+
+def _build_skipped_checks_result(reason: str) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "skipped": True,
+        "reason": reason,
+        "results": [],
+    }
+
+
+def _build_skipped_guard_result(reason: str) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "skipped": True,
+        "reason": reason,
+        "changed_files": [],
+        "violations": [],
     }
 
 
@@ -310,6 +440,27 @@ def _build_developer_prompt(task: dict[str, Any]) -> str:
         "```",
     ]
     return "\n".join(parts).strip() + "\n"
+
+
+def _build_planner_prompt(task: dict[str, Any]) -> str:
+    parts = [
+        "# Prompt for AI Director Planner",
+        "",
+        "You are the AI Director Planner.",
+        "Analyze the task and return a concise plan only.",
+        "Do not modify code. Do not propose an apply patch.",
+        "Focus on the smallest useful next step.",
+        "",
+        "## Task",
+        "```json",
+        json.dumps(task, ensure_ascii=False, indent=2),
+        "```",
+    ]
+    return "\n".join(parts).strip() + "\n"
+
+
+def _is_planner_only(task: dict[str, Any]) -> bool:
+    return str(task.get("mode") or "").strip().lower() == "planner_only"
 
 
 def _ensure_check_success_flags(check_results: dict[str, Any]) -> None:

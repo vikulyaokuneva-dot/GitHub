@@ -36,7 +36,7 @@
 python ai_director/orchestrator.py
 ```
 
-Orchestrator не вызывает LLM в текущей версии. Он создаёт run-директорию, пишет prompt для Developer Agent, запускает checks, вызывает File Guard и формирует итоговый отчёт.
+Orchestrator создаёт run-директорию, пишет prompt для Developer Agent или Planner, запускает checks для обычных задач, вызывает File Guard и формирует итоговый отчёт.
 
 ### Developer Agent
 
@@ -163,6 +163,48 @@ python ai_director/orchestrator.py
 Если OpenRouter возвращает 429, 5xx, HTTP 400 `invalid model` или 404 `no endpoints`, клиент пробует следующую модель из `AI_DIRECTOR_MODEL_FALLBACKS`. В `llm_result.json` сохраняются `attempted_models`, `selected_model`, `final_status` и `last_error`.
 
 Если все модели недоступны, отсутствует ключ, rate limit не снялся или случился timeout, задача получает статус `no_llm` или `api_error`, а apply stage сохраняется как `skipped`.
+
+## Planner-only режим
+
+Задача может указать поле:
+
+```json
+{
+  "mode": "planner_only"
+}
+```
+
+`planner_only` используется для аналитических и планировочных задач, где нужно получить краткий план от LLM, но нельзя применять изменения к коду.
+
+В этом режиме Orchestrator:
+
+- вызывает LLM через OpenRouter;
+- сохраняет ответ в `llm_result.json`;
+- сохраняет план в `apply_plan.json`;
+- не запускает применение изменений;
+- пишет `apply_result.json` с `applied=false`, `skipped=true`, `reason="planner_only"`;
+- переводит задачу в `DONE`, если LLM успешно вернула ответ.
+
+Если OpenRouter недоступен, задача получает `no_llm` или `api_error`, как в обычном LLM fallback flow.
+
+Пример задачи:
+
+```json
+{
+  "id": "task_openrouter_demo",
+  "title": "OpenRouter demo: план развития AI Director WB",
+  "description": "Проанализируй структуру проекта и предложи минимальный следующий шаг. Не меняй код.",
+  "status": "NEW",
+  "mode": "planner_only",
+  "priority": "low",
+  "acceptance_criteria": [
+    "LLM вызывается через OpenRouter",
+    "llm_result.json сохраняется",
+    "apply_plan.json сохраняется",
+    "apply_result.json сохраняется"
+  ]
+}
+```
 
 ## Apply Stage безопасный dry-run
 
