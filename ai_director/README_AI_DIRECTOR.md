@@ -214,6 +214,13 @@ python ai_director/create_task.py --title "Next AI Director step" --prompt "Пр
 
 CLI добавляет задачу в `ai_director/tasks/tasks.json` со статусом `NEW`, полем `created_at`, безопасным `id` на основе slug и timestamp, и не перезаписывает существующие задачи.
 
+Последний результат AI Director можно быстро посмотреть через CLI:
+
+```bash
+python ai_director/show_last_run.py
+python ai_director/show_last_run.py --full
+```
+
 ## Apply Stage безопасный dry-run
 
 `apply_engine.py` - это слой будущего применения фиксов от Fixer Agent.
