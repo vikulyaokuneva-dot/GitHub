@@ -8,12 +8,14 @@ try:
     from .config import DEFAULT_CHECKS, PROMPTS_DIR
     from .executor import run_checks
     from .file_guard import validate_changed_files
+    from .llm_client import call_llm, generate_fix_prompt
     from .reporter import build_run_summary, create_run_dir, write_json, write_text
     from .task_manager import get_next_task, increment_iteration, load_tasks, save_tasks, update_task_status
 except ImportError:
     from config import DEFAULT_CHECKS, PROMPTS_DIR
     from executor import run_checks
     from file_guard import validate_changed_files
+    from llm_client import call_llm, generate_fix_prompt
     from reporter import build_run_summary, create_run_dir, write_json, write_text
     from task_manager import get_next_task, increment_iteration, load_tasks, save_tasks, update_task_status
 
@@ -60,13 +62,20 @@ def main() -> int:
         update_task_status(tasks_payload, task_id, final_status)
     else:
         increment_iteration(tasks_payload, task_id)
-        write_json(
-            run_dir / "failure_snapshot.json",
-            {
-                "checks": check_results,
-                "guard": guard_result,
-            },
-        )
+        failure_snapshot = {
+            "checks": check_results,
+            "guard": guard_result,
+        }
+        write_json(run_dir / "failure_snapshot.json", failure_snapshot)
+
+        fix_prompt = generate_fix_prompt(task, failure_snapshot)
+        write_text(run_dir / "fix_prompt.md", fix_prompt)
+        print("🤖 Fixer Agent prompt создан")
+
+        llm_response = call_llm(fix_prompt)
+        write_text(run_dir / "fix_response.md", llm_response)
+        print("🤖 Ответ LLM сохранён (mock)")
+
         iterations = int(task.get("iterations") or 0)
         max_iterations = int(task.get("max_iterations") or 3)
         if iterations >= max_iterations:
