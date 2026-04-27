@@ -26,11 +26,11 @@ def main() -> int:
         return 0
 
     task_id = str(task.get("id") or "task")
+    task["iterations"] = int(task.get("iterations") or 0)
     run_dir = create_run_dir(task_id)
     write_json(run_dir / "task.json", task)
 
     update_task_status(tasks_payload, task_id, "IN_PROGRESS")
-    increment_iteration(tasks_payload, task_id)
     save_tasks(tasks_payload)
 
     developer_prompt = _build_developer_prompt(task)
@@ -45,20 +45,48 @@ def main() -> int:
     checks = task.get("checks")
     if not isinstance(checks, list) or not checks:
         checks = DEFAULT_CHECKS
-    checks_result = run_checks([str(command) for command in checks])
-    write_json(run_dir / "check_results.json", checks_result)
+    check_results = run_checks([str(command) for command in checks])
+    _ensure_check_success_flags(check_results)
+    write_json(run_dir / "check_results.json", check_results)
 
     guard_result = validate_changed_files()
     write_json(run_dir / "guard_result.json", guard_result)
 
-    final_status = "DONE" if checks_result.get("ok") and guard_result.get("ok") else "FAILED"
-    update_task_status(tasks_payload, task_id, final_status)
+    all_checks_passed = all(r["success"] for r in check_results["results"])
+    guard_ok = bool(guard_result["ok"])
+
+    if all_checks_passed and guard_ok:
+        final_status = "DONE"
+        update_task_status(tasks_payload, task_id, final_status)
+    else:
+        increment_iteration(tasks_payload, task_id)
+        write_json(
+            run_dir / "failure_snapshot.json",
+            {
+                "checks": check_results,
+                "guard": guard_result,
+            },
+        )
+        iterations = int(task.get("iterations") or 0)
+        max_iterations = int(task.get("max_iterations") or 3)
+        if iterations >= max_iterations:
+            final_status = "NEEDS_HUMAN"
+            update_task_status(tasks_payload, task_id, final_status)
+            print(f"❌ Задача {task_id} требует вмешательства человека")
+        else:
+            final_status = "FAILED"
+            update_task_status(tasks_payload, task_id, final_status)
+            print(f"⚠️ Задача {task_id} не прошла проверки, можно повторить")
+
+    print("Checks passed:", all_checks_passed)
+    print("Guard ok:", guard_ok)
+    print("Iterations:", task["iterations"])
     save_tasks(tasks_payload)
 
     final_report = build_run_summary(
         task=task,
         final_status=final_status,
-        checks_result=checks_result,
+        checks_result=check_results,
         guard_result=guard_result,
         run_dir=run_dir,
     )
@@ -70,8 +98,8 @@ def main() -> int:
                 "task_id": task_id,
                 "status": final_status,
                 "run_dir": str(run_dir),
-                "checks_ok": bool(checks_result.get("ok")),
-                "file_guard_ok": bool(guard_result.get("ok")),
+                "checks_ok": all_checks_passed,
+                "file_guard_ok": guard_ok,
             },
             ensure_ascii=False,
             indent=2,
@@ -94,6 +122,18 @@ def _build_developer_prompt(task: dict[str, Any]) -> str:
         "```",
     ]
     return "\n".join(parts).strip() + "\n"
+
+
+def _ensure_check_success_flags(check_results: dict[str, Any]) -> None:
+    results = check_results.get("results")
+    if not isinstance(results, list):
+        check_results["results"] = []
+        return
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        if "success" not in item:
+            item["success"] = item.get("returncode") == 0 and not bool(item.get("timed_out"))
 
 
 def _read_prompt(filename: str) -> str:

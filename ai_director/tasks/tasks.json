@@ -17,23 +17,23 @@
         "final_report.md сохраняется",
         "file_guard не обнаруживает запрещённых изменений"
       ]
+    },
+    {
+      "id": "task_003",
+      "title": "Запустить реальные тесты report_v2",
+      "status": "DONE",
+      "priority": "high",
+      "description": "Проверить, что orchestrator может запускать реальные тесты проекта",
+      "acceptance_criteria": [
+        "pytest report_v2/tests запускается",
+        "результаты сохраняются в logs",
+        "ошибки фиксируются в check_results.json"
+      ],
+      "checks": [
+        "python -m pytest report_v2/tests -q"
+      ],
+      "max_iterations": 3,
+      "iterations": 1
     }
   ]
-}
-
-{
-  "id": "task_003",
-  "title": "Запустить реальные тесты report_v2",
-  "status": "NEW",
-  "priority": "high",
-  "description": "Проверить, что orchestrator может запускать реальные тесты проекта",
-  "acceptance_criteria": [
-    "pytest report_v2/tests запускается",
-    "результаты сохраняются в logs",
-    "ошибки фиксируются в check_results.json"
-  ],
-  "checks": [
-    "python -m pytest report_v2/tests -q"
-  ],
-  "max_iterations": 3
 }
