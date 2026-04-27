@@ -43,6 +43,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"selected_model: {_first_value(llm_result, llm_meta, key='selected_model')}")
     print(f"status: {_first_value(llm_result, llm_meta, key='status')}")
     print(f"final_status: {_first_value(llm_result, llm_meta, key='final_status')}")
+    print(f"context_included: {_first_value(llm_result, key='context_included')}")
+    print(f"context_chars: {_first_value(llm_result, key='context_chars')}")
     print("attempted_models:")
     for model in _attempted_models(llm_result, llm_meta):
         print(f"- {model}")

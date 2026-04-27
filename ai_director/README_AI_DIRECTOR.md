@@ -176,6 +176,8 @@ python ai_director/orchestrator.py
 
 `planner_only` используется для аналитических и планировочных задач, где нужно получить краткий план от LLM, но нельзя применять изменения к коду.
 
+Перед задачей Orchestrator добавляет краткий project context до 8000 символов: верхнеуровневые файлы и папки, наличие ключевых путей, последние 3 run-директории и выдержку из `README_AI_DIRECTOR.md`. В `llm_result.json` сохраняются `context_included` и `context_chars`.
+
 В этом режиме Orchestrator:
 
 - вызывает LLM через OpenRouter;

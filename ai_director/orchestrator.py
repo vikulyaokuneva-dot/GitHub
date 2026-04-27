@@ -13,6 +13,7 @@ try:
     from .executor import run_checks
     from .file_guard import validate_changed_files
     from .llm_client import generate_fix_prompt
+    from .project_context import collect_project_context
     from .reporter import build_run_summary, create_run_dir, write_json, write_text
     from .task_manager import get_next_task, increment_iteration, load_tasks, save_tasks, update_task_status
 except ImportError:
@@ -22,6 +23,7 @@ except ImportError:
     from executor import run_checks
     from file_guard import validate_changed_files
     from llm_client import generate_fix_prompt
+    from project_context import collect_project_context
     from reporter import build_run_summary, create_run_dir, write_json, write_text
     from task_manager import get_next_task, increment_iteration, load_tasks, save_tasks, update_task_status
 
@@ -56,7 +58,12 @@ def main(task_id: str | None = None) -> int:
     update_task_status(tasks_payload, task_id, "IN_PROGRESS")
     save_tasks(tasks_payload)
 
-    developer_prompt = _build_planner_prompt(task) if _is_planner_only(task) else _build_developer_prompt(task)
+    planner_context = collect_project_context(exclude_run_dir=run_dir) if _is_planner_only(task) else None
+    developer_prompt = (
+        _build_planner_prompt(task, project_context=planner_context)
+        if _is_planner_only(task)
+        else _build_developer_prompt(task)
+    )
     write_text(run_dir / "prompt_for_developer.md", developer_prompt)
 
     if _is_planner_only(task):
@@ -66,6 +73,7 @@ def main(task_id: str | None = None) -> int:
             task_id=task_id,
             run_dir=run_dir,
             planner_prompt=developer_prompt,
+            planner_context=planner_context,
         )
 
     update_task_status(tasks_payload, task_id, "READY_TO_CHECK")
@@ -172,12 +180,14 @@ def _run_planner_only_task(
     task_id: str,
     run_dir: Path,
     planner_prompt: str,
+    planner_context: dict[str, Any] | None,
 ) -> int:
     update_task_status(tasks_payload, task_id, "PLANNING")
     save_tasks(tasks_payload)
 
     print("Planner-only prompt created")
     llm_result = _call_llm(planner_prompt)
+    _attach_context_metadata(llm_result, planner_context)
     write_json(run_dir / "llm_result.json", llm_result)
     llm_response = str(llm_result.get("text") or "")
     write_text(run_dir / "planner_response.md", llm_response)
@@ -253,6 +263,11 @@ def _get_task_to_run(tasks_payload: dict[str, Any], *, task_id: str | None = Non
         return None
 
     return None
+
+
+def _attach_context_metadata(llm_result: dict[str, Any], planner_context: dict[str, Any] | None) -> None:
+    llm_result["context_included"] = bool(planner_context and planner_context.get("included"))
+    llm_result["context_chars"] = int(planner_context.get("chars") or 0) if planner_context else 0
 
 
 def _call_llm(prompt: str) -> dict[str, Any]:
@@ -400,6 +415,8 @@ def _build_planner_apply_plan(llm_result: dict[str, Any]) -> dict[str, Any]:
             "status": llm_result.get("status"),
             "final_status": llm_result.get("final_status"),
             "last_error": llm_result.get("last_error"),
+            "context_included": llm_result.get("context_included"),
+            "context_chars": llm_result.get("context_chars"),
         },
     }
 
@@ -468,7 +485,11 @@ def _build_developer_prompt(task: dict[str, Any]) -> str:
     return "\n".join(parts).strip() + "\n"
 
 
-def _build_planner_prompt(task: dict[str, Any]) -> str:
+def _build_planner_prompt(task: dict[str, Any], *, project_context: dict[str, Any] | None = None) -> str:
+    context_text = ""
+    if project_context and project_context.get("included"):
+        context_text = str(project_context.get("text") or "").strip()
+
     parts = [
         "# Prompt for AI Director Planner",
         "",
@@ -476,6 +497,8 @@ def _build_planner_prompt(task: dict[str, Any]) -> str:
         "Analyze the task and return a concise plan only.",
         "Do not modify code. Do not propose an apply patch.",
         "Focus on the smallest useful next step.",
+        "",
+        context_text or "(project context unavailable)",
         "",
         "## Task",
         "```json",
