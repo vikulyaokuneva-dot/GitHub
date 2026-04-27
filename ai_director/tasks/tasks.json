@@ -90,6 +90,42 @@
       ],
       "max_iterations": 3,
       "iterations": 0
+    },
+    {
+      "id": "smoke-planner_20260428_022833",
+      "title": "Smoke planner",
+      "description": "Ответь кратким планом из 3 пунктов",
+      "status": "DONE",
+      "mode": "planner_only",
+      "priority": "low",
+      "created_at": "2026-04-28T02:28:33",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0
+    },
+    {
+      "id": "smoke-planner-full_20260428_022851",
+      "title": "Smoke planner full",
+      "description": "Ответь кратким планом из 3 пунктов",
+      "status": "DONE",
+      "mode": "planner_only",
+      "priority": "low",
+      "created_at": "2026-04-28T02:28:51",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0
     }
   ]
 }

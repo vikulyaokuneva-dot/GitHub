@@ -221,6 +221,13 @@ python ai_director/show_last_run.py
 python ai_director/show_last_run.py --full
 ```
 
+Создать planner-only задачу, сразу запустить AI Director и показать результат можно одной командой:
+
+```bash
+python ai_director/run_once.py --title "Next step" --prompt "Предложи следующий безопасный шаг развития AI Director WB"
+python ai_director/run_once.py --title "Next step" --prompt "..." --full
+```
+
 ## Apply Stage безопасный dry-run
 
 `apply_engine.py` - это слой будущего применения фиксов от Fixer Agent.

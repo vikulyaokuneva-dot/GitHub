@@ -24,15 +24,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        payload = _load_tasks(Path(args.tasks_file))
+        task = create_task(title=args.title, prompt=args.prompt, mode=args.mode, tasks_file=Path(args.tasks_file))
     except TaskFileError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-
-    tasks = payload.setdefault("tasks", [])
-    task = _build_task(title=args.title, prompt=args.prompt, mode=args.mode, existing_tasks=tasks)
-    tasks.append(task)
-    _save_tasks(Path(args.tasks_file), payload)
 
     print(json.dumps(task, ensure_ascii=False, indent=2))
     return 0
@@ -40,6 +35,16 @@ def main(argv: list[str] | None = None) -> int:
 
 class TaskFileError(Exception):
     pass
+
+
+def create_task(*, title: str, prompt: str, mode: str = "planner_only", tasks_file: str | Path = TASKS_FILE) -> dict[str, Any]:
+    target = Path(tasks_file)
+    payload = _load_tasks(target)
+    tasks = payload.setdefault("tasks", [])
+    task = _build_task(title=title, prompt=prompt, mode=mode, existing_tasks=tasks)
+    tasks.append(task)
+    _save_tasks(target, payload)
+    return task
 
 
 def _load_tasks(path: Path) -> dict[str, Any]:

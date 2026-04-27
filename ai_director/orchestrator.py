@@ -38,11 +38,14 @@ LLM_PROVIDER = getattr(config, "LLM_PROVIDER", "openrouter")
 DEFAULT_OPENROUTER_MODEL = getattr(config, "DEFAULT_AI_DIRECTOR_MODEL", "qwen/qwen3-coder:free")
 
 
-def main() -> int:
+def main(task_id: str | None = None) -> int:
     tasks_payload = load_tasks()
-    task = get_next_task(tasks_payload)
+    task = _get_task_to_run(tasks_payload, task_id=task_id)
     if task is None:
-        print("AI Director: no tasks with status NEW.")
+        if task_id:
+            print(f"AI Director: no runnable NEW task with id {task_id}.")
+        else:
+            print("AI Director: no tasks with status NEW.")
         return 0
 
     task_id = str(task.get("id") or "task")
@@ -227,6 +230,29 @@ def _run_planner_only_task(
         )
     )
     return 0 if final_status == "DONE" else 1
+
+
+def _get_task_to_run(tasks_payload: dict[str, Any], *, task_id: str | None = None) -> dict[str, Any] | None:
+    if task_id is None:
+        return get_next_task(tasks_payload)
+
+    tasks = tasks_payload.get("tasks", [])
+    if not isinstance(tasks, list):
+        return None
+
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        if str(task.get("id") or "") != str(task_id):
+            continue
+        status = str(task.get("status") or "NEW").strip().upper()
+        iterations = int(task.get("iterations") or 0)
+        max_iterations = int(task.get("max_iterations") or 3)
+        if status == "NEW" and iterations < max_iterations:
+            return task
+        return None
+
+    return None
 
 
 def _call_llm(prompt: str) -> dict[str, Any]:
