@@ -145,6 +145,25 @@ Stage 2 добавляет подготовку Fixer Agent без примен�
 MOCK_RESPONSE: LLM not connected yet
 ```
 
+## Apply Stage безопасный dry-run
+
+`apply_engine.py` - это слой будущего применения фиксов от Fixer Agent.
+
+В текущем этапе он работает только в безопасном dry-run режиме:
+
+- файлы проекта НЕ меняются;
+- `dry_run=True` обязателен;
+- создаётся `apply_plan.json`;
+- создаётся `apply_result.json`;
+- результат содержит только список потенциальных действий;
+- реальные правки будут разрешены только на следующем этапе после whitelist, backup и diff-логирования.
+
+Текущая цепочка при ошибке:
+
+```text
+FAILED -> failure_snapshot.json -> fix_prompt.md -> fix_response.md -> apply_plan.json -> apply_result.json
+```
+
 ## 4. Правила завершения задачи
 
 Задачу можно считать завершённой только если:

@@ -78,6 +78,15 @@ def main() -> int:
 
         llm_response = call_llm(fix_prompt)
         write_text(run_dir / "fix_response.md", llm_response)
+
+        apply_plan_data = build_apply_plan(llm_response, config.PROJECT_ROOT)
+        write_json(run_dir / "apply_plan.json", apply_plan_data)
+
+        apply_result = apply_plan(apply_plan_data, config.PROJECT_ROOT, dry_run=True)
+        write_json(run_dir / "apply_result.json", apply_result)
+
+        print("🛡️ Apply plan создан")
+        print("🛡️ Apply stage выполнен в dry-run режиме")
         print("🤖 Ответ LLM сохранён (mock)")
 
         iterations = int(task.get("iterations") or 0)
