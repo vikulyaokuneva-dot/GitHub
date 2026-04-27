@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from . import config
+    from .apply_engine import apply_plan, build_apply_plan
     from .config import DEFAULT_CHECKS, PROMPTS_DIR
     from .executor import run_checks
     from .file_guard import validate_changed_files
@@ -12,6 +14,8 @@ try:
     from .reporter import build_run_summary, create_run_dir, write_json, write_text
     from .task_manager import get_next_task, increment_iteration, load_tasks, save_tasks, update_task_status
 except ImportError:
+    import config
+    from apply_engine import apply_plan, build_apply_plan
     from config import DEFAULT_CHECKS, PROMPTS_DIR
     from executor import run_checks
     from file_guard import validate_changed_files
