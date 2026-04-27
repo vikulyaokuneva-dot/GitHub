@@ -100,3 +100,7 @@ cabinets/*/outputs/**
 .DS_Store
 Thumbs.db
 *.log
+
+# Логи от ИИ Директора - оркестратора
+ai_director/logs/runs/*
+!ai_director/logs/runs/.gitkeep

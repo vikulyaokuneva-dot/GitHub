@@ -1,0 +1,22 @@
+{
+  "tasks": [
+    {
+      "id": "task_001",
+      "title": "Проверить MVP-каркас ИИ Директора",
+      "description": "Убедиться, что каркас запускается, создаёт run artifacts и не выходит за разрешённые границы файлов.",
+      "status": "NEW",
+      "iterations": 0,
+      "max_iterations": 5,
+      "checks": [
+        "python -c \"print('ok')\""
+      ],
+      "acceptance_criteria": [
+        "orchestrator.py создаёт run_dir",
+        "check_results.json сохраняется",
+        "guard_result.json сохраняется",
+        "final_report.md сохраняется",
+        "file_guard не обнаруживает запрещённых изменений"
+      ]
+    }
+  ]
+}
