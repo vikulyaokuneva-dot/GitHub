@@ -219,7 +219,7 @@ MVP выполнит:
 Каждый запуск сохраняется в:
 
 ```text
-ai_director/runs/<timestamp>_<task_id>/
+ai_director/logs/runs/<timestamp>_<task_id>/
 ```
 
 Основные файлы:

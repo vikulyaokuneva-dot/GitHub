@@ -8,7 +8,7 @@ AI_DIRECTOR_DIR = Path(__file__).resolve().parent
 
 TASKS_FILE = AI_DIRECTOR_DIR / "tasks" / "tasks.json"
 LOGS_DIR = AI_DIRECTOR_DIR / "logs"
-RUNS_DIR = AI_DIRECTOR_DIR / "runs"
+RUNS_DIR = LOGS_DIR / "runs"
 PROMPTS_DIR = AI_DIRECTOR_DIR / "prompts"
 
 DEFAULT_CHECKS = ["python -m pytest"]

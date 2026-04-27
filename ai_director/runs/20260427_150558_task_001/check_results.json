@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "results": [
+    {
+      "command": "python -c \"print('ok')\"",
+      "returncode": 0,
+      "stdout": "ok\n",
+      "stderr": "",
+      "timed_out": false,
+      "duration_sec": 0.154
+    }
+  ]
+}
