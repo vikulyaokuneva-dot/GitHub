@@ -52,6 +52,35 @@ def test_logger():
     assert [block["language"] for block in blocks] == ["python", "python"]
 
 
+def test_parse_coder_output_keeps_hash_comments_inside_code_section() -> None:
+    markdown = """# Code
+
+## ai_director/task_status.py
+```python
+# Keep this comment inside the code block.
+def is_terminal_status(status: str) -> bool:
+    return status in {"DONE", "FAILED", "NEEDS_HUMAN"}
+```
+
+# Tests
+Run pytest.
+"""
+
+    blocks = parse_coder_output(markdown)
+
+    assert blocks == [
+        {
+            "path": "ai_director/task_status.py",
+            "language": "python",
+            "content": (
+                "# Keep this comment inside the code block.\n"
+                "def is_terminal_status(status: str) -> bool:\n"
+                '    return status in {"DONE", "FAILED", "NEEDS_HUMAN"}'
+            ),
+        }
+    ]
+
+
 def test_apply_coder_output_rejects_parent_reference(tmp_path) -> None:
     markdown = """# Code
 

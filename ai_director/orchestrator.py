@@ -75,16 +75,6 @@ def main(task_id: str | None = None) -> int:
     update_task_status(tasks_payload, task_id, "IN_PROGRESS")
     save_tasks(tasks_payload)
 
-    if _is_auto_apply_draft(task):
-        developer_prompt = _build_auto_apply_draft_prompt(task)
-        write_text(run_dir / "prompt_for_developer.md", developer_prompt)
-        return _run_auto_apply_draft_task(
-            task=task,
-            tasks_payload=tasks_payload,
-            task_id=task_id,
-            run_dir=run_dir,
-        )
-
     draft_context = (
         collect_project_context(
             include_paths=_task_include_paths(task),
@@ -93,7 +83,9 @@ def main(task_id: str | None = None) -> int:
         if _uses_project_context(task)
         else None
     )
-    if _is_reviewer_draft(task):
+    if _is_auto_apply_draft(task):
+        developer_prompt = _build_coder_draft_prompt(task, project_context=draft_context)
+    elif _is_reviewer_draft(task):
         developer_prompt = _build_reviewer_draft_prompt(task, project_context=draft_context)
     elif _is_coder_draft(task):
         developer_prompt = _build_coder_draft_prompt(task, project_context=draft_context)
@@ -131,6 +123,16 @@ def main(task_id: str | None = None) -> int:
             run_dir=run_dir,
             reviewer_prompt=developer_prompt,
             reviewer_context=draft_context,
+        )
+
+    if _is_auto_apply_draft(task):
+        return _run_auto_apply_draft_task(
+            task=task,
+            tasks_payload=tasks_payload,
+            task_id=task_id,
+            run_dir=run_dir,
+            coder_prompt=developer_prompt,
+            coder_context=draft_context,
         )
 
     update_task_status(tasks_payload, task_id, "READY_TO_CHECK")
@@ -452,56 +454,88 @@ def _run_auto_apply_draft_task(
     tasks_payload: dict[str, Any],
     task_id: str,
     run_dir: Path,
+    coder_prompt: str,
+    coder_context: dict[str, Any] | None,
 ) -> int:
-    update_task_status(tasks_payload, task_id, "APPLYING_DRAFT")
-    save_tasks(tasks_payload)
-
     print("Auto-apply draft started")
     source_path, source_error = _find_coder_output_source(task, config.PROJECT_ROOT)
     apply_plan_data: dict[str, Any]
     auto_apply_diff = ""
-    if source_path is None:
-        auto_apply_result = _build_auto_apply_error_result(source_error or "coder_output.md not found")
-        apply_plan_data = _build_auto_apply_plan([], source="coder_output.md", error=source_error)
-    else:
-        try:
-            markdown = source_path.read_text(encoding="utf-8-sig")
-        except OSError as exc:
-            auto_apply_result = _build_auto_apply_error_result(f"cannot read coder_output.md: {exc}")
-            apply_plan_data = _build_auto_apply_plan([], source=source_path.name, error=str(exc))
+    llm_result: dict[str, Any] | None = None
+    markdown = ""
+    source_name = "coder_output.md"
+
+    if source_path is None and source_error == "coder_output_not_in_include_paths":
+        update_task_status(tasks_payload, task_id, "CODING_DRAFT")
+        save_tasks(tasks_payload)
+
+        print("Coder-draft prompt created")
+        llm_result = _call_llm(coder_prompt)
+        _attach_context_metadata(llm_result, coder_context)
+        _attach_coder_draft_metadata(llm_result)
+        llm_result["mode"] = MODE_AUTO_APPLY_DRAFT
+        markdown = str(llm_result.get("text") or "")
+        write_text(run_dir / "coder_output.md", markdown)
+
+        if not llm_result["ok"]:
+            auto_apply_result = _build_auto_apply_error_result(str(llm_result.get("status") or "llm_error"))
+            apply_plan_data = _build_auto_apply_plan([], source=source_name, error=auto_apply_result["violations"][0]["reason"])
         else:
+            update_task_status(tasks_payload, task_id, "APPLYING_DRAFT")
+            save_tasks(tasks_payload)
             blocks = parse_coder_output(markdown)
-            apply_plan_data = _build_auto_apply_plan(blocks, source=source_path.name)
+            apply_plan_data = _build_auto_apply_plan(blocks, source=source_name)
             auto_apply_diff = _build_auto_apply_diff(blocks, project_root=config.PROJECT_ROOT)
             auto_apply_result = apply_coder_output(
                 markdown,
                 project_root=config.PROJECT_ROOT,
-                source=source_path.name,
+                source=source_name,
+            )
+    elif source_path is None:
+        update_task_status(tasks_payload, task_id, "APPLYING_DRAFT")
+        save_tasks(tasks_payload)
+        auto_apply_result = _build_auto_apply_error_result(source_error or "coder_output.md not found")
+        apply_plan_data = _build_auto_apply_plan([], source="coder_output.md", error=source_error)
+    else:
+        update_task_status(tasks_payload, task_id, "APPLYING_DRAFT")
+        save_tasks(tasks_payload)
+        source_name = source_path.name
+        try:
+            markdown = source_path.read_text(encoding="utf-8-sig")
+        except OSError as exc:
+            auto_apply_result = _build_auto_apply_error_result(f"cannot read coder_output.md: {exc}")
+            apply_plan_data = _build_auto_apply_plan([], source=source_name, error=str(exc))
+        else:
+            blocks = parse_coder_output(markdown)
+            apply_plan_data = _build_auto_apply_plan(blocks, source=source_name)
+            auto_apply_diff = _build_auto_apply_diff(blocks, project_root=config.PROJECT_ROOT)
+            auto_apply_result = apply_coder_output(
+                markdown,
+                project_root=config.PROJECT_ROOT,
+                source=source_name,
             )
 
     write_json(run_dir / "apply_plan.json", apply_plan_data)
     write_json(run_dir / "auto_apply_result.json", auto_apply_result)
     write_json(run_dir / "apply_result.json", auto_apply_result)
     write_text(run_dir / "auto_apply.diff", auto_apply_diff)
-    write_json(run_dir / "llm_result.json", _build_auto_apply_llm_result(task, auto_apply_result))
+    write_json(run_dir / "llm_result.json", _build_auto_apply_llm_result(task, auto_apply_result, llm_result=llm_result))
 
-    if bool(task.get("run_checks")):
+    if auto_apply_result.get("ok"):
         update_task_status(tasks_payload, task_id, "CHECKING")
         save_tasks(tasks_payload)
-        checks = task.get("checks")
-        if not isinstance(checks, list) or not checks:
-            checks = DEFAULT_CHECKS
-        check_results = run_checks([str(command) for command in checks])
+        check_results = run_checks(_auto_apply_check_commands(task, auto_apply_result))
         _ensure_check_success_flags(check_results)
+        guard_result = validate_changed_files(list(auto_apply_result.get("applied_files") or []))
     else:
-        check_results = _build_skipped_checks_result(MODE_AUTO_APPLY_DRAFT)
+        check_results = _build_skipped_checks_result("auto_apply_failed")
+        guard_result = _build_skipped_guard_result("auto_apply_failed")
     write_json(run_dir / "check_results.json", check_results)
-
-    guard_result = _build_skipped_guard_result(MODE_AUTO_APPLY_DRAFT)
     write_json(run_dir / "guard_result.json", guard_result)
 
     checks_ok = all(r["success"] for r in check_results["results"]) if check_results.get("results") else True
-    final_status = "DONE" if auto_apply_result.get("ok") and checks_ok else "FAILED"
+    guard_ok = bool(guard_result.get("ok"))
+    final_status = "DONE" if auto_apply_result.get("ok") and checks_ok and guard_ok else "FAILED"
     update_task_status(tasks_payload, task_id, final_status)
     save_tasks(tasks_payload)
 
@@ -515,7 +549,7 @@ def _run_auto_apply_draft_task(
     write_text(run_dir / "final_report.md", final_report)
 
     print("Checks skipped: auto_apply_draft" if check_results.get("skipped") else "Checks completed")
-    print("Guard skipped: auto_apply_draft")
+    print("Guard skipped: auto_apply_draft" if guard_result.get("skipped") else "Guard completed")
     print("Iterations:", task["iterations"])
     print(
         json.dumps(
@@ -528,7 +562,7 @@ def _run_auto_apply_draft_task(
                 "applied_files": auto_apply_result.get("applied_files"),
                 "violations": auto_apply_result.get("violations"),
                 "checks_ok": checks_ok,
-                "file_guard_ok": True,
+                "file_guard_ok": guard_ok,
             },
             ensure_ascii=False,
             indent=2,
@@ -975,6 +1009,23 @@ def _build_auto_apply_plan(
     }
 
 
+def _auto_apply_check_commands(task: dict[str, Any], auto_apply_result: dict[str, Any]) -> list[str]:
+    checks = task.get("checks")
+    if isinstance(checks, list) and checks:
+        return [str(command) for command in checks]
+
+    applied_files = [str(path).replace("\\", "/") for path in auto_apply_result.get("applied_files") or []]
+    test_files = sorted(
+        path
+        for path in applied_files
+        if path.startswith("tests/") and path.endswith(".py")
+    )
+    if test_files:
+        return [f"python -m pytest {' '.join(test_files)} -q"]
+
+    return [str(command) for command in DEFAULT_CHECKS]
+
+
 def _build_auto_apply_diff(blocks: list[dict[str, str]], *, project_root: str | Path) -> str:
     root = Path(project_root)
     chunks: list[str] = []
@@ -1197,8 +1248,8 @@ def _build_auto_apply_draft_prompt(task: dict[str, Any]) -> str:
         "# Auto Apply Draft",
         "",
         "Mode: auto_apply_draft",
-        "No LLM call is made for this mode.",
-        "The orchestrator reads a coder_output.md file from include_paths, extracts the # Code fenced blocks, and writes only validated relative project files.",
+        "If include_paths contains coder_output.md, the orchestrator applies it directly.",
+        "Otherwise, the orchestrator first generates coder_output.md with the coder_draft prompt, then extracts the # Code fenced blocks and writes only validated relative project files.",
         "",
         "## Task",
         "```json",
@@ -1225,7 +1276,7 @@ def _is_auto_apply_draft(task: dict[str, Any]) -> bool:
 
 
 def _uses_project_context(task: dict[str, Any]) -> bool:
-    return _task_mode(task) in {MODE_PLANNER_ONLY, MODE_CODER_DRAFT, MODE_REVIEWER_DRAFT}
+    return _task_mode(task) in {MODE_PLANNER_ONLY, MODE_CODER_DRAFT, MODE_REVIEWER_DRAFT, MODE_AUTO_APPLY_DRAFT}
 
 
 def _task_mode(task: dict[str, Any]) -> str:
@@ -1284,9 +1335,27 @@ def _has_code_block(text: str) -> bool:
 
 
 def _extract_markdown_h1_section(markdown: str, heading: str) -> str:
-    pattern = rf"(?ms)^#\s+{re.escape(heading)}\s*\n(?P<body>.*?)(?=^#\s+\S|\Z)"
-    match = re.search(pattern, markdown)
-    return match.group("body") if match else ""
+    heading_pattern = re.compile(rf"^#(?!#)\s+{re.escape(heading)}\s*$")
+    h1_pattern = re.compile(r"^#(?!#)\s+\S")
+    in_section = False
+    in_fence = False
+    lines: list[str] = []
+
+    for line in markdown.splitlines(keepends=True):
+        stripped = line.rstrip("\r\n")
+        if not in_section:
+            if heading_pattern.match(stripped):
+                in_section = True
+            continue
+
+        if not in_fence and h1_pattern.match(stripped):
+            break
+
+        lines.append(line)
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+
+    return "".join(lines)
 
 
 def _find_coder_output_source(task: dict[str, Any], project_root: str | Path) -> tuple[Path | None, str]:
@@ -1369,25 +1438,38 @@ def _build_auto_apply_error_result(reason: str) -> dict[str, Any]:
     }
 
 
-def _build_auto_apply_llm_result(task: dict[str, Any], auto_apply_result: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "ok": bool(auto_apply_result.get("ok")),
-        "status": "ok" if auto_apply_result.get("ok") else "apply_error",
-        "final_status": "ok" if auto_apply_result.get("ok") else "apply_error",
-        "provider": "none",
-        "model": "none",
-        "configured_model": "none",
-        "attempted_models": [],
-        "selected_model": "none",
-        "text": "",
-        "error": "" if auto_apply_result.get("ok") else "auto_apply_draft failed",
-        "last_error": "" if auto_apply_result.get("ok") else "auto_apply_draft failed",
-        "errors": [],
-        "mode": MODE_AUTO_APPLY_DRAFT,
-        "include_paths": _task_include_paths(task),
-        "applied_files": list(auto_apply_result.get("applied_files") or []),
-        "violations": list(auto_apply_result.get("violations") or []),
-    }
+def _build_auto_apply_llm_result(
+    task: dict[str, Any],
+    auto_apply_result: dict[str, Any],
+    *,
+    llm_result: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if llm_result is None:
+        result: dict[str, Any] = {
+            "ok": bool(auto_apply_result.get("ok")),
+            "status": "ok" if auto_apply_result.get("ok") else "apply_error",
+            "final_status": "ok" if auto_apply_result.get("ok") else "apply_error",
+            "provider": "none",
+            "model": "none",
+            "configured_model": "none",
+            "attempted_models": [],
+            "selected_model": "none",
+            "text": "",
+            "error": "" if auto_apply_result.get("ok") else "auto_apply_draft failed",
+            "last_error": "" if auto_apply_result.get("ok") else "auto_apply_draft failed",
+            "errors": [],
+        }
+    else:
+        result = dict(llm_result)
+
+    result["mode"] = MODE_AUTO_APPLY_DRAFT
+    if "include_paths" not in result:
+        result["include_paths"] = _task_include_paths(task)
+    result["applied_files"] = list(auto_apply_result.get("applied_files") or [])
+    result["violations"] = list(auto_apply_result.get("violations") or [])
+    result["source"] = auto_apply_result.get("source", "coder_output.md")
+    result["apply_ok"] = bool(auto_apply_result.get("ok"))
+    return result
 
 
 def _extract_review_verdict(text: str) -> str:
