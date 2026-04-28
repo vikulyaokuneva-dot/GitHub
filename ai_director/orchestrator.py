@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import difflib
 import json
 import os
 import re
@@ -11,7 +10,7 @@ from typing import Any
 
 try:
     from . import config
-    from .apply_engine import apply_plan, build_apply_plan
+    from .apply_engine import apply_plan, build_apply_plan, build_unified_diff_text
     from .config import DEFAULT_CHECKS, PROMPTS_DIR, load_env_config
     from .executor import run_checks
     from .file_guard import validate_changed_files
@@ -22,7 +21,7 @@ try:
     from .task_manager import get_next_task, increment_iteration, load_tasks, save_tasks, update_task_status
 except ImportError:
     import config
-    from apply_engine import apply_plan, build_apply_plan
+    from apply_engine import apply_plan, build_apply_plan, build_unified_diff_text
     from config import DEFAULT_CHECKS, PROMPTS_DIR, load_env_config
     from executor import run_checks
     from file_guard import validate_changed_files
@@ -983,23 +982,20 @@ def _build_auto_apply_diff(blocks: list[dict[str, str]], *, project_root: str | 
         path = str(block.get("path") or "")
         target, reason = _resolve_auto_apply_target(root, path)
         if target is None:
-            chunks.extend([f"# skipped {path}: {reason}\n"])
+            chunks.append(f"# skipped {path}: {reason}\n")
             continue
 
         before = target.read_text(encoding="utf-8") if target.is_file() else ""
         after = str(block.get("content") or "")
-        chunks.extend(
-            difflib.unified_diff(
-                before.splitlines(keepends=True),
-                after.splitlines(keepends=True),
-                fromfile=f"a/{_display_project_path(root, target)}",
-                tofile=f"b/{_display_project_path(root, target)}",
-                lineterm="",
-            )
+        diff_text = build_unified_diff_text(
+            before,
+            after,
+            fromfile=f"a/{_display_project_path(root, target)}",
+            tofile=f"b/{_display_project_path(root, target)}",
         )
-        if chunks and not chunks[-1].endswith("\n"):
-            chunks[-1] += "\n"
-    return "".join(chunks)
+        if diff_text:
+            chunks.append(diff_text)
+    return "\n".join(chunk.rstrip("\n") for chunk in chunks) + ("\n" if chunks else "")
 
 
 def _build_skipped_checks_result(reason: str) -> dict[str, Any]:

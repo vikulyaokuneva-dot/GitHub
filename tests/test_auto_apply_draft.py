@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ai_director.orchestrator import apply_coder_output, parse_coder_output
+from ai_director.orchestrator import _build_auto_apply_diff, apply_coder_output, parse_coder_output
 
 
 def test_parse_coder_output_single_file() -> None:
@@ -117,3 +117,33 @@ def test_apply_coder_output_writes_exact_content(tmp_path) -> None:
 
     assert result["ok"] is True
     assert (tmp_path / "ai_director" / "utils.py").read_text(encoding="utf-8") == content
+
+
+def test_auto_apply_real_upsert_creates_well_formed_diff(tmp_path) -> None:
+    path = "ai_director/hello_auto_apply.py"
+    blocks = [
+        {
+            "path": path,
+            "language": "python",
+            "content": "def get_status() -> str:\n    return 'ok'\n",
+        }
+    ]
+
+    diff_text = _build_auto_apply_diff(blocks, project_root=tmp_path)
+    result = apply_coder_output(
+        """# Code
+
+## ai_director/hello_auto_apply.py
+```python
+def get_status() -> str:
+    return 'ok'
+```
+""",
+        project_root=tmp_path,
+    )
+
+    assert result["ok"] is True
+    assert f"--- a/{path}\n" in diff_text
+    assert f"+++ b/{path}\n" in diff_text
+    assert "@@" in diff_text
+    assert f"--- a/{path}+++ b/{path}@@" not in diff_text

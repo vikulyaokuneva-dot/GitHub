@@ -633,6 +633,25 @@
       "include_paths": [
         "ai_director/logs/runs/manual_test_auto_apply_hello/coder_output.md"
       ]
-    }
+    },
+    {
+	"id": "auto_apply_real_task_001",
+	"title": "Improve auto_apply diff readability",
+	"mode": "auto_apply_draft",
+	"status": "NEW",
+	"max_iterations": 1,
+	"prompt": "Исправь формат auto_apply.diff в ai_director/apply_engine.py: diff должен быть читаемым unified diff с переносами строк между ---/+++/@@. Добавь или обнови тест в tests/test_apply_engine.py, который проверяет, что diff не склеивает заголовки. Не меняй другие файлы.",
+	"include_paths": [
+  	  "ai_director/logs/runs/<run_id>/coder_output.md"
+	]
+     },
+     {
+ 	 "id": "auto_apply_real_task_002",
+ 	 "title": "Add task status helper",
+	 "mode": "auto_apply_draft",
+	 "status": "NEW",
+ 	 "max_iterations": 1,
+    	 "prompt": "Создай файл ai_director/task_status.py с функцией is_terminal_status(status: str) -> bool. Функция должна возвращать True для DONE, FAILED, NEEDS_HUMAN и False для NEW, IN_PROGRESS и любых неизвестных статусов. Добавь тест tests/test_task_status.py. Не меняй другие файлы."
+     }
   ]
 }

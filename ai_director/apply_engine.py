@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import json
 from pathlib import Path
 from typing import Any
@@ -147,3 +148,18 @@ def apply_plan(plan: dict[str, Any], project_root: Path, dry_run: bool = True) -
         "actions": actions,
         "message": "Dry-run only. No files were changed.",
     }
+
+
+def build_unified_diff_text(before: str, after: str, *, fromfile: str, tofile: str) -> str:
+    diff_lines = list(
+        difflib.unified_diff(
+            before.splitlines(),
+            after.splitlines(),
+            fromfile=fromfile,
+            tofile=tofile,
+            lineterm="",
+        )
+    )
+    if not diff_lines:
+        return ""
+    return "\n".join(diff_lines) + "\n"
