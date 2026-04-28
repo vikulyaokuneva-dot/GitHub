@@ -10,7 +10,7 @@ from typing import Any
 
 try:
     from . import config
-    from .apply_engine import apply_plan, build_apply_plan, build_unified_diff_text
+    from .apply_engine import apply_plan, build_apply_plan, build_unified_diff_text, parse_auto_apply_json_response
     from .config import DEFAULT_CHECKS, PROMPTS_DIR, load_env_config
     from .executor import run_checks
     from .file_guard import validate_changed_files
@@ -21,7 +21,7 @@ try:
     from .task_manager import get_next_task, increment_iteration, load_tasks, save_tasks, update_task_status
 except ImportError:
     import config
-    from apply_engine import apply_plan, build_apply_plan, build_unified_diff_text
+    from apply_engine import apply_plan, build_apply_plan, build_unified_diff_text, parse_auto_apply_json_response
     from config import DEFAULT_CHECKS, PROMPTS_DIR, load_env_config
     from executor import run_checks
     from file_guard import validate_changed_files
@@ -84,7 +84,7 @@ def main(task_id: str | None = None) -> int:
         else None
     )
     if _is_auto_apply_draft(task):
-        developer_prompt = _build_coder_draft_prompt(task, project_context=draft_context)
+        developer_prompt = _build_auto_apply_json_prompt(task)
     elif _is_reviewer_draft(task):
         developer_prompt = _build_reviewer_draft_prompt(task, project_context=draft_context)
     elif _is_coder_draft(task):
@@ -462,20 +462,20 @@ def _run_auto_apply_draft_task(
     apply_plan_data: dict[str, Any]
     auto_apply_diff = ""
     llm_result: dict[str, Any] | None = None
-    markdown = ""
+    raw_response = ""
     source_name = "coder_output.md"
+    needs_human = False
 
     if source_path is None and source_error == "coder_output_not_in_include_paths":
         update_task_status(tasks_payload, task_id, "CODING_DRAFT")
         save_tasks(tasks_payload)
 
-        print("Coder-draft prompt created")
+        print("Auto-apply JSON prompt created")
         llm_result = _call_llm(coder_prompt)
         _attach_context_metadata(llm_result, coder_context)
-        _attach_coder_draft_metadata(llm_result)
         llm_result["mode"] = MODE_AUTO_APPLY_DRAFT
-        markdown = str(llm_result.get("text") or "")
-        write_text(run_dir / "coder_output.md", markdown)
+        raw_response = str(llm_result.get("text") or "")
+        write_text(run_dir / "coder_output.md", raw_response)
 
         if not llm_result["ok"]:
             auto_apply_result = _build_auto_apply_error_result(str(llm_result.get("status") or "llm_error"))
@@ -483,14 +483,26 @@ def _run_auto_apply_draft_task(
         else:
             update_task_status(tasks_payload, task_id, "APPLYING_DRAFT")
             save_tasks(tasks_payload)
-            blocks = parse_coder_output(markdown)
-            apply_plan_data = _build_auto_apply_plan(blocks, source=source_name)
-            auto_apply_diff = _build_auto_apply_diff(blocks, project_root=config.PROJECT_ROOT)
-            auto_apply_result = apply_coder_output(
-                markdown,
-                project_root=config.PROJECT_ROOT,
-                source=source_name,
-            )
+            parsed_response = parse_auto_apply_json_response(raw_response)
+            if not parsed_response["ok"]:
+                needs_human = True
+                write_text(run_dir / "llm_raw_response.txt", raw_response)
+                auto_apply_result = _build_auto_apply_error_result(str(parsed_response.get("reason") or "invalid_format"))
+                apply_plan_data = _build_auto_apply_plan([], source=source_name, error="invalid_format")
+                llm_result["ok"] = False
+                llm_result["status"] = "invalid_format"
+                llm_result["final_status"] = "invalid_format"
+                llm_result["error"] = "invalid_format"
+                llm_result["last_error"] = "invalid_format"
+            else:
+                files = list(parsed_response.get("files") or [])
+                apply_plan_data = _build_auto_apply_plan(files, source=source_name)
+                auto_apply_diff = _build_auto_apply_diff(files, project_root=config.PROJECT_ROOT)
+                auto_apply_result = apply_auto_apply_files(
+                    files,
+                    project_root=config.PROJECT_ROOT,
+                    source=source_name,
+                )
     elif source_path is None:
         update_task_status(tasks_payload, task_id, "APPLYING_DRAFT")
         save_tasks(tasks_payload)
@@ -501,19 +513,26 @@ def _run_auto_apply_draft_task(
         save_tasks(tasks_payload)
         source_name = source_path.name
         try:
-            markdown = source_path.read_text(encoding="utf-8-sig")
+            raw_response = source_path.read_text(encoding="utf-8-sig")
         except OSError as exc:
             auto_apply_result = _build_auto_apply_error_result(f"cannot read coder_output.md: {exc}")
             apply_plan_data = _build_auto_apply_plan([], source=source_name, error=str(exc))
         else:
-            blocks = parse_coder_output(markdown)
-            apply_plan_data = _build_auto_apply_plan(blocks, source=source_name)
-            auto_apply_diff = _build_auto_apply_diff(blocks, project_root=config.PROJECT_ROOT)
-            auto_apply_result = apply_coder_output(
-                markdown,
-                project_root=config.PROJECT_ROOT,
-                source=source_name,
-            )
+            parsed_response = parse_auto_apply_json_response(raw_response)
+            if not parsed_response["ok"]:
+                needs_human = True
+                write_text(run_dir / "llm_raw_response.txt", raw_response)
+                auto_apply_result = _build_auto_apply_error_result(str(parsed_response.get("reason") or "invalid_format"))
+                apply_plan_data = _build_auto_apply_plan([], source=source_name, error="invalid_format")
+            else:
+                files = list(parsed_response.get("files") or [])
+                apply_plan_data = _build_auto_apply_plan(files, source=source_name)
+                auto_apply_diff = _build_auto_apply_diff(files, project_root=config.PROJECT_ROOT)
+                auto_apply_result = apply_auto_apply_files(
+                    files,
+                    project_root=config.PROJECT_ROOT,
+                    source=source_name,
+                )
 
     write_json(run_dir / "apply_plan.json", apply_plan_data)
     write_json(run_dir / "auto_apply_result.json", auto_apply_result)
@@ -536,6 +555,8 @@ def _run_auto_apply_draft_task(
     checks_ok = all(r["success"] for r in check_results["results"]) if check_results.get("results") else True
     guard_ok = bool(guard_result.get("ok"))
     final_status = "DONE" if auto_apply_result.get("ok") and checks_ok and guard_ok else "FAILED"
+    if needs_human:
+        final_status = "NEEDS_HUMAN"
     update_task_status(tasks_payload, task_id, final_status)
     save_tasks(tasks_payload)
 
@@ -935,10 +956,6 @@ def apply_coder_output(
     source: str = "coder_output.md",
 ) -> dict[str, Any]:
     blocks = parse_coder_output(markdown)
-    applied_files: list[str] = []
-    skipped_files: list[dict[str, str]] = []
-    violations: list[dict[str, str]] = []
-
     if not blocks:
         return {
             "ok": False,
@@ -947,10 +964,38 @@ def apply_coder_output(
             "violations": [{"path": "", "reason": "no_code_blocks"}],
             "source": source,
         }
+    return apply_auto_apply_files(blocks, project_root=project_root, source=source)
+
+
+def apply_auto_apply_files(
+    files: list[dict[str, str]],
+    *,
+    project_root: str | Path = config.PROJECT_ROOT,
+    source: str = "coder_output.md",
+) -> dict[str, Any]:
+    applied_files: list[str] = []
+    skipped_files: list[dict[str, str]] = []
+    violations: list[dict[str, str]] = []
+
+    if not files:
+        return {
+            "ok": False,
+            "applied_files": [],
+            "skipped_files": [],
+            "violations": [{"path": "", "reason": "no_files"}],
+            "source": source,
+        }
 
     root = Path(project_root)
-    for block in blocks:
-        relative_path = str(block.get("path") or "")
+    for file_entry in files:
+        relative_path = str(file_entry.get("path") or "")
+        operation = str(file_entry.get("operation") or "upsert")
+        if operation != "upsert":
+            entry = {"path": relative_path, "reason": "unsupported_operation"}
+            skipped_files.append(entry)
+            violations.append(entry)
+            continue
+
         target, reason = _resolve_auto_apply_target(root, relative_path)
         if target is None:
             entry = {"path": relative_path, "reason": reason}
@@ -959,7 +1004,7 @@ def apply_coder_output(
             continue
 
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(str(block.get("content") or ""), encoding="utf-8")
+        target.write_text(str(file_entry.get("content") or ""), encoding="utf-8")
         applied_files.append(_display_project_path(root, target))
 
     return {
@@ -1243,18 +1288,32 @@ def _build_reviewer_draft_prompt(task: dict[str, Any], *, project_context: dict[
     return "\n".join(parts).strip() + "\n"
 
 
-def _build_auto_apply_draft_prompt(task: dict[str, Any]) -> str:
+def _build_auto_apply_json_prompt(task: dict[str, Any]) -> str:
+    task_payload = {
+        "title": str(task.get("title") or ""),
+        "prompt": str(task.get("prompt") or task.get("description") or ""),
+    }
+    shape = {
+        "files": [
+            {
+                "path": "relative/path.py",
+                "operation": "upsert",
+                "content": "...",
+            }
+        ]
+    }
     parts = [
-        "# Auto Apply Draft",
-        "",
-        "Mode: auto_apply_draft",
-        "If include_paths contains coder_output.md, the orchestrator applies it directly.",
-        "Otherwise, the orchestrator first generates coder_output.md with the coder_draft prompt, then extracts the # Code fenced blocks and writes only validated relative project files.",
-        "",
-        "## Task",
-        "```json",
-        json.dumps(task, ensure_ascii=False, indent=2),
-        "```",
+        "Return only one JSON object.",
+        "The first character must be {.",
+        "No Markdown.",
+        "No comments.",
+        "No prose.",
+        "Use relative project paths only.",
+        "Use operation value upsert only.",
+        "Use this exact JSON shape:",
+        json.dumps(shape, ensure_ascii=False, indent=2),
+        "Task JSON:",
+        json.dumps(task_payload, ensure_ascii=False, indent=2),
     ]
     return "\n".join(parts).strip() + "\n"
 

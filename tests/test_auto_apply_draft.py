@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-from ai_director.orchestrator import _build_auto_apply_diff, apply_coder_output, parse_coder_output
+import json
+
+from ai_director import orchestrator
+from ai_director.orchestrator import (
+    _build_auto_apply_diff,
+    _build_auto_apply_json_prompt,
+    _run_auto_apply_draft_task,
+    apply_auto_apply_files,
+    apply_coder_output,
+    parse_coder_output,
+)
 
 
 def test_parse_coder_output_single_file() -> None:
@@ -176,3 +186,85 @@ def get_status() -> str:
     assert f"+++ b/{path}\n" in diff_text
     assert "@@" in diff_text
     assert f"--- a/{path}+++ b/{path}@@" not in diff_text
+
+
+def test_apply_auto_apply_files_writes_strict_json_files(tmp_path) -> None:
+    files = [
+        {
+            "path": "ai_director/task_status.py",
+            "operation": "upsert",
+            "content": "def is_terminal_status(status: str) -> bool:\n    return status == 'DONE'\n",
+        }
+    ]
+
+    result = apply_auto_apply_files(files, project_root=tmp_path)
+
+    assert result["ok"] is True
+    assert result["applied_files"] == ["ai_director/task_status.py"]
+    assert (tmp_path / "ai_director" / "task_status.py").read_text(encoding="utf-8") == files[0]["content"]
+
+
+def test_auto_apply_json_prompt_uses_strict_json_contract() -> None:
+    prompt = _build_auto_apply_json_prompt(
+        {
+            "title": "Add helper",
+            "prompt": "Create ai_director/task_status.py and tests/test_task_status.py.",
+        }
+    )
+
+    lowered = prompt.lower()
+
+    assert "summary" not in lowered
+    assert "instructions" not in lowered
+    assert "explain" not in lowered
+    assert "return only one json object" in lowered
+    assert '"operation": "upsert"' in prompt
+
+
+def test_auto_apply_markdown_llm_response_writes_raw_and_needs_human(tmp_path, monkeypatch) -> None:
+    task = {
+        "id": "strict_json_invalid",
+        "title": "Invalid format",
+        "prompt": "Create a file.",
+        "mode": "auto_apply_draft",
+        "status": "NEW",
+        "iterations": 0,
+        "max_iterations": 1,
+    }
+    tasks_payload = {"tasks": [task]}
+
+    monkeypatch.setattr(orchestrator, "save_tasks", lambda payload: None)
+    monkeypatch.setattr(orchestrator, "log_event", lambda message: None)
+    monkeypatch.setattr(
+        orchestrator,
+        "_call_llm",
+        lambda prompt: {
+            "ok": True,
+            "status": "ok",
+            "final_status": "ok",
+            "provider": "test",
+            "model": "test",
+            "configured_model": "test",
+            "attempted_models": ["test"],
+            "selected_model": "test",
+            "text": "# Summary\n\n# Code\n",
+            "error": "",
+            "last_error": "",
+            "errors": [],
+        },
+    )
+
+    exit_code = _run_auto_apply_draft_task(
+        task=task,
+        tasks_payload=tasks_payload,
+        task_id="strict_json_invalid",
+        run_dir=tmp_path,
+        coder_prompt="Return only JSON.",
+        coder_context=None,
+    )
+
+    assert exit_code == 1
+    assert task["status"] == "NEEDS_HUMAN"
+    assert (tmp_path / "llm_raw_response.txt").read_text(encoding="utf-8") == "# Summary\n\n# Code\n"
+    apply_result = json.loads((tmp_path / "apply_result.json").read_text(encoding="utf-8"))
+    assert apply_result["violations"] == [{"path": "", "reason": "invalid_format"}]

@@ -653,6 +653,15 @@
       "max_iterations": 1,
       "prompt": "Создай файл ai_director/task_status.py с функцией is_terminal_status(status: str) -> bool. Функция должна возвращать True для DONE, FAILED, NEEDS_HUMAN и False для NEW, IN_PROGRESS и любых неизвестных статусов. Добавь тест tests/test_task_status.py. Не меняй другие файлы.",
       "iterations": 0
+    },
+    {
+      "id": "auto_apply_real_task_003",
+      "title": "Add normalized status helper",
+      "mode": "auto_apply_draft",
+      "status": "CODING_DRAFT",
+      "max_iterations": 1,
+      "prompt": "Расширь ai_director/task_status.py: добавь функцию normalize_status(status: str) -> str, которая приводит статус к upper-case и trim. Если статус пустой после trim, вернуть NEW. Обнови tests/test_task_status.py тестами для normalize_status. Не меняй другие файлы.",
+      "iterations": 0
     }
   ]
 }

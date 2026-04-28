@@ -1,38 +1,17 @@
-"""
-Helper utilities for task status handling within the AI Director.
+'''Task status utilities.'''
 
-This module provides a single function `is_terminal_status` that determines
-whether a given task status string represents a terminal state of the
-task lifecycle.
+# Existing imports and code (if any) would be here.
 
-Terminal statuses (return True):
-- DONE
-- FAILED
-- NEEDS_HUMAN
+def normalize_status(status: str) -> str:
+    """Return a normalized task status.
 
-All other statuses (including unknown strings) return False.
-"""
-
-from __future__ import annotations
-
-# Define the set of terminal statuses for quick membership testing.
-_TERMINAL_STATUSES = {"DONE", "FAILED", "NEEDS_HUMAN"}
-
-
-def is_terminal_status(status: str) -> bool:
+    The function trims whitespace from the input string, converts it to upper‑case,
+    and returns ``"NEW"`` when the resulting string is empty.
     """
-    Check if the provided task status is a terminal status.
+    normalized = (status or "").strip().upper()
+    return normalized if normalized else "NEW"
 
-    Parameters
-    ----------
-    status: str
-        The status string to evaluate. Comparison is case‑sensitive and
-        expects the exact status identifiers used by the AI Director.
-
-    Returns
-    -------
-    bool
-        ``True`` if ``status`` is one of the terminal statuses
-        (``DONE``, ``FAILED``, ``NEEDS_HUMAN``), otherwise ``False``.
-    """
-    return status in _TERMINAL_STATUSES
+# Exported symbols
+__all__ = [
+    "normalize_status",
+]

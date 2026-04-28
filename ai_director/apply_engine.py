@@ -58,6 +58,67 @@ def parse_llm_response(response: str) -> dict[str, Any]:
     }
 
 
+def parse_auto_apply_json_response(response: str) -> dict[str, Any]:
+    text = response.lstrip()
+    if not text.startswith("{"):
+        return {
+            "ok": False,
+            "reason": "invalid_format",
+            "files": [],
+        }
+
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return {
+            "ok": False,
+            "reason": "invalid_format",
+            "files": [],
+        }
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("files"), list):
+        return {
+            "ok": False,
+            "reason": "invalid_format",
+            "files": [],
+        }
+
+    files: list[dict[str, str]] = []
+    violations: list[dict[str, str]] = []
+    for item in payload["files"]:
+        if not isinstance(item, dict):
+            violations.append({"path": "", "reason": "file_item_not_object"})
+            continue
+
+        path = str(item.get("path") or "").strip()
+        operation = str(item.get("operation") or "").strip()
+        content = item.get("content")
+        if not path:
+            violations.append({"path": path, "reason": "empty_path"})
+            continue
+        if operation != "upsert":
+            violations.append({"path": path, "reason": "unsupported_operation"})
+            continue
+        if not isinstance(content, str):
+            violations.append({"path": path, "reason": "content_not_string"})
+            continue
+
+        files.append(
+            {
+                "path": path,
+                "operation": operation,
+                "content": content,
+            }
+        )
+
+    return {
+        "ok": bool(files) and not violations,
+        "reason": "" if files and not violations else "invalid_format",
+        "files": files,
+        "violations": violations,
+    }
+
+
 def validate_apply_plan(plan: dict[str, Any], project_root: Path) -> dict[str, Any]:
     """
     Validate a future apply plan.
