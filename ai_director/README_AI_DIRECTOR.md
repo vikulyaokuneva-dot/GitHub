@@ -247,6 +247,18 @@ python ai_director/run_once.py --mode coder_draft --title "Code smoke" --prompt 
 
 Ответ модели должен быть вручную перенесён в проект через VS Code после проверки человеком.
 
+## Reviewer-draft режим
+
+`reviewer_draft` используется для безопасной проверки результата `coder_draft` или любых включённых через `include_paths` файлов. Режим не меняет проект, не применяет патчи и не запускает тесты: он только сохраняет ревью в `reviewer_output.md` и добавляет в `llm_result.json` поля `mode`, `has_review` и `review_verdict`.
+
+Формат запуска:
+
+```bash
+python ai_director/run_once.py --mode reviewer_draft --title "Review normalize_task_title" --prompt "Проверь реализацию normalize_task_title. Требования: результат всегда непустой; fallback 'task' используется если результат пустой; слово task не удаляется из строки; длина результата <= 100; тесты должны покрывать эти требования." --include ai_director/logs/runs/20260428_155410_code-smoke_20260428_155410/coder_output.md
+```
+
+После ревью человек принимает решение: применять черновик через VS Code, вернуть задачу на правки или заблокировать изменение.
+
 ## Apply Stage безопасный dry-run
 
 `apply_engine.py` - это слой будущего применения фиксов от Fixer Agent.

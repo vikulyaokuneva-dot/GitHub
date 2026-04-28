@@ -3,8 +3,8 @@
     "engine": "logistics_ktr_engine",
     "version": "1.0",
     "seller_id": "seller_001",
-    "run_date": "2026-04-26",
-    "generated_at": "2026-04-26T18:19:00Z",
+    "run_date": "2026-04-13",
+    "generated_at": "2026-04-28T14:36:02Z",
     "source_artifacts": [
       "territorial_distribution.json"
     ]

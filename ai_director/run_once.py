@@ -24,7 +24,7 @@ def main(argv: list[str] | None = None) -> int:
         action="append",
         dest="include_paths",
         default=[],
-        help="Relative file path to include in planner context. Can be used multiple times.",
+        help="Relative file path to include in draft/planner context. Can be used multiple times.",
     )
     parser.add_argument("--full", action="store_true", help="Print the full LLM response after the run.")
     args = parser.parse_args(argv)

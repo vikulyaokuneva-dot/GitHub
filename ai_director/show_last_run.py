@@ -41,6 +41,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"task_status: {_task_status(run_dir)}")
     print(f"mode: {_first_value(llm_result, apply_plan, task, key='mode')}")
     print(f"coder_output_md: {_file_status(run_dir / 'coder_output.md')}")
+    print(f"reviewer_output_md: {_file_status(run_dir / 'reviewer_output.md')}")
+    print(f"reviewer_output_path: {_output_path(run_dir / 'reviewer_output.md')}")
     print(f"provider: {_first_value(llm_result, llm_meta, key='provider')}")
     print(f"selected_model: {_first_value(llm_result, llm_meta, key='selected_model')}")
     print(f"status: {_first_value(llm_result, llm_meta, key='status')}")
@@ -48,6 +50,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"context_included: {_first_value(llm_result, key='context_included')}")
     print(f"context_chars: {_first_value(llm_result, key='context_chars')}")
     print(f"has_code: {_first_value(llm_result, apply_plan, key='has_code')}")
+    print(f"has_review: {_first_value(llm_result, apply_plan, key='has_review')}")
+    print(f"review_verdict: {_first_value(llm_result, apply_plan, key='review_verdict')}")
     _print_path_list("include_paths", llm_result.get("include_paths") if isinstance(llm_result, dict) else [])
     _print_path_list("included_files", llm_result.get("included_files") if isinstance(llm_result, dict) else [])
     _print_path_list("missing_files", llm_result.get("missing_files") if isinstance(llm_result, dict) else [])
@@ -146,6 +150,10 @@ def _first_list(*sources: dict[str, Any], key: str) -> list[Any]:
 
 def _file_status(path: Path) -> str:
     return "present" if path.is_file() else "missing"
+
+
+def _output_path(path: Path) -> str:
+    return str(path) if path.is_file() else "(missing)"
 
 
 def _attempted_models(*sources: dict[str, Any]) -> list[str]:

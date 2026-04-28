@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ai_director.config import load_env_config
 
 import json
 import os
@@ -41,6 +42,8 @@ LLM_PROVIDER = getattr(config, "LLM_PROVIDER", "openrouter")
 DEFAULT_OPENROUTER_MODEL = getattr(config, "DEFAULT_AI_DIRECTOR_MODEL", "qwen/qwen3-coder:free")
 MODE_PLANNER_ONLY = "planner_only"
 MODE_CODER_DRAFT = "coder_draft"
+MODE_REVIEWER_DRAFT = "reviewer_draft"
+REVIEW_VERDICTS = {"PASS", "NEEDS_CHANGES", "BLOCKED"}
 
 
 def main(task_id: str | None = None) -> int:
@@ -69,7 +72,9 @@ def main(task_id: str | None = None) -> int:
         if _uses_project_context(task)
         else None
     )
-    if _is_coder_draft(task):
+    if _is_reviewer_draft(task):
+        developer_prompt = _build_reviewer_draft_prompt(task, project_context=draft_context)
+    elif _is_coder_draft(task):
         developer_prompt = _build_coder_draft_prompt(task, project_context=draft_context)
     elif _is_planner_only(task):
         developer_prompt = _build_planner_prompt(task, project_context=draft_context)
@@ -95,6 +100,16 @@ def main(task_id: str | None = None) -> int:
             run_dir=run_dir,
             coder_prompt=developer_prompt,
             coder_context=draft_context,
+        )
+
+    if _is_reviewer_draft(task):
+        return _run_reviewer_draft_task(
+            task=task,
+            tasks_payload=tasks_payload,
+            task_id=task_id,
+            run_dir=run_dir,
+            reviewer_prompt=developer_prompt,
+            reviewer_context=draft_context,
         )
 
     update_task_status(tasks_payload, task_id, "READY_TO_CHECK")
@@ -334,6 +349,78 @@ def _run_coder_draft_task(
     return 0 if final_status == "DONE" else 1
 
 
+def _run_reviewer_draft_task(
+    *,
+    task: dict[str, Any],
+    tasks_payload: dict[str, Any],
+    task_id: str,
+    run_dir: Path,
+    reviewer_prompt: str,
+    reviewer_context: dict[str, Any] | None,
+) -> int:
+    update_task_status(tasks_payload, task_id, "REVIEWING_DRAFT")
+    save_tasks(tasks_payload)
+
+    print("Reviewer-draft prompt created")
+    llm_result = _call_llm(reviewer_prompt)
+    _attach_context_metadata(llm_result, reviewer_context)
+    _attach_reviewer_draft_metadata(llm_result)
+    write_json(run_dir / "llm_result.json", llm_result)
+    reviewer_output = str(llm_result.get("text") or "")
+    write_text(run_dir / "reviewer_output.md", reviewer_output)
+
+    check_results = _build_skipped_checks_result(MODE_REVIEWER_DRAFT)
+    guard_result = _build_skipped_guard_result(MODE_REVIEWER_DRAFT)
+    write_json(run_dir / "check_results.json", check_results)
+    write_json(run_dir / "guard_result.json", guard_result)
+
+    if not llm_result["ok"]:
+        final_status = str(llm_result["status"])
+        update_task_status(tasks_payload, task_id, final_status)
+        write_json(run_dir / "apply_plan.json", _build_skipped_apply_plan(final_status, llm_result))
+        write_json(run_dir / "apply_result.json", _build_skipped_apply_result(final_status))
+        print(f"LLM unavailable: {final_status}. Details saved to llm_result.json")
+    else:
+        final_status = "DONE"
+        update_task_status(tasks_payload, task_id, final_status)
+        write_json(run_dir / "apply_plan.json", _build_reviewer_draft_apply_plan(llm_result))
+        write_json(run_dir / "apply_result.json", _build_reviewer_draft_apply_result())
+        print("Reviewer draft saved")
+        print("Apply stage skipped by reviewer_draft mode")
+
+    save_tasks(tasks_payload)
+
+    final_report = build_run_summary(
+        task=task,
+        final_status=final_status,
+        checks_result=check_results,
+        guard_result=guard_result,
+        run_dir=run_dir,
+    )
+    write_text(run_dir / "final_report.md", final_report)
+
+    print("Checks skipped: reviewer_draft")
+    print("Guard skipped: reviewer_draft")
+    print("Iterations:", task["iterations"])
+    print(
+        json.dumps(
+            {
+                "task_id": task_id,
+                "status": final_status,
+                "mode": MODE_REVIEWER_DRAFT,
+                "run_dir": str(run_dir),
+                "reviewer_output": str(run_dir / "reviewer_output.md"),
+                "review_verdict": llm_result.get("review_verdict"),
+                "checks_ok": True,
+                "file_guard_ok": True,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0 if final_status == "DONE" else 1
+
+
 def _get_task_to_run(tasks_payload: dict[str, Any], *, task_id: str | None = None) -> dict[str, Any] | None:
     if task_id is None:
         return get_next_task(tasks_payload)
@@ -372,14 +459,49 @@ def _attach_coder_draft_metadata(llm_result: dict[str, Any]) -> None:
     llm_result["has_code"] = _has_code_block(llm_response)
 
 
+def _attach_reviewer_draft_metadata(llm_result: dict[str, Any]) -> None:
+    llm_response = str(llm_result.get("text") or "")
+    llm_result["mode"] = MODE_REVIEWER_DRAFT
+    llm_result["has_review"] = bool(llm_result.get("ok") and llm_response.strip())
+    llm_result["review_verdict"] = _extract_review_verdict(llm_response)
+
+
 def _call_llm(prompt: str) -> dict[str, Any]:
     provider = LLM_PROVIDER
-    model = os.getenv("AI_DIRECTOR_MODEL", DEFAULT_OPENROUTER_MODEL)
+    env = load_env_config()
+
+    model = (
+        env.get("OPENROUTER_MODEL")
+        or os.getenv("AI_DIRECTOR_MODEL")
+        or DEFAULT_OPENROUTER_MODEL
+    )
     fallback_models = [
         item.strip()
-        for item in os.getenv("AI_DIRECTOR_MODEL_FALLBACKS", "").split(",")
+        for item in (
+            env.get("AI_DIRECTOR_MODEL_FALLBACKS")
+            or os.getenv("AI_DIRECTOR_MODEL_FALLBACKS", "")
+        ).split(",")
         if item.strip()
     ]
+
+    api_key = env.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        return _llm_error_result(
+            status="no_llm",
+            provider=provider,
+            model=model,
+            text="ERROR: OPENROUTER_API_KEY not found in .env or environment",
+            attempted_models=[],
+            selected_model="",
+            last_error="ERROR: OPENROUTER_API_KEY not found in .env or environment",
+        )
+
+    # generate_text_result reads configuration from process environment.
+    os.environ["OPENROUTER_API_KEY"] = api_key
+    os.environ["AI_DIRECTOR_MODEL"] = model
+    if fallback_models:
+        os.environ["AI_DIRECTOR_MODEL_FALLBACKS"] = ",".join(fallback_models)
+
     print(f"LLM provider={provider} model={model} fallbacks={fallback_models}")
 
     try:
@@ -581,6 +703,49 @@ def _build_coder_draft_apply_result() -> dict[str, Any]:
     }
 
 
+def _build_reviewer_draft_apply_plan(llm_result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "mode": MODE_REVIEWER_DRAFT,
+        "dry_run": True,
+        "skipped": True,
+        "reason": MODE_REVIEWER_DRAFT,
+        "reviewer_output": "reviewer_output.md",
+        "has_review": bool(llm_result.get("has_review")),
+        "review_verdict": str(llm_result.get("review_verdict") or "UNKNOWN"),
+        "actions": [],
+        "llm": {
+            "provider": llm_result.get("provider"),
+            "model": llm_result.get("model"),
+            "configured_model": llm_result.get("configured_model"),
+            "attempted_models": llm_result.get("attempted_models"),
+            "selected_model": llm_result.get("selected_model"),
+            "status": llm_result.get("status"),
+            "final_status": llm_result.get("final_status"),
+            "last_error": llm_result.get("last_error"),
+            "context_included": llm_result.get("context_included"),
+            "context_chars": llm_result.get("context_chars"),
+            "include_paths": llm_result.get("include_paths"),
+            "included_files": llm_result.get("included_files"),
+            "missing_files": llm_result.get("missing_files"),
+            "has_review": llm_result.get("has_review"),
+            "review_verdict": llm_result.get("review_verdict"),
+        },
+    }
+
+
+def _build_reviewer_draft_apply_result() -> dict[str, Any]:
+    return {
+        "ok": True,
+        "dry_run": True,
+        "applied": False,
+        "skipped": True,
+        "reason": MODE_REVIEWER_DRAFT,
+        "actions": [],
+        "message": "Reviewer-draft mode: review saved, no files changed.",
+    }
+
+
 def _build_skipped_checks_result(reason: str) -> dict[str, Any]:
     return {
         "ok": True,
@@ -709,6 +874,72 @@ def _build_coder_draft_prompt(task: dict[str, Any], *, project_context: dict[str
     return "\n".join(parts).strip() + "\n"
 
 
+def _build_reviewer_draft_prompt(task: dict[str, Any], *, project_context: dict[str, Any] | None = None) -> str:
+    context_text = ""
+    if project_context and project_context.get("included"):
+        context_text = str(project_context.get("text") or "").strip()
+
+    parts = [
+        "# Prompt for AI Director Reviewer Draft",
+        "",
+        "You are a senior Python code reviewer working in safe review mode.",
+        "Review the supplied code or text only. Do not modify files, do not run commands, do not apply patches, and do not write code into the project.",
+        "Use the project structure and include_paths content as your only source context.",
+        "Do not make assumptions about files outside the provided context.",
+        "If required code or tests are missing from include_paths, mark related checks as UNKNOWN or BLOCKED.",
+        "",
+        "Check all of the following:",
+        "- whether the code satisfies the task requirements;",
+        "- whether business logic is preserved;",
+        "- edge cases;",
+        "- risks around empty values, wrong fallbacks, or data loss;",
+        "- unnecessary complexity;",
+        "- whether tests are sufficient;",
+        "- which tests should be added;",
+        "- whether the code can be applied safely.",
+        "",
+        context_text or "(project context unavailable)",
+        "",
+        "## Task",
+        "```json",
+        json.dumps(task, ensure_ascii=False, indent=2),
+        "```",
+        "",
+        "Return strictly this Markdown structure and nothing outside it:",
+        "",
+        "# Review verdict",
+        "PASS / NEEDS_CHANGES / BLOCKED",
+        "",
+        "# Summary",
+        "Краткая оценка.",
+        "",
+        "# Requirement check",
+        "- requirement: ...",
+        "  status: PASS/FAIL/UNKNOWN",
+        "  comment: ...",
+        "",
+        "# Issues",
+        "## Critical",
+        "- ...",
+        "",
+        "## Major",
+        "- ...",
+        "",
+        "## Minor",
+        "- ...",
+        "",
+        "# Test recommendations",
+        "- ...",
+        "",
+        "# Suggested fixes",
+        "- ...",
+        "",
+        "# Final recommendation",
+        "Применять / не применять / применить после правок.",
+    ]
+    return "\n".join(parts).strip() + "\n"
+
+
 def _is_planner_only(task: dict[str, Any]) -> bool:
     return _task_mode(task) == MODE_PLANNER_ONLY
 
@@ -717,8 +948,12 @@ def _is_coder_draft(task: dict[str, Any]) -> bool:
     return _task_mode(task) == MODE_CODER_DRAFT
 
 
+def _is_reviewer_draft(task: dict[str, Any]) -> bool:
+    return _task_mode(task) == MODE_REVIEWER_DRAFT
+
+
 def _uses_project_context(task: dict[str, Any]) -> bool:
-    return _task_mode(task) in {MODE_PLANNER_ONLY, MODE_CODER_DRAFT}
+    return _task_mode(task) in {MODE_PLANNER_ONLY, MODE_CODER_DRAFT, MODE_REVIEWER_DRAFT}
 
 
 def _task_mode(task: dict[str, Any]) -> str:
@@ -774,6 +1009,25 @@ def _extract_section_bullets(text: str, section: str) -> list[str]:
 
 def _has_code_block(text: str) -> bool:
     return bool(re.search(r"```(?:\w+)?\s*\n.+?\n```", text, flags=re.DOTALL))
+
+
+def _extract_review_verdict(text: str) -> str:
+    match = re.search(r"(?ims)^#\s+Review verdict\s*\n(?P<body>.*?)(?=^#\s+|\Z)", text)
+    if not match:
+        return "UNKNOWN"
+
+    for line in match.group("body").splitlines():
+        normalized = line.strip().strip("*_`:- ").upper()
+        if not normalized:
+            continue
+        if "/" in normalized and sum(verdict in normalized for verdict in REVIEW_VERDICTS) > 1:
+            continue
+        verdict = normalized.split()[0].strip(":")
+        if normalized.startswith("NEEDS_CHANGES"):
+            verdict = "NEEDS_CHANGES"
+        if verdict in REVIEW_VERDICTS:
+            return verdict
+    return "UNKNOWN"
 
 
 def _is_empty_file_marker(value: str) -> bool:

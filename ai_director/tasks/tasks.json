@@ -296,7 +296,7 @@
       "id": "fix-fallback-logic_20260428_163724",
       "title": "Fix fallback logic",
       "description": "справь функцию normalize_task_title.\n\nТС требования:\n1. икогда не возвращать пустую строку\n2. сли результат пустой — вернуть 'task'\n3.  удалять fallback 'task'\n4. Сохранить ограничение длины 100 символов\n5.  ломать существующие тесты (кроме тех, что противоречат этим требованиям — их нужно исправить)\n\nритерии приёмки:\n- результат всегда непустая строка\n- len(result) <= 100\n- все тесты проходят\n\nерни полный код файлов.",
-      "status": "CODING_DRAFT",
+      "status": "DONE",
       "mode": "coder_draft",
       "priority": "low",
       "created_at": "2026-04-28T16:37:24",
@@ -313,6 +313,172 @@
         "ai_director/utils.py",
         "tests/test_ai_director_utils.py"
       ]
+    },
+    {
+      "id": "fix-normalize-task-title-logic_20260428_163935",
+      "title": "Fix normalize_task_title logic",
+      "description": "справь функцию normalize_task_title.\n\nЬЯ :\n1. ормализовать строку (lowercase, убрать лишние символы)\n2. сли результат пустой → вернуть 'task'\n3.  не удалять слово 'task' из строки\n4. граничить длину до 100 символов\n\nЩ:\n- удалять слово 'task' из текста\n- возвращать пустую строку\n\nритерии приёмки:\n- результат всегда непустой\n- len(result) <= 100\n- строка сохраняет смысл исходного текста\n\nбнови тесты при необходимости.\n\nерни полный код файлов.",
+      "status": "DONE",
+      "mode": "coder_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T16:39:35",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/utils.py",
+        "tests/test_ai_director_utils.py"
+      ]
+    },
+    {
+      "id": "review-normalize-task-title_20260428_165024",
+      "title": "Review normalize_task_title",
+      "description": "Проверь реализацию normalize_task_title. Требования: результат всегда непустой; fallback 'task' используется если результат пустой; слово task не удаляется из строки; длина результата <= 100; тесты должны покрывать эти требования.",
+      "status": "DONE",
+      "mode": "reviewer_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T16:50:24",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/logs/runs/20260428_155410_code-smoke_20260428_155410/coder_output.md"
+      ]
+    },
+    {
+      "id": "final-review-normalize-task-title_20260428_170419",
+      "title": "Final review normalize_task_title",
+      "description": "роверь финальную реализацию normalize_task_title.\n\nТребования:\n- результат всегда непустой\n- fallback 'task' используется если строка пустая\n- слово 'task' не удаляется\n- длина результата <= 100\n- тесты покрывают эти требования\n\nцени корректность реализации.",
+      "status": "DONE",
+      "mode": "reviewer_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T17:04:19",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/utils.py",
+        "tests/test_ai_director_utils.py"
+      ]
+    },
+    {
+      "id": "final-review-normalize-task-title_20260428_172123",
+      "title": "Final review normalize_task_title",
+      "description": "роверь реализацию normalize_task_title по требованиям.",
+      "status": "DONE",
+      "mode": "reviewer_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T17:21:23",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/utils.py",
+        "tests/test_ai_director_utils.py"
+      ]
+    },
+    {
+      "id": "add-env-config-loader_20260428_172730",
+      "title": "Add env config loader",
+      "description": "Создай файл ai_director/config.py с функцией load_env_config().\n\nТребования:\n- читает .env файл из корня проекта\n- возвращает dict[str, str]\n- игнорирует пустые строки\n- игнорирует строки начинающиеся с #\n- обрабатывает строки вида KEY=VALUE\n- обрезает пробелы вокруг ключа и значения\n- если файл не найден — вернуть пустой dict\n\nобавь тесты:\n- корректный парсинг\n- игнор комментариев\n- игнор пустых строк\n- отсутствие файла\n\nерни полный код файлов.",
+      "status": "DONE",
+      "mode": "coder_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T17:27:30",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "README_AI_DIRECTOR.md"
+      ]
+    },
+    {
+      "id": "review-config-loader_20260428_175042",
+      "title": "Review config loader",
+      "description": "роверь реализацию load_env_config.",
+      "status": "DONE",
+      "mode": "reviewer_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T17:50:42",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/config.py",
+        "tests/test_config_loader.py"
+      ]
+    },
+    {
+      "id": "env-test_20260428_180601",
+      "title": "env test",
+      "description": "тест",
+      "status": "NEW",
+      "mode": "planner_only",
+      "priority": "low",
+      "created_at": "2026-04-28T18:06:01",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0
+    },
+    {
+      "id": "env-test_20260428_180902",
+      "title": "env test",
+      "description": "тест",
+      "status": "DONE",
+      "mode": "planner_only",
+      "priority": "low",
+      "created_at": "2026-04-28T18:09:02",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0
     }
   ]
 }
