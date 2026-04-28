@@ -162,6 +162,28 @@
       ],
       "max_iterations": 3,
       "iterations": 0
+    },
+    {
+      "id": "include-smoke_20260428_151536",
+      "title": "Include smoke",
+      "description": "Кратко оцени эти файлы",
+      "status": "DONE",
+      "mode": "planner_only",
+      "priority": "low",
+      "created_at": "2026-04-28T15:15:36",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/orchestrator.py",
+        "src/openrouter_client.py"
+      ]
     }
   ]
 }

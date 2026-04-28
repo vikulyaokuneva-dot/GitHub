@@ -170,13 +170,17 @@ python ai_director/orchestrator.py
 
 ```json
 {
-  "mode": "planner_only"
+  "mode": "planner_only",
+  "include_paths": [
+    "ai_director/orchestrator.py",
+    "src/openrouter_client.py"
+  ]
 }
 ```
 
 `planner_only` используется для аналитических и планировочных задач, где нужно получить краткий план от LLM, но нельзя применять изменения к коду.
 
-Перед задачей Orchestrator добавляет краткий project context до 8000 символов: верхнеуровневые файлы и папки, наличие ключевых путей, последние 3 run-директории и выдержку из `README_AI_DIRECTOR.md`. В `llm_result.json` сохраняются `context_included` и `context_chars`.
+Перед задачей Orchestrator добавляет краткий project context до 8000 символов: верхнеуровневые файлы и папки, наличие ключевых путей, указанные в `include_paths` файлы, последние 3 run-директории и выдержку из `README_AI_DIRECTOR.md`. В `llm_result.json` сохраняются `context_included`, `context_chars`, `include_paths`, `included_files` и `missing_files`.
 
 В этом режиме Orchestrator:
 
@@ -228,6 +232,7 @@ python ai_director/show_last_run.py --full
 ```bash
 python ai_director/run_once.py --title "Next step" --prompt "Предложи следующий безопасный шаг развития AI Director WB"
 python ai_director/run_once.py --title "Next step" --prompt "..." --full
+python ai_director/run_once.py --title "Review OpenRouter client" --prompt "Проанализируй клиент и предложи улучшения" --include src/openrouter_client.py
 ```
 
 ## Apply Stage безопасный dry-run

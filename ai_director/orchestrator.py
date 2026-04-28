@@ -58,7 +58,14 @@ def main(task_id: str | None = None) -> int:
     update_task_status(tasks_payload, task_id, "IN_PROGRESS")
     save_tasks(tasks_payload)
 
-    planner_context = collect_project_context(exclude_run_dir=run_dir) if _is_planner_only(task) else None
+    planner_context = (
+        collect_project_context(
+            include_paths=_task_include_paths(task),
+            exclude_run_dir=run_dir,
+        )
+        if _is_planner_only(task)
+        else None
+    )
     developer_prompt = (
         _build_planner_prompt(task, project_context=planner_context)
         if _is_planner_only(task)
@@ -268,6 +275,9 @@ def _get_task_to_run(tasks_payload: dict[str, Any], *, task_id: str | None = Non
 def _attach_context_metadata(llm_result: dict[str, Any], planner_context: dict[str, Any] | None) -> None:
     llm_result["context_included"] = bool(planner_context and planner_context.get("included"))
     llm_result["context_chars"] = int(planner_context.get("chars") or 0) if planner_context else 0
+    llm_result["include_paths"] = list(planner_context.get("include_paths") or []) if planner_context else []
+    llm_result["included_files"] = list(planner_context.get("included_files") or []) if planner_context else []
+    llm_result["missing_files"] = list(planner_context.get("missing_files") or []) if planner_context else []
 
 
 def _call_llm(prompt: str) -> dict[str, Any]:
@@ -417,6 +427,9 @@ def _build_planner_apply_plan(llm_result: dict[str, Any]) -> dict[str, Any]:
             "last_error": llm_result.get("last_error"),
             "context_included": llm_result.get("context_included"),
             "context_chars": llm_result.get("context_chars"),
+            "include_paths": llm_result.get("include_paths"),
+            "included_files": llm_result.get("included_files"),
+            "missing_files": llm_result.get("missing_files"),
         },
     }
 
@@ -510,6 +523,15 @@ def _build_planner_prompt(task: dict[str, Any], *, project_context: dict[str, An
 
 def _is_planner_only(task: dict[str, Any]) -> bool:
     return str(task.get("mode") or "").strip().lower() == "planner_only"
+
+
+def _task_include_paths(task: dict[str, Any]) -> list[str]:
+    include_paths = task.get("include_paths")
+    if isinstance(include_paths, str):
+        return [include_paths]
+    if not isinstance(include_paths, list):
+        return []
+    return [str(path) for path in include_paths if str(path).strip()]
 
 
 def _ensure_check_success_flags(check_results: dict[str, Any]) -> None:

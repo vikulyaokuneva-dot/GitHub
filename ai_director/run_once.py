@@ -18,11 +18,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Create and run one planner-only AI Director task.")
     parser.add_argument("--title", required=True, help="Task title.")
     parser.add_argument("--prompt", required=True, help="Task prompt/description.")
+    parser.add_argument(
+        "--include",
+        action="append",
+        dest="include_paths",
+        default=[],
+        help="Relative file path to include in planner context. Can be used multiple times.",
+    )
     parser.add_argument("--full", action="store_true", help="Print the full LLM response after the run.")
     args = parser.parse_args(argv)
 
     try:
-        task = create_task(title=args.title, prompt=args.prompt, mode="planner_only")
+        task = create_task(
+            title=args.title,
+            prompt=args.prompt,
+            mode="planner_only",
+            include_paths=args.include_paths,
+        )
     except TaskFileError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

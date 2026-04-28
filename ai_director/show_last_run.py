@@ -45,6 +45,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"final_status: {_first_value(llm_result, llm_meta, key='final_status')}")
     print(f"context_included: {_first_value(llm_result, key='context_included')}")
     print(f"context_chars: {_first_value(llm_result, key='context_chars')}")
+    _print_path_list("include_paths", llm_result.get("include_paths") if isinstance(llm_result, dict) else [])
+    _print_path_list("included_files", llm_result.get("included_files") if isinstance(llm_result, dict) else [])
+    _print_path_list("missing_files", llm_result.get("missing_files") if isinstance(llm_result, dict) else [])
     print("attempted_models:")
     for model in _attempted_models(llm_result, llm_meta):
         print(f"- {model}")
@@ -135,6 +138,44 @@ def _attempted_models(*sources: dict[str, Any]) -> list[str]:
         if isinstance(models, list) and models:
             return [str(model) for model in models]
     return ["(missing)"]
+
+
+def _print_path_list(label: str, value: Any) -> None:
+    print(f"{label}:")
+    entries = _list_value(value)
+    if not entries:
+        print("- (none)")
+        return
+    for entry in entries:
+        print(f"- {_format_path_entry(entry)}")
+
+
+def _list_value(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str) and value.strip():
+        return [value]
+    return []
+
+
+def _format_path_entry(entry: Any) -> str:
+    if not isinstance(entry, dict):
+        return str(entry)
+
+    path = str(entry.get("path") or "(missing)")
+    details = []
+    reason = entry.get("reason")
+    if reason:
+        details.append(str(reason))
+    chars = entry.get("chars")
+    original_chars = entry.get("original_chars")
+    if chars is not None and original_chars is not None:
+        details.append(f"{chars}/{original_chars} chars")
+    elif chars is not None:
+        details.append(f"{chars} chars")
+    if "truncated" in entry:
+        details.append(f"truncated={str(bool(entry.get('truncated'))).lower()}")
+    return f"{path} ({', '.join(details)})" if details else path
 
 
 def _string_value(value: Any) -> str:

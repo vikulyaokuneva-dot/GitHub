@@ -20,11 +20,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--title", required=True, help="Task title.")
     parser.add_argument("--prompt", required=True, help="Task prompt/description.")
     parser.add_argument("--mode", default="planner_only", help="Task mode. Default: planner_only.")
+    parser.add_argument(
+        "--include",
+        action="append",
+        dest="include_paths",
+        default=[],
+        help="Relative file path to include in planner context. Can be used multiple times.",
+    )
     parser.add_argument("--tasks-file", default=str(TASKS_FILE), help="Path to tasks.json.")
     args = parser.parse_args(argv)
 
     try:
-        task = create_task(title=args.title, prompt=args.prompt, mode=args.mode, tasks_file=Path(args.tasks_file))
+        task = create_task(
+            title=args.title,
+            prompt=args.prompt,
+            mode=args.mode,
+            include_paths=args.include_paths,
+            tasks_file=Path(args.tasks_file),
+        )
     except TaskFileError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -37,11 +50,24 @@ class TaskFileError(Exception):
     pass
 
 
-def create_task(*, title: str, prompt: str, mode: str = "planner_only", tasks_file: str | Path = TASKS_FILE) -> dict[str, Any]:
+def create_task(
+    *,
+    title: str,
+    prompt: str,
+    mode: str = "planner_only",
+    include_paths: list[str] | None = None,
+    tasks_file: str | Path = TASKS_FILE,
+) -> dict[str, Any]:
     target = Path(tasks_file)
     payload = _load_tasks(target)
     tasks = payload.setdefault("tasks", [])
-    task = _build_task(title=title, prompt=prompt, mode=mode, existing_tasks=tasks)
+    task = _build_task(
+        title=title,
+        prompt=prompt,
+        mode=mode,
+        include_paths=include_paths,
+        existing_tasks=tasks,
+    )
     tasks.append(task)
     _save_tasks(target, payload)
     return task
@@ -81,11 +107,12 @@ def _build_task(
     title: str,
     prompt: str,
     mode: str,
+    include_paths: list[str] | None,
     existing_tasks: list[Any],
 ) -> dict[str, Any]:
     created_at = datetime.now().isoformat(timespec="seconds")
     task_id = _unique_task_id(title, existing_tasks)
-    return {
+    task = {
         "id": task_id,
         "title": title,
         "description": prompt,
@@ -103,6 +130,10 @@ def _build_task(
         "max_iterations": 3,
         "iterations": 0,
     }
+    clean_include_paths = _clean_include_paths(include_paths)
+    if clean_include_paths:
+        task["include_paths"] = clean_include_paths
+    return task
 
 
 def _unique_task_id(title: str, existing_tasks: list[Any]) -> str:
@@ -127,6 +158,16 @@ def _slugify(value: str) -> str:
     ascii_value = normalized.encode("ascii", "ignore").decode("ascii").lower()
     slug = re.sub(r"[^a-z0-9]+", "-", ascii_value).strip("-")
     return slug or "task"
+
+
+def _clean_include_paths(include_paths: list[str] | None) -> list[str]:
+    if not include_paths:
+        return []
+    return [
+        str(path).strip().replace("\\", "/")
+        for path in include_paths
+        if str(path).strip()
+    ]
 
 
 if __name__ == "__main__":
