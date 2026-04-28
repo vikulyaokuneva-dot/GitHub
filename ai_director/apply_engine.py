@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,36 @@ def parse_llm_response(response: str) -> dict[str, Any]:
             "ok": False,
             "reason": "No real LLM response to apply",
             "files": [],
+        }
+
+    try:
+        payload = json.loads(response)
+    except json.JSONDecodeError:
+        payload = None
+
+    if isinstance(payload, dict):
+        files = payload.get("files")
+        if not isinstance(files, list):
+            files = []
+
+        normalized_files = []
+        for item in files:
+            if not isinstance(item, dict):
+                normalized_files.append(item)
+                continue
+            normalized_item = dict(item)
+            if (
+                "operation" not in normalized_item
+                and normalized_item.get("path")
+                and "content" in normalized_item
+            ):
+                normalized_item["operation"] = "upsert"
+            normalized_files.append(normalized_item)
+
+        return {
+            **payload,
+            "ok": bool(payload.get("ok")),
+            "files": normalized_files,
         }
 
     return {
