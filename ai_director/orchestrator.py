@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import difflib
 import json
 import os
 import re
@@ -457,22 +459,31 @@ def _run_auto_apply_draft_task(
 
     print("Auto-apply draft started")
     source_path, source_error = _find_coder_output_source(task, config.PROJECT_ROOT)
+    apply_plan_data: dict[str, Any]
+    auto_apply_diff = ""
     if source_path is None:
         auto_apply_result = _build_auto_apply_error_result(source_error or "coder_output.md not found")
+        apply_plan_data = _build_auto_apply_plan([], source="coder_output.md", error=source_error)
     else:
         try:
             markdown = source_path.read_text(encoding="utf-8-sig")
         except OSError as exc:
             auto_apply_result = _build_auto_apply_error_result(f"cannot read coder_output.md: {exc}")
+            apply_plan_data = _build_auto_apply_plan([], source=source_path.name, error=str(exc))
         else:
+            blocks = parse_coder_output(markdown)
+            apply_plan_data = _build_auto_apply_plan(blocks, source=source_path.name)
+            auto_apply_diff = _build_auto_apply_diff(blocks, project_root=config.PROJECT_ROOT)
             auto_apply_result = apply_coder_output(
                 markdown,
                 project_root=config.PROJECT_ROOT,
                 source=source_path.name,
             )
 
+    write_json(run_dir / "apply_plan.json", apply_plan_data)
     write_json(run_dir / "auto_apply_result.json", auto_apply_result)
     write_json(run_dir / "apply_result.json", auto_apply_result)
+    write_text(run_dir / "auto_apply.diff", auto_apply_diff)
     write_json(run_dir / "llm_result.json", _build_auto_apply_llm_result(task, auto_apply_result))
 
     if bool(task.get("run_checks")):
@@ -927,6 +938,70 @@ def apply_coder_output(
     }
 
 
+def _build_auto_apply_plan(
+    blocks: list[dict[str, str]],
+    *,
+    source: str,
+    error: str | None = None,
+) -> dict[str, Any]:
+    files = []
+    violations = []
+    for block in blocks:
+        path = str(block.get("path") or "")
+        target, reason = _resolve_auto_apply_target(config.PROJECT_ROOT, path)
+        safe = target is not None
+        if not safe:
+            violations.append({"path": path, "reason": reason})
+        files.append(
+            {
+                "path": path,
+                "operation": "upsert",
+                "language": str(block.get("language") or ""),
+                "content_chars": len(str(block.get("content") or "")),
+                "safe": safe,
+                "reason": reason,
+            }
+        )
+
+    if error:
+        violations.append({"path": "", "reason": error})
+
+    return {
+        "ok": bool(files) and not violations,
+        "mode": MODE_AUTO_APPLY_DRAFT,
+        "source": source,
+        "files": files,
+        "violations": violations,
+        "dry_run": False,
+    }
+
+
+def _build_auto_apply_diff(blocks: list[dict[str, str]], *, project_root: str | Path) -> str:
+    root = Path(project_root)
+    chunks: list[str] = []
+    for block in blocks:
+        path = str(block.get("path") or "")
+        target, reason = _resolve_auto_apply_target(root, path)
+        if target is None:
+            chunks.extend([f"# skipped {path}: {reason}\n"])
+            continue
+
+        before = target.read_text(encoding="utf-8") if target.is_file() else ""
+        after = str(block.get("content") or "")
+        chunks.extend(
+            difflib.unified_diff(
+                before.splitlines(keepends=True),
+                after.splitlines(keepends=True),
+                fromfile=f"a/{_display_project_path(root, target)}",
+                tofile=f"b/{_display_project_path(root, target)}",
+                lineterm="",
+            )
+        )
+        if chunks and not chunks[-1].endswith("\n"):
+            chunks[-1] += "\n"
+    return "".join(chunks)
+
+
 def _build_skipped_checks_result(reason: str) -> dict[str, Any]:
     return {
         "ok": True,
@@ -1362,5 +1437,12 @@ def _read_prompt(filename: str) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
+def _main_cli(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run AI Director orchestrator.")
+    parser.add_argument("--task-id", default=None, help="Run a specific NEW task id.")
+    args = parser.parse_args(argv)
+    return main(task_id=args.task_id)
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_main_cli())

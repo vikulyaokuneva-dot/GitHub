@@ -620,6 +620,19 @@
       "include_paths": [
         "ai_director/logs/runs/manual_auto_apply_valid/coder_output.md"
       ]
+    },
+    {
+      "id": "test_auto_apply_hello",
+      "title": "Test auto_apply hello file",
+      "prompt": "Добавь файл ai_director/hello_auto_apply.py с функцией get_status(), возвращающей строку AI Director auto apply works, и тест tests/test_hello_auto_apply.py.",
+      "description": "Добавь файл ai_director/hello_auto_apply.py с функцией get_status(), возвращающей строку AI Director auto apply works, и тест tests/test_hello_auto_apply.py.",
+      "mode": "auto_apply_draft",
+      "status": "DONE",
+      "max_iterations": 1,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/logs/runs/manual_test_auto_apply_hello/coder_output.md"
+      ]
     }
   ]
 }
