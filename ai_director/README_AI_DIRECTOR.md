@@ -235,6 +235,18 @@ python ai_director/run_once.py --title "Next step" --prompt "..." --full
 python ai_director/run_once.py --title "Review OpenRouter client" --prompt "Проанализируй клиент и предложи улучшения" --include src/openrouter_client.py
 ```
 
+## Coder-draft режим
+
+`coder_draft` используется, когда нужно получить готовый черновик кода от LLM, но не менять файлы автоматически. Режим использует общий project context и `include_paths`, сохраняет ответ в `coder_output.md`, добавляет в `llm_result.json` поля `mode`, `files_suggested` и `has_code`, а apply/check стадии остаются skipped.
+
+Формат запуска:
+
+```bash
+python ai_director/run_once.py --mode coder_draft --title "Code smoke" --prompt "Добавь файл ai_director/utils.py с функцией normalize_task_title(title: str) -> str и тесты" --include ai_director/README_AI_DIRECTOR.md
+```
+
+Ответ модели должен быть вручную перенесён в проект через VS Code после проверки человеком.
+
 ## Apply Stage безопасный dry-run
 
 `apply_engine.py` - это слой будущего применения фиксов от Fixer Agent.

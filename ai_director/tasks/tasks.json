@@ -184,6 +184,135 @@
         "ai_director/orchestrator.py",
         "src/openrouter_client.py"
       ]
+    },
+    {
+      "id": "code-smoke_20260428_154720",
+      "title": "Code smoke",
+      "description": "Добавь файл ai_director/utils.py с функцией normalize_task_title(title: str) -> str и тесты",
+      "status": "DONE",
+      "mode": "coder_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T15:47:20",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/README_AI_DIRECTOR.md"
+      ]
+    },
+    {
+      "id": "code-smoke_20260428_155100",
+      "title": "Code smoke",
+      "description": "Добавь файл ai_director/utils.py с функцией normalize_task_title(title: str) -> str и тесты",
+      "status": "DONE",
+      "mode": "coder_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T15:51:00",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/README_AI_DIRECTOR.md"
+      ]
+    },
+    {
+      "id": "code-smoke_20260428_155410",
+      "title": "Code smoke",
+      "description": "Добавь файл ai_director/utils.py с функцией normalize_task_title(title: str) -> str и тесты",
+      "status": "DONE",
+      "mode": "coder_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T15:54:10",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/README_AI_DIRECTOR.md"
+      ]
+    },
+    {
+      "id": "improve-normalize-task-title_20260428_161659",
+      "title": "Improve normalize_task_title",
+      "description": "лучши функцию normalize_task_title: добавь fallback 'task', если строка пустая; не ломай текущие тесты; добавь тест на длинную строку",
+      "status": "DONE",
+      "mode": "coder_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T16:16:59",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/utils.py",
+        "tests/test_ai_director_utils.py"
+      ]
+    },
+    {
+      "id": "enforce-length-limit_20260428_163501",
+      "title": "Enforce length limit",
+      "description": "бнови функцию normalize_task_title.\n\nбязательные требования:\n1. граничить длину результата до 100 символов\n2.  удалять fallback 'task'\n3.  ломать существующие тесты\n4. обавить тест, который проверяет что длина результата <= 100\n\nритерии приёмки:\n- len(result) <= 100 для любой строки\n- тесты проходят\n\nерни полный код файлов.",
+      "status": "DONE",
+      "mode": "coder_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T16:35:01",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/utils.py",
+        "tests/test_ai_director_utils.py"
+      ]
+    },
+    {
+      "id": "fix-fallback-logic_20260428_163724",
+      "title": "Fix fallback logic",
+      "description": "справь функцию normalize_task_title.\n\nТС требования:\n1. икогда не возвращать пустую строку\n2. сли результат пустой — вернуть 'task'\n3.  удалять fallback 'task'\n4. Сохранить ограничение длины 100 символов\n5.  ломать существующие тесты (кроме тех, что противоречат этим требованиям — их нужно исправить)\n\nритерии приёмки:\n- результат всегда непустая строка\n- len(result) <= 100\n- все тесты проходят\n\nерни полный код файлов.",
+      "status": "CODING_DRAFT",
+      "mode": "coder_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T16:37:24",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/utils.py",
+        "tests/test_ai_director_utils.py"
+      ]
     }
   ]
 }

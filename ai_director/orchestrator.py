@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,8 @@ except ModuleNotFoundError:
 
 LLM_PROVIDER = getattr(config, "LLM_PROVIDER", "openrouter")
 DEFAULT_OPENROUTER_MODEL = getattr(config, "DEFAULT_AI_DIRECTOR_MODEL", "qwen/qwen3-coder:free")
+MODE_PLANNER_ONLY = "planner_only"
+MODE_CODER_DRAFT = "coder_draft"
 
 
 def main(task_id: str | None = None) -> int:
@@ -58,19 +61,20 @@ def main(task_id: str | None = None) -> int:
     update_task_status(tasks_payload, task_id, "IN_PROGRESS")
     save_tasks(tasks_payload)
 
-    planner_context = (
+    draft_context = (
         collect_project_context(
             include_paths=_task_include_paths(task),
             exclude_run_dir=run_dir,
         )
-        if _is_planner_only(task)
+        if _uses_project_context(task)
         else None
     )
-    developer_prompt = (
-        _build_planner_prompt(task, project_context=planner_context)
-        if _is_planner_only(task)
-        else _build_developer_prompt(task)
-    )
+    if _is_coder_draft(task):
+        developer_prompt = _build_coder_draft_prompt(task, project_context=draft_context)
+    elif _is_planner_only(task):
+        developer_prompt = _build_planner_prompt(task, project_context=draft_context)
+    else:
+        developer_prompt = _build_developer_prompt(task)
     write_text(run_dir / "prompt_for_developer.md", developer_prompt)
 
     if _is_planner_only(task):
@@ -80,7 +84,17 @@ def main(task_id: str | None = None) -> int:
             task_id=task_id,
             run_dir=run_dir,
             planner_prompt=developer_prompt,
-            planner_context=planner_context,
+            planner_context=draft_context,
+        )
+
+    if _is_coder_draft(task):
+        return _run_coder_draft_task(
+            task=task,
+            tasks_payload=tasks_payload,
+            task_id=task_id,
+            run_dir=run_dir,
+            coder_prompt=developer_prompt,
+            coder_context=draft_context,
         )
 
     update_task_status(tasks_payload, task_id, "READY_TO_CHECK")
@@ -249,6 +263,77 @@ def _run_planner_only_task(
     return 0 if final_status == "DONE" else 1
 
 
+def _run_coder_draft_task(
+    *,
+    task: dict[str, Any],
+    tasks_payload: dict[str, Any],
+    task_id: str,
+    run_dir: Path,
+    coder_prompt: str,
+    coder_context: dict[str, Any] | None,
+) -> int:
+    update_task_status(tasks_payload, task_id, "CODING_DRAFT")
+    save_tasks(tasks_payload)
+
+    print("Coder-draft prompt created")
+    llm_result = _call_llm(coder_prompt)
+    _attach_context_metadata(llm_result, coder_context)
+    _attach_coder_draft_metadata(llm_result)
+    write_json(run_dir / "llm_result.json", llm_result)
+    coder_output = str(llm_result.get("text") or "")
+    write_text(run_dir / "coder_output.md", coder_output)
+
+    check_results = _build_skipped_checks_result(MODE_CODER_DRAFT)
+    guard_result = _build_skipped_guard_result(MODE_CODER_DRAFT)
+    write_json(run_dir / "check_results.json", check_results)
+    write_json(run_dir / "guard_result.json", guard_result)
+
+    if not llm_result["ok"]:
+        final_status = str(llm_result["status"])
+        update_task_status(tasks_payload, task_id, final_status)
+        write_json(run_dir / "apply_plan.json", _build_skipped_apply_plan(final_status, llm_result))
+        write_json(run_dir / "apply_result.json", _build_skipped_apply_result(final_status))
+        print(f"LLM unavailable: {final_status}. Details saved to llm_result.json")
+    else:
+        final_status = "DONE"
+        update_task_status(tasks_payload, task_id, final_status)
+        write_json(run_dir / "apply_plan.json", _build_coder_draft_apply_plan(llm_result))
+        write_json(run_dir / "apply_result.json", _build_coder_draft_apply_result())
+        print("Coder draft saved")
+        print("Apply stage skipped by coder_draft mode")
+
+    save_tasks(tasks_payload)
+
+    final_report = build_run_summary(
+        task=task,
+        final_status=final_status,
+        checks_result=check_results,
+        guard_result=guard_result,
+        run_dir=run_dir,
+    )
+    write_text(run_dir / "final_report.md", final_report)
+
+    print("Checks skipped: coder_draft")
+    print("Guard skipped: coder_draft")
+    print("Iterations:", task["iterations"])
+    print(
+        json.dumps(
+            {
+                "task_id": task_id,
+                "status": final_status,
+                "mode": MODE_CODER_DRAFT,
+                "run_dir": str(run_dir),
+                "coder_output": str(run_dir / "coder_output.md"),
+                "checks_ok": True,
+                "file_guard_ok": True,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0 if final_status == "DONE" else 1
+
+
 def _get_task_to_run(tasks_payload: dict[str, Any], *, task_id: str | None = None) -> dict[str, Any] | None:
     if task_id is None:
         return get_next_task(tasks_payload)
@@ -278,6 +363,13 @@ def _attach_context_metadata(llm_result: dict[str, Any], planner_context: dict[s
     llm_result["include_paths"] = list(planner_context.get("include_paths") or []) if planner_context else []
     llm_result["included_files"] = list(planner_context.get("included_files") or []) if planner_context else []
     llm_result["missing_files"] = list(planner_context.get("missing_files") or []) if planner_context else []
+
+
+def _attach_coder_draft_metadata(llm_result: dict[str, Any]) -> None:
+    llm_response = str(llm_result.get("text") or "")
+    llm_result["mode"] = MODE_CODER_DRAFT
+    llm_result["files_suggested"] = _extract_files_suggested(llm_response)
+    llm_result["has_code"] = _has_code_block(llm_response)
 
 
 def _call_llm(prompt: str) -> dict[str, Any]:
@@ -446,6 +538,49 @@ def _build_planner_apply_result() -> dict[str, Any]:
     }
 
 
+def _build_coder_draft_apply_plan(llm_result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "mode": MODE_CODER_DRAFT,
+        "dry_run": True,
+        "skipped": True,
+        "reason": MODE_CODER_DRAFT,
+        "coder_output": "coder_output.md",
+        "files_suggested": list(llm_result.get("files_suggested") or []),
+        "has_code": bool(llm_result.get("has_code")),
+        "actions": [],
+        "llm": {
+            "provider": llm_result.get("provider"),
+            "model": llm_result.get("model"),
+            "configured_model": llm_result.get("configured_model"),
+            "attempted_models": llm_result.get("attempted_models"),
+            "selected_model": llm_result.get("selected_model"),
+            "status": llm_result.get("status"),
+            "final_status": llm_result.get("final_status"),
+            "last_error": llm_result.get("last_error"),
+            "context_included": llm_result.get("context_included"),
+            "context_chars": llm_result.get("context_chars"),
+            "include_paths": llm_result.get("include_paths"),
+            "included_files": llm_result.get("included_files"),
+            "missing_files": llm_result.get("missing_files"),
+            "files_suggested": llm_result.get("files_suggested"),
+            "has_code": llm_result.get("has_code"),
+        },
+    }
+
+
+def _build_coder_draft_apply_result() -> dict[str, Any]:
+    return {
+        "ok": True,
+        "dry_run": True,
+        "applied": False,
+        "skipped": True,
+        "reason": MODE_CODER_DRAFT,
+        "actions": [],
+        "message": "Coder-draft mode: code draft saved, no files changed.",
+    }
+
+
 def _build_skipped_checks_result(reason: str) -> dict[str, Any]:
     return {
         "ok": True,
@@ -521,8 +656,73 @@ def _build_planner_prompt(task: dict[str, Any], *, project_context: dict[str, An
     return "\n".join(parts).strip() + "\n"
 
 
+def _build_coder_draft_prompt(task: dict[str, Any], *, project_context: dict[str, Any] | None = None) -> str:
+    context_text = ""
+    if project_context and project_context.get("included"):
+        context_text = str(project_context.get("text") or "").strip()
+
+    parts = [
+        "# Prompt for AI Director Coder Draft",
+        "",
+        "You are a senior Python developer working in safe draft mode.",
+        "Generate code for the task, but do not modify files, do not run commands, and do not apply patches.",
+        "Use the project structure and the included files as your only source context.",
+        "Work only with the requested include_paths for existing-file context.",
+        "Do not make assumptions about files outside the provided context.",
+        "If the task asks for a new file, provide the full proposed file content.",
+        "If the task requires modifying an existing file that was not included, list it but explain the missing context in the summary.",
+        "",
+        context_text or "(project context unavailable)",
+        "",
+        "## Task",
+        "```json",
+        json.dumps(task, ensure_ascii=False, indent=2),
+        "```",
+        "",
+        "Return strictly this Markdown structure and nothing outside it:",
+        "",
+        "# Summary",
+        "...",
+        "",
+        "# Files to create",
+        "- path/to/file.py",
+        "",
+        "# Files to modify",
+        "- path/to/file.py",
+        "",
+        "# Code",
+        "",
+        "## path/to/file.py",
+        "```python",
+        "<full code file content>",
+        "```",
+        "",
+        "# Tests",
+        "...",
+        "",
+        "# Run instructions",
+        "...",
+        "",
+        "# VS Code instructions",
+        "...",
+    ]
+    return "\n".join(parts).strip() + "\n"
+
+
 def _is_planner_only(task: dict[str, Any]) -> bool:
-    return str(task.get("mode") or "").strip().lower() == "planner_only"
+    return _task_mode(task) == MODE_PLANNER_ONLY
+
+
+def _is_coder_draft(task: dict[str, Any]) -> bool:
+    return _task_mode(task) == MODE_CODER_DRAFT
+
+
+def _uses_project_context(task: dict[str, Any]) -> bool:
+    return _task_mode(task) in {MODE_PLANNER_ONLY, MODE_CODER_DRAFT}
+
+
+def _task_mode(task: dict[str, Any]) -> str:
+    return str(task.get("mode") or "").strip().lower()
 
 
 def _task_include_paths(task: dict[str, Any]) -> list[str]:
@@ -532,6 +732,53 @@ def _task_include_paths(task: dict[str, Any]) -> list[str]:
     if not isinstance(include_paths, list):
         return []
     return [str(path) for path in include_paths if str(path).strip()]
+
+
+def _extract_files_suggested(text: str) -> list[str]:
+    files: list[str] = []
+    for section in ("Files to create", "Files to modify"):
+        files.extend(_extract_section_bullets(text, section))
+
+    for match in re.finditer(r"(?m)^##\s+(.+?)\s*$", text):
+        path = match.group(1).strip()
+        if path and not path.startswith("#"):
+            files.append(path)
+
+    seen = set()
+    result: list[str] = []
+    for path in files:
+        normalized = path.strip().strip("`").replace("\\", "/")
+        if _is_empty_file_marker(normalized) or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
+
+
+def _extract_section_bullets(text: str, section: str) -> list[str]:
+    pattern = rf"(?ms)^#\s+{re.escape(section)}\s*\n(?P<body>.*?)(?=^#\s+|\Z)"
+    match = re.search(pattern, text)
+    if not match:
+        return []
+
+    files = []
+    for line in match.group("body").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("-"):
+            continue
+        value = stripped[1:].strip().strip("`")
+        if value:
+            files.append(value)
+    return files
+
+
+def _has_code_block(text: str) -> bool:
+    return bool(re.search(r"```(?:\w+)?\s*\n.+?\n```", text, flags=re.DOTALL))
+
+
+def _is_empty_file_marker(value: str) -> bool:
+    normalized = re.sub(r"^[\s*_`]+|[\s*_`]+$", "", value).strip().lower().rstrip(".")
+    return normalized in {"", "(none)", "none", "n/a", "not applicable"} or normalized.startswith("no ")
 
 
 def _ensure_check_success_flags(check_results: dict[str, Any]) -> None:

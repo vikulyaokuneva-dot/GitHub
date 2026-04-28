@@ -15,9 +15,10 @@ except ImportError:
 def main(argv: list[str] | None = None) -> int:
     _configure_output()
 
-    parser = argparse.ArgumentParser(description="Create and run one planner-only AI Director task.")
+    parser = argparse.ArgumentParser(description="Create and run one AI Director task.")
     parser.add_argument("--title", required=True, help="Task title.")
     parser.add_argument("--prompt", required=True, help="Task prompt/description.")
+    parser.add_argument("--mode", default="planner_only", help="Task mode. Default: planner_only.")
     parser.add_argument(
         "--include",
         action="append",
@@ -32,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
         task = create_task(
             title=args.title,
             prompt=args.prompt,
-            mode="planner_only",
+            mode=args.mode,
             include_paths=args.include_paths,
         )
     except TaskFileError as exc:
@@ -40,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     task_id = str(task["id"])
-    print(f"Created planner_only task: {task_id}")
+    print(f"Created {args.mode} task: {task_id}")
     print("")
 
     orchestrator_code = orchestrator.main(task_id=task_id)
