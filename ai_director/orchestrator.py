@@ -1,5 +1,6 @@
 from __future__ import annotations
 from ai_director.config import load_env_config
+from ai_director.logger import log_event
 
 import json
 import os
@@ -54,9 +55,11 @@ def main(task_id: str | None = None) -> int:
             print(f"AI Director: no runnable NEW task with id {task_id}.")
         else:
             print("AI Director: no tasks with status NEW.")
+        log_event("No runnable task found")
         return 0
 
     task_id = str(task.get("id") or "task")
+    log_event(f"Task started: {task_id}")
     task["iterations"] = int(task.get("iterations") or 0)
     run_dir = create_run_dir(task_id)
     write_json(run_dir / "task.json", task)
@@ -206,6 +209,7 @@ def main(task_id: str | None = None) -> int:
             indent=2,
         )
     )
+    log_event(f"Task finished: {task_id} status={final_status}")
     return 0 if final_status == "DONE" else 1
 
 
@@ -275,6 +279,7 @@ def _run_planner_only_task(
             indent=2,
         )
     )
+    log_event(f"Task finished: {task_id} status={final_status}")
     return 0 if final_status == "DONE" else 1
 
 
@@ -346,6 +351,7 @@ def _run_coder_draft_task(
             indent=2,
         )
     )
+    log_event(f"Task finished: {task_id} status={final_status}")
     return 0 if final_status == "DONE" else 1
 
 
@@ -418,6 +424,7 @@ def _run_reviewer_draft_task(
             indent=2,
         )
     )
+    log_event(f"Task finished: {task_id} status={final_status}")
     return 0 if final_status == "DONE" else 1
 
 
@@ -486,6 +493,7 @@ def _call_llm(prompt: str) -> dict[str, Any]:
 
     api_key = env.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
     if not api_key:
+        log_event("LLM error: OPENROUTER_API_KEY not found")
         return _llm_error_result(
             status="no_llm",
             provider=provider,
@@ -503,10 +511,13 @@ def _call_llm(prompt: str) -> dict[str, Any]:
         os.environ["AI_DIRECTOR_MODEL_FALLBACKS"] = ",".join(fallback_models)
 
     print(f"LLM provider={provider} model={model} fallbacks={fallback_models}")
+    log_event(f"Calling LLM provider={provider} model={model}")
 
     try:
         result = generate_text_result(prompt)
+        log_event("LLM response received")
     except Exception as exc:
+        log_event(f"LLM error: {exc}")
         return _llm_error_result(
             status="api_error",
             provider=provider,
@@ -524,6 +535,7 @@ def _call_llm(prompt: str) -> dict[str, Any]:
     text = str(result.get("text") or "")
 
     if not isinstance(text, str) or not text.strip():
+        log_event("LLM error: empty OpenRouter response")
         return _llm_error_result(
             status="api_error",
             provider=provider,
@@ -535,6 +547,7 @@ def _call_llm(prompt: str) -> dict[str, Any]:
         )
 
     if not bool(result.get("ok")):
+        log_event(f"LLM error: {last_error or text}")
         return _llm_error_result(
             status=final_status,
             provider=provider,

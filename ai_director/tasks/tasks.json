@@ -479,6 +479,63 @@
       ],
       "max_iterations": 3,
       "iterations": 0
+    },
+    {
+      "id": "add-logger-utility_20260428_181453",
+      "title": "Add logger utility",
+      "description": "Создай файл ai_director/logger.py.\n\nункция:\nlog_event(message: str)\n\nТребования:\n- пишет лог в ai_director/logs/ai_director.log\n- формат: [YYYY-MM-DD HH:MM:SS] message\n- создаёт папку если нет\n- не падает при ошибках\n- использовать стандартную библиотеку\n\nобавь тест:\n- проверка записи файла\n- проверка формата строки\n\n Я существующий код проекта.\nерни полный код файлов.",
+      "status": "DONE",
+      "mode": "coder_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T18:14:53",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "README_AI_DIRECTOR.md"
+      ]
+    },
+    {
+      "id": "log-test_20260428_182555",
+      "title": "log test",
+      "description": "test",
+      "status": "DONE",
+      "mode": "planner_only",
+      "priority": "low",
+      "created_at": "2026-04-28T18:25:55",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0
+    },
+    {
+      "id": "log-full-test_20260428_183448",
+      "title": "log full test",
+      "description": "test",
+      "status": "DONE",
+      "mode": "planner_only",
+      "priority": "low",
+      "created_at": "2026-04-28T18:34:48",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0
     }
   ]
 }
