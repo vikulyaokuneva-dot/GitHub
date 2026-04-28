@@ -29,6 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     llm_result = _read_json(run_dir / "llm_result.json")
     apply_plan = _read_json(run_dir / "apply_plan.json")
     apply_result = _read_json(run_dir / "apply_result.json")
+    auto_apply_result = _read_json(run_dir / "auto_apply_result.json")
 
     llm_meta = _as_dict(apply_plan.get("llm")) if isinstance(apply_plan, dict) else {}
     llm_text = _string_value(llm_result.get("text")) if isinstance(llm_result, dict) else ""
@@ -43,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"coder_output_md: {_file_status(run_dir / 'coder_output.md')}")
     print(f"reviewer_output_md: {_file_status(run_dir / 'reviewer_output.md')}")
     print(f"reviewer_output_path: {_output_path(run_dir / 'reviewer_output.md')}")
+    print(f"auto_apply_result_json: {_file_status(run_dir / 'auto_apply_result.json')}")
     print(f"provider: {_first_value(llm_result, llm_meta, key='provider')}")
     print(f"selected_model: {_first_value(llm_result, llm_meta, key='selected_model')}")
     print(f"status: {_first_value(llm_result, llm_meta, key='status')}")
@@ -56,6 +58,8 @@ def main(argv: list[str] | None = None) -> int:
     _print_path_list("included_files", llm_result.get("included_files") if isinstance(llm_result, dict) else [])
     _print_path_list("missing_files", llm_result.get("missing_files") if isinstance(llm_result, dict) else [])
     _print_path_list("files_suggested", _first_list(llm_result, apply_plan, key="files_suggested"))
+    _print_path_list("applied_files", _first_list(auto_apply_result, llm_result, key="applied_files"))
+    _print_path_list("auto_apply_violations", _first_list(auto_apply_result, llm_result, key="violations"))
     print("attempted_models:")
     for model in _attempted_models(llm_result, llm_meta):
         print(f"- {model}")

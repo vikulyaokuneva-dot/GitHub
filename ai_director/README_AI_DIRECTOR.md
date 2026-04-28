@@ -259,6 +259,18 @@ python ai_director/run_once.py --mode reviewer_draft --title "Review normalize_t
 
 После ревью человек принимает решение: применять черновик через VS Code, вернуть задачу на правки или заблокировать изменение.
 
+## Auto-apply-draft режим
+
+`auto_apply_draft` применяет только code blocks из `coder_output.md`: ищет секцию `# Code`, блоки `## path/to/file.py` и fenced code, проверяет относительные пути внутри `PROJECT_ROOT`, запрещает `.git`, `.env`, `credentials`, `secrets`, затем создаёт или обновляет только явно указанные файлы. Режим не вызывает LLM, не удаляет файлы и не запускает shell-команды; проверки запускаются только если в задаче явно задано `run_checks=true`.
+
+Формат запуска:
+
+```bash
+python ai_director/run_once.py --mode auto_apply_draft --title "Apply logger draft" --prompt "Примени coder_output.md" --include ai_director/logs/runs/<RUN_ID>/coder_output.md
+```
+
+Результат сохраняется в `auto_apply_result.json` и `apply_result.json`.
+
 ## Apply Stage безопасный dry-run
 
 `apply_engine.py` - это слой будущего применения фиксов от Fixer Agent.

@@ -536,6 +536,90 @@
       ],
       "max_iterations": 3,
       "iterations": 0
+    },
+    {
+      "id": "apply-logger-draft_20260428_185952",
+      "title": "Apply logger draft",
+      "description": "Примени coder_output.md",
+      "status": "FAILED",
+      "mode": "auto_apply_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T18:59:52",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/logs/runs/20260428_155410_code-smoke_20260428_155410/coder_output.md"
+      ]
+    },
+    {
+      "id": "auto-apply-smoke-draft_20260428_190133",
+      "title": "Auto apply smoke draft",
+      "description": "Сгенерируй только файл ai_director/auto_apply_smoke.py с константой AUTO_APPLY_SMOKE = True. Не изменяй существующие файлы. Добавь короткие инструкции запуска.",
+      "status": "DONE",
+      "mode": "coder_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T19:01:33",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/README_AI_DIRECTOR.md"
+      ]
+    },
+    {
+      "id": "apply-logger-draft_20260428_190223",
+      "title": "Apply logger draft",
+      "description": "Примени coder_output.md",
+      "status": "DONE",
+      "mode": "auto_apply_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T19:02:23",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/logs/runs/20260428_190133_auto-apply-smoke-draft_20260428_190133/coder_output.md"
+      ]
+    },
+    {
+      "id": "apply-logger-draft_20260428_190540",
+      "title": "Apply logger draft",
+      "description": "Примени coder_output.md",
+      "status": "DONE",
+      "mode": "auto_apply_draft",
+      "priority": "low",
+      "created_at": "2026-04-28T19:05:40",
+      "acceptance_criteria": [
+        "LLM вызывается через OpenRouter",
+        "llm_result.json сохраняется",
+        "apply_plan.json сохраняется",
+        "apply_result.json сохраняется",
+        "код проекта не меняется"
+      ],
+      "max_iterations": 3,
+      "iterations": 0,
+      "include_paths": [
+        "ai_director/logs/runs/manual_auto_apply_valid/coder_output.md"
+      ]
     }
   ]
 }
