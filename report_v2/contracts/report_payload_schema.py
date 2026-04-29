@@ -165,6 +165,19 @@ class AdsEfficiencySectionV2(TypedDict, total=False):
     recommendations: list[str]
 
 
+class QueryProfitabilitySectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    status: str
+    source: str
+    message: str
+    top_loss_queries: list[dict[str, Any]]
+    weak_queries: list[dict[str, Any]]
+    top_performing_queries: list[dict[str, Any]]
+    growth_hypotheses: list[dict[str, Any]]
+    recommendations: list[str]
+
+
 class SkuHealthItemV2(TypedDict, total=False):
     sku: str
     nm_id: str | None
@@ -346,6 +359,7 @@ class ReportPayloadV2(TypedDict):
     funnel_section: FunnelSectionV2
     ads_efficiency_section: AdsEfficiencySectionV2
     ads_section: AdsSectionV2
+    query_profitability_section: NotRequired[QueryProfitabilitySectionV2]
     sku_health_section: NotRequired[SkuHealthSectionV2]
     profit_contribution_section: NotRequired[ProfitContributionSectionV2]
     abc_analysis_section: NotRequired[AbcAnalysisSectionV2]

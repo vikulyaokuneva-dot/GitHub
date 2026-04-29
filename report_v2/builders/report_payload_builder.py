@@ -20,6 +20,7 @@ from ..contracts.report_payload_schema import (
     HeroKpiCardV2,
     ProfitContributionSectionV2,
     ProfitSkuItemV2,
+    QueryProfitabilitySectionV2,
     ReportPayloadV2,
     SectionV2,
     SourceFlagRowV2,
@@ -1015,6 +1016,7 @@ def _load_ads_artifacts_from_dir(artifact_dir: str | Path | None) -> dict[str, d
         "advertising_efficiency_summary": "advertising_efficiency_summary.json",
         "portfolio_ads_summary": "portfolio_ads_summary.json",
         "query_profitability": "query_profitability.json",
+        "keyword_monitoring": "keyword_monitoring.json",
     }
     for directory in _ads_artifact_dirs(artifact_dir):
         for key, filename in filenames.items():
@@ -1216,7 +1218,7 @@ def _build_ads_metric_rows(section: AdsEfficiencySectionV2) -> list[AdsRowV2]:
         ("ROMI", section.get("romi"), "percent", "portfolio_ROMI"),
         ("CPO", section.get("cpo"), "money", "portfolio_CPO"),
         ("Прибыль от рекламы", section.get("profit_from_ads"), "money", "portfolio_profit_from_ads"),
-        ("Потери рекламы", section.get("wasted_spend"), "money", "sum of unprofitable query spend"),
+        ("Потери рекламы", section.get("wasted_spend"), "money", "sum of loss query spend"),
         ("Неэффективных запросов", section.get("inefficient_items_count"), "int", "query_profitability summary"),
     ]
     rows: list[AdsRowV2] = []
@@ -1452,6 +1454,269 @@ def build_ads_section_v2(
         "rows": rows,
         "status": _safe_str(section.get("status")) or "no_data",
         "message": _safe_str(section.get("message")),
+    }
+
+
+QUERY_LOSS_STATUSES = {"unprofitable", "costly"}
+QUERY_WEAK_STATUSES = {"low_conversion", "low_relevance", "traffic_only", "no_orders", "insufficient_data"}
+QUERY_PERFORMING_STATUSES = {"profitable", "winner"}
+QUERY_GROWTH_STATUSES = {"growth_opportunity"}
+
+
+def _query_status_label(value: Any) -> str:
+    status = _safe_str(value).lower()
+    labels = {
+        "profitable": "эффективный",
+        "unprofitable": "убыточный",
+        "neutral": "нейтральный",
+        "winner": "эффективный",
+        "growth_opportunity": "гипотеза роста",
+        "low_conversion": "слабая конверсия",
+        "low_relevance": "низкая релевантность",
+        "traffic_only": "трафик без продаж",
+        "no_orders": "нет заказов",
+        "costly": "дорогой запрос",
+        "insufficient_data": "недостаточно данных",
+        "ok": "готово",
+        "partial": "частично",
+        "disabled": "отключено",
+        "no_data": "нет данных",
+    }
+    return labels.get(status, _safe_str(value) or "нет данных")
+
+
+def _query_row_status(row: dict[str, Any]) -> str:
+    return _safe_str(row.get("query_status") or row.get("classification") or row.get("status")).lower()
+
+
+def _normalize_query_item(row: dict[str, Any], *, source: str) -> dict[str, Any]:
+    query = _first_text(row.get("query"), row.get("keyword"), row.get("search_query"), row.get("phrase"))
+    status = _query_row_status(row)
+    return {
+        "query": query,
+        "sku": row.get("sku"),
+        "impressions": _safe_int(row.get("impressions")),
+        "clicks": _safe_int(row.get("clicks")),
+        "ad_spend": _first_numeric(row, ("ad_spend", "spend", "ads_spend", "cost")),
+        "orders": _safe_float(row.get("orders")),
+        "buyouts": _safe_float(row.get("buyouts")),
+        "revenue": _safe_float(row.get("revenue")),
+        "profit": _first_numeric(row, ("profit", "net_profit")),
+        "ROMI": _safe_float(row.get("ROMI") or row.get("romi")),
+        "status": status,
+        "status_label": _query_status_label(status),
+        "recommendation": _first_text(row.get("recommendation"), row.get("recommended_action"), row.get("action")),
+        "source": source,
+    }
+
+
+def _query_source_rows(payload: dict[str, Any], *keys: str) -> list[dict[str, Any]]:
+    for key in keys:
+        rows = _safe_dict_list(payload.get(key))
+        if rows:
+            return rows
+    summary = _safe_dict(payload.get("summary"))
+    for key in keys:
+        rows = _safe_dict_list(summary.get(key))
+        if rows:
+            return rows
+    return []
+
+
+def _query_all_source_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    for key in ("items", "query_items", "queries", "query_performance"):
+        rows = _safe_dict_list(payload.get(key))
+        if rows:
+            return rows
+    return []
+
+
+def _normalize_query_rows(rows: list[dict[str, Any]], *, source: str) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in rows:
+        item = _normalize_query_item(row, source=source)
+        query = _safe_str(item.get("query"))
+        if not query:
+            continue
+        key = f"{query}|{_safe_str(item.get('sku'))}|{_safe_str(item.get('source'))}"
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append(item)
+    return normalized
+
+
+def _query_loss_key(row: dict[str, Any]) -> tuple[float, float, str]:
+    profit = _safe_float(row.get("profit"))
+    spend = _safe_float(row.get("ad_spend")) or 0.0
+    return (profit if profit is not None else 0.0, -spend, _safe_str(row.get("query")))
+
+
+def _query_value_key(row: dict[str, Any]) -> tuple[float, float, float, str]:
+    return (
+        _safe_float(row.get("profit")) or 0.0,
+        _safe_float(row.get("ROMI")) or 0.0,
+        _safe_float(row.get("orders")) or 0.0,
+        _safe_str(row.get("query")),
+    )
+
+
+def _query_weak_key(row: dict[str, Any]) -> tuple[float, float, float, str]:
+    return (
+        _safe_float(row.get("ad_spend")) or 0.0,
+        _safe_float(row.get("clicks")) or 0.0,
+        _safe_float(row.get("impressions")) or 0.0,
+        _safe_str(row.get("query")),
+    )
+
+
+def _is_loss_query(row: dict[str, Any]) -> bool:
+    status = _query_row_status(row)
+    profit = _safe_float(row.get("profit"))
+    return status in QUERY_LOSS_STATUSES or (profit is not None and profit < 0)
+
+
+def _is_weak_query(row: dict[str, Any]) -> bool:
+    status = _query_row_status(row)
+    if status in QUERY_WEAK_STATUSES:
+        return True
+    orders = _safe_float(row.get("orders"))
+    has_traffic = any(_safe_float(row.get(key)) for key in ("impressions", "clicks", "ad_spend"))
+    return bool(has_traffic and (orders is None or orders <= 0) and not _is_loss_query(row))
+
+
+def _is_performing_query(row: dict[str, Any]) -> bool:
+    status = _query_row_status(row)
+    profit = _safe_float(row.get("profit"))
+    return status in QUERY_PERFORMING_STATUSES or (profit is not None and profit > 0 and not _is_growth_query(row))
+
+
+def _is_growth_query(row: dict[str, Any]) -> bool:
+    return _query_row_status(row) in QUERY_GROWTH_STATUSES or bool(_safe_str(row.get("hypothesis")))
+
+
+def _query_recommendations(
+    *,
+    top_loss_queries: list[dict[str, Any]],
+    weak_queries: list[dict[str, Any]],
+    top_performing_queries: list[dict[str, Any]],
+    growth_hypotheses: list[dict[str, Any]],
+) -> list[str]:
+    recommendations: list[str] = []
+    if top_loss_queries:
+        recommendations.append("Снизить ставки или остановить убыточные запросы до пересборки семантики.")
+    if weak_queries:
+        recommendations.append("Пересобрать слабые запросы: уточнить фразы, карточки и минус-слова.")
+    if top_performing_queries or growth_hypotheses:
+        recommendations.append("Перенести бюджет в эффективные запросы и проверить гипотезы роста.")
+    return recommendations[:3]
+
+
+def build_query_profitability_section_v2(
+    snapshot: dict[str, Any],
+    debug: dict[str, Any] | None,
+    *,
+    artifact_dir: str | Path | None = None,
+) -> QueryProfitabilitySectionV2:
+    _ = snapshot, debug
+    artifacts = _load_ads_artifacts_from_dir(artifact_dir)
+    query_payload = _safe_dict(artifacts.get("query_profitability"))
+    keyword_payload = _safe_dict(artifacts.get("keyword_monitoring"))
+    source = "query_profitability.json" if query_payload else "missing"
+
+    if not query_payload:
+        return {
+            "title": "Поисковые запросы",
+            "subtitle": "Прибыльность и качество поисковых запросов.",
+            "status": "no_data",
+            "source": "missing",
+            "message": "Данные query_profitability.json недоступны.",
+            "top_loss_queries": [],
+            "weak_queries": [],
+            "top_performing_queries": [],
+            "growth_hypotheses": [],
+            "recommendations": [],
+        }
+
+    all_rows = _normalize_query_rows(_query_all_source_rows(query_payload), source=source)
+    keyword_rows = _normalize_query_rows(_query_all_source_rows(keyword_payload), source="keyword_monitoring.json")
+    combined_rows = all_rows or keyword_rows
+
+    top_loss_queries = _normalize_query_rows(
+        _query_source_rows(query_payload, "top_loss_queries", "top_unprofitable_queries", "loss_queries"),
+        source=source,
+    )
+    if not top_loss_queries:
+        top_loss_queries = sorted([row for row in combined_rows if _is_loss_query(row)], key=_query_loss_key)[:8]
+
+    top_loss_keys = {_safe_str(row.get("query")) for row in top_loss_queries}
+    weak_queries = _normalize_query_rows(
+        _query_source_rows(query_payload, "weak_queries", "top_weak_queries"),
+        source=source,
+    )
+    if not weak_queries:
+        weak_queries = _normalize_query_rows(
+            _query_source_rows(keyword_payload, "top_global_problem_queries"),
+            source="keyword_monitoring.json",
+        )
+    if not weak_queries:
+        weak_queries = sorted(
+            [row for row in combined_rows if _is_weak_query(row) and _safe_str(row.get("query")) not in top_loss_keys],
+            key=_query_weak_key,
+            reverse=True,
+        )[:8]
+
+    top_performing_queries = _normalize_query_rows(
+        _query_source_rows(query_payload, "top_performing_queries", "top_profitable_queries"),
+        source=source,
+    )
+    if not top_performing_queries:
+        top_performing_queries = sorted([row for row in combined_rows if _is_performing_query(row)], key=_query_value_key, reverse=True)[:8]
+
+    growth_hypotheses = _normalize_query_rows(
+        _query_source_rows(query_payload, "growth_hypotheses", "high_potential_queries"),
+        source=source,
+    )
+    if not growth_hypotheses:
+        growth_hypotheses = sorted([row for row in keyword_rows if _is_growth_query(row)], key=_query_value_key, reverse=True)[:5]
+    if not growth_hypotheses:
+        growth_hypotheses = sorted([row for row in combined_rows if _is_growth_query(row)], key=_query_value_key, reverse=True)[:5]
+
+    raw_status = _safe_str(query_payload.get("status") or _safe_dict(query_payload.get("summary")).get("status")).lower()
+    if raw_status in {"disabled", "no_data", "missing"}:
+        status = raw_status
+    elif not combined_rows and not any((top_loss_queries, weak_queries, top_performing_queries, growth_hypotheses)):
+        status = "insufficient_data"
+    elif raw_status in {"partial", "preview", "insufficient_data"}:
+        status = "partial" if raw_status == "preview" else raw_status
+    else:
+        status = "ok"
+
+    recommendations = [
+        _safe_str(item)
+        for item in _safe_list(query_payload.get("recommendations") or _safe_dict(query_payload.get("summary")).get("recommendations"))
+        if _safe_str(item)
+    ]
+    if not recommendations:
+        recommendations = _query_recommendations(
+            top_loss_queries=top_loss_queries,
+            weak_queries=weak_queries,
+            top_performing_queries=top_performing_queries,
+            growth_hypotheses=growth_hypotheses,
+        )
+
+    return {
+        "title": "Поисковые запросы",
+        "subtitle": "Прибыльность и качество поисковых запросов.",
+        "status": status,
+        "source": source,
+        "message": "Поисковые запросы собраны из query_profitability.json.",
+        "top_loss_queries": top_loss_queries[:8],
+        "weak_queries": weak_queries[:8],
+        "top_performing_queries": top_performing_queries[:8],
+        "growth_hypotheses": growth_hypotheses[:5],
+        "recommendations": recommendations[:3],
     }
 
 
@@ -2687,6 +2952,11 @@ def build_report_payload_v2(
     for item in ads_efficiency_section.get("warnings", []):
         if isinstance(item, dict):
             _append_once(warnings, item)
+    query_profitability_section = build_query_profitability_section_v2(
+        snapshot,
+        debug,
+        artifact_dir=artifact_dir,
+    )
     sku_health_section = build_sku_health_section_v2(snapshot, debug, artifact_dir=artifact_dir)
     for item in sku_health_section.get("warnings", []):
         if isinstance(item, dict):
@@ -2724,6 +2994,7 @@ def build_report_payload_v2(
             artifact_dir=artifact_dir,
             ads_efficiency_section=ads_efficiency_section,
         ),
+        "query_profitability_section": query_profitability_section,
         "sku_health_section": sku_health_section,
         "profit_contribution_section": profit_contribution_section,
         "abc_analysis_section": abc_analysis_section,

@@ -131,12 +131,70 @@ def _profit_assortment_rows(profit_section: dict[str, Any], abc_section: dict[st
     ]
 
 
+def _query_status_label(value: Any) -> str:
+    status = str(value or "").strip().lower()
+    labels = {
+        "profitable": "эффективный",
+        "unprofitable": "убыточный",
+        "neutral": "нейтральный",
+        "winner": "эффективный",
+        "growth_opportunity": "гипотеза роста",
+        "low_conversion": "слабая конверсия",
+        "low_relevance": "низкая релевантность",
+        "traffic_only": "трафик без продаж",
+        "no_orders": "нет заказов",
+        "costly": "дорогой запрос",
+        "insufficient_data": "недостаточно данных",
+    }
+    return labels.get(status, _format_text(value))
+
+
+def _query_row_summary(row: dict[str, Any]) -> str:
+    query = _format_text(row.get("query"))
+    status = _format_text(row.get("status_label")) if row.get("status_label") else _query_status_label(row.get("status"))
+    profit = _format_money(row.get("profit"))
+    spend = _format_money(row.get("ad_spend"))
+    return f"{query}: {status}; прибыль {profit}; расход {spend}"
+
+
+def _query_profitability_rows(section: dict[str, Any]) -> list[tuple[str, str]]:
+    status = str(section.get("status") or "no_data").strip().lower()
+    if status == "no_data":
+        return [("Статус", "Данные по поисковым запросам недоступны")]
+
+    rows: list[tuple[str, str]] = []
+    top_loss_queries = section.get("top_loss_queries", [])
+    if isinstance(top_loss_queries, list):
+        for item in top_loss_queries[:3]:
+            if isinstance(item, dict):
+                rows.append(("Убыточный запрос", _query_row_summary(item)))
+
+    recommendations = section.get("recommendations", [])
+    if isinstance(recommendations, list):
+        for item in recommendations[:2]:
+            recommendation = _format_text(item)
+            if recommendation != "unavailable":
+                rows.append(("Рекомендация", recommendation))
+
+    if rows:
+        return rows
+
+    weak_queries = section.get("weak_queries", [])
+    if isinstance(weak_queries, list):
+        for item in weak_queries[:2]:
+            if isinstance(item, dict):
+                rows.append(("Слабый запрос", _query_row_summary(item)))
+
+    return rows or [("Статус", "нет данных")]
+
+
 def render_email_html(payload: dict) -> str:
     meta = _safe_dict(payload.get("meta"))
     commerce = _safe_dict(payload.get("cabinet_commerce"))
     commerce_section = _safe_dict(payload.get("commerce_section"))
     finance = _safe_dict(payload.get("finance_final"))
     ads_efficiency = _safe_dict(payload.get("ads_efficiency_section"))
+    query_profitability = _safe_dict(payload.get("query_profitability_section"))
     sku_health = _safe_dict(payload.get("sku_health_section"))
     profit_contribution = _safe_dict(payload.get("profit_contribution_section"))
     abc_analysis = _safe_dict(payload.get("abc_analysis_section"))
@@ -181,6 +239,7 @@ def render_email_html(payload: dict) -> str:
         ("Wasted spend", _format_money(ads_efficiency.get("wasted_spend"))),
         ("Action", ads_action),
     ]
+    query_rows = _query_profitability_rows(query_profitability)
     sku_summary = _safe_dict(sku_health.get("summary"))
     sku_status = str(sku_health.get("status") or "no_data").strip()
     sku_action = "SKU-аналитика недоступна"
@@ -232,6 +291,7 @@ def render_email_html(payload: dict) -> str:
         f"<p style=\"margin:0;font-size:14px;line-height:20px;color:#374151;\">operational_date: {escape(_format_text(meta.get('operational_date')))}</p>"
         f"{_html_table('Commerce', commerce_rows)}"
         f"{_html_table('Advertising', ads_rows)}"
+        f"{_html_table('Поисковые запросы', query_rows)}"
         f"{_html_table('Товары', sku_rows)}"
         f"{_html_table('Прибыль и ассортимент', profit_assortment_rows)}"
         f"{_html_table('Finance', finance_rows)}"
@@ -248,6 +308,7 @@ def render_email_text(payload: dict) -> str:
     commerce_section = _safe_dict(payload.get("commerce_section"))
     finance = _safe_dict(payload.get("finance_final"))
     ads_efficiency = _safe_dict(payload.get("ads_efficiency_section"))
+    query_profitability = _safe_dict(payload.get("query_profitability_section"))
     sku_health = _safe_dict(payload.get("sku_health_section"))
     profit_contribution = _safe_dict(payload.get("profit_contribution_section"))
     abc_analysis = _safe_dict(payload.get("abc_analysis_section"))
@@ -280,6 +341,7 @@ def render_email_text(payload: dict) -> str:
     elif str(sku_health.get("status") or "no_data") not in {"no_data", "insufficient_data"}:
         sku_action = _format_text(sku_health.get("message"))
     profit_assortment_rows = _profit_assortment_rows(profit_contribution, abc_analysis)
+    query_rows = _query_profitability_rows(query_profitability)
 
     lines = [
         "WB Core Report v2",
@@ -297,6 +359,9 @@ def render_email_text(payload: dict) -> str:
         f"ROMI: {_format_percent(ads_efficiency.get('romi'))}",
         f"Wasted spend: {_format_money(ads_efficiency.get('wasted_spend'))}",
         f"Action: {ads_action}",
+        "",
+        "Поисковые запросы:",
+        *[f"{label}: {value}" for label, value in query_rows],
         "",
         "Товары:",
         f"SKU в росте: {_format_count(sku_summary.get('growth_count'))}",

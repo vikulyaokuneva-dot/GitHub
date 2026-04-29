@@ -344,6 +344,24 @@ def _format_share_percent(value: Any) -> str:
     return f"{formatted}%"
 
 
+def _format_query_status_label(value: Any) -> str:
+    status = str(value or "").strip().lower()
+    labels = {
+        "profitable": "эффективный",
+        "unprofitable": "убыточный",
+        "neutral": "нейтральный",
+        "winner": "эффективный",
+        "growth_opportunity": "гипотеза роста",
+        "low_conversion": "слабая конверсия",
+        "low_relevance": "низкая релевантность",
+        "traffic_only": "трафик без продаж",
+        "no_orders": "нет заказов",
+        "costly": "дорогой запрос",
+        "insufficient_data": "недостаточно данных",
+    }
+    return labels.get(status, _format_text(value))
+
+
 def _ads_query_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
     table_rows: list[list[Paragraph]] = [
         [
@@ -359,6 +377,9 @@ def _ads_query_rows_table(rows: list[dict[str, Any]], *, width: float, font_name
         row = item if isinstance(item, dict) else {}
         profit = _format_query_money(row.get("profit"))
         romi = _format_query_number(row.get("ROMI") if row.get("ROMI") is not None else row.get("romi"))
+        status_label = str(row.get("status_label") or "").strip() or _format_query_status_label(
+            row.get("classification") or row.get("status")
+        )
         table_rows.append(
             [
                 Paragraph(_format_text(row.get("query")), style),
@@ -366,7 +387,7 @@ def _ads_query_rows_table(rows: list[dict[str, Any]], *, width: float, font_name
                 Paragraph(_format_query_number(row.get("orders")), style),
                 Paragraph(_format_query_money(row.get("revenue")), style),
                 Paragraph(f"{profit} / {romi}%", style),
-                Paragraph(_format_text(row.get("classification") or row.get("confidence")), style),
+                Paragraph(_format_text(status_label), style),
             ]
         )
 
@@ -583,6 +604,9 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     ads_section = payload.get("ads_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(ads_section, dict):
         ads_section = {}
+    query_profitability_section = payload.get("query_profitability_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(query_profitability_section, dict):
+        query_profitability_section = {}
     sku_health_section = payload.get("sku_health_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(sku_health_section, dict):
         sku_health_section = {}
@@ -678,6 +702,31 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         story.append(Paragraph("Рекомендации по рекламе", styles["section"]))
         for item in recommendations[:5]:
             story.append(Paragraph(f"- {_format_text(item)}", styles["warning"]))
+    story.append(Spacer(1, 6))
+
+    query_loss_rows = query_profitability_section.get("top_loss_queries", [])
+    if not isinstance(query_loss_rows, list):
+        query_loss_rows = []
+    query_weak_rows = query_profitability_section.get("weak_queries", [])
+    if not isinstance(query_weak_rows, list):
+        query_weak_rows = []
+    query_performing_rows = query_profitability_section.get("top_performing_queries", [])
+    if not isinstance(query_performing_rows, list):
+        query_performing_rows = []
+    query_status = str(query_profitability_section.get("status") or "no_data").strip().lower()
+    story.append(Paragraph(_format_text(query_profitability_section.get("title") or "Поисковые запросы"), styles["section"]))
+    story.append(Paragraph(_format_text(query_profitability_section.get("subtitle") or "Прибыльность и качество поисковых запросов."), styles["meta"]))
+    story.append(Paragraph(_format_text(query_profitability_section.get("message") or "Данные query_profitability.json недоступны."), styles["warning"]))
+    if query_status != "no_data":
+        if query_loss_rows:
+            story.append(Paragraph("TOP убыточных запросов", styles["section"]))
+            story.append(_ads_query_rows_table(query_loss_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+        if query_weak_rows:
+            story.append(Paragraph("Слабые запросы", styles["section"]))
+            story.append(_ads_query_rows_table(query_weak_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+        if query_performing_rows:
+            story.append(Paragraph("Эффективные запросы", styles["section"]))
+            story.append(_ads_query_rows_table(query_performing_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
     story.append(Spacer(1, 6))
 
     sku_summary_rows = sku_health_section.get("summary_rows", [])
@@ -852,6 +901,10 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         "ads_efficiency_section_status": _format_text(ads_efficiency_section.get("status")),
         "ads_efficiency_loss_rows_count": len(loss_rows),
         "ads_efficiency_opportunity_rows_count": len(opportunity_rows),
+        "query_profitability_section_status": _format_text(query_profitability_section.get("status")),
+        "query_profitability_loss_rows_count": len(query_loss_rows),
+        "query_profitability_weak_rows_count": len(query_weak_rows),
+        "query_profitability_performing_rows_count": len(query_performing_rows),
         "sku_health_section_status": _format_text(sku_health_section.get("status")),
         "sku_health_summary_rows_count": len(sku_summary_rows),
         "sku_health_risk_rows_count": len(sku_risk_rows),
