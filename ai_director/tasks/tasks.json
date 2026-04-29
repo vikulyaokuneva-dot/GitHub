@@ -689,6 +689,33 @@
       "max_iterations": 1,
       "prompt": "Создай файл ai_director/run_summary_writer.py с функцией save_run_summary(path: str, summary: str) -> None. Функция должна записывать текст в файл, создавая директорию при необходимости. Добавь tests/test_run_summary_writer.py. Не меняй другие файлы.",
       "iterations": 0
+    },
+    {
+      "id": "report_v2_migrate_api_contour_001",
+      "title": "Migrate next report_v2 API contour",
+      "mode": "auto_apply_draft",
+      "status": "FAILED",
+      "max_iterations": 1,
+      "prompt": "Продолжи миграцию API-контуров в report_v2. По текущему report_v2 уже есть commerce, funnel, advertising, sku_health, profit_contribution, abc, finance, live_operational и diagnostics. Найди следующий незавершённый/частично мигрированный контур в коде report_v2 и мигрируй его в payload + renderer + tests. Приоритет: исправить profit_contribution/abc/SKU контуры, если они уже есть в artifacts, но в отчёте показываются как no_data/partial. Не переписывай большие файлы полностью. Делай минимальные изменения. Обнови или добавь тесты в report_v2/tests. Не трогай ai_director, кроме если тесты явно требуют.",
+      "iterations": 0
+    },
+    {
+      "id": "report_v2_profit_contribution_impl",
+      "title": "Implement profit contribution payload and renderer",
+      "mode": "auto_apply_draft",
+      "status": "FAILED",
+      "max_iterations": 2,
+      "prompt": "Реализуй поддержку profit_contribution в report_v2: обнови ProfitContributionPayload и ProfitContributionRenderer так, чтобы проходил тест report_v2/tests/test_profit_contribution.py. Учитывай форматирование чисел (120,000; 40.0%). Не переписывай файлы полностью, делай минимальные изменения.",
+      "iterations": 0
+    },
+    {
+      "id": "report_v2_profit_contribution_fix",
+      "title": "Fix profit contribution integration",
+      "mode": "auto_apply_draft",
+      "status": "FAILED",
+      "max_iterations": 2,
+      "prompt": "Исправь реализацию profit_contribution: НЕ создавай новые файлы payloads.py и renderers.py. Используй существующие report_v2/payload.py и report_v2/renderer.py. Перенеси туда логику ProfitContributionPayload и ProfitContributionRenderer. Удали новые файлы если они не используются. Сделай так, чтобы проходил тест report_v2/tests/test_profit_contribution.py. Делай минимальные изменения.",
+      "iterations": 0
     }
   ]
 }
