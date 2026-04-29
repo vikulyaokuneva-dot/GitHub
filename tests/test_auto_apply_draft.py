@@ -204,6 +204,29 @@ def test_apply_auto_apply_files_writes_strict_json_files(tmp_path) -> None:
     assert (tmp_path / "ai_director" / "task_status.py").read_text(encoding="utf-8") == files[0]["content"]
 
 
+def test_apply_auto_apply_files_rejects_destructive_line_removal(tmp_path) -> None:
+    target = tmp_path / "ai_director" / "existing.py"
+    target.parent.mkdir(parents=True)
+    original = "value = 1\nvalue += 1\nvalue += 1\nvalue += 1\nvalue += 1\n"
+    target.write_text(original, encoding="utf-8")
+
+    result = apply_auto_apply_files(
+        [
+            {
+                "path": "ai_director/existing.py",
+                "operation": "upsert",
+                "content": "value = 1\nvalue += 1\n",
+            }
+        ],
+        project_root=tmp_path,
+    )
+
+    assert result["ok"] is False
+    assert result["applied_files"] == []
+    assert result["violations"] == [{"path": "ai_director/existing.py", "reason": "destructive_update"}]
+    assert target.read_text(encoding="utf-8") == original
+
+
 def test_auto_apply_json_prompt_uses_strict_json_contract() -> None:
     prompt = _build_auto_apply_json_prompt(
         {

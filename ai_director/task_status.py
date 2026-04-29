@@ -1,17 +1,25 @@
-'''Task status utilities.'''
+from enum import Enum
 
-# Existing imports and code (if any) would be here.
+
+class TaskStatus(str, Enum):
+    NEW = "NEW"
+    IN_PROGRESS = "IN_PROGRESS"
+    DONE = "DONE"
+    FAILED = "FAILED"
+
+    @classmethod
+    def list(cls):
+        return list(map(lambda c: c.value, cls))
+
 
 def normalize_status(status: str) -> str:
-    """Return a normalized task status.
+    """Normalize a task status string.
 
-    The function trims whitespace from the input string, converts it to upper‑case,
-    and returns ``"NEW"`` when the resulting string is empty.
+    - Strips surrounding whitespace.
+    - Converts to upper‑case.
+    - If the resulting string is empty, returns ``TaskStatus.NEW``.
     """
-    normalized = (status or "").strip().upper()
-    return normalized if normalized else "NEW"
-
-# Exported symbols
-__all__ = [
-    "normalize_status",
-]
+    if status is None:
+        return TaskStatus.NEW.value
+    normalized = status.strip().upper()
+    return normalized if normalized else TaskStatus.NEW.value

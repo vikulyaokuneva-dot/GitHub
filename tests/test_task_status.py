@@ -1,18 +1,22 @@
 import pytest
-from ai_director.task_status import normalize_status
+from ai_director.task_status import TaskStatus, normalize_status
+
+
+def test_task_status_list():
+    assert set(TaskStatus.list()) == {"NEW", "IN_PROGRESS", "DONE", "FAILED"}
+
 
 @pytest.mark.parametrize(
     "input_status,expected",
     [
         ("new", "NEW"),
-        (" InProgress ", "INPROGRESS"),
-        ("completed", "COMPLETED"),
+        ("  in_progress  ", "IN_PROGRESS"),
+        ("Done", "DONE"),
+        ("failed", "FAILED"),
         ("", "NEW"),
         ("   ", "NEW"),
         (None, "NEW"),
     ],
 )
 def test_normalize_status(input_status, expected):
-    # The function should handle None gracefully by treating it as an empty string.
-    result = normalize_status(input_status if input_status is not None else "")
-    assert result == expected
+    assert normalize_status(input_status) == expected

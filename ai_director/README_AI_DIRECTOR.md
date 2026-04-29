@@ -148,9 +148,9 @@ Fixer Agent отправляет prompt в OpenRouter и не запускает
 Настройки:
 
 - `OPENROUTER_API_KEY` должен быть задан в окружении.
-- `AI_DIRECTOR_MODEL` по умолчанию: `qwen/qwen3-coder:free`.
+- `AI_DIRECTOR_MODEL` по умолчанию: `openai/gpt-oss-120b:free`.
 - `AI_DIRECTOR_MODEL_FALLBACKS` можно задать списком через запятую, например:
-  `qwen/qwen3-coder:free,deepseek/deepseek-chat-v3-0324:free,mistralai/mistral-7b-instruct:free`.
+  `qwen/qwen3-next-80b-a3b-instruct:free,mistralai/mistral-7b-instruct`.
 - `ai_director/config.py` хранит `LLM_PROVIDER = "openrouter"`.
 
 Команда для smoke-проверки:

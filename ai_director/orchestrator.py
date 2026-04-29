@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import ast
+import difflib
 import json
 import os
 import re
@@ -41,7 +43,17 @@ except ModuleNotFoundError:
 
 
 LLM_PROVIDER = getattr(config, "LLM_PROVIDER", "openrouter")
-DEFAULT_OPENROUTER_MODEL = getattr(config, "DEFAULT_AI_DIRECTOR_MODEL", "qwen/qwen3-coder:free")
+DEFAULT_OPENROUTER_MODEL = getattr(config, "DEFAULT_AI_DIRECTOR_MODEL", "openai/gpt-oss-120b:free")
+DEFAULT_OPENROUTER_FALLBACK_MODELS = list(
+    getattr(
+        config,
+        "DEFAULT_AI_DIRECTOR_MODEL_FALLBACKS",
+        (
+            "qwen/qwen3-next-80b-a3b-instruct:free",
+            "mistralai/mistral-7b-instruct",
+        ),
+    )
+)
 MODE_PLANNER_ONLY = "planner_only"
 MODE_CODER_DRAFT = "coder_draft"
 MODE_REVIEWER_DRAFT = "reviewer_draft"
@@ -555,7 +567,7 @@ def _run_auto_apply_draft_task(
     checks_ok = all(r["success"] for r in check_results["results"]) if check_results.get("results") else True
     guard_ok = bool(guard_result.get("ok"))
     final_status = "DONE" if auto_apply_result.get("ok") and checks_ok and guard_ok else "FAILED"
-    if needs_human:
+    if needs_human or _has_auto_apply_violation(auto_apply_result, "destructive_update"):
         final_status = "NEEDS_HUMAN"
     update_task_status(tasks_payload, task_id, final_status)
     save_tasks(tasks_payload)
@@ -647,14 +659,14 @@ def _call_llm(prompt: str) -> dict[str, Any]:
         or os.getenv("AI_DIRECTOR_MODEL")
         or DEFAULT_OPENROUTER_MODEL
     )
-    fallback_models = [
-        item.strip()
-        for item in (
-            env.get("AI_DIRECTOR_MODEL_FALLBACKS")
-            or os.getenv("AI_DIRECTOR_MODEL_FALLBACKS", "")
-        ).split(",")
-        if item.strip()
-    ]
+    raw_fallback_models = env.get("AI_DIRECTOR_MODEL_FALLBACKS")
+    if raw_fallback_models is None:
+        raw_fallback_models = os.getenv("AI_DIRECTOR_MODEL_FALLBACKS")
+    fallback_models = (
+        [item.strip() for item in raw_fallback_models.split(",") if item.strip()]
+        if raw_fallback_models is not None
+        else list(DEFAULT_OPENROUTER_FALLBACK_MODELS)
+    )
 
     api_key = env.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
     if not api_key:
@@ -672,8 +684,7 @@ def _call_llm(prompt: str) -> dict[str, Any]:
     # generate_text_result reads configuration from process environment.
     os.environ["OPENROUTER_API_KEY"] = api_key
     os.environ["AI_DIRECTOR_MODEL"] = model
-    if fallback_models:
-        os.environ["AI_DIRECTOR_MODEL_FALLBACKS"] = ",".join(fallback_models)
+    os.environ["AI_DIRECTOR_MODEL_FALLBACKS"] = ",".join(fallback_models)
 
     print(f"LLM provider={provider} model={model} fallbacks={fallback_models}")
     log_event(f"Calling LLM provider={provider} model={model}")
@@ -1003,8 +1014,17 @@ def apply_auto_apply_files(
             violations.append(entry)
             continue
 
+        content = str(file_entry.get("content") or "")
+        if target.is_file():
+            before = target.read_text(encoding="utf-8")
+            if _is_destructive_update(before, content):
+                entry = {"path": relative_path, "reason": "destructive_update"}
+                skipped_files.append(entry)
+                violations.append(entry)
+                continue
+
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(str(file_entry.get("content") or ""), encoding="utf-8")
+        target.write_text(content, encoding="utf-8")
         applied_files.append(_display_project_path(root, target))
 
     return {
@@ -1028,6 +1048,14 @@ def _build_auto_apply_plan(
         path = str(block.get("path") or "")
         target, reason = _resolve_auto_apply_target(config.PROJECT_ROOT, path)
         safe = target is not None
+        if safe and target is not None and target.is_file():
+            try:
+                current_content = target.read_text(encoding="utf-8")
+            except OSError:
+                current_content = ""
+            if _is_destructive_update(current_content, str(block.get("content") or "")):
+                safe = False
+                reason = "destructive_update"
         if not safe:
             violations.append({"path": path, "reason": reason})
         files.append(
@@ -1069,6 +1097,72 @@ def _auto_apply_check_commands(task: dict[str, Any], auto_apply_result: dict[str
         return [f"python -m pytest {' '.join(test_files)} -q"]
 
     return [str(command) for command in DEFAULT_CHECKS]
+
+
+def _has_auto_apply_violation(auto_apply_result: dict[str, Any], reason: str) -> bool:
+    for item in auto_apply_result.get("violations") or []:
+        if isinstance(item, dict) and item.get("reason") == reason:
+            return True
+    return False
+
+
+def _is_destructive_update(before: str, after: str) -> bool:
+    return _deletes_more_than_half_lines(before, after) or bool(_removed_python_symbols(before, after))
+
+
+def _deletes_more_than_half_lines(before: str, after: str) -> bool:
+    before_lines = before.splitlines()
+    if not before_lines:
+        return False
+
+    after_lines = after.splitlines()
+    deleted_count = 0
+    for tag, start_old, end_old, _start_new, _end_new in difflib.SequenceMatcher(
+        a=before_lines,
+        b=after_lines,
+    ).get_opcodes():
+        if tag in {"delete", "replace"}:
+            deleted_count += end_old - start_old
+
+    return deleted_count / len(before_lines) > 0.5
+
+
+def _removed_python_symbols(before: str, after: str) -> set[str]:
+    before_symbols = _extract_python_symbols(before)
+    if not before_symbols:
+        return set()
+    return before_symbols - _extract_python_symbols(after)
+
+
+def _extract_python_symbols(source: str) -> set[str]:
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return _extract_python_symbols_with_regex(source)
+
+    symbols: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            symbols.add(node.name)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id.isupper():
+                    symbols.add(target.id)
+    return symbols
+
+
+def _extract_python_symbols_with_regex(source: str) -> set[str]:
+    symbols: set[str] = set()
+    for line in source.splitlines():
+        match = re.match(r"\s*(?:async\s+def|def|class)\s+([A-Za-z_][A-Za-z0-9_]*)\b", line)
+        if match:
+            symbols.add(match.group(1))
+            continue
+        match = re.match(r"\s*([A-Z][A-Z0-9_]*)\s*(?::[^=]+)?=", line)
+        if match:
+            symbols.add(match.group(1))
+    return symbols
 
 
 def _build_auto_apply_diff(blocks: list[dict[str, str]], *, project_root: str | Path) -> str:
@@ -1310,6 +1404,8 @@ def _build_auto_apply_json_prompt(task: dict[str, Any]) -> str:
         "No prose.",
         "Use relative project paths only.",
         "Use operation value upsert only.",
+        "The files array must contain at least one file entry.",
+        "Include every file required by the task.",
         "Use this exact JSON shape:",
         json.dumps(shape, ensure_ascii=False, indent=2),
         "Task JSON:",

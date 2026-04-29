@@ -6,7 +6,11 @@ import requests
 
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "qwen/qwen3-coder:free"
+DEFAULT_MODEL = "openai/gpt-oss-120b:free"
+DEFAULT_FALLBACK_MODELS = (
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "mistralai/mistral-7b-instruct",
+)
 DEFAULT_TIMEOUT_SEC = 60
 DEFAULT_MAX_TOKENS = 200
 DEFAULT_TEMPERATURE = 0.2
@@ -132,9 +136,14 @@ def generate_text_result(prompt: str, system: str | None = None, **kwargs: Any) 
 
 def _model_chain() -> list[str]:
     primary = os.getenv("AI_DIRECTOR_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
-    raw_fallbacks = os.getenv("AI_DIRECTOR_MODEL_FALLBACKS", "")
+    raw_fallbacks = os.getenv("AI_DIRECTOR_MODEL_FALLBACKS")
+    fallback_models = (
+        [item.strip() for item in raw_fallbacks.split(",") if item.strip()]
+        if raw_fallbacks is not None
+        else list(DEFAULT_FALLBACK_MODELS)
+    )
     candidates = [primary]
-    candidates.extend(item.strip() for item in raw_fallbacks.split(",") if item.strip())
+    candidates.extend(fallback_models)
 
     models: list[str] = []
     seen: set[str] = set()
@@ -147,7 +156,11 @@ def _model_chain() -> list[str]:
 
 
 def _should_try_next_model(status_code: int, body: str) -> bool:
+    if status_code in {401, 403}:
+        return False
     if status_code == 429 or 500 <= status_code <= 599:
+        return True
+    if _is_provider_error(body):
         return True
     if status_code in {400, 404}:
         normalized = body.lower()
@@ -157,6 +170,21 @@ def _should_try_next_model(status_code: int, body: str) -> bool:
             or "no endpoints" in normalized
         )
     return False
+
+
+def _is_provider_error(body: str) -> bool:
+    normalized = body.lower()
+    provider_error_markers = (
+        "provider returned error",
+        "provider error",
+        "provider_error",
+        "provider unavailable",
+        "upstream provider",
+        "upstream error",
+    )
+    return any(marker in normalized for marker in provider_error_markers) or (
+        "provider" in normalized and "error" in normalized
+    )
 
 
 def _status_from_http_error(status_code: int) -> str:

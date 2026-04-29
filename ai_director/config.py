@@ -16,7 +16,11 @@ DEFAULT_CHECKS = ["python -m pytest"]
 MAX_ITERATIONS_DEFAULT = 5
 
 LLM_PROVIDER = "openrouter"
-DEFAULT_AI_DIRECTOR_MODEL = "qwen/qwen3-coder:free"
+DEFAULT_AI_DIRECTOR_MODEL = "openai/gpt-oss-120b:free"
+DEFAULT_AI_DIRECTOR_MODEL_FALLBACKS = (
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "mistralai/mistral-7b-instruct",
+)
 
 ALLOWED_WRITE_PATHS = (
     PROJECT_ROOT / "src",

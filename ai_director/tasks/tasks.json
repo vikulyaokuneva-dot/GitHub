@@ -658,9 +658,36 @@
       "id": "auto_apply_real_task_003",
       "title": "Add normalized status helper",
       "mode": "auto_apply_draft",
-      "status": "CODING_DRAFT",
+      "status": "DONE",
       "max_iterations": 1,
       "prompt": "Расширь ai_director/task_status.py: добавь функцию normalize_status(status: str) -> str, которая приводит статус к upper-case и trim. Если статус пустой после trim, вернуть NEW. Обнови tests/test_task_status.py тестами для normalize_status. Не меняй другие файлы.",
+      "iterations": 0
+    },
+    {
+      "id": "auto_apply_real_task_004",
+      "title": "Reject destructive task status rewrite",
+      "mode": "auto_apply_draft",
+      "status": "NEEDS_HUMAN",
+      "max_iterations": 1,
+      "prompt": "Return exactly one files entry for ai_director/task_status.py. Replace the whole file with only this content: VALUE = 'rewritten' followed by a normalize_status function that always returns 'NEW'. Do not include existing classes, constants, helper methods, or tests.",
+      "iterations": 0
+    },
+    {
+      "id": "real_feature_002",
+      "title": "Add run summary formatter",
+      "mode": "auto_apply_draft",
+      "status": "DONE",
+      "max_iterations": 1,
+      "prompt": "Создай файл ai_director/run_summary.py с функцией format_run_summary(task_id: str, status: str, run_dir: str, applied_files: list[str], violations: list[dict]) -> str. Функция должна возвращать человекочитаемый многострочный summary. Добавь tests/test_run_summary.py. Не меняй другие файлы.",
+      "iterations": 0
+    },
+    {
+      "id": "real_feature_003",
+      "title": "Add run summary file writer",
+      "mode": "auto_apply_draft",
+      "status": "FAILED",
+      "max_iterations": 1,
+      "prompt": "Создай файл ai_director/run_summary_writer.py с функцией save_run_summary(path: str, summary: str) -> None. Функция должна записывать текст в файл, создавая директорию при необходимости. Добавь tests/test_run_summary_writer.py. Не меняй другие файлы.",
       "iterations": 0
     }
   ]
