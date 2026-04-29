@@ -282,6 +282,20 @@ class AbcSkuItemV2(TypedDict, total=False):
     status: str
 
 
+class AbcSectionSkuItemV2(TypedDict, total=False):
+    sku: str
+    nm_id: str | None
+    name: str | None
+    abc_class: str
+    revenue: float | None
+    profit: float | None
+    profit_margin: float | None
+    ad_spend: float | None
+    reason: str
+    recommended_action: str
+    source: str
+
+
 class AbcAnalysisSummaryV2(TypedDict, total=False):
     total_skus: int | None
     category_A_count: int | None
@@ -290,6 +304,9 @@ class AbcAnalysisSummaryV2(TypedDict, total=False):
     category_A_share: float | None
     category_B_share: float | None
     category_C_share: float | None
+    c_skus_with_ads_count: int | None
+    low_margin_skus_count: int | None
+    critical_a_skus_count: int | None
 
 
 class AbcAnalysisSectionV2(TypedDict, total=False):
@@ -300,6 +317,22 @@ class AbcAnalysisSectionV2(TypedDict, total=False):
     message: str
     summary: AbcAnalysisSummaryV2
     categories: dict[str, list[AbcSkuItemV2]]
+    warnings: list[WarningItemV2]
+    summary_rows: list[DisplayRowV2]
+
+
+class AbcSectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    status: str
+    source: str
+    message: str
+    summary: AbcAnalysisSummaryV2
+    top_a_skus: list[AbcSectionSkuItemV2]
+    critical_a_skus: list[AbcSectionSkuItemV2]
+    c_skus_with_ads: list[AbcSectionSkuItemV2]
+    low_margin_skus: list[AbcSectionSkuItemV2]
+    recommendations: list[str]
     warnings: list[WarningItemV2]
     summary_rows: list[DisplayRowV2]
 
@@ -362,6 +395,7 @@ class ReportPayloadV2(TypedDict):
     query_profitability_section: NotRequired[QueryProfitabilitySectionV2]
     sku_health_section: NotRequired[SkuHealthSectionV2]
     profit_contribution_section: NotRequired[ProfitContributionSectionV2]
+    abc_section: NotRequired[AbcSectionV2]
     abc_analysis_section: NotRequired[AbcAnalysisSectionV2]
     finance_final: FinanceFinalBlockV2
     finance_section: SectionV2

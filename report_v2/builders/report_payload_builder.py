@@ -6,6 +6,8 @@ from typing import Any
 
 from ..contracts.report_payload_schema import (
     AbcAnalysisSectionV2,
+    AbcSectionSkuItemV2,
+    AbcSectionV2,
     AbcSkuItemV2,
     AdsEfficiencySectionV2,
     AdsRowV2,
@@ -2636,6 +2638,274 @@ def _build_abc_summary_rows(summary: dict[str, Any]) -> list[DisplayRowV2]:
     ]
 
 
+def _build_abc_section_summary_rows(summary: dict[str, Any]) -> list[DisplayRowV2]:
+    rows = _build_abc_summary_rows(summary)
+    rows.extend(
+        [
+            _display_row(
+                "Критичные A-SKU",
+                _format_display_int(summary.get("critical_a_skus_count"), "шт"),
+                note="A-SKU с риском маржи или прибыли",
+                status="ok" if _safe_float(summary.get("critical_a_skus_count")) is not None else "unavailable",
+            ),
+            _display_row(
+                "C-SKU с рекламой",
+                _format_display_int(summary.get("c_skus_with_ads_count"), "шт"),
+                note="C-категория с рекламным расходом",
+                status="ok" if _safe_float(summary.get("c_skus_with_ads_count")) is not None else "unavailable",
+            ),
+            _display_row(
+                "Низкая маржинальность",
+                _format_display_int(summary.get("low_margin_skus_count"), "шт"),
+                note="SKU с низкой или отрицательной маржой",
+                status="ok" if _safe_float(summary.get("low_margin_skus_count")) is not None else "unavailable",
+            ),
+        ]
+    )
+    return rows
+
+
+def _sku_lookup_key(row: dict[str, Any]) -> str:
+    return _first_text(row.get("sku"), row.get("nm_id"), row.get("nmId"), row.get("article"), row.get("vendor_code"))
+
+
+def _merge_sku_index_row(index: dict[str, dict[str, Any]], row: dict[str, Any]) -> None:
+    sku = _sku_lookup_key(row)
+    if not sku:
+        return
+    target = index.setdefault(sku, {})
+    for key, value in row.items():
+        if key not in target or target.get(key) in (None, ""):
+            target[key] = value
+
+
+def _profit_sku_index(
+    *,
+    artifact_dir: str | Path | None,
+    profit_contribution_section: dict[str, Any] | None,
+) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    section = _safe_dict(profit_contribution_section)
+    for key in ("sku_pnl", "top_profit_skus", "loss_skus"):
+        for row in _safe_dict_list(section.get(key)):
+            _merge_sku_index_row(index, row)
+
+    payload = _load_profit_contribution_artifact(artifact_dir)
+    for row in _profit_all_source_rows(payload):
+        _merge_sku_index_row(index, row)
+    for key in ("top_profit_skus", "top_profit_sku", "loss_skus", "top_loss_skus", "top_loss_sku"):
+        for row in _profit_source_rows(payload, key):
+            _merge_sku_index_row(index, row)
+    return index
+
+
+def _abc_ad_spend_index(snapshot: dict[str, Any], artifact_dir: str | Path | None) -> dict[str, float]:
+    artifacts = _load_ads_artifacts_from_dir(artifact_dir)
+    source_blocks = [
+        _safe_dict(snapshot).get("advertising_efficiency"),
+        _safe_dict(snapshot).get("advertising_efficiency_daily"),
+        artifacts.get("advertising_efficiency"),
+    ]
+    row_keys = (
+        "sku_performance",
+        "sku_performance_rows",
+        "sku_rows",
+        "skus",
+        "items",
+        "campaign_skus",
+        "campaign_sku_performance",
+    )
+    index: dict[str, float] = {}
+    for block in source_blocks:
+        if not isinstance(block, dict):
+            continue
+        rows: list[dict[str, Any]] = []
+        for key in row_keys:
+            rows.extend(_safe_dict_list(block.get(key)))
+        for row in rows:
+            sku = _sku_lookup_key(row)
+            spend = _first_numeric(row, ("ad_spend", "ads_spend", "spend", "total_ad_spend", "cost"))
+            if not sku or spend is None:
+                continue
+            index[sku] = round(index.get(sku, 0.0) + spend, 6)
+    return index
+
+
+def _abc_section_source_rows(payload: Any, *keys: str) -> list[dict[str, Any]]:
+    root = _safe_dict(payload)
+    for key in keys:
+        rows = _safe_dict_list(root.get(key))
+        if rows:
+            return rows
+    summary = _safe_dict(root.get("summary"))
+    for key in keys:
+        rows = _safe_dict_list(summary.get(key))
+        if rows:
+            return rows
+    return []
+
+
+def _normalize_abc_section_sku(
+    row: dict[str, Any],
+    *,
+    category: str = "",
+    profit_by_sku: dict[str, dict[str, Any]],
+    ad_spend_by_sku: dict[str, float],
+    reason: str = "",
+    recommended_action: str = "",
+) -> AbcSectionSkuItemV2:
+    sku = _sku_lookup_key(row)
+    fallback = profit_by_sku.get(sku, {})
+    abc_class = _abc_category_value(row) or _safe_str(category).upper()
+    revenue = _first_numeric(row, ("revenue", "total_revenue", "sales", "sales_amount"))
+    if revenue is None:
+        revenue = _first_numeric(fallback, ("revenue", "total_revenue", "sales", "sales_amount"))
+    profit = _first_numeric(row, ("profit", "gross_profit", "net_profit"))
+    if profit is None:
+        profit = _first_numeric(fallback, ("profit", "gross_profit", "net_profit"))
+    profit_margin = _first_numeric(row, ("profit_margin", "margin", "margin_rate", "profitability"))
+    if profit_margin is None:
+        profit_margin = _first_numeric(fallback, ("profit_margin", "margin", "margin_rate", "profitability"))
+    if profit_margin is None and profit is not None and revenue not in (None, 0):
+        profit_margin = round(profit / revenue, 6)
+    ad_spend = _first_numeric(row, ("ad_spend", "ads_spend", "spend", "total_ad_spend", "cost"))
+    if ad_spend is None:
+        ad_spend = ad_spend_by_sku.get(sku)
+
+    return {
+        "sku": sku,
+        "nm_id": _first_text(row.get("nm_id"), row.get("nmId"), fallback.get("nm_id"), fallback.get("nmId")) or None,
+        "name": _first_text(
+            row.get("name"),
+            row.get("product_name"),
+            row.get("title"),
+            fallback.get("name"),
+            fallback.get("product_name"),
+            fallback.get("title"),
+        )
+        or None,
+        "abc_class": abc_class,
+        "revenue": revenue,
+        "profit": profit,
+        "profit_margin": profit_margin,
+        "ad_spend": ad_spend,
+        "reason": _first_text(row.get("reason"), row.get("comment"), reason),
+        "recommended_action": _first_text(row.get("recommended_action"), row.get("action"), recommended_action),
+        "source": _first_text(row.get("source"), "abc_analysis.json") or "abc_analysis.json",
+    }
+
+
+def _abc_section_rows_from_payload(
+    payload: Any,
+    *,
+    profit_by_sku: dict[str, dict[str, Any]],
+    ad_spend_by_sku: dict[str, float],
+) -> list[AbcSectionSkuItemV2]:
+    rows = _abc_raw_rows(payload)
+    return [
+        _normalize_abc_section_sku(row, profit_by_sku=profit_by_sku, ad_spend_by_sku=ad_spend_by_sku)
+        for row in rows
+    ]
+
+
+def _abc_margin_is_low(value: Any) -> bool:
+    margin = _safe_float(value)
+    if margin is None:
+        return False
+    threshold = 10.0 if abs(margin) > 1.0 else 0.10
+    return margin <= threshold
+
+
+def _abc_section_sort_key(row: dict[str, Any]) -> tuple[float, float, float]:
+    revenue = _safe_float(row.get("revenue")) or 0.0
+    profit = _safe_float(row.get("profit")) or 0.0
+    ad_spend = _safe_float(row.get("ad_spend")) or 0.0
+    return (revenue, profit, ad_spend)
+
+
+def _is_critical_a_sku(row: dict[str, Any]) -> bool:
+    if _safe_str(row.get("abc_class")).upper() != "A":
+        return False
+    status = _safe_str(row.get("status")).lower()
+    reason = _safe_str(row.get("reason")).lower()
+    profit = _safe_float(row.get("profit"))
+    return (
+        status in {"critical", "risk", "warning"}
+        or "risk" in reason
+        or "крит" in reason
+        or (profit is not None and profit < 0)
+        or _abc_margin_is_low(row.get("profit_margin"))
+    )
+
+
+def _is_low_margin_sku(row: dict[str, Any]) -> bool:
+    profit = _safe_float(row.get("profit"))
+    return (profit is not None and profit < 0) or _abc_margin_is_low(row.get("profit_margin"))
+
+
+def _abc_with_reason_action(
+    row: AbcSectionSkuItemV2,
+    *,
+    reason: str,
+    recommended_action: str,
+) -> AbcSectionSkuItemV2:
+    item: AbcSectionSkuItemV2 = dict(row)
+    if not _safe_str(item.get("reason")):
+        item["reason"] = reason
+    if not _safe_str(item.get("recommended_action")):
+        item["recommended_action"] = recommended_action
+    return item
+
+
+def _abc_section_recommendations(
+    payload: Any,
+    *,
+    critical_a_skus: list[AbcSectionSkuItemV2],
+    c_skus_with_ads: list[AbcSectionSkuItemV2],
+    low_margin_skus: list[AbcSectionSkuItemV2],
+) -> list[str]:
+    root = _safe_dict(payload)
+    recommendations: list[str] = []
+    def append_text_once(text: str) -> None:
+        if text and text not in recommendations:
+            recommendations.append(text)
+
+    for item in _safe_list(root.get("recommendations") or root.get("actions")):
+        text = _safe_str(item.get("text") if isinstance(item, dict) else item)
+        if text:
+            append_text_once(text)
+
+    if critical_a_skus:
+        append_text_once("Проверить наличие, цену и маржу критичных A-SKU.")
+    if c_skus_with_ads:
+        append_text_once("Снизить или остановить рекламу C-SKU без достаточного вклада.")
+    if low_margin_skus:
+        append_text_once("Пересчитать цену, скидки и себестоимость SKU с низкой маржинальностью.")
+    return recommendations[:5]
+
+
+def _abc_section_status(
+    *,
+    artifact_present: bool,
+    raw_status: str,
+    rows: list[AbcSectionSkuItemV2],
+    summary: dict[str, Any],
+) -> str:
+    if not artifact_present:
+        return "no_data"
+    if raw_status in {"no_data", "missing"}:
+        return "no_data"
+    if raw_status and raw_status not in {"ok", "success"}:
+        return "partial"
+    if not rows and _safe_float(summary.get("total_skus")) is None:
+        return "partial"
+    if any(not _safe_str(row.get("sku")) or not _safe_str(row.get("abc_class")) for row in rows):
+        return "partial"
+    if rows and all(_safe_float(row.get("revenue")) is None and _safe_float(row.get("profit")) is None for row in rows):
+        return "partial"
+    return "ok"
+
+
 def build_abc_analysis_section_v2(
     snapshot: dict[str, Any],
     debug: dict[str, Any] | None,
@@ -2695,6 +2965,190 @@ def build_abc_analysis_section_v2(
         "warnings": warnings,
     }
     section["summary_rows"] = _build_abc_summary_rows(summary)
+    return section
+
+
+def build_abc_section_v2(
+    snapshot: dict[str, Any],
+    debug: dict[str, Any] | None,
+    *,
+    artifact_dir: str | Path | None = None,
+    profit_contribution_section: dict[str, Any] | None = None,
+) -> AbcSectionV2:
+    _ = debug
+    payload = _load_abc_analysis_artifact(artifact_dir)
+    if payload is None:
+        summary = {
+            "total_skus": None,
+            "category_A_count": None,
+            "category_B_count": None,
+            "category_C_count": None,
+            "category_A_share": None,
+            "category_B_share": None,
+            "category_C_share": None,
+            "critical_a_skus_count": None,
+            "c_skus_with_ads_count": None,
+            "low_margin_skus_count": None,
+        }
+        section: AbcSectionV2 = {
+            "title": "Ассортимент / ABC",
+            "subtitle": "ABC-анализ SKU по artifact abc_analysis.json.",
+            "status": "no_data",
+            "source": "missing",
+            "message": "Данные abc_analysis.json недоступны.",
+            "summary": summary,
+            "top_a_skus": [],
+            "critical_a_skus": [],
+            "c_skus_with_ads": [],
+            "low_margin_skus": [],
+            "recommendations": [],
+            "warnings": [],
+        }
+        section["summary_rows"] = _build_abc_section_summary_rows(summary)
+        return section
+
+    profit_by_sku = _profit_sku_index(
+        artifact_dir=artifact_dir,
+        profit_contribution_section=profit_contribution_section,
+    )
+    ad_spend_by_sku = _abc_ad_spend_index(snapshot, artifact_dir)
+    all_rows = _abc_section_rows_from_payload(
+        payload,
+        profit_by_sku=profit_by_sku,
+        ad_spend_by_sku=ad_spend_by_sku,
+    )
+    summary_rows_source = _abc_rows_from_payload(payload)
+
+    explicit_top_a = _abc_section_source_rows(payload, "top_a_skus", "top_A_skus", "a_skus")
+    top_a_skus = [
+        _normalize_abc_section_sku(
+            row,
+            category="A",
+            profit_by_sku=profit_by_sku,
+            ad_spend_by_sku=ad_spend_by_sku,
+            reason="основной вклад в оборот или прибыль",
+            recommended_action="держать в наличии и защищать маржу",
+        )
+        for row in explicit_top_a
+    ]
+    if not top_a_skus:
+        top_a_skus = [
+            _abc_with_reason_action(
+                row,
+                reason="основной вклад в оборот или прибыль",
+                recommended_action="держать в наличии и защищать маржу",
+            )
+            for row in sorted(
+                [row for row in all_rows if _safe_str(row.get("abc_class")).upper() == "A"],
+                key=_abc_section_sort_key,
+                reverse=True,
+            )
+        ]
+
+    explicit_critical = _abc_section_source_rows(payload, "critical_a_skus", "critical_A_skus", "risk_a_skus")
+    critical_a_skus = [
+        _normalize_abc_section_sku(
+            row,
+            category="A",
+            profit_by_sku=profit_by_sku,
+            ad_spend_by_sku=ad_spend_by_sku,
+            reason="критичный A-SKU",
+            recommended_action="проверить остатки, цену и маржу",
+        )
+        for row in explicit_critical
+    ]
+    if not critical_a_skus:
+        critical_a_skus = [
+            _abc_with_reason_action(
+                row,
+                reason="A-SKU с риском маржи или прибыли",
+                recommended_action="проверить остатки, цену и маржу",
+            )
+            for row in all_rows
+            if _is_critical_a_sku(row)
+        ]
+
+    explicit_c_ads = _abc_section_source_rows(payload, "c_skus_with_ads", "C_skus_with_ads", "c_ads_skus")
+    c_skus_with_ads = [
+        _normalize_abc_section_sku(
+            row,
+            category="C",
+            profit_by_sku=profit_by_sku,
+            ad_spend_by_sku=ad_spend_by_sku,
+            reason="C-SKU с рекламной активностью",
+            recommended_action="проверить окупаемость рекламы",
+        )
+        for row in explicit_c_ads
+    ]
+    if not c_skus_with_ads:
+        c_skus_with_ads = [
+            _abc_with_reason_action(
+                row,
+                reason="C-SKU с рекламной активностью",
+                recommended_action="проверить окупаемость рекламы",
+            )
+            for row in all_rows
+            if _safe_str(row.get("abc_class")).upper() == "C" and (_safe_float(row.get("ad_spend")) or 0.0) > 0
+        ]
+
+    explicit_low_margin = _abc_section_source_rows(payload, "low_margin_skus", "low_margin_items")
+    low_margin_skus = [
+        _normalize_abc_section_sku(
+            row,
+            profit_by_sku=profit_by_sku,
+            ad_spend_by_sku=ad_spend_by_sku,
+            reason="низкая маржинальность",
+            recommended_action="пересчитать цену, скидки и себестоимость",
+        )
+        for row in explicit_low_margin
+    ]
+    if not low_margin_skus:
+        low_margin_skus = [
+            _abc_with_reason_action(
+                row,
+                reason="низкая маржинальность",
+                recommended_action="пересчитать цену, скидки и себестоимость",
+            )
+            for row in all_rows
+            if _is_low_margin_sku(row)
+        ]
+
+    summary = _abc_summary_from_payload(payload, summary_rows_source)
+    summary["critical_a_skus_count"] = len(critical_a_skus) if all_rows or critical_a_skus else None
+    summary["c_skus_with_ads_count"] = len(c_skus_with_ads) if all_rows or c_skus_with_ads else None
+    summary["low_margin_skus_count"] = len(low_margin_skus) if all_rows or low_margin_skus else None
+
+    root = _safe_dict(payload)
+    warnings = _normalize_artifact_warnings(root.get("warnings"), block="abc_analysis", default_code="abc_analysis_warning")
+    raw_status = _safe_str(root.get("status") or _safe_dict(root.get("summary")).get("status")).lower()
+    status = _abc_section_status(artifact_present=True, raw_status=raw_status, rows=all_rows, summary=summary)
+    if status == "no_data":
+        message = "Данные abc_analysis.json недоступны."
+    elif status == "partial":
+        message = "ABC-анализ доступен частично; пропуски не заменялись нулями."
+    else:
+        message = "ABC-анализ собран из artifact abc_analysis.json."
+
+    section: AbcSectionV2 = {
+        "title": "Ассортимент / ABC",
+        "subtitle": "Вклад SKU, критичные A-SKU и рекламная активность C-SKU.",
+        "status": status,
+        "source": "abc_analysis.json",
+        "message": message,
+        "summary": summary,
+        "top_a_skus": top_a_skus[:10],
+        "critical_a_skus": critical_a_skus[:10],
+        "c_skus_with_ads": c_skus_with_ads[:10],
+        "low_margin_skus": low_margin_skus[:10],
+        "recommendations": _abc_section_recommendations(
+            payload,
+            critical_a_skus=critical_a_skus,
+            c_skus_with_ads=c_skus_with_ads,
+            low_margin_skus=low_margin_skus,
+        ),
+        "warnings": warnings,
+    }
+    section["summary_rows"] = _build_abc_section_summary_rows(summary)
     return section
 
 
@@ -2974,6 +3428,15 @@ def build_report_payload_v2(
     for item in abc_analysis_section.get("warnings", []):
         if isinstance(item, dict):
             _append_once(warnings, item)
+    abc_section = build_abc_section_v2(
+        snapshot,
+        debug,
+        artifact_dir=artifact_dir,
+        profit_contribution_section=profit_contribution_section,
+    )
+    for item in abc_section.get("warnings", []):
+        if isinstance(item, dict):
+            _append_once(warnings, item)
 
     payload: ReportPayloadV2 = {
         "meta": meta_block,
@@ -2997,6 +3460,7 @@ def build_report_payload_v2(
         "query_profitability_section": query_profitability_section,
         "sku_health_section": sku_health_section,
         "profit_contribution_section": profit_contribution_section,
+        "abc_section": abc_section,
         "abc_analysis_section": abc_analysis_section,
         "finance_final": finance_block,
         "finance_section": build_finance_section_v2(finance_block),
