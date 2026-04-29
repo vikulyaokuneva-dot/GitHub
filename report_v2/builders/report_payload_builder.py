@@ -111,7 +111,7 @@ def _format_display_percent(value: float | None) -> str:
 def _format_display_share_percent(value: Any) -> str:
     numeric = _safe_float(value)
     if numeric is None:
-        return "РЅРµС‚ РґР°РЅРЅС‹С…"
+        return "нет данных"
     display_value = numeric * 100.0 if abs(numeric) <= 1.0 else numeric
     return _format_display_percent(display_value)
 

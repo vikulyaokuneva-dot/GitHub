@@ -167,6 +167,12 @@ def build_profit_contribution(metrics: Dict[str, Any]) -> Dict[str, Any]:
 
     known_profit_rows = [item for item in normalized if item.get("profit") is not None]
     total_profit = sum(_as_float(item.get("profit")) for item in known_profit_rows)
+    known_revenue_rows = [item for item in normalized if item.get("revenue") is not None]
+    total_revenue = (
+        round(sum(_as_float(item.get("revenue")) for item in known_revenue_rows), 2)
+        if known_revenue_rows
+        else None
+    )
     positive_rows = [item for item in known_profit_rows if _as_float(item.get("profit")) > float(thresholds["neutral_abs_profit"])]
     loss_rows = [item for item in known_profit_rows if _as_float(item.get("profit")) < -float(thresholds["neutral_abs_profit"])]
     positive_total_profit = sum(_as_float(item.get("profit")) for item in positive_rows)
@@ -258,6 +264,7 @@ def build_profit_contribution(metrics: Dict[str, Any]) -> Dict[str, Any]:
         "profit_sku_count": len(positive_rows),
         "loss_sku_count": len(loss_rows),
         "total_profit": round(total_profit, 2),
+        "total_revenue": total_revenue,
         "top_profit_sku": top_profit_sku,
         "top_loss_sku": top_loss_sku,
         "profit_concentration": concentration_label,
@@ -277,6 +284,7 @@ def build_profit_contribution(metrics: Dict[str, Any]) -> Dict[str, Any]:
         "top_profit_skus": top_profit_sku,
         "meta": {
             "total_profit": round(total_profit, 2),
+            "total_revenue": total_revenue,
             "sku_count": len(ranked_items),
         },
     }

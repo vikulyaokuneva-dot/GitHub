@@ -32,8 +32,11 @@ class TestProfitContribution(unittest.TestCase):
         self.assertEqual(int(summary.get("sku_count", 0)), 5)
         self.assertEqual(int(summary.get("profit_sku_count", 0)), 3)
         self.assertEqual(int(summary.get("loss_sku_count", 0)), 1)
+        self.assertEqual(float(summary.get("total_revenue", 0.0)), 10100.0)
         self.assertIn(summary.get("profit_concentration"), {"high", "medium", "low", "insufficient_data"})
         self.assertAlmostEqual(float(summary.get("top_20_profit_share", 0.0) or 0.0), 0.8, places=6)
+        meta = payload.get("meta", {}) if isinstance(payload, dict) else {}
+        self.assertEqual(float(meta.get("total_revenue", 0.0)), 10100.0)
 
         a = self._item_by_sku(payload, "A")
         b = self._item_by_sku(payload, "B")
@@ -68,6 +71,21 @@ class TestProfitContribution(unittest.TestCase):
         self.assertEqual(payload.get("status"), "insufficient_data")
         summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
         self.assertEqual(int(summary.get("sku_count", 0)), 0)
+
+    def test_total_revenue_is_none_when_revenue_is_missing(self) -> None:
+        payload = build_profit_contribution(
+            {
+                "sku_metrics": [
+                    {"sku": "P", "profit": 10},
+                    {"sku": "L", "profit": -2, "revenue": None},
+                ]
+            }
+        )
+
+        summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
+        meta = payload.get("meta", {}) if isinstance(payload, dict) else {}
+        self.assertIsNone(summary.get("total_revenue"))
+        self.assertIsNone(meta.get("total_revenue"))
 
 
 if __name__ == "__main__":

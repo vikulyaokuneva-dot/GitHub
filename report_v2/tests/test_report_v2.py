@@ -22,6 +22,25 @@ from report_v2.renderers.pdf_renderer_v2 import write_report_pdf_v2
 from report_v2.run_report_v2 import build_report_v2_from_files
 
 
+MOJIBAKE_MARKERS = (
+    "\u0420\u0405\u0420\u00b5",
+    "\u0420\u0491\u0420\u00b0",
+    "\u0421\u2039",
+    "\u0432\u201a\u0405",
+)
+
+
+def _assert_no_mojibake(text: str) -> None:
+    assert not any(marker in text for marker in MOJIBAKE_MARKERS)
+
+
+def _extract_pdf_text(path: Path) -> str:
+    from pypdf import PdfReader
+
+    reader = PdfReader(str(path))
+    return "\n".join(page.extract_text() or "" for page in reader.pages)
+
+
 def _sample_snapshot() -> dict:
     return {
         "seller_id": "seller_001",
@@ -1279,6 +1298,36 @@ def test_profit_contribution_section_is_ok_when_artifact_exists(tmp_path: Path) 
     assert section["top_profit_skus"][0]["sku"] == "SKU-GROW"
     assert section["loss_skus"][0]["sku"] == "SKU-RISK"
     assert section["loss_skus"][0]["recommended_action"] == "Liquidate SKU-RISK stock"
+
+
+def test_profit_contribution_total_revenue_falls_back_to_item_revenue(tmp_path: Path) -> None:
+    artifact = _sample_profit_contribution_artifact()
+    artifact["summary"].pop("total_revenue")
+    artifact["meta"] = {}
+    artifact.pop("total_revenue", None)
+    (tmp_path / "profit_contribution.json").write_text(
+        json.dumps(artifact, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
+    section = payload["profit_contribution_section"]
+
+    assert section["summary"]["total_revenue"] == 5000.0
+    summary_rows = {row["label"]: row for row in section["summary_rows"]}
+    assert summary_rows["Общая выручка"]["value"] == "5 000 ₽"
+    assert summary_rows["Общая выручка"]["value"] != "нет данных"
+
+    payload_text = json.dumps(payload, ensure_ascii=False)
+    _assert_no_mojibake(payload_text)
+
+    pdf_path = tmp_path / "report_v2_profit_revenue_fallback.pdf"
+    write_report_pdf_v2(pdf_path, payload)
+    pdf_text = _extract_pdf_text(pdf_path)
+
+    assert "Общая выручка" in pdf_text
+    assert "5 000 ₽" in pdf_text
+    _assert_no_mojibake(pdf_text)
 
 
 def test_abc_analysis_section_is_ok_when_artifact_exists(tmp_path: Path) -> None:

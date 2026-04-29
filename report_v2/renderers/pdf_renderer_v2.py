@@ -332,10 +332,10 @@ def _format_query_number(value: Any) -> str:
 def _format_share_percent(value: Any) -> str:
     try:
         if value is None or value == "":
-            return "РЅРµС‚ РґР°РЅРЅС‹С…"
+            return "нет данных"
         numeric = float(value)
     except (TypeError, ValueError):
-        return "РЅРµС‚ РґР°РЅРЅС‹С…"
+        return "нет данных"
     display_value = numeric * 100.0 if abs(numeric) <= 1.0 else numeric
     if float(display_value).is_integer():
         formatted = f"{int(display_value):,}".replace(",", " ")

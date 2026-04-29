@@ -8,6 +8,18 @@ from report_v2.renderers.email_renderer_v2 import render_email_html, render_emai
 from report_v2.run_report_v2 import build_report_v2_from_files
 
 
+MOJIBAKE_MARKERS = (
+    "\u0420\u0405\u0420\u00b5",
+    "\u0420\u0491\u0420\u00b0",
+    "\u0421\u2039",
+    "\u0432\u201a\u0405",
+)
+
+
+def _assert_no_mojibake(text: str) -> None:
+    assert not any(marker in text for marker in MOJIBAKE_MARKERS)
+
+
 def _sample_snapshot() -> dict:
     return {
         "seller_id": "seller_001",
@@ -240,6 +252,9 @@ def test_email_renders_profit_and_assortment_summary(tmp_path: Path) -> None:
     assert "1 SKU дают 87,50% прибыли" in text
     assert "Убыточные SKU: 1" in text
     assert "A-категория: 1 SKU" in text
+    _assert_no_mojibake(json.dumps(payload, ensure_ascii=False))
+    _assert_no_mojibake(html)
+    _assert_no_mojibake(text)
 
 
 def test_email_profit_and_assortment_no_data_message() -> None:
@@ -248,6 +263,8 @@ def test_email_profit_and_assortment_no_data_message() -> None:
     text = render_email_text(payload)
 
     assert "Данные по прибыли и ассортименту недоступны" in text
+    _assert_no_mojibake(json.dumps(payload, ensure_ascii=False))
+    _assert_no_mojibake(text)
 
 
 def test_email_renderer_accepts_payload_without_sku_health_section() -> None:
