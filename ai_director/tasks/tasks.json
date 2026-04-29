@@ -716,6 +716,24 @@
       "max_iterations": 2,
       "prompt": "Исправь реализацию profit_contribution: НЕ создавай новые файлы payloads.py и renderers.py. Используй существующие report_v2/payload.py и report_v2/renderer.py. Перенеси туда логику ProfitContributionPayload и ProfitContributionRenderer. Удали новые файлы если они не используются. Сделай так, чтобы проходил тест report_v2/tests/test_profit_contribution.py. Делай минимальные изменения.",
       "iterations": 0
+    },
+    {
+      "id": "report_v2_profit_contribution_fix_002",
+      "title": "Fix profit contribution failing tests",
+      "mode": "auto_apply_draft",
+      "status": "NEEDS_HUMAN",
+      "max_iterations": 2,
+      "prompt": "Исправь падающие тесты report_v2/tests/test_profit_contribution.py. Нужно обновить существующие report_v2/payload.py и report_v2/renderer.py так, чтобы ProfitContributionPayload(sample_data) имел атрибуты profit, cost, margin, details, а ProfitContributionRenderer(payload).render() возвращал человекочитаемый текст с Profit Contribution, Total Profit, SKU строками и форматированием 120,000 / 80,000 / 40.0%. Не создавай payloads.py/renderers.py. Не переписывай большие файлы полностью. Делай минимальные изменения.",
+      "iterations": 0
+    },
+    {
+      "id": "report_v2_profit_contribution_minimal_patch",
+      "title": "Minimal patch profit contribution tests",
+      "mode": "auto_apply_draft",
+      "status": "NEEDS_HUMAN",
+      "max_iterations": 1,
+      "prompt": "Сделай минимальный патч для report_v2/tests/test_profit_contribution.py: адаптируй тесты под существующую архитектуру report_v2, где ProfitContributionPayload сейчас хранит данные как raw/json, а ProfitContributionRenderer возвращает JSON-представление. Цель: зафиксировать текущий контракт без изменения report_v2/payload.py и report_v2/renderer.py. Измени только report_v2/tests/test_profit_contribution.py. Не трогай другие файлы.",
+      "iterations": 0
     }
   ]
 }
