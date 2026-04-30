@@ -63,7 +63,16 @@ def _extract_sku_metrics(metrics: Any) -> List[Dict[str, Any]]:
 
 
 def _resolve_revenue(row: Dict[str, Any]) -> float | None:
-    for key in ("revenue", "buyouts_amount", "orders_amount", "sales_amount"):
+    for key in (
+        "revenue",
+        "realized_revenue",
+        "realized_sales_revenue",
+        "orders_revenue",
+        "orders_amount",
+        "sales_revenue",
+        "sales_amount",
+        "buyouts_amount",
+    ):
         parsed = _as_float_or_none(row.get(key))
         if parsed is not None:
             return float(parsed)
@@ -277,6 +286,7 @@ def build_profit_contribution(metrics: Dict[str, Any]) -> Dict[str, Any]:
         "warnings": top_level_warnings,
         "summary": summary,
         "items": ranked_items,
+        "sku_pnl": ranked_items,
         "p1": grouped.get("p1", []),
         "p2": grouped.get("p2", []),
         "p3": grouped.get("p3", []),

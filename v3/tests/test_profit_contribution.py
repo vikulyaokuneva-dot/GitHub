@@ -1,6 +1,9 @@
 ﻿import unittest
 
+import tempfile
+
 from v3.analytics.profit_contribution import build_profit_contribution
+from v3.pipeline.daily_metrics_stage import run_daily_metrics_stage
 
 
 class TestProfitContribution(unittest.TestCase):
@@ -86,6 +89,117 @@ class TestProfitContribution(unittest.TestCase):
         meta = payload.get("meta", {}) if isinstance(payload, dict) else {}
         self.assertIsNone(summary.get("total_revenue"))
         self.assertIsNone(meta.get("total_revenue"))
+
+    def test_total_revenue_accepts_sku_fact_table_revenue_fields(self) -> None:
+        payload = build_profit_contribution(
+            {
+                "sku_metrics": [
+                    {"sku": "ORDER", "orders_revenue": 1760.0, "profit": None},
+                    {"sku": "REALIZED", "realized_revenue": 554.0, "profit": None},
+                ]
+            }
+        )
+
+        summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
+        meta = payload.get("meta", {}) if isinstance(payload, dict) else {}
+        self.assertEqual(float(summary.get("total_revenue", 0.0)), 2314.0)
+        self.assertEqual(float(meta.get("total_revenue", 0.0)), 2314.0)
+        self.assertEqual(len(payload.get("sku_pnl", [])), 2)
+
+    def test_daily_metrics_stage_uses_sku_fact_table_for_profit_when_sku_metrics_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as out_dir:
+            ctx = run_daily_metrics_stage(
+                {
+                    "repo_root": "",
+                    "seller_id": "seller_sku_fact",
+                    "run_date": "2026-04-29",
+                    "seller_name": "Seller SKU Fact",
+                    "out_dir": out_dir,
+                    "token": "token",
+                    "source_mode": "wb_api",
+                    "cfg": {"tax_rate": 0.06},
+                    "sales_rows": [],
+                    "ads_rows": [],
+                    "stocks_rows": [],
+                    "api_orders_rows": [],
+                    "api_sales_rows": [],
+                    "api_realization_rows": [],
+                    "api_stocks_rows": [],
+                    "supplier_goods_daily": {},
+                    "discovered_files": {},
+                    "input_debug": {},
+                    "api_debug": {},
+                    "orders_rows": [
+                        {
+                            "date": "2026-04-29",
+                            "nm_id": "1001",
+                            "supplierArticle": "SKU-1001",
+                            "quantity": 2,
+                            "priceWithDisc": 1760.0,
+                        }
+                    ],
+                }
+            )
+
+        profit = ctx.get("profit_contribution", {})
+        summary = profit.get("summary", {}) if isinstance(profit, dict) else {}
+        diagnostics = ctx.get("metrics", {}).get("diagnostics", {}) if isinstance(ctx.get("metrics"), dict) else {}
+        sku_fact_diag = diagnostics.get("sku_fact_table", {}) if isinstance(diagnostics, dict) else {}
+        warnings_collector = ctx.get("warnings_collector")
+        warning_codes = {
+            item.get("code")
+            for item in warnings_collector.export_warnings()
+            if isinstance(item, dict)
+        }
+
+        self.assertEqual(profit.get("source"), "sku_fact_table")
+        self.assertEqual(int(profit.get("sku_fact_table_rows", 0)), 1)
+        self.assertEqual(float(summary.get("total_revenue", 0.0)), 1760.0)
+        self.assertEqual(len(profit.get("items", [])), 1)
+        self.assertEqual(len(profit.get("sku_pnl", [])), 1)
+        self.assertEqual(int(sku_fact_diag.get("sku_fact_table_rows", 0)), 1)
+        self.assertTrue(bool(sku_fact_diag.get("sku_fact_table_source_flags", {}).get("orders")))
+        self.assertIn("sku_fact_table_used_for_profit_contribution", warning_codes)
+        self.assertNotIn("sku_metrics_missing", set(profit.get("warnings", [])))
+        self.assertEqual(ctx.get("sku_metrics"), [])
+        self.assertEqual(ctx.get("abc_rows"), [])
+
+    def test_daily_metrics_stage_keeps_sku_metrics_missing_when_fact_rows_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as out_dir:
+            ctx = run_daily_metrics_stage(
+                {
+                    "repo_root": "",
+                    "seller_id": "seller_no_sku_fact",
+                    "run_date": "2026-04-29",
+                    "seller_name": "Seller No SKU Fact",
+                    "out_dir": out_dir,
+                    "token": "token",
+                    "source_mode": "wb_api",
+                    "cfg": {"tax_rate": 0.06},
+                    "sales_rows": [],
+                    "ads_rows": [],
+                    "stocks_rows": [],
+                    "api_orders_rows": [],
+                    "api_sales_rows": [],
+                    "api_realization_rows": [],
+                    "api_stocks_rows": [],
+                    "supplier_goods_daily": {},
+                    "discovered_files": {},
+                    "input_debug": {},
+                    "api_debug": {},
+                }
+            )
+
+        profit = ctx.get("profit_contribution", {})
+        summary = profit.get("summary", {}) if isinstance(profit, dict) else {}
+        diagnostics = ctx.get("metrics", {}).get("diagnostics", {}) if isinstance(ctx.get("metrics"), dict) else {}
+        sku_fact_diag = diagnostics.get("sku_fact_table", {}) if isinstance(diagnostics, dict) else {}
+
+        self.assertNotEqual(profit.get("source"), "sku_fact_table")
+        self.assertEqual(profit.get("status"), "insufficient_data")
+        self.assertIn("sku_metrics_missing", profit.get("warnings", []))
+        self.assertEqual(int(summary.get("sku_count", 0)), 0)
+        self.assertEqual(int(sku_fact_diag.get("sku_fact_table_rows", -1)), 0)
 
 
 if __name__ == "__main__":

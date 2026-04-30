@@ -17,7 +17,7 @@ from ..domain.event_model import (
 from ..financial import build_financial_snapshot_from_kernel
 from ..domain.financial_snapshot import DataSource
 from ..analytics.sales_funnel import build_sales_funnel_metrics
-from ..metrics import FinancialKernelInput, run_financial_kernel
+from ..metrics import FinancialKernelInput, build_sku_fact_table, run_financial_kernel
 from ..metrics.cabinet_funnel_builder import build_cabinet_funnel_core
 from ..metrics.sku_daily_dynamics_builder import build_sku_daily_dynamics
 from .daily_stage_support import sync_from_entry
@@ -87,6 +87,24 @@ def _build_real_sku_context(rows_groups: List[List[Dict[str, Any]]]) -> set[str]
             if token:
                 out.add(token)
     return out
+
+
+def _dict_rows(value: Any) -> List[Dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(row) for row in value if isinstance(row, dict)]
+
+
+def _rows_from_optional_artifact(value: Any) -> List[Dict[str, Any]]:
+    if isinstance(value, list):
+        return _dict_rows(value)
+    if not isinstance(value, dict):
+        return []
+    for key in ("rows", "items", "sku_rows", "goods_rows", "products"):
+        rows = _dict_rows(value.get(key))
+        if rows:
+            return rows
+    return []
 
 
 def _normalize_day_token(value: Any) -> str:
@@ -1267,8 +1285,74 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     metrics_data_quality["profit_contribution_enabled"] = profit_contribution_enabled
     metrics["data_quality"] = metrics_data_quality
 
+    profit_metrics = metrics if isinstance(metrics, dict) else {}
+    profit_contribution_source = "sku_metrics"
+    sku_fact_table_payload: Dict[str, Any] = {}
+    sku_fact_table_rows: List[Dict[str, Any]] = []
+    if not sku_metrics:
+        supplier_goods_rows = _rows_from_optional_artifact(ctx.get("supplier_goods_rows"))
+        if not supplier_goods_rows:
+            supplier_goods_rows = _rows_from_optional_artifact(supplier_goods_daily)
+        funnel_goods_rows = _rows_from_optional_artifact(ctx.get("funnel_goods_rows"))
+        if not funnel_goods_rows:
+            funnel_goods_rows = _rows_from_optional_artifact(ctx.get("funnel_goods_daily"))
+        if not funnel_goods_rows:
+            funnel_goods_rows = _rows_from_optional_artifact(metrics.get("funnel_goods") if isinstance(metrics, dict) else {})
+
+        finance_rows = _dict_rows(api_realization_rows)
+        if not finance_rows:
+            finance_rows = _dict_rows(ctx.get("finance_rows"))
+        if not finance_rows:
+            finance_rows = _dict_rows(sales_rows)
+
+        sku_fact_table_payload = build_sku_fact_table(
+            orders_rows=_dict_rows(api_orders_rows) or _dict_rows(ctx.get("orders_rows")),
+            sales_rows=_dict_rows(api_sales_rows) or _dict_rows(ctx.get("sales_api_rows")),
+            stocks_rows=_dict_rows(api_stocks_rows) or _dict_rows(stocks_rows),
+            finance_rows=finance_rows,
+            supplier_goods_rows=supplier_goods_rows,
+            funnel_goods_rows=funnel_goods_rows,
+            stock_snapshot_date=api_debug.get("stocks_snapshot_date") or api_debug.get("stock_snapshot_date"),
+        )
+        sku_fact_table_rows = _dict_rows(sku_fact_table_payload.get("sku_metrics"))
+        diagnostics_payload = metrics.get("diagnostics", {}) if isinstance(metrics, dict) else {}
+        if not isinstance(diagnostics_payload, dict):
+            diagnostics_payload = {}
+        diagnostics_payload["sku_fact_table"] = {
+            "source": "sku_fact_table",
+            "sku_fact_table_rows": len(sku_fact_table_rows),
+            "sku_fact_table_source_flags": dict(sku_fact_table_payload.get("source_flags", {}) or {}),
+        }
+        metrics["diagnostics"] = diagnostics_payload
+        metrics["sku_fact_table"] = {
+            "sku_metrics": sku_fact_table_rows,
+            "summary": dict(sku_fact_table_payload.get("summary", {}) or {}),
+            "source_flags": dict(sku_fact_table_payload.get("source_flags", {}) or {}),
+        }
+        if sku_fact_table_rows:
+            profit_metrics = dict(metrics)
+            profit_metrics["sku_metrics"] = sku_fact_table_rows
+            profit_contribution_source = "sku_fact_table"
+            warnings_collector.add_warning(
+                "sku_fact_table_used_for_profit_contribution",
+                f"Profit contribution filled SKU metrics from sku_fact_table rows={len(sku_fact_table_rows)}.",
+            )
+
     if profit_contribution_enabled:
-        profit_contribution = build_profit_contribution(metrics if isinstance(metrics, dict) else {})
+        profit_contribution = build_profit_contribution(profit_metrics if isinstance(profit_metrics, dict) else {})
+        if profit_contribution_source == "sku_fact_table" and isinstance(profit_contribution, dict):
+            profit_contribution["source"] = "sku_fact_table"
+            profit_contribution["sku_fact_table_rows"] = len(sku_fact_table_rows)
+            profit_contribution["sku_fact_table_source_flags"] = dict(
+                sku_fact_table_payload.get("source_flags", {}) or {}
+            )
+            meta_payload = profit_contribution.get("meta", {})
+            if not isinstance(meta_payload, dict):
+                meta_payload = {}
+            meta_payload["source"] = "sku_fact_table"
+            meta_payload["sku_fact_table_rows"] = len(sku_fact_table_rows)
+            meta_payload["sku_fact_table_source_flags"] = dict(sku_fact_table_payload.get("source_flags", {}) or {})
+            profit_contribution["meta"] = meta_payload
         profit_contribution_status = str(
             (profit_contribution.get("status") if isinstance(profit_contribution, dict) else "") or ""
         ).strip().lower()
