@@ -601,7 +601,7 @@ def build_hero_v2(
         "ok" if cabinet_available and cabinet.get("orders_count") is not None else "unavailable"
     )
     realized_sales_qty = _first_numeric(finance, ("realized_sales_qty",))
-    realized_sales_revenue = _first_numeric(finance, ("realized_sales_revenue", "gross_revenue"))
+    realized_sales_revenue = _first_numeric(finance, ("sale_customer_revenue",))
     realized_status = "unavailable"
     if finance_available and (realized_sales_qty is not None or realized_sales_revenue is not None):
         realized_status = "warning" if finance_status == "lagged" else "ok"

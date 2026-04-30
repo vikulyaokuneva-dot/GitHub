@@ -371,21 +371,42 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             ("quantity", "qty", "count", "sa_quantity", "sales_qty", "saleQty"),
             diag=diag,
         )
-        gross_revenue, gross_key = _parse_float_with_diag(
+        retail_amount_raw = _pick_raw_value(row, ("retailAmount", "retail_amount", "saleAmount", "sale_amount"))
+        retail_amount, retail_amount_key = _parse_float_with_diag(
             row,
             ("retailAmount", "retail_amount", "saleAmount", "sale_amount"),
             diag=diag,
         )
+        retail_price_with_discount, retail_price_key = _parse_float_with_diag(
+            row,
+            ("retailPriceWithDisc", "retailPriceWithDiscRub", "retail_price_withdisc_rub", "priceWithDisc", "finishedPrice"),
+            diag=diag,
+        )
+        qty_for_amount = abs(float(quantity or 0.0)) if abs(float(quantity or 0.0)) > 1e-9 else 1.0
+        sale_customer_price = retail_price_with_discount
+        sale_customer_amount = None
+        if retail_price_with_discount is not None:
+            sale_customer_amount = retail_price_with_discount * qty_for_amount
+        elif retail_amount is not None:
+            sale_customer_amount = retail_amount
+            sale_customer_price = retail_amount / qty_for_amount if qty_for_amount > 1e-9 else retail_amount
+
+        gross_revenue, gross_key = _parse_float_with_diag(
+            row,
+            (
+                "wb_realized_revenue",
+                "wbRealizedRevenue",
+                "wb_realized_amount",
+                "wbRealizedAmount",
+                "realized_sales_revenue",
+                "realized_revenue",
+                "gross_revenue",
+            ),
+            diag=diag,
+        )
         if gross_revenue is None:
-            unit_price, _ = _parse_float_with_diag(
-                row,
-                ("retailPriceWithDisc", "retailPriceWithDiscRub", "retail_price_withdisc_rub", "priceWithDisc", "finishedPrice"),
-                diag=diag,
-            )
-            qty_for_amount = abs(float(quantity or 0.0)) if abs(float(quantity or 0.0)) > 1e-9 else 1.0
-            if unit_price is not None:
-                gross_revenue = unit_price * qty_for_amount
-                gross_key = "derived"
+            gross_revenue = retail_amount
+            gross_key = retail_amount_key
         seller_payout, payout_key = _parse_float_with_diag(
             row,
             ("ppvzForPay", "ppvz_for_pay", "toPay", "to_pay", "forPay", "payout"),
@@ -484,6 +505,7 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             if row_group == "sale" and abs(float(gross_revenue or 0.0)) > 1e-9
             else None
         )
+        sale_customer_amount_for_totals = sale_customer_amount if row_group == "sale" else None
         returns_qty = explicit_returns_qty
         if returns_qty is None and row_group == "return" and quantity_abs > 1e-9:
             returns_qty = quantity_abs
@@ -497,6 +519,7 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             float(deductions or 0.0),
             float(acquiring or 0.0),
             float(tax or 0.0),
+            float(sale_customer_amount or 0.0),
         )
         has_financial_effect = any(abs(value) > 1e-9 for value in tracked_values)
         is_zero_technical = row_group == "reimbursement" and not has_financial_effect
@@ -524,7 +547,17 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
                 "nm_id": nm_id,
                 "seller_sku": seller_sku,
                 "quantity": float(quantity or 0.0),
+                "sale_customer_price": round(float(sale_customer_price), 2) if sale_customer_price is not None else None,
+                "sale_customer_amount": round(float(sale_customer_amount_for_totals), 2)
+                if sale_customer_amount_for_totals is not None
+                else None,
+                "retail_amount_raw": retail_amount_raw,
+                "retail_amount": round(float(retail_amount), 2) if retail_amount is not None else None,
+                "retail_price_with_discount": round(float(retail_price_with_discount), 2)
+                if retail_price_with_discount is not None
+                else None,
                 "gross_revenue": round(float(gross_revenue or 0.0), 2),
+                "wb_realized_revenue": round(float(gross_revenue), 2) if gross_revenue is not None else None,
                 "realized_sales_qty": round(float(realized_sales_qty), 2) if realized_sales_qty is not None else None,
                 "realized_sales_revenue": round(float(realized_sales_revenue), 2) if realized_sales_revenue is not None else None,
                 "seller_payout": round(float(seller_payout or 0.0), 2),
@@ -551,6 +584,7 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
                     (realized_sales_qty is not None and abs(float(realized_sales_qty)) > 1e-9)
                     or (realized_sales_revenue is not None and abs(float(realized_sales_revenue)) > 1e-9)
                 ),
+                "include_sale_customer_amount": row_group == "sale" and sale_customer_amount_for_totals is not None,
                 "include_deliveries_qty": deliveries_qty is not None and abs(float(deliveries_qty)) > 1e-9,
                 "include_returns_qty": returns_qty is not None and abs(float(returns_qty)) > 1e-9,
                 "include_seller_payout": has_financial_effect and not is_zero_technical and abs(float(seller_payout or 0.0)) > 1e-9,

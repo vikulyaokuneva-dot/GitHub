@@ -71,6 +71,8 @@ def build_snapshot(
             "actual_date": finance_final.get("actual_date"),
             "date_aligned": finance_final.get("date_aligned"),
             "gross_revenue": finance_final.get("gross_revenue"),
+            "sale_customer_revenue": finance_final.get("sale_customer_revenue"),
+            "wb_realized_revenue": finance_final.get("wb_realized_revenue"),
             "realized_sales_qty": finance_final.get("realized_sales_qty"),
             "realized_sales_revenue": finance_final.get("realized_sales_revenue"),
             "seller_payout": finance_final.get("seller_payout"),

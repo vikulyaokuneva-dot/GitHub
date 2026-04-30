@@ -53,6 +53,8 @@ class FinanceFinalBlockV2(TypedDict, total=False):
     actual_date: str | None
     date_aligned: bool | None
     gross_revenue: float | None
+    sale_customer_revenue: float | None
+    wb_realized_revenue: float | None
     realized_sales_qty: float | None
     realized_sales_revenue: float | None
     seller_payout: float | None
