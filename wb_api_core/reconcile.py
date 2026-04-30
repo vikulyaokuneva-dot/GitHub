@@ -34,6 +34,23 @@ def _safe_total_if(rows: List[Dict[str, Any]], field: str, include_flag: str) ->
     return round(total, 2)
 
 
+def _safe_total_if_present(rows: List[Dict[str, Any]], field: str, include_flag: str) -> float | None:
+    total = 0.0
+    seen = False
+    for row in rows:
+        if not bool(row.get(include_flag, False)):
+            continue
+        value = row.get(field)
+        if value is None:
+            continue
+        try:
+            total += float(value)
+            seen = True
+        except Exception:
+            continue
+    return round(total, 2) if seen else None
+
+
 def _filter_rows_by_day(rows: List[Dict[str, Any]], target_date: str) -> List[Dict[str, Any]]:
     return [row for row in rows if isinstance(row, dict) and str(row.get("date") or "") == target_date]
 
@@ -221,6 +238,7 @@ def reconcile_bundle(
 
     if finance_available:
         finance_effective_rows = [row for row in finance_rows if bool(row.get("include_in_totals", False))]
+        logistics_amount = _safe_total_if_present(finance_rows, "logistics_amount", "include_logistics")
         finance_final_daily = {
             "source": SOURCE_RULES["finance_final_daily"],
             "available": True,
@@ -228,9 +246,14 @@ def reconcile_bundle(
             "actual_date": finance_actual_date,
             "date_aligned": finance_date_aligned,
             "gross_revenue": _safe_total_if(finance_rows, "gross_revenue", "include_gross_revenue"),
+            "realized_sales_qty": _safe_total_if_present(finance_rows, "realized_sales_qty", "include_realized_sales"),
+            "realized_sales_revenue": _safe_total_if_present(finance_rows, "realized_sales_revenue", "include_realized_sales"),
             "seller_payout": _safe_total_if(finance_rows, "seller_payout", "include_seller_payout"),
             "wb_commission": _safe_total_if(finance_rows, "wb_commission", "include_wb_commission"),
-            "logistics": _safe_total_if(finance_rows, "logistics", "include_logistics"),
+            "deliveries_qty": _safe_total_if_present(finance_rows, "deliveries_qty", "include_deliveries_qty"),
+            "returns_qty": _safe_total_if_present(finance_rows, "returns_qty", "include_returns_qty"),
+            "logistics": logistics_amount,
+            "logistics_amount": logistics_amount,
             "storage": _safe_total_if(finance_rows, "storage", "include_storage"),
             "penalties": _safe_total_if(finance_rows, "penalties", "include_penalties"),
             "deductions": _safe_total_if(finance_rows, "deductions", "include_deductions"),
@@ -251,9 +274,14 @@ def reconcile_bundle(
             "actual_date": None,
             "date_aligned": None,
             "gross_revenue": None,
+            "realized_sales_qty": None,
+            "realized_sales_revenue": None,
             "seller_payout": None,
             "wb_commission": None,
+            "deliveries_qty": None,
+            "returns_qty": None,
             "logistics": None,
+            "logistics_amount": None,
             "storage": None,
             "penalties": None,
             "deductions": None,

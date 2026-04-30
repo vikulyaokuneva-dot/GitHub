@@ -551,24 +551,28 @@ def build_hero_v2(
     orders_status = _safe_str(cabinet.get("orders_status")) or (
         "ok" if cabinet_available and cabinet.get("orders_count") is not None else "unavailable"
     )
-    buyouts_status = _safe_str(cabinet.get("buyouts_status")) or (
-        "ok" if cabinet_available and cabinet.get("buyouts_count") is not None else "unavailable"
-    )
-    sales_status = _safe_str(cabinet.get("sales_status")) or "unavailable"
-    show_operational_sales = (
-        cabinet.get("buyouts_count") is None
-        and cabinet.get("buyouts_amount") is None
-        and (cabinet.get("sales_count") is not None or cabinet.get("sales_amount") is not None)
-    )
+    realized_sales_qty = _first_numeric(finance, ("realized_sales_qty",))
+    realized_sales_revenue = _first_numeric(finance, ("realized_sales_revenue", "gross_revenue"))
+    realized_status = "unavailable"
+    if finance_available and (realized_sales_qty is not None or realized_sales_revenue is not None):
+        realized_status = "warning" if finance_status == "lagged" else "ok"
     payout_status = "unavailable"
     if finance_available and finance.get("seller_payout") is not None:
         payout_status = "warning" if finance_status == "lagged" else "ok"
+    returns_qty = _first_numeric(finance, ("returns_qty",))
+    deliveries_qty = _first_numeric(finance, ("deliveries_qty", "delivery_count"))
+    returns_status = "unavailable"
+    if finance_available and returns_qty is not None:
+        returns_status = "warning" if finance_status == "lagged" else "ok"
     stocks_status = "ok" if stocks_available and stocks.get("total_units") is not None else "unavailable"
     orders_subvalue = _format_hero_money(cabinet.get("orders_amount"))
     if bool(cabinet.get("orders_fallback", False)):
         orders_subvalue = (
             f"{orders_subvalue}; {_safe_str(cabinet.get('orders_source')) or 'orders_api'}; оперативно"
         )
+    returns_subvalue = _safe_str(finance.get("source")) or "finance_final_daily"
+    if deliveries_qty is not None:
+        returns_subvalue = f"Доставки: {_format_hero_int(deliveries_qty, 'шт')}"
 
     cards: list[HeroKpiCardV2] = [
         {
@@ -578,17 +582,10 @@ def build_hero_v2(
             "status": orders_status,
         },
         {
-            "label": "Продажи" if show_operational_sales else "Выкупы",
-            "value": _format_hero_int(
-                cabinet.get("sales_count") if show_operational_sales else cabinet.get("buyouts_count"),
-                "шт",
-            ),
-            "subvalue": (
-                f"{_format_hero_money(cabinet.get('sales_amount'))}; {_safe_str(cabinet.get('sales_source')) or 'sales_api'}; оперативно"
-                if show_operational_sales
-                else _format_hero_money(cabinet.get("buyouts_amount"))
-            ),
-            "status": sales_status if show_operational_sales else buyouts_status,
+            "label": "Продажи/реализация",
+            "value": _format_hero_int(realized_sales_qty, "шт"),
+            "subvalue": _format_hero_money(realized_sales_revenue),
+            "status": realized_status,
         },
         {
             "label": "К перечислению",
@@ -597,12 +594,21 @@ def build_hero_v2(
             "status": payout_status,
         },
         {
-            "label": "Остатки",
-            "value": _format_hero_int(stocks.get("total_units"), "шт"),
-            "subvalue": _safe_str(stocks.get("snapshot_date")) or "дата не указана",
-            "status": stocks_status,
+            "label": "Возвраты",
+            "value": _format_hero_int(returns_qty, "шт"),
+            "subvalue": returns_subvalue,
+            "status": returns_status,
         },
     ]
+    if stocks_status != "unavailable":
+        cards.append(
+            {
+                "label": "Остатки",
+                "value": _format_hero_int(stocks.get("total_units"), "шт"),
+                "subvalue": _safe_str(stocks.get("snapshot_date")) or "дата не указана",
+                "status": stocks_status,
+            }
+        )
 
     if not cabinet_available and not finance_available:
         data_status = "unavailable"
@@ -822,7 +828,7 @@ def build_funnel_section_v2(
         ]
         return {
             "title": "Воронка продаж",
-            "subtitle": "Воронка из snapshot.funnel_daily.",
+            "subtitle": "События карточки и заказа; выкупы показываются только внутри воронки.",
             "rows": rows,
             "status": status,
             "message": message,
@@ -930,7 +936,7 @@ def build_funnel_section_v2(
 
     return {
         "title": "Воронка продаж",
-        "subtitle": "Минимальная воронка только из wb_api_core snapshot.",
+        "subtitle": "События карточки и заказа; финансовая реализация считается отдельно.",
         "rows": rows,
         "status": status,
         "message": message,
@@ -944,6 +950,17 @@ def _first_numeric(block: dict[str, Any], field_names: tuple[str, ...]) -> float
             if value is not None:
                 return value
     return None
+
+
+def _finance_logistics_amount(block: dict[str, Any]) -> float | None:
+    explicit_amount = _safe_float(block.get("logistics_amount"))
+    if explicit_amount is not None:
+        return explicit_amount
+    legacy_amount = _safe_float(block.get("logistics"))
+    deliveries_qty = _first_numeric(block, ("deliveries_qty", "delivery_count"))
+    if legacy_amount is not None and deliveries_qty is not None and abs(legacy_amount - deliveries_qty) < 1e-9:
+        return None
+    return legacy_amount
 
 
 def _safe_list(value: Any) -> list[Any]:
@@ -3161,13 +3178,26 @@ def build_finance_section_v2(finance_final: dict[str, Any]) -> SectionV2:
     source = _format_display_text(finance.get("source"))
     target_date = _format_display_text(finance.get("target_date"))
     actual_date = _format_display_text(finance.get("actual_date"))
+    logistics_amount = _finance_logistics_amount(finance)
 
     rows: list[DisplayRowV2] = [
         _display_row(
             "Статус",
             _format_display_text(finance_status),
-            note=f"Операционный день: {target_date}; финансы: {actual_date}",
+            note=f"Операционный день: {target_date}; финансы: {actual_date}; реализация и операции WB",
             status=section_status,
+        ),
+        _display_row(
+            "Продажи/реализация",
+            _format_display_int(finance.get("realized_sales_qty"), "шт"),
+            note=f"{_format_display_money(finance.get('realized_sales_revenue'))}; источник: {source}",
+            status=_display_status(
+                available,
+                finance.get("realized_sales_qty")
+                if finance.get("realized_sales_qty") is not None
+                else finance.get("realized_sales_revenue"),
+                warning=row_warning,
+            ),
         ),
         _display_row(
             "Валовая выручка",
@@ -3182,6 +3212,18 @@ def build_finance_section_v2(finance_final: dict[str, Any]) -> SectionV2:
             status=_display_status(available, finance.get("seller_payout"), warning=row_warning),
         ),
         _display_row(
+            "Возвраты",
+            _format_display_int(finance.get("returns_qty"), "шт"),
+            note=f"Источник: {source}",
+            status=_display_status(available, finance.get("returns_qty"), warning=row_warning),
+        ),
+        _display_row(
+            "Доставки",
+            _format_display_int(finance.get("deliveries_qty"), "шт"),
+            note="Количество доставок не используется как денежная логистика.",
+            status=_display_status(available, finance.get("deliveries_qty"), warning=row_warning),
+        ),
+        _display_row(
             "Комиссия WB",
             _format_display_money(finance.get("wb_commission")),
             note=f"Источник: {source}",
@@ -3189,9 +3231,9 @@ def build_finance_section_v2(finance_final: dict[str, Any]) -> SectionV2:
         ),
         _display_row(
             "Логистика",
-            _format_display_money(finance.get("logistics")),
-            note=f"Источник: {source}",
-            status=_display_status(available, finance.get("logistics"), warning=row_warning),
+            _format_display_money(logistics_amount),
+            note=f"Денежное поле услуг доставки; источник: {source}",
+            status=_display_status(available, logistics_amount, warning=row_warning),
         ),
         _display_row(
             "Хранение",
@@ -3208,7 +3250,7 @@ def build_finance_section_v2(finance_final: dict[str, Any]) -> SectionV2:
     ]
     return {
         "title": "Финансы",
-        "subtitle": "Финальный финансовый контур за операционный день.",
+        "subtitle": "Финансы считаются по реализации и операциям финансового отчёта WB.",
         "rows": rows,
         "status": section_status,
     }
@@ -3380,6 +3422,7 @@ def build_report_payload_v2(
         buyouts_source=buyouts_source,
         warnings=warnings,
     )
+    finance_logistics_amount = _finance_logistics_amount(finance_daily)
     finance_block = {
         "available": bool(finance_daily.get("available", False)) and bool(finance_daily),
         "source": _safe_str(finance_daily.get("source")) or "missing",
@@ -3393,9 +3436,14 @@ def build_report_payload_v2(
         "actual_date": _safe_str(finance_daily.get("actual_date")) or None,
         "date_aligned": finance_daily.get("date_aligned") if "date_aligned" in finance_daily else None,
         "gross_revenue": _safe_float(finance_daily.get("gross_revenue")),
+        "realized_sales_qty": _safe_float(finance_daily.get("realized_sales_qty")),
+        "realized_sales_revenue": _safe_float(finance_daily.get("realized_sales_revenue")),
         "seller_payout": _safe_float(finance_daily.get("seller_payout")),
         "wb_commission": _safe_float(finance_daily.get("wb_commission")),
-        "logistics": _safe_float(finance_daily.get("logistics")),
+        "deliveries_qty": _first_numeric(finance_daily, ("deliveries_qty", "delivery_count")),
+        "returns_qty": _safe_float(finance_daily.get("returns_qty")),
+        "logistics": finance_logistics_amount,
+        "logistics_amount": finance_logistics_amount,
         "storage": _safe_float(finance_daily.get("storage")),
         "acquiring": _safe_float(finance_daily.get("acquiring")),
         "penalties": _safe_float(finance_daily.get("penalties")),

@@ -20,6 +20,9 @@ from report_v2.builders.report_payload_builder import (
 )
 from report_v2.renderers.pdf_renderer_v2 import write_report_pdf_v2
 from report_v2.run_report_v2 import build_report_v2_from_files
+from wb_api_core.normalize import normalize_bundle
+from wb_api_core.reconcile import reconcile_bundle
+from wb_api_core.snapshot import build_snapshot
 
 
 MOJIBAKE_MARKERS = (
@@ -62,10 +65,15 @@ def _sample_snapshot() -> dict:
             "target_date": "2026-04-21",
             "actual_date": "2026-04-21",
             "date_aligned": True,
-            "gross_revenue": 4652.0,
+            "gross_revenue": 554.0,
+            "realized_sales_qty": 1.0,
+            "realized_sales_revenue": 554.0,
             "seller_payout": 4868.22,
             "wb_commission": -329.75,
-            "logistics": 3.0,
+            "deliveries_qty": 3.0,
+            "returns_qty": 2.0,
+            "logistics": 166.40,
+            "logistics_amount": 166.40,
             "storage": 68.37,
             "acquiring": 186.08,
         },
@@ -116,7 +124,13 @@ def _rate_limited_commerce_snapshot() -> dict:
             "actual_date": "2026-04-25",
             "date_aligned": True,
             "gross_revenue": 2680.0,
+            "realized_sales_qty": 5.0,
+            "realized_sales_revenue": 2680.0,
             "seller_payout": 2751.30,
+            "returns_qty": 1.0,
+            "deliveries_qty": 4.0,
+            "logistics": 120.50,
+            "logistics_amount": 120.50,
             "source": "finance_detailed_api",
         }
     )
@@ -425,13 +439,18 @@ def test_build_report_payload_v2_maps_valid_snapshot() -> None:
     assert payload["cabinet_commerce"]["buyouts_count"] == 2
     assert payload["cabinet_commerce"]["buyouts_amount"] == 1700.0
     assert payload["finance_final"]["seller_payout"] == 4868.22
+    assert payload["finance_final"]["realized_sales_qty"] == 1.0
+    assert payload["finance_final"]["realized_sales_revenue"] == 554.0
+    assert payload["finance_final"]["returns_qty"] == 2.0
+    assert payload["finance_final"]["deliveries_qty"] == 3.0
+    assert payload["finance_final"]["logistics_amount"] == 166.40
     assert payload["finance_alignment_notice"]["state"] == "ok"
     assert payload["live_operational"]["stocks"]["total_units"] == 322
     assert payload["source_flags"]["buyouts_owner"] == "cabinet_commerce_daily"
     assert payload["diagnostics"]["warnings_count"] == len(payload["diagnostics"]["warnings"])
     assert any(item.get("code") == "buyouts_owner_from_cabinet_commerce" for item in payload["diagnostics"]["warnings"])
     assert payload["hero"]["title"] == "Ежедневный отчёт WB"
-    assert len(payload["hero"]["cards"]) == 4
+    assert len(payload["hero"]["cards"]) == 5
     assert payload["commerce_section"]["status"] == "ok"
     assert payload["funnel_section"]["status"] == "partial"
     assert payload["ads_section"]["status"] == "no_data"
@@ -456,11 +475,93 @@ def test_finance_section_v2_contains_display_rows() -> None:
 
     rows = {item["label"]: item for item in payload["finance_section"]["rows"]}
 
+    assert rows["Продажи/реализация"]["value"] == "1 шт"
+    assert "554 ₽" in rows["Продажи/реализация"]["note"]
     assert rows["К перечислению продавцу"]["value"] == "4 868,22 ₽"
+    assert rows["Возвраты"]["value"] == "2 шт"
+    assert rows["Доставки"]["value"] == "3 шт"
     assert rows["Комиссия WB"]["value"] == "-329,75 ₽"
-    assert rows["Логистика"]["value"] == "3 ₽"
+    assert rows["Логистика"]["value"] == "166,40 ₽"
     assert rows["Хранение"]["value"] == "68,37 ₽"
     assert rows["Эквайринг"]["value"] == "186,08 ₽"
+
+
+def test_wb_reference_kpis_split_funnel_orders_from_finance_realization() -> None:
+    raw_bundle = {
+        "cabinet_commerce": {
+            "rows_raw": [
+                {
+                    "product": {"nmId": 101, "vendorCode": "SKU-101"},
+                    "statistic": {
+                        "selected": {
+                            "period": {"start": "2026-04-29", "end": "2026-04-29"},
+                            "openCount": 370,
+                            "cartCount": 44,
+                            "orderCount": 2,
+                            "orderSum": 1760.0,
+                            "buyoutCount": 0,
+                            "buyoutSum": 0.0,
+                        }
+                    },
+                }
+            ],
+            "debug": {"success": True},
+        },
+        "finance_final": {
+            "rows_raw": [
+                {
+                    "rrDate": "2026-04-29",
+                    "saleDt": "2026-04-29T10:00:00Z",
+                    "quantity": 1,
+                    "retailAmount": 554.0,
+                    "ppvzForPay": 593.36,
+                    "ppvzSalesCommission": -54.43,
+                    "acquiringFee": 27.04,
+                    "paidStorage": 68.96,
+                    "deliveryAmount": 3,
+                    "deliveryRub": 166.40,
+                    "docTypeName": "Продажа",
+                },
+                {
+                    "rrDate": "2026-04-29",
+                    "saleDt": "2026-04-29T12:00:00Z",
+                    "quantity": 2,
+                    "docTypeName": "Возврат",
+                },
+            ],
+            "debug": {"success": True},
+        },
+        "orders": {"rows_raw": [], "debug": {"success": False}},
+        "sales": {"rows_raw": [], "debug": {"success": False}},
+        "stocks": {"rows_raw": [], "debug": {"success": False}},
+    }
+
+    normalized = normalize_bundle(raw_bundle)
+    reconciled = reconcile_bundle(raw_bundle=raw_bundle, normalized_bundle=normalized, target_date="2026-04-29")
+    snapshot = build_snapshot(
+        seller_id="seller_001",
+        run_date="2026-04-30",
+        operational_date="2026-04-29",
+        timezone_name="Europe/Moscow",
+        reconcile_result=reconciled,
+    )
+    payload = build_report_payload_v2(snapshot, debug={"warnings": []})
+    cards = {item["label"]: item for item in payload["hero"]["cards"]}
+    finance_rows = {item["label"]: item for item in payload["finance_section"]["rows"]}
+
+    assert cards["Заказы"]["value"] == "2 шт"
+    assert cards["Заказы"]["subvalue"] == "1 760 ₽"
+    assert cards["Продажи/реализация"]["value"] == "1 шт"
+    assert cards["Продажи/реализация"]["subvalue"] == "554 ₽"
+    assert cards["К перечислению"]["value"] == "593,36 ₽"
+    assert cards["Возвраты"]["value"] == "2 шт"
+    assert cards["Возвраты"]["subvalue"] == "Доставки: 3 шт"
+    assert "Выкупы" not in cards
+    assert payload["finance_final"]["deliveries_qty"] == 3.0
+    assert payload["finance_final"]["logistics_amount"] == 166.40
+    assert payload["finance_final"]["logistics_amount"] != payload["finance_final"]["deliveries_qty"]
+    assert finance_rows["Логистика"]["value"] == "166,40 ₽"
+    assert finance_rows["Доставки"]["value"] == "3 шт"
 
 
 def test_funnel_section_v2_uses_cabinet_commerce_lower_funnel() -> None:
@@ -569,8 +670,8 @@ def test_report_payload_v2_fills_orders_from_live_operational_when_cabinet_comme
     assert "orders_api" in orders_card["subvalue"]
     assert orders_card["status"] != "unavailable"
     assert sales_card["value"] == "5 шт"
-    assert "4 020,20" in sales_card["subvalue"]
-    assert "sales_api" in sales_card["subvalue"]
+    assert "2 680" in sales_card["subvalue"]
+    assert sales_card["label"] == "Продажи/реализация"
     assert payload["commerce_section"]["status"] == "partial"
     assert commerce_rows["Заказы"]["value"] == "8 шт"
     assert "live_operational.orders" in commerce_rows["Заказы"]["note"]
@@ -592,7 +693,7 @@ def test_report_payload_v2_does_not_label_sales_api_as_confirmed_buyouts() -> No
     assert payload["cabinet_commerce"]["sales_count"] == 5
     assert payload["cabinet_commerce"]["sales_amount"] == 4020.20
     assert payload["cabinet_commerce"]["sales_source"] == "sales_api"
-    assert payload["hero"]["cards"][1]["label"] == "Продажи"
+    assert payload["hero"]["cards"][1]["label"] == "Продажи/реализация"
     assert "Выкупы" not in {card["label"] for card in payload["hero"]["cards"]}
     assert "Оперативные продажи" in commerce_rows
     assert commerce_rows["Оперативные продажи"]["value"] == "5 шт"
@@ -617,7 +718,7 @@ def test_report_payload_v2_keeps_no_data_when_no_cabinet_and_no_live_operational
     assert payload["cabinet_commerce"]["sales_count"] is None
     assert payload["cabinet_commerce"]["sales_amount"] is None
     assert payload["hero"]["cards"][0]["status"] == "unavailable"
-    assert payload["hero"]["cards"][1]["status"] == "unavailable"
+    assert payload["hero"]["cards"][1]["status"] == "ok"
     assert payload["commerce_section"]["status"] == "unavailable"
     assert "commerce_filled_from_live_operational" not in warning_codes
     assert "cabinet_commerce_unavailable" in warning_codes
@@ -872,10 +973,13 @@ def test_hero_v2_formats_kpi_cards() -> None:
 
     assert cards["Заказы"]["value"] == "5 шт"
     assert cards["Заказы"]["subvalue"] == "4 260 ₽"
-    assert cards["Выкупы"]["value"] == "2 шт"
-    assert cards["Выкупы"]["subvalue"] == "1 700 ₽"
+    assert cards["Продажи/реализация"]["value"] == "1 шт"
+    assert cards["Продажи/реализация"]["subvalue"] == "554 ₽"
     assert cards["К перечислению"]["value"] == "4 868,22 ₽"
+    assert cards["Возвраты"]["value"] == "2 шт"
+    assert cards["Возвраты"]["subvalue"] == "Доставки: 3 шт"
     assert cards["Остатки"]["value"] == "322 шт"
+    assert "Выкупы" not in cards
 
 
 def test_hero_v2_data_status_partial_for_missing_finance() -> None:
@@ -895,14 +999,23 @@ def test_build_hero_v2_uses_prepared_blocks_only() -> None:
     hero = build_hero_v2(
         meta={"seller_id": "seller_001", "operational_date": "2026-04-21"},
         cabinet_commerce={"available": True, "orders_count": 5, "orders_amount": 4260, "buyouts_count": 2, "buyouts_amount": 1700},
-        finance_final={"available": True, "status": "ok", "seller_payout": 4868.22, "source": "finance_detailed_api"},
+        finance_final={
+            "available": True,
+            "status": "ok",
+            "realized_sales_qty": 1,
+            "realized_sales_revenue": 554,
+            "seller_payout": 4868.22,
+            "returns_qty": 2,
+            "deliveries_qty": 3,
+            "source": "finance_detailed_api",
+        },
         live_operational={"stocks": {"available": True, "total_units": 322, "snapshot_date": "2026-04-22"}},
         warnings=[],
     )
 
     assert hero["subtitle"] == "Кабинет: seller_001 | Дата: 2026-04-21"
     assert hero["data_status"] == "ok"
-    assert len(hero["cards"]) == 4
+    assert len(hero["cards"]) == 5
 
 
 def test_diagnostics_v2_contains_builder_warnings() -> None:
@@ -1001,14 +1114,14 @@ def test_write_report_pdf_v2_creates_pdf_for_valid_snapshot(tmp_path: Path) -> N
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
     assert info["finance_section_state"] == "ok"
-    assert info["hero_cards_count"] == 4
+    assert info["hero_cards_count"] == 5
     assert info["hero_data_status"] == payload["hero"]["data_status"]
     assert info["commerce_section_rows_count"] == 5
     assert info["funnel_section_rows_count"] == 6
     assert info["funnel_section_status"] == payload["funnel_section"]["status"]
     assert info["ads_section_rows_count"] == len(payload["ads_section"]["rows"])
     assert info["ads_section_status"] == payload["ads_section"]["status"]
-    assert info["finance_section_rows_count"] == 7
+    assert info["finance_section_rows_count"] == 10
     assert info["live_section_rows_count"] == 4
     assert info["diagnostics_on_new_page"] is True
     assert info["diagnostics_source_flags_count"] > 0
@@ -1121,7 +1234,7 @@ def test_write_report_pdf_v2_creates_pdf_with_hero_block(tmp_path: Path) -> None
     assert payload["hero"]["cards"][0]["label"] == "Заказы"
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
-    assert info["hero_cards_count"] == 4
+    assert info["hero_cards_count"] == 5
 
 
 def test_pdf_renderer_visual_polish_removes_technical_hero_text() -> None:
@@ -1186,6 +1299,22 @@ def test_missing_finance_block_keeps_pdf_v2_buildable(tmp_path: Path) -> None:
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
     assert info["finance_section_state"] == "unavailable"
+
+
+def test_pdf_renderer_accepts_missing_new_finance_kpi_fields(tmp_path: Path) -> None:
+    snapshot = _sample_snapshot()
+    for key in ("realized_sales_qty", "realized_sales_revenue", "returns_qty", "deliveries_qty", "logistics_amount"):
+        snapshot["finance_final_daily"].pop(key, None)
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+    pdf_path = tmp_path / "report_v2_missing_new_finance_fields.pdf"
+
+    info = write_report_pdf_v2(pdf_path, payload)
+
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+    assert info["finance_section_state"] == "ok"
+    assert payload["finance_section"]["rows"][1]["status"] != "error"
 
 
 def test_build_report_v2_from_files_writes_payload_and_pdf(tmp_path: Path) -> None:

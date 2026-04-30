@@ -142,25 +142,31 @@ def _section_table(rows: list[tuple[str, str]], *, width: float, font_name: str)
 
 
 def _hero_cards_table(cards: list[dict[str, Any]], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
-    row: list[Paragraph] = []
-    for item in cards[:4]:
-        card = item if isinstance(item, dict) else {}
-        badge = _status_label(card.get("status"))
-        row.append(
-            Paragraph(
-                (
-                    f"<font size=\"8\">{_format_text(card.get('label'))}</font><br/>"
-                    f"<font size=\"15\"><b>{_format_text(card.get('value'))}</b></font><br/>"
-                    f"<font size=\"8\">{_format_text(card.get('subvalue'))}</font><br/>"
-                    f"<font size=\"7\">{badge}</font>"
-                ),
-                style,
+    safe_cards = [item if isinstance(item, dict) else {} for item in cards]
+    if not safe_cards:
+        safe_cards = [{}]
+    column_count = min(max(len(safe_cards), 1), 5)
+    table_rows: list[list[Paragraph]] = []
+    for start in range(0, len(safe_cards), column_count):
+        row: list[Paragraph] = []
+        for card in safe_cards[start : start + column_count]:
+            badge = _status_label(card.get("status"))
+            row.append(
+                Paragraph(
+                    (
+                        f"<font size=\"8\">{_format_text(card.get('label'))}</font><br/>"
+                        f"<font size=\"15\"><b>{_format_text(card.get('value'))}</b></font><br/>"
+                        f"<font size=\"8\">{_format_text(card.get('subvalue'))}</font><br/>"
+                        f"<font size=\"7\">{badge}</font>"
+                    ),
+                    style,
+                )
             )
-        )
-    while len(row) < 4:
-        row.append(Paragraph("", style))
+        while len(row) < column_count:
+            row.append(Paragraph("", style))
+        table_rows.append(row)
 
-    table = Table([row], colWidths=[width * 0.25] * 4)
+    table = Table(table_rows, colWidths=[width / column_count] * column_count)
     table.setStyle(
         TableStyle(
             [

@@ -396,9 +396,56 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             ("ppvzSalesCommission", "ppvz_sales_commission", "commissionAmount", "commission_amount", "commission"),
             diag=diag,
         )
-        logistics, _ = _parse_float_with_diag(
+        logistics_amount, _ = _parse_float_with_diag(
             row,
-            ("deliveryRub", "delivery_rub", "deliveryAmount", "deliveryCost", "logistics", "logistics_cost"),
+            (
+                "deliveryRub",
+                "delivery_rub",
+                "deliveryCost",
+                "delivery_cost",
+                "deliveryServiceAmount",
+                "delivery_service_amount",
+                "deliveryServicesAmount",
+                "delivery_services_amount",
+                "deliveryServiceRub",
+                "delivery_service_rub",
+                "logistics_amount",
+                "logistics",
+                "logistics_cost",
+                "Услуги по доставке товара покупателю",
+                "Услуги доставки",
+            ),
+            diag=diag,
+        )
+        deliveries_qty, _ = _parse_float_with_diag(
+            row,
+            (
+                "deliveryAmount",
+                "delivery_amount",
+                "deliveryCount",
+                "delivery_count",
+                "deliveryQty",
+                "delivery_qty",
+                "deliveries_qty",
+                "deliveries_count",
+                "Количество доставок",
+            ),
+            diag=diag,
+        )
+        explicit_returns_qty, _ = _parse_float_with_diag(
+            row,
+            (
+                "returnAmount",
+                "return_amount",
+                "returnCount",
+                "return_count",
+                "returnQty",
+                "return_qty",
+                "returns_qty",
+                "quantityReturn",
+                "quantity_return",
+                "Количество возвратов",
+            ),
             diag=diag,
         )
         storage, _ = _parse_float_with_diag(
@@ -430,11 +477,21 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
         document_type = _pick_text(row, ("docTypeName", "sellerOperName", "supplierOperName"))
         operation_text = _finance_row_operation_text(operation_name, document_type)
         row_group = _finance_row_group(operation_text)
+        quantity_abs = abs(float(quantity or 0.0))
+        realized_sales_qty = quantity_abs if row_group == "sale" and quantity_abs > 1e-9 else None
+        realized_sales_revenue = (
+            float(gross_revenue or 0.0)
+            if row_group == "sale" and abs(float(gross_revenue or 0.0)) > 1e-9
+            else None
+        )
+        returns_qty = explicit_returns_qty
+        if returns_qty is None and row_group == "return" and quantity_abs > 1e-9:
+            returns_qty = quantity_abs
         tracked_values = (
             float(gross_revenue or 0.0),
             float(seller_payout or 0.0),
             float(wb_commission or 0.0),
-            float(logistics or 0.0),
+            float(logistics_amount or 0.0),
             float(storage or 0.0),
             float(penalties or 0.0),
             float(deductions or 0.0),
@@ -468,9 +525,14 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
                 "seller_sku": seller_sku,
                 "quantity": float(quantity or 0.0),
                 "gross_revenue": round(float(gross_revenue or 0.0), 2),
+                "realized_sales_qty": round(float(realized_sales_qty), 2) if realized_sales_qty is not None else None,
+                "realized_sales_revenue": round(float(realized_sales_revenue), 2) if realized_sales_revenue is not None else None,
                 "seller_payout": round(float(seller_payout or 0.0), 2),
                 "wb_commission": round(float(wb_commission or 0.0), 2),
-                "logistics": round(float(logistics or 0.0), 2),
+                "deliveries_qty": round(float(deliveries_qty), 2) if deliveries_qty is not None else None,
+                "returns_qty": round(float(returns_qty), 2) if returns_qty is not None else None,
+                "logistics": round(float(logistics_amount or 0.0), 2),
+                "logistics_amount": round(float(logistics_amount), 2) if logistics_amount is not None else None,
                 "storage": round(float(storage or 0.0), 2),
                 "penalties": round(float(penalties or 0.0), 2),
                 "deductions": round(float(deductions or 0.0), 2),
@@ -484,9 +546,16 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
                 "is_zero_technical": is_zero_technical,
                 "include_in_totals": has_financial_effect and not is_zero_technical,
                 "include_gross_revenue": row_group == "sale" and abs(float(gross_revenue or 0.0)) > 1e-9,
+                "include_realized_sales": row_group == "sale"
+                and (
+                    (realized_sales_qty is not None and abs(float(realized_sales_qty)) > 1e-9)
+                    or (realized_sales_revenue is not None and abs(float(realized_sales_revenue)) > 1e-9)
+                ),
+                "include_deliveries_qty": deliveries_qty is not None and abs(float(deliveries_qty)) > 1e-9,
+                "include_returns_qty": returns_qty is not None and abs(float(returns_qty)) > 1e-9,
                 "include_seller_payout": has_financial_effect and not is_zero_technical and abs(float(seller_payout or 0.0)) > 1e-9,
                 "include_wb_commission": has_financial_effect and not is_zero_technical and abs(float(wb_commission or 0.0)) > 1e-9,
-                "include_logistics": has_financial_effect and not is_zero_technical and abs(float(logistics or 0.0)) > 1e-9,
+                "include_logistics": has_financial_effect and not is_zero_technical and logistics_amount is not None and abs(float(logistics_amount)) > 1e-9,
                 "include_storage": has_financial_effect and not is_zero_technical and abs(float(storage or 0.0)) > 1e-9,
                 "include_penalties": has_financial_effect and not is_zero_technical and abs(float(penalties or 0.0)) > 1e-9,
                 "include_deductions": has_financial_effect and not is_zero_technical and abs(float(deductions or 0.0)) > 1e-9,

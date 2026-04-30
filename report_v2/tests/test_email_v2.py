@@ -41,10 +41,15 @@ def _sample_snapshot() -> dict:
             "target_date": "2026-04-21",
             "actual_date": "2026-04-21",
             "date_aligned": True,
-            "gross_revenue": 4652.0,
+            "gross_revenue": 554.0,
+            "realized_sales_qty": 1.0,
+            "realized_sales_revenue": 554.0,
             "seller_payout": 4868.22,
             "wb_commission": -329.75,
-            "logistics": 3.0,
+            "deliveries_qty": 3.0,
+            "returns_qty": 2.0,
+            "logistics": 166.40,
+            "logistics_amount": 166.40,
             "storage": 68.37,
             "acquiring": 186.08,
         },
@@ -198,8 +203,12 @@ def test_render_email_text_contains_finance_block() -> None:
     text = render_email_text(payload)
 
     assert "Finance:" in text
-    assert "Gross revenue: 4 652.00" in text
+    assert "Realized sales: 1 / 554.00" in text
+    assert "Gross revenue: 554.00" in text
     assert "Seller payout: 4 868.22" in text
+    assert "Returns: 2" in text
+    assert "Deliveries: 3" in text
+    assert "Logistics: 166.40" in text
 
 
 def test_email_contains_ads_summary_when_data_exists() -> None:
