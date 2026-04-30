@@ -14,8 +14,14 @@ def _response(status_code: int, *, headers: dict[str, str] | None = None, payloa
     return response
 
 
-def _retry_policy(*, cap_delay_seconds: float = 30.0, max_attempts: int = 2) -> dict:
-    return {
+def _retry_policy(
+    *,
+    cap_delay_seconds: float = 30.0,
+    max_attempts: int = 2,
+    max_delay_seconds: float | None = None,
+    max_delay: float | None = None,
+) -> dict:
+    policy = {
         "retryable_statuses": (429,),
         "max_attempts": max_attempts,
         "base_delay_seconds": 1.0,
@@ -23,9 +29,20 @@ def _retry_policy(*, cap_delay_seconds: float = 30.0, max_attempts: int = 2) -> 
         "jitter_ratio": 0.0,
         "max_retry_window_seconds": 120.0,
     }
+    if max_delay_seconds is not None:
+        policy["max_delay_seconds"] = max_delay_seconds
+    if max_delay is not None:
+        policy["max_delay"] = max_delay
+    return policy
 
 
-def _request_with_first_429(headers: dict[str, str], *, cap_delay_seconds: float = 30.0) -> tuple[dict, MagicMock]:
+def _request_with_first_429(
+    headers: dict[str, str],
+    *,
+    cap_delay_seconds: float = 30.0,
+    max_delay_seconds: float | None = None,
+    max_delay: float | None = None,
+) -> tuple[dict, MagicMock]:
     client = WBApiClient(token="token")
     with patch(
         "wb_api_core.client.requests.request",
@@ -35,7 +52,11 @@ def _request_with_first_429(headers: dict[str, str], *, cap_delay_seconds: float
             response = client.request_json(
                 endpoint_name="orders",
                 path="/api/v1/supplier/orders",
-                retry_policy=_retry_policy(cap_delay_seconds=cap_delay_seconds),
+                retry_policy=_retry_policy(
+                    cap_delay_seconds=cap_delay_seconds,
+                    max_delay_seconds=max_delay_seconds,
+                    max_delay=max_delay,
+                ),
             )
     return response, sleep_mock
 
@@ -60,6 +81,16 @@ def test_x_ratelimit_retry_is_used_when_retry_after_is_missing() -> None:
     assert response["rate_limit_delay_seconds"] == 8.0
 
 
+def test_x_ratelimit_retry_large_value_is_capped_and_preserved() -> None:
+    response, sleep_mock = _request_with_first_429({"X-Ratelimit-Retry": "8479"})
+
+    assert response["success"] is True
+    sleep_mock.assert_called_once_with(30.0)
+    assert response["retry_delays"] == [30.0]
+    assert response["x_ratelimit_retry"] == "8479"
+    assert response["rate_limit_delay_seconds"] == 30.0
+
+
 def test_x_ratelimit_reset_timestamp_is_used_when_other_headers_are_missing() -> None:
     with patch("wb_api_core.client.time.time", return_value=4_102_444_800.0):
         response, sleep_mock = _request_with_first_429({"X-Ratelimit-Reset": "4102444812"})
@@ -72,7 +103,7 @@ def test_x_ratelimit_reset_timestamp_is_used_when_other_headers_are_missing() ->
 
 
 def test_rate_limit_header_delay_is_capped() -> None:
-    response, sleep_mock = _request_with_first_429({"Retry-After": "99"}, cap_delay_seconds=10.0)
+    response, sleep_mock = _request_with_first_429({"Retry-After": "99"}, max_delay_seconds=10.0)
 
     assert response["success"] is True
     sleep_mock.assert_called_once_with(10.0)

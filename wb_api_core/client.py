@@ -69,6 +69,14 @@ class WBApiClient:
             max_retry_window_seconds = max(0.0, float(policy.get("max_retry_window_seconds", 0.0) or 0.0))
         except Exception:
             max_retry_window_seconds = 0.0
+        try:
+            max_delay_seconds = max(0.0, float(policy.get("max_delay_seconds", 0.0) or 0.0))
+        except Exception:
+            max_delay_seconds = 0.0
+        try:
+            max_delay = max(0.0, float(policy.get("max_delay", 0.0) or 0.0))
+        except Exception:
+            max_delay = 0.0
         return {
             "retryable_statuses": retryable,
             "max_attempts": max_attempts,
@@ -76,6 +84,8 @@ class WBApiClient:
             "cap_delay_seconds": cap_delay_seconds,
             "jitter_ratio": jitter_ratio,
             "max_retry_window_seconds": max_retry_window_seconds,
+            "max_delay_seconds": max_delay_seconds,
+            "max_delay": max_delay,
         }
 
     @staticmethod
@@ -147,12 +157,13 @@ class WBApiClient:
 
     @staticmethod
     def _retry_delay_cap_seconds(retry_policy: Dict[str, Any]) -> float:
-        try:
-            cap_delay = float(retry_policy.get("cap_delay_seconds", 0.0) or 0.0)
-        except Exception:
-            cap_delay = 0.0
-        if cap_delay > 0:
-            return cap_delay
+        for key in ("max_delay_seconds", "max_delay"):
+            try:
+                cap_delay = float(retry_policy.get(key, 0.0) or 0.0)
+            except Exception:
+                cap_delay = 0.0
+            if cap_delay > 0:
+                return cap_delay
         return DEFAULT_RATE_LIMIT_RETRY_DELAY_CAP_SECONDS
 
     @classmethod
