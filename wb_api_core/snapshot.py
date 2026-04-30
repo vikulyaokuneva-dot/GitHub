@@ -3,6 +3,18 @@ from __future__ import annotations
 from typing import Any, Dict
 
 
+def _live_cache_status_fields(block: Dict[str, Any]) -> Dict[str, Any]:
+    fields = (
+        "stale",
+        "stale_reason",
+        "source_actual_date",
+        "cache_age_seconds",
+        "cache_path",
+        "cache_fallback_used",
+    )
+    return {key: block.get(key) for key in fields if key in block}
+
+
 def build_snapshot(
     *,
     seller_id: str,
@@ -80,6 +92,7 @@ def build_snapshot(
                 "target_date": live_orders.get("target_date"),
                 "count": live_orders.get("count"),
                 "amount": live_orders.get("amount"),
+                **_live_cache_status_fields(live_orders),
             },
             "sales": {
                 "source": live_sales.get("source"),
@@ -87,6 +100,7 @@ def build_snapshot(
                 "target_date": live_sales.get("target_date"),
                 "count": live_sales.get("count"),
                 "amount": live_sales.get("amount"),
+                **_live_cache_status_fields(live_sales),
             },
             "stocks": {
                 "source": live_stocks.get("source"),
@@ -95,6 +109,7 @@ def build_snapshot(
                 "operational_date_reference": live_stocks.get("operational_date_reference"),
                 "snapshot_date": live_stocks.get("snapshot_date"),
                 "total_units": live_stocks.get("total_units"),
+                **_live_cache_status_fields(live_stocks),
             },
         },
     }

@@ -302,8 +302,23 @@ def build_diagnostics_v2(
             finance_status,
         ),
         _source_flag("live_operational.orders.available", bool(live_orders.get("available", False)), _availability_status(live_orders)),
+        _source_flag(
+            "live_operational.orders.stale",
+            bool(live_orders.get("stale", False)),
+            "warning" if bool(live_orders.get("stale", False)) else _availability_status(live_orders),
+        ),
         _source_flag("live_operational.sales.available", bool(live_sales.get("available", False)), _availability_status(live_sales)),
+        _source_flag(
+            "live_operational.sales.stale",
+            bool(live_sales.get("stale", False)),
+            "warning" if bool(live_sales.get("stale", False)) else _availability_status(live_sales),
+        ),
         _source_flag("live_operational.stocks.available", bool(live_stocks.get("available", False)), _availability_status(live_stocks)),
+        _source_flag(
+            "live_operational.stocks.stale",
+            bool(live_stocks.get("stale", False)),
+            "warning" if bool(live_stocks.get("stale", False)) else _availability_status(live_stocks),
+        ),
         _source_flag("debug_present", debug_present, "ok" if debug_present else "missing"),
     ]
 
@@ -366,7 +381,40 @@ def _build_live_metric(block: dict[str, Any]) -> dict[str, Any]:
         "snapshot_date": _safe_str(block.get("snapshot_date")) or None,
         "snapshot_kind": _safe_str(block.get("snapshot_kind")) or None,
         "operational_date_reference": _safe_str(block.get("operational_date_reference")) or None,
+        "stale": bool(block.get("stale", False)),
+        "stale_reason": _safe_str(block.get("stale_reason")) or None,
+        "source_actual_date": _safe_str(block.get("source_actual_date")) or None,
+        "cache_age_seconds": _safe_float(block.get("cache_age_seconds")),
+        "cache_path": _safe_str(block.get("cache_path")) or None,
+        "cache_fallback_used": bool(block.get("cache_fallback_used", False)),
     }
+
+
+def _live_metric_status(block: dict[str, Any], value: Any) -> str:
+    status = _display_status(bool(block.get("available", False)), value)
+    if status == "ok" and bool(block.get("stale", False)):
+        return "warning"
+    return status
+
+
+def _live_stale_note(block: dict[str, Any]) -> str:
+    if not bool(block.get("stale", False)):
+        return ""
+    parts = ["stale/cache fallback"]
+    reason = _safe_str(block.get("stale_reason"))
+    source_actual_date = _safe_str(block.get("source_actual_date"))
+    cache_age_seconds = _safe_float(block.get("cache_age_seconds"))
+    if reason:
+        parts.append(f"reason={reason}")
+    if source_actual_date:
+        parts.append(f"source_actual_date={source_actual_date}")
+    if cache_age_seconds is not None:
+        parts.append(f"cache_age_seconds={round(cache_age_seconds, 2)}")
+    return "; ".join(parts)
+
+
+def _join_notes(*parts: str) -> str:
+    return "; ".join(part for part in (_safe_str(item) for item in parts) if part)
 
 
 def _metric_has_value(*values: Any) -> bool:
@@ -3262,31 +3310,45 @@ def build_live_section_v2(live_operational: dict[str, Any]) -> SectionV2:
     sales = _safe_dict(live.get("sales"))
     stocks = _safe_dict(live.get("stocks"))
     section_status = _safe_str(live.get("status")) or "unavailable"
+    if any(bool(block.get("stale", False)) for block in (orders, sales, stocks)):
+        section_status = "warning"
 
     rows: list[DisplayRowV2] = [
         _display_row(
             "Оперативные заказы",
             _format_display_int(orders.get("count"), "шт"),
-            note=f"{_format_display_money(orders.get('amount'))}; источник: {_format_display_text(orders.get('source'))}",
-            status=_display_status(bool(orders.get("available", False)), orders.get("count")),
+            note=_join_notes(
+                f"{_format_display_money(orders.get('amount'))}; источник: {_format_display_text(orders.get('source'))}",
+                _live_stale_note(orders),
+            ),
+            status=_live_metric_status(orders, orders.get("count")),
         ),
         _display_row(
             "Оперативные продажи",
             _format_display_int(sales.get("count"), "шт"),
-            note=f"{_format_display_money(sales.get('amount'))}; источник: {_format_display_text(sales.get('source'))}",
-            status=_display_status(bool(sales.get("available", False)), sales.get("count")),
+            note=_join_notes(
+                f"{_format_display_money(sales.get('amount'))}; источник: {_format_display_text(sales.get('source'))}",
+                _live_stale_note(sales),
+            ),
+            status=_live_metric_status(sales, sales.get("count")),
         ),
         _display_row(
             "Остатки",
             _format_display_int(stocks.get("total_units"), "шт"),
-            note=f"Источник: {_format_display_text(stocks.get('source'))}",
-            status=_display_status(bool(stocks.get("available", False)), stocks.get("total_units")),
+            note=_join_notes(
+                f"Источник: {_format_display_text(stocks.get('source'))}",
+                _live_stale_note(stocks),
+            ),
+            status=_live_metric_status(stocks, stocks.get("total_units")),
         ),
         _display_row(
             "Дата среза остатков",
             _format_display_text(stocks.get("snapshot_date")),
-            note=f"Тип среза: {_format_display_text(stocks.get('snapshot_kind'))}",
-            status=_display_status(bool(stocks.get("available", False)), stocks.get("snapshot_date")),
+            note=_join_notes(
+                f"Тип среза: {_format_display_text(stocks.get('snapshot_kind'))}",
+                _live_stale_note(stocks),
+            ),
+            status=_live_metric_status(stocks, stocks.get("snapshot_date")),
         ),
     ]
     return {
@@ -3392,12 +3454,19 @@ def build_report_payload_v2(
         bool(live_sales.get("available", False)),
         bool(live_stocks.get("available", False)),
     ]
+    live_stale_flags = [
+        bool(live_orders.get("stale", False)),
+        bool(live_sales.get("stale", False)),
+        bool(live_stocks.get("stale", False)),
+    ]
     if all(live_availability_flags) and live_availability_flags:
         live_status = "ok"
     elif any(live_availability_flags):
         live_status = "partial"
     else:
         live_status = "unavailable"
+    if any(live_stale_flags) and live_status in {"ok", "partial"}:
+        live_status = "warning"
     live_block = {
         "status": live_status,
         "orders": _build_live_metric(live_orders),

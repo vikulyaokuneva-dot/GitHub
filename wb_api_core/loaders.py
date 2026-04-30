@@ -227,6 +227,11 @@ def _build_debug(
         "retry_count": int(response.get("retry_count", 0) or 0),
         "retry_delays": list(response.get("retry_delays", []) or []),
         "final_failure_reason": str(response.get("final_failure_reason") or ""),
+        "retry_after": str(response.get("retry_after") or ""),
+        "x_ratelimit_retry": str(response.get("x_ratelimit_retry") or ""),
+        "x_ratelimit_reset": str(response.get("x_ratelimit_reset") or ""),
+        "x_ratelimit_remaining": str(response.get("x_ratelimit_remaining") or ""),
+        "rate_limit_delay_seconds": response.get("rate_limit_delay_seconds"),
         "token_present": bool(response.get("token_present", False)),
         "token_env_name_used": str(response.get("token_env_name_used") or ""),
     }

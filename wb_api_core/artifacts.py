@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
+from copy import deepcopy
 from typing import Any, Dict
 
 
@@ -10,6 +12,188 @@ def _write_json(path: str, payload: Dict[str, Any]) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as file:
         json.dump(payload, file, ensure_ascii=False, indent=2)
+
+
+def _read_json(path: str) -> Dict[str, Any] | None:
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            payload = json.load(file)
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
+def latest_successful_snapshot_path(repo_root: str, seller_id: str) -> str:
+    return os.path.join(
+        repo_root,
+        "cabinets",
+        seller_id,
+        "artifacts",
+        "wb_api_core",
+        "cache",
+        "snapshots",
+        "latest_successful.json",
+    )
+
+
+def read_latest_successful_snapshot(*, repo_root: str, seller_id: str) -> Dict[str, Any] | None:
+    path = latest_successful_snapshot_path(repo_root, seller_id)
+    payload = _read_json(path)
+    if not isinstance(payload, dict):
+        return None
+    try:
+        cache_age_seconds = max(0.0, time.time() - float(os.path.getmtime(path)))
+    except Exception:
+        cache_age_seconds = 0.0
+    return {
+        "path": path,
+        "cache_age_seconds": round(cache_age_seconds, 2),
+        "snapshot": payload,
+    }
+
+
+def _live_block_has_data(block: Dict[str, Any], live_key: str) -> bool:
+    if not isinstance(block, dict) or not bool(block.get("available", False)):
+        return False
+    if live_key in {"orders", "sales"}:
+        return block.get("count") is not None or block.get("amount") is not None
+    if live_key == "stocks":
+        return block.get("total_units") is not None
+    return False
+
+
+def _live_block_is_stale(block: Dict[str, Any]) -> bool:
+    return isinstance(block, dict) and bool(block.get("stale", False))
+
+
+def _snapshot_has_stale_live_fallback(snapshot: Dict[str, Any]) -> bool:
+    live = snapshot.get("live_operational", {}) if isinstance(snapshot, dict) else {}
+    if not isinstance(live, dict):
+        return False
+    return any(_live_block_is_stale(live.get(key, {})) for key in ("orders", "sales", "stocks"))
+
+
+def _snapshot_has_cacheable_live_data(snapshot: Dict[str, Any]) -> bool:
+    live = snapshot.get("live_operational", {}) if isinstance(snapshot, dict) else {}
+    if not isinstance(live, dict):
+        return False
+    return all(_live_block_has_data(live.get(key, {}), key) for key in ("orders", "sales", "stocks"))
+
+
+def _debug_is_rate_limited(debug: Dict[str, Any]) -> bool:
+    if not isinstance(debug, dict):
+        return False
+    try:
+        if int(debug.get("status_code", 0) or 0) == 429:
+            return True
+    except Exception:
+        pass
+    text = " ".join(
+        str(debug.get(key) or "")
+        for key in ("error_text", "final_failure_reason")
+    )
+    return "429" in text
+
+
+def _rate_limited_live_keys(raw_bundle: Dict[str, Any]) -> list[tuple[str, str]]:
+    pairs = (("orders", "orders"), ("sales", "sales"), ("stocks", "stocks"))
+    rate_limited: list[tuple[str, str]] = []
+    for endpoint_key, live_key in pairs:
+        debug = (raw_bundle.get(endpoint_key) or {}).get("debug", {}) if isinstance(raw_bundle, dict) else {}
+        if _debug_is_rate_limited(debug if isinstance(debug, dict) else {}):
+            rate_limited.append((endpoint_key, live_key))
+    return rate_limited
+
+
+def apply_latest_successful_live_fallback(
+    *,
+    reconcile_result: Dict[str, Any],
+    raw_bundle: Dict[str, Any],
+    latest_snapshot_cache: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    rate_limited = _rate_limited_live_keys(raw_bundle)
+    if not rate_limited or not isinstance(latest_snapshot_cache, dict):
+        return reconcile_result
+    cached_snapshot = latest_snapshot_cache.get("snapshot")
+    if not isinstance(cached_snapshot, dict):
+        return reconcile_result
+    if _snapshot_has_stale_live_fallback(cached_snapshot):
+        return reconcile_result
+    cached_live = cached_snapshot.get("live_operational", {})
+    if not isinstance(cached_live, dict):
+        return reconcile_result
+
+    result = deepcopy(reconcile_result)
+    live_operational = result.get("live_operational", {})
+    if not isinstance(live_operational, dict):
+        return result
+
+    cache_path = str(latest_snapshot_cache.get("path") or "")
+    cache_age_seconds = latest_snapshot_cache.get("cache_age_seconds")
+    source_actual_date = str(cached_snapshot.get("operational_date") or cached_snapshot.get("run_date") or "").strip()
+    used: list[str] = []
+
+    for endpoint_key, live_key in rate_limited:
+        current_block = live_operational.get(live_key, {})
+        if _live_block_has_data(current_block if isinstance(current_block, dict) else {}, live_key):
+            continue
+        cached_block = cached_live.get(live_key, {})
+        if not _live_block_has_data(cached_block if isinstance(cached_block, dict) else {}, live_key):
+            continue
+
+        fallback_block = dict(cached_block)
+        if isinstance(current_block, dict):
+            if live_key in {"orders", "sales"} and current_block.get("target_date") is not None:
+                fallback_block["target_date"] = current_block.get("target_date")
+            if live_key == "stocks" and current_block.get("operational_date_reference") is not None:
+                fallback_block["operational_date_reference"] = current_block.get("operational_date_reference")
+            fallback_block["rows"] = list(current_block.get("rows", []) or [])
+        fallback_block.update(
+            {
+                "available": True,
+                "stale": True,
+                "stale_reason": "rate_limited",
+                "source_actual_date": source_actual_date,
+                "cache_age_seconds": cache_age_seconds,
+                "cache_path": cache_path,
+                "cache_fallback_used": True,
+            }
+        )
+        live_operational[live_key] = fallback_block
+        used.append(endpoint_key)
+
+    if used:
+        warnings = list(result.get("warnings", []) or [])
+        for endpoint_key in used:
+            warnings.append(
+                {
+                    "code": f"{endpoint_key}_latest_successful_cache_fallback",
+                    "message": (
+                        f"{endpoint_key} returned 429; live_operational.{endpoint_key} "
+                        "was filled from latest_successful snapshot and marked stale."
+                    ),
+                    "level": "warning",
+                    "block": "live_operational",
+                }
+            )
+        result["warnings"] = warnings
+        result["cache_fallback"] = {
+            "latest_successful_snapshot_used": True,
+            "fallback_endpoints": used,
+            "cache_path": cache_path,
+            "cache_age_seconds": cache_age_seconds,
+            "source_actual_date": source_actual_date,
+        }
+
+    return result
+
+
+def write_latest_successful_snapshot(*, repo_root: str, seller_id: str, snapshot: Dict[str, Any]) -> str:
+    if _snapshot_has_stale_live_fallback(snapshot) or not _snapshot_has_cacheable_live_data(snapshot):
+        return ""
+    path = latest_successful_snapshot_path(repo_root, seller_id)
+    _write_json(path, snapshot)
+    return path
 
 
 def _row_date_iso(row: Dict[str, Any]) -> str:
@@ -111,6 +295,11 @@ def build_debug(
             "retry_count": int(debug.get("retry_count", 0) or 0),
             "retry_delays": list(debug.get("retry_delays", []) or []),
             "final_failure_reason": str(debug.get("final_failure_reason") or ""),
+            "retry_after": str(debug.get("retry_after") or ""),
+            "x_ratelimit_retry": str(debug.get("x_ratelimit_retry") or ""),
+            "x_ratelimit_reset": str(debug.get("x_ratelimit_reset") or ""),
+            "x_ratelimit_remaining": str(debug.get("x_ratelimit_remaining") or ""),
+            "rate_limit_delay_seconds": debug.get("rate_limit_delay_seconds"),
             "token_present": bool(debug.get("token_present", False)),
             "token_env_name_used": str(debug.get("token_env_name_used") or ""),
         }
@@ -172,6 +361,7 @@ def build_debug(
             ((((reconcile_result.get("live_operational") or {}).get("orders") or {}).get("diagnostics")) or {})
         ),
         "finance_mapping": dict((normalized_bundle.get("debug") or {}).get("finance_mapping", {}) or {}),
+        "cache_fallback": dict(reconcile_result.get("cache_fallback", {}) or {}),
         "warnings": list(reconcile_result.get("warnings", [])),
     }
 
@@ -200,4 +390,9 @@ def write_artifacts(
     _write_json(os.path.join(out_dir, "snapshot.json"), snapshot)
     _write_json(os.path.join(out_dir, "debug.json"), debug)
     _write_json(os.path.join(out_dir, "reconciled_rows.json"), rows_payload)
+    write_latest_successful_snapshot(
+        repo_root=repo_root,
+        seller_id=seller_id,
+        snapshot=snapshot,
+    )
     return out_dir

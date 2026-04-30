@@ -352,6 +352,12 @@ class LiveMetricBlockV2(TypedDict, total=False):
     snapshot_date: str | None
     snapshot_kind: str | None
     operational_date_reference: str | None
+    stale: bool
+    stale_reason: str | None
+    source_actual_date: str | None
+    cache_age_seconds: float | None
+    cache_path: str | None
+    cache_fallback_used: bool
 
 
 class LiveOperationalBlockV2(TypedDict, total=False):

@@ -6,7 +6,12 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict
 from zoneinfo import ZoneInfo
 
-from .artifacts import build_debug, write_artifacts
+from .artifacts import (
+    apply_latest_successful_live_fallback,
+    build_debug,
+    read_latest_successful_snapshot,
+    write_artifacts,
+)
 from .client import WBApiClient
 from .loaders import load_bundle
 from .normalize import normalize_bundle
@@ -60,6 +65,15 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
         raw_bundle=raw_bundle,
         normalized_bundle=normalized_bundle,
         target_date=operational_date,
+    )
+    latest_snapshot_cache = read_latest_successful_snapshot(
+        repo_root=resolved_repo_root,
+        seller_id=seller_id,
+    )
+    reconcile_result = apply_latest_successful_live_fallback(
+        reconcile_result=reconcile_result,
+        raw_bundle=raw_bundle,
+        latest_snapshot_cache=latest_snapshot_cache,
     )
     snapshot = build_snapshot(
         seller_id=seller_id,
