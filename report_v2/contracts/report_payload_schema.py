@@ -367,6 +367,22 @@ class LiveOperationalBlockV2(TypedDict, total=False):
     stocks: LiveMetricBlockV2
 
 
+class StockSectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    available: bool
+    status: str
+    source: str
+    message: str
+    stock_wb_qty: int | None
+    stock_mp_qty: int | None
+    stock_total_qty: int | None
+    stock_value: float | None
+    sku_rows_count: int | None
+    rows: list[DisplayRowV2]
+    warnings: list[WarningItemV2]
+
+
 class SourceFlagsV2(TypedDict, total=False):
     snapshot_present: bool
     debug_present: bool
@@ -413,6 +429,7 @@ class ReportPayloadV2(TypedDict):
     finance_alignment_notice: FinanceAlignmentNoticeV2
     live_operational: LiveOperationalBlockV2
     live_section: SectionV2
+    stock_section: NotRequired[StockSectionV2]
     warnings: list[WarningItemV2]
     source_flags: SourceFlagsV2
     diagnostics: DiagnosticsV2

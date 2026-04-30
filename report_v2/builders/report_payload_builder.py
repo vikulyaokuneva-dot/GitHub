@@ -26,6 +26,7 @@ from ..contracts.report_payload_schema import (
     ReportPayloadV2,
     SectionV2,
     SourceFlagRowV2,
+    StockSectionV2,
     SkuHealthItemV2,
     SkuHealthSectionV2,
     WarningItemV2,
@@ -651,9 +652,13 @@ def build_hero_v2(
     if stocks_status != "unavailable":
         cards.append(
             {
-                "label": "Остатки",
+                "label": "Оперативные остатки",
                 "value": _format_hero_int(stocks.get("total_units"), "шт"),
-                "subvalue": _safe_str(stocks.get("snapshot_date")) or "дата не указана",
+                "subvalue": (
+                    f"live snapshot stocks_api, дата среза {_safe_str(stocks.get('snapshot_date'))}"
+                    if _safe_str(stocks.get("snapshot_date"))
+                    else "live snapshot stocks_api, дата среза не указана"
+                ),
                 "status": stocks_status,
             }
         )
@@ -3333,19 +3338,20 @@ def build_live_section_v2(live_operational: dict[str, Any]) -> SectionV2:
             status=_live_metric_status(sales, sales.get("count")),
         ),
         _display_row(
-            "Остатки",
+            "Оперативные остатки",
             _format_display_int(stocks.get("total_units"), "шт"),
             note=_join_notes(
-                f"Источник: {_format_display_text(stocks.get('source'))}",
+                f"live snapshot stocks_api, дата среза {_format_display_text(stocks.get('snapshot_date'))}; источник: {_format_display_text(stocks.get('source'))}",
+                "Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день.",
                 _live_stale_note(stocks),
             ),
             status=_live_metric_status(stocks, stocks.get("total_units")),
         ),
         _display_row(
-            "Дата среза остатков",
+            "Дата среза оперативных остатков",
             _format_display_text(stocks.get("snapshot_date")),
             note=_join_notes(
-                f"Тип среза: {_format_display_text(stocks.get('snapshot_kind'))}",
+                f"Тип среза: {_format_display_text(stocks.get('snapshot_kind'))}; source: stocks_api live snapshot",
                 _live_stale_note(stocks),
             ),
             status=_live_metric_status(stocks, stocks.get("snapshot_date")),
@@ -3353,9 +3359,102 @@ def build_live_section_v2(live_operational: dict[str, Any]) -> SectionV2:
     ]
     return {
         "title": "Оперативный срез",
-        "subtitle": "Оперативные заказы, продажи и остатки без legacy fallback.",
+        "subtitle": "Оперативные заказы, продажи и live-остатки stocks_api без сравнения с товарным отчётом WB.",
         "rows": rows,
         "status": section_status,
+    }
+
+
+_STOCK_GOODS_EXPLANATION = (
+    "Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день."
+)
+
+
+def _stock_source_block(snapshot: dict[str, Any]) -> dict[str, Any]:
+    for key in ("stock_section", "stock_summary"):
+        block = _safe_dict(snapshot.get(key))
+        if block:
+            return block
+    return {}
+
+
+def build_stock_section_v2(snapshot: dict[str, Any]) -> StockSectionV2:
+    stock = _stock_source_block(_safe_dict(snapshot))
+    source = _safe_str(stock.get("source")) or "missing"
+    stock_wb_qty = _safe_int(_first_numeric(stock, ("stock_wb_qty", "wb_stock_qty", "wb_qty")))
+    stock_mp_qty = _safe_int(_first_numeric(stock, ("stock_mp_qty", "mp_stock_qty", "mp_qty")))
+    stock_total_qty = _safe_int(_first_numeric(stock, ("stock_total_qty", "total_stock_qty", "stock_qty")))
+    if stock_total_qty is None and (stock_wb_qty is not None or stock_mp_qty is not None):
+        stock_total_qty = int(stock_wb_qty or 0) + int(stock_mp_qty or 0)
+    stock_value = _first_numeric(stock, ("stock_value", "stock_value_rub", "stock_amount"))
+    sku_rows_count = _safe_int(_first_numeric(stock, ("sku_rows_count", "sku_count", "rows_count")))
+    available = any(
+        value is not None
+        for value in (stock_wb_qty, stock_mp_qty, stock_total_qty, stock_value, sku_rows_count)
+    )
+
+    rows: list[DisplayRowV2] = [
+        _display_row(
+            "Остатки WB",
+            _format_display_int(stock_wb_qty, "шт"),
+            note=f"Источник: {_format_display_text(source)}",
+            status=_display_status(available, stock_wb_qty),
+        ),
+        _display_row(
+            "Остатки МП",
+            _format_display_int(stock_mp_qty, "шт"),
+            note=f"Источник: {_format_display_text(source)}",
+            status=_display_status(available, stock_mp_qty),
+        ),
+        _display_row(
+            "Всего остатков",
+            _format_display_int(stock_total_qty, "шт"),
+            note="Не заполняется из live stocks_api без отдельного товарного источника.",
+            status=_display_status(available, stock_total_qty),
+        ),
+        _display_row(
+            "Сумма остатков",
+            _format_display_money(stock_value),
+            note=f"Источник: {_format_display_text(source)}",
+            status=_display_status(available, stock_value),
+        ),
+        _display_row(
+            "SKU-строк",
+            _format_display_int(sku_rows_count, "шт"),
+            note=f"Источник: {_format_display_text(source)}",
+            status=_display_status(available, sku_rows_count),
+        ),
+    ]
+
+    warnings: list[WarningItemV2] = []
+    if not available:
+        warnings.append(
+            _warning(
+                "stock_goods_source_missing",
+                "Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.",
+                block="stock_section",
+                level="info",
+            )
+        )
+
+    return {
+        "title": "Товарные остатки",
+        "subtitle": "Отдельный контур для остатков WB/МП и стоимости запасов; не смешивается с live stocks_api.",
+        "available": available,
+        "status": "ok" if available else "no_data",
+        "source": source if available else "missing",
+        "message": (
+            "Остатки собраны из отдельного товарного источника."
+            if available
+            else "Нет отдельного источника stock_wb_qty/stock_mp_qty/stock_value; live stocks_api не подставляется."
+        ),
+        "stock_wb_qty": stock_wb_qty,
+        "stock_mp_qty": stock_mp_qty,
+        "stock_total_qty": stock_total_qty,
+        "stock_value": stock_value,
+        "sku_rows_count": sku_rows_count,
+        "rows": rows,
+        "warnings": warnings,
     }
 
 
@@ -3473,6 +3572,20 @@ def build_report_payload_v2(
         "sales": _build_live_metric(live_sales),
         "stocks": _build_live_metric(live_stocks),
     }
+    stock_section = build_stock_section_v2(snapshot)
+    for item in stock_section.get("warnings", []):
+        if isinstance(item, dict):
+            _append_once(warnings, item)
+    if bool(live_stocks.get("available", False)):
+        _append_once(
+            warnings,
+            _warning(
+                "operational_stock_differs_from_goods_stock",
+                _STOCK_GOODS_EXPLANATION,
+                block="live_operational.stocks",
+                level="info",
+            ),
+        )
 
     meta_block = {
         "contract_version": "report_payload_v2",
@@ -3584,6 +3697,7 @@ def build_report_payload_v2(
         "finance_alignment_notice": build_finance_alignment_notice_v2(finance_daily),
         "live_operational": live_block,
         "live_section": build_live_section_v2(live_block),
+        "stock_section": stock_section,
         "warnings": warnings,
         "source_flags": {
             "snapshot_present": True,

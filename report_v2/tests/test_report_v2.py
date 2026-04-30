@@ -949,8 +949,49 @@ def test_live_section_v2_contains_display_rows() -> None:
 
     assert rows["Оперативные заказы"]["value"] == "3 шт"
     assert rows["Оперативные продажи"]["value"] == "3 шт"
-    assert rows["Остатки"]["value"] == "322 шт"
-    assert rows["Дата среза остатков"]["value"] == "2026-04-22"
+    assert rows["Оперативные остатки"]["value"] == "322 шт"
+    assert "live snapshot stocks_api" in rows["Оперативные остатки"]["note"]
+    assert "товарного отчёта WB" in rows["Оперативные остатки"]["note"]
+    assert rows["Дата среза оперативных остатков"]["value"] == "2026-04-22"
+
+
+def test_stock_section_does_not_substitute_live_stocks_as_goods_stock() -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+
+    stock_section = payload["stock_section"]
+
+    assert stock_section["status"] == "no_data"
+    assert stock_section["stock_wb_qty"] is None
+    assert stock_section["stock_mp_qty"] is None
+    assert stock_section["stock_total_qty"] is None
+    assert stock_section["stock_value"] is None
+    assert stock_section["sku_rows_count"] is None
+    assert payload["live_operational"]["stocks"]["total_units"] == 322
+
+    warning_codes = {item.get("code") for item in payload["diagnostics"]["warnings"]}
+    assert "operational_stock_differs_from_goods_stock" in warning_codes
+
+
+def test_stock_section_uses_separate_goods_stock_fields_when_available() -> None:
+    snapshot = _sample_snapshot()
+    snapshot["stock_section"] = {
+        "source": "supplier_goods",
+        "stock_wb_qty": 465,
+        "stock_mp_qty": 259,
+        "stock_value": 1079217.0,
+        "sku_rows_count": 27,
+    }
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+
+    stock_section = payload["stock_section"]
+    assert stock_section["status"] == "ok"
+    assert stock_section["source"] == "supplier_goods"
+    assert stock_section["stock_wb_qty"] == 465
+    assert stock_section["stock_mp_qty"] == 259
+    assert stock_section["stock_total_qty"] == 724
+    assert stock_section["stock_value"] == 1079217.0
+    assert stock_section["sku_rows_count"] == 27
 
 
 def test_section_helpers_mark_unavailable_values() -> None:
@@ -978,7 +1019,9 @@ def test_hero_v2_formats_kpi_cards() -> None:
     assert cards["К перечислению"]["value"] == "4 868,22 ₽"
     assert cards["Возвраты"]["value"] == "2 шт"
     assert cards["Возвраты"]["subvalue"] == "Доставки: 3 шт"
-    assert cards["Остатки"]["value"] == "322 шт"
+    assert cards["Оперативные остатки"]["value"] == "322 шт"
+    assert "дата среза 2026-04-22" in cards["Оперативные остатки"]["subvalue"]
+    assert "2026-04-21" not in cards["Оперативные остатки"]["subvalue"]
     assert "Выкупы" not in cards
 
 
