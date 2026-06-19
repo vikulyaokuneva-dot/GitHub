@@ -1158,7 +1158,7 @@ def _region_logistics_section_lines(facts: dict[str, Any]) -> list[str]:
                 lines.append("- Объем товара ожидался в файле остатков (stocks), но не был распознан.")
         lines.append("")
 
-    lines.append("### Что делать practically")
+    lines.append("### Что делать")
     def _sentence(text: str) -> str:
         value = _text(text)
         if not value:
@@ -1671,13 +1671,35 @@ def _risk_label_ru(level: Any) -> str:
 def _top5_comment_with_drr_signal(item: dict[str, Any]) -> str:
     base_comment = _text(item.get("comment"))
     drr_sku_pct = _to_float(item.get("drr_sku_pct"))
-    if drr_sku_pct is None:
-        return base_comment or "н/д"
+    ads_spend = _to_float(item.get("ads_spend"))
+    ads_disabled = bool(ads_spend is None or float(ads_spend) <= 0)
 
     def _comment_tail_without_ads(text: str) -> str:
         parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", text or "") if p and p.strip()]
         filtered = [p for p in parts if ("дрр" not in p.lower() and "реклам" not in p.lower())]
         return " ".join(filtered).strip()
+
+    if ads_disabled:
+        margin_pct = _to_float(item.get("margin_sku_pct"))
+        profit = _to_float(item.get("profit"))
+        overpay = _to_float(item.get("overpay_per_order"))
+        parts = [base_comment] if base_comment else []
+        if margin_pct is not None and "маржа" not in (base_comment or "").lower():
+            if margin_pct >= 25:
+                parts.append("маржа комфортная")
+            elif margin_pct >= 10:
+                parts.append("маржа рабочая")
+            else:
+                parts.append("маржа низкая")
+        if overpay is not None and overpay > 0 and "переплат" not in (base_comment or "").lower():
+            parts.append(f"переплата за логистику +{round(overpay)} ₽/заказ")
+        result = ". ".join(parts)
+        if not result.endswith("."):
+            result += "."
+        return result
+
+    if drr_sku_pct is None:
+        return base_comment or "н/д"
 
     if drr_sku_pct > 25.0:
         signal = f"⚠️ **ДРР высокий ({drr_sku_pct:.2f}%)** — реклама начинает съедать прибыль."
@@ -1818,6 +1840,8 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
 
         ads_per_order = _to_float(item.get("ads_per_order"))
         drr_sku_pct = _to_float(item.get("drr_sku_pct"))
+        ads_spend_val = _to_float(item.get("ads_spend"))
+        ads_disabled = bool(ads_spend_val is None or float(ads_spend_val) <= 0)
         ads_load = _text(item.get("ads_load") or "")
         drr_icon = _status_icon(_drr_status_level_by_pct(drr_sku_pct))
         lines.append("")
@@ -1828,7 +1852,9 @@ def _top5_unit_economics_section_lines(facts: dict[str, Any]) -> list[str]:
             if drr_sku_pct is not None
             else f"- **ДРР SKU:** н/д {drr_icon}"
         )
-        if drr_sku_pct is not None and drr_sku_pct > 25.0:
+        if ads_disabled:
+            lines.append("- Интерпретация: реклама не включена.")
+        elif drr_sku_pct is not None and drr_sku_pct > 25.0:
             lines.append("- Интерпретация: реклама начинает съедать прибыль.")
         elif drr_sku_pct is not None and drr_sku_pct < 10.0:
             lines.append("- Интерпретация: реклама эффективна, можно масштабировать.")
@@ -2114,6 +2140,10 @@ def _sku_efficiency_section_lines(*, facts: dict[str, Any]) -> list[str]:
 
     funnel_metrics = _funnel_sku_metrics(facts.get("funnel_raw"))
     search_metrics = _search_sku_metrics(facts.get("search_insights") if isinstance(facts.get("search_insights"), dict) else {})
+    sku_financials = facts.get("sku_financials") if isinstance(facts.get("sku_financials"), dict) else {}
+    profit_without_cogs = bool(facts.get("financial_summary", {}).get("profit_without_cogs"))
+    stock_summary = facts.get("stock_summary") if isinstance(facts.get("stock_summary"), dict) else {}
+    sku_stocks = stock_summary.get("sku_total_stocks") if isinstance(stock_summary.get("sku_total_stocks"), dict) else {}
 
     table_rows: list[tuple[float, list[Any]]] = []
     for row in selected:
@@ -2138,13 +2168,31 @@ def _sku_efficiency_section_lines(*, facts: dict[str, Any]) -> list[str]:
         revenue = _to_float(row.get("revenue"))
         ad_spend = _to_float(row.get("ad_spend"))
         profit = _to_float(row.get("profit"))
+        stock_qty = _to_int(sku_stocks.get(str(sku)))
 
         ctr = _safe_ratio(clicks, impressions)
         cr_click_to_cart = _safe_ratio(add_to_cart, clicks)
         cr_cart_to_order = _safe_ratio(orders, add_to_cart)
         cr_order_to_buyout = _safe_ratio(buyouts, orders)
         drr = _safe_ratio(ad_spend, revenue)
-        roi = _safe_ratio(profit, ad_spend)
+
+        roi = None
+        fin = sku_financials.get(sku) or sku_financials.get(str(sku)) or {}
+        cogs_sku = _to_float(fin.get("cogs"))
+        commission_sku = _to_float(fin.get("commission"))
+        logistics_sku = _to_float(fin.get("logistics"))
+        tax_sku = _to_float(fin.get("tax_alloc"))
+        has_cogs_for_roi = bool(not profit_without_cogs and cogs_sku is not None)
+        if has_cogs_for_roi:
+            total_costs = (
+                (cogs_sku or 0.0)
+                + abs(commission_sku or 0.0)
+                + (logistics_sku or 0.0)
+                + (ad_spend or 0.0)
+                + (tax_sku or 0.0)
+            )
+            if total_costs > 0 and profit is not None:
+                roi = profit / total_costs
 
         formatted = [
             sku,
@@ -2157,6 +2205,7 @@ def _sku_efficiency_section_lines(*, facts: dict[str, Any]) -> list[str]:
             _percent_or_dash(cr_cart_to_order),
             _count_or_dash(buyouts),
             _percent_or_dash(cr_order_to_buyout),
+            _count_or_dash(stock_qty),
             _percent_or_dash(drr),
             _money_int_rub_or_dash(profit),
             _ratio_or_dash(roi, digits=2),
@@ -2180,6 +2229,7 @@ def _sku_efficiency_section_lines(*, facts: dict[str, Any]) -> list[str]:
         "CR (корзина->заказ)",
         "Выкупы (шт)",
         "CR (заказ->выкуп)",
+        "Остатки (шт)",
         "ДРР",
         "Чистая прибыль (руб)",
         "ROI",
@@ -2791,7 +2841,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     lines.append("## 💸 Потери")
     lines.append(f"Вы теряете ~{_rub_short(total_losses_monthly)} ₽ в месяц")
-    lines.append(f"• Неэффективная реклама: {_rub_short(ads_loss_monthly)} ₽")
+    lines.append(f"• Неэффективная реклама: {_rub_short(ads_loss_monthly)} ₽ (в месяц, нормализовано из недельного периода)")
     lines.append(f"• Переплата за логистику: {_rub_short(monthly_logistics_loss)} ₽")
     lines.append("")
     lines.append("Расчет логистики:")
@@ -2856,7 +2906,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
 
     lines.append("## 💡")
     lines.append("Если ничего не менять:")
-    lines.append(f"→ за год это ~{_rub_short(yearly_loss)} ₽ потерь")
+    lines.append(f"→ за год это ~{_rub_short(yearly_loss)} ₽ потерь ({_rub_short(total_losses_monthly)} ₽/мес × 12)")
     lines.append("")
     _page_break(lines)
 
@@ -2865,7 +2915,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     if audit_kind:
         lines.append(f"Тип аудита: {audit_kind}")
     lines.append("")
-    lines.append("- Executive Summary: краткий итог по кабинету")
+    lines.append("- Краткий итог по кабинету")
     lines.append("- 1. KPI и инсайты")
     lines.append("- 2. 💰 Финансы: сколько реально зарабатываете")
     lines.append("- 3. 📊 Воронка продаж: путь до выкупа")
@@ -2968,11 +3018,16 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
         buyouts_units = _to_int(finance.get("sales_qty"))
 
     roi_main, roi_extra = _roi_line(finance, ads, clean_profit=float(profit_view["clean_profit"]))
+    returns_qty_f = _to_int(finance.get("returns_qty"))
+    delivery_qty_f = _to_int(finance.get("delivery_qty"))
+    return_rate_f = _to_float(finance.get("return_rate"))
+    returns_display = f"{returns_qty_f} шт ({_fmt_pct(return_rate_f * 100.0, 1)} от доставок)" if returns_qty_f > 0 else "0 шт"
     finance_rows = [
         ["Продажи (шт)", sales_units],
         ["Продажи (сумма заказов)", _money(funnel.get("revenue_orders"))],
         ["Выкупы (шт)", buyouts_units],
         ["Выкупы (сумма)", _money(finance.get("gross_revenue"))],
+        ["Возвраты (отказы)", returns_display],
         ["Комиссия WB", _money(finance.get("commission"))],
         ["Логистика", _money(finance.get("logistics"))],
         ["Хранение", _money(finance.get("storage"))],
@@ -3004,7 +3059,14 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     cogs_coverage = _to_float(cogs_diag.get("cogs_coverage_pct"))
     if cogs_coverage is not None:
         lines.append(f"- Покрытие COGS по SKU продаж: {_fmt_pct(cogs_coverage, 1)}.")
+    returns_qty = _to_int(finance.get("returns_qty"))
+    delivery_qty = _to_int(finance.get("delivery_qty"))
+    return_rate = _to_float(finance.get("return_rate"))
+    if returns_qty > 0:
+        return_pct_text = f" ({_fmt_pct(return_rate * 100.0, 1)} от доставок)" if return_rate is not None and delivery_qty > 0 else ""
+        lines.append(f"- Возвраты (отказы): {returns_qty} шт из {delivery_qty} доставок{return_pct_text}.")
     lines.append("- Чистая прибыль и маржа в этом разделе рассчитаны с учетом рекламных расходов.")
+    lines.append("- Прибыль по SKU в разделе ТОП-5 не включает вычет рекламных расходов, которые учитываются общим итогом кабинета.")
     for extra in roi_extra:
         lines.append(f"- {extra}")
     if finance.get("profit_note"):
@@ -3013,6 +3075,11 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     if storage_value == 0.0 and _to_int(finance.get("rows_count")) > 0:
         lines.append("- По исходным строкам finance расход на хранение за период не обнаружен (0.00 RUB).")
     lines.append("- К перечислению — значение из финансового отчета WB (без перерасчета).")
+    sales_dynamic = funnel.get("sales_dynamic") if isinstance(funnel.get("sales_dynamic"), dict) else {}
+    if sales_dynamic.get("status") == "ok":
+        dyn_payout = _to_float(sales_dynamic.get("payout"))
+        if dyn_payout and dyn_payout > 0:
+            lines.append(f"- К перечислению по еженедельной динамике: {_money(dyn_payout)} (сумма к выплате после комиссии WB).")
     lines.append("")
 
     lines.extend(_money_losses_section_lines(money_losses))
@@ -3695,7 +3762,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
             "search",
             f"Усилить ставки по поисковым запросам: {', '.join(search_scale_targets[:5])}",
             (
-                f"Рост заказов и прибыли по уже конверсионным запросам (текущая оценка прибыли ~{_money(search_scale_profit_total)})."
+                f"Рост заказов по конверсионным запросам (валовая отдача: {_money(search_scale_profit_total)})."
                 if search_scale_profit_total >= 100.0
                 else "Запросы конверсионные, но значимый денежный эффект пока не подтвержден (менее 100 RUB)."
             ),
@@ -3823,7 +3890,7 @@ def build_audit_markdown(facts: dict[str, Any]) -> str:
     lines.append(f"SKU: {_sku_csv(boost_ads_skus) if boost_ads_skus else 'нет явных SKU'}")
     lines.append("Причина: высокая прибыль + нормальный ДРР.")
     lines.append(
-        f"Деньги: текущая оценка прибыли по этим запросам {_money(search_scale_profit_total)}."
+        f"Деньги: валовая отдача (выручка − расход) {_money(search_scale_profit_total)}."
         if search_scale_profit_total >= 100.0
         else "Деньги: значимый денежный эффект пока не подтвержден (менее 100 RUB)."
     )

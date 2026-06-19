@@ -14,7 +14,7 @@ from audit.audit_facts_builder import build_audit_facts
 from audit.audit_report import build_audit_markdown
 from audit.ozon_facts_builder import build_ozon_audit_facts
 from audit.ozon_report import build_ozon_audit_markdown
-from src.pdf_report import markdown_to_simple_pdf
+from audit.lib.pdf_report import markdown_to_simple_pdf
 
 try:
     from src.mailer_yandex import send_email_with_pdf

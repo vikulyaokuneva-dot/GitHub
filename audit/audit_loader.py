@@ -16,6 +16,13 @@ import pandas as pd
 SUPPORTED_EXTENSIONS = {".xlsx", ".xls", ".csv", ".zip"}
 FILE_TYPES = ("finance", "funnel", "stocks", "ads", "search", "orders", "cogs")
 
+FOLDER_TYPE_ALIASES: dict[str, str] = {
+    "logist": "orders",
+    "logistics": "orders",
+    "лента": "orders",
+    "лента заказов": "orders",
+}
+
 
 TYPE_FILENAME_HINTS: dict[str, tuple[str, ...]] = {
     "finance": ("finance", "финанс", "реализац", "детализирован", "отчет"),
@@ -119,6 +126,8 @@ STOCK_SKU_COLUMN_PRIORITY: tuple[str, ...] = (
 
 STOCK_SKU_COLUMN_ALIASES: tuple[str, ...] = STOCK_SKU_COLUMN_PRIORITY + (
     "nm_id",
+    "Артикул продавца",
+    "Артикул поставщика",
 )
 
 STOCK_TOTAL_COLUMN_PRIORITY: tuple[str, ...] = (
@@ -464,7 +473,8 @@ def detect_file_type(path: str) -> DetectedFile:
     reasons: dict[str, list[str]] = {k: [] for k in FILE_TYPES}
 
     for file_type in FILE_TYPES:
-        if parent_name == file_type:
+        effective_type = FOLDER_TYPE_ALIASES.get(parent_name, parent_name) if parent_name in FOLDER_TYPE_ALIASES else parent_name
+        if parent_name == file_type or (effective_type == file_type and parent_name in FOLDER_TYPE_ALIASES):
             scores[file_type] += 7
             reasons[file_type].append(f"folder:{parent_name}")
 
@@ -543,7 +553,7 @@ def parse_finance_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]]
     skipped_rows = 0
     for _, r in df.iterrows():
         row = dict(r)
-        doc_type = str(_lookup(row, ("Тип документа", "Обоснование для оплаты", "doc_type_name", "supplier_oper_name")) or "").strip()
+        doc_type = str(_lookup(row, ("Обоснование для оплаты", "Тип документа", "doc_type_name", "supplier_oper_name")) or "").strip()
         storage_value_raw = row.get(storage_source_column) if storage_source_column else _lookup(row, STORAGE_COLUMN_ALIASES)
         storage_fee = _to_float(storage_value_raw)
         if abs(storage_fee) > 1e-9:
@@ -642,8 +652,12 @@ def parse_finance_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]]
             ),
             "storage_fee": storage_fee,
             "penalty": _to_float(_lookup(row, ("Общая сумма штрафов", "penalty", "fine"))),
+            "return_qty": _to_int(_lookup(row, ("Количество возврата", "return_qty"))),
+            "delivery_qty": _to_int(_lookup(row, ("Количество доставок", "delivery_qty"))),
             "_supplier_article": str(_lookup(row, ("Артикул поставщика", "Артикул продавца", "supplierArticle")) or ""),
             "_name": str(_lookup(row, ("Название", "name")) or ""),
+            "_row_number": str(_to_int(_lookup(row, ("№",))) or ""),
+            "_delivery_number": str(_lookup(row, ("Номер поставки", "deliveryNumber", "delivery_number")) or ""),
             "_storage_source_column": storage_source_column or "",
             "region": str(
                 _lookup(
@@ -762,8 +776,8 @@ def parse_funnel_file(path: str) -> list[dict[str, Any]]:
             "impressions": int(max(impressions, 0)),
             "clicks_inferred_from_impressions": bool(clicks_inferred_from_impressions),
             "addToCartCount": _to_int(_lookup(row, ("Положили в корзину", "Добавлений в корзину", "addToCartCount"))),
-            "orderCount": _to_int(_lookup(row, ("Заказали, шт", "Заказы", "orderCount"))),
-            "buyoutCount": _to_int(_lookup(row, ("Выкупили, шт", "Выкупы", "buyoutCount"))),
+            "orderCount": _to_int(_lookup(row, ("Заказали товаров, шт", "Заказали, шт", "Заказы", "orderCount"))),
+            "buyoutCount": _to_int(_lookup(row, ("Выкупили, шт", "Выкупили товары, шт", "Выкупы", "buyoutCount"))),
             "orderSum": _to_float(_lookup(row, ("Заказали на сумму, ₽", "Заказали на сумму", "orderSum"))),
             "buyoutSum": _to_float(_lookup(row, ("Выкупили на сумму, ₽", "Выкупили на сумму", "buyoutSum"))),
             "name": str(_lookup(row, ("Название", "name")) or ""),
@@ -1161,16 +1175,20 @@ def _parse_stocks_df_rows(
                     if day_col:
                         date_stock_column_local = day_col
 
+        supplier_article = str(_lookup(row, ("supplierArticle", "vendorCode", "seller_sku", "Артикул продавца", "Артикул поставщика")) or "").strip()
+        if not supplier_article:
+            supplier_article = str(_value_by_index(row, 0) or "").strip()
+
         if resolved_sku_col:
-            nmid = _to_int(row.get(resolved_sku_col))
+            raw_sku_val = str(row.get(resolved_sku_col) or "").strip()
+            nmid = _to_int(raw_sku_val)
+            if nmid == 0 and raw_sku_val and resolved_sku_col in ("Артикул продавца", "Артикул поставщика"):
+                if not supplier_article:
+                    supplier_article = raw_sku_val
         else:
             nmid = _to_int(_lookup(row, ("nmId", "nm_id", "sku")))
             if nmid == 0:
                 nmid = _to_int(_value_by_index(row, 2))
-
-        supplier_article = str(_lookup(row, ("supplierArticle", "vendorCode", "seller_sku")) or "").strip()
-        if not supplier_article:
-            supplier_article = str(_value_by_index(row, 0) or "").strip()
 
         name = str(_lookup(row, ("name", "title")) or "").strip()
         if not name:
@@ -1310,12 +1328,14 @@ def parse_stocks_file_with_diagnostics(path: str) -> tuple[list[dict[str, Any]],
         candidate_score = (
             int(id_mapped_rows),
             int(qty_positive_rows),
+            1 if resolved_sku_col else 0,
             -abs(int(header) - 1),
             int(mapped_rows),
         )
         best_score = (
             int(best_id_mapped_rows),
             int(best_qty_positive_rows),
+            1 if best_sku_col else 0,
             -abs(int(best_header) - 1),
             int(best_mapped_rows),
         )
@@ -1660,3 +1680,113 @@ def load_stocks_xlsx(path: str) -> list[dict[str, Any]]:
 
 def load_orders_xlsx(path: str) -> list[dict[str, Any]]:
     return parse_orders_file(path)
+
+
+def parse_sales_dynamic_file(path: str) -> dict[str, Any]:
+    """Parse 'Еженедельная динамика и анализ продаж' report.
+
+    Returns aggregated data by seller article:
+    - buyouts: total units bought out
+    - payout: total "к перечислению"
+    - orders: total orders placed
+    - order_revenue: total order revenue (sum заказов минус комиссия)
+    - by_article: per-article breakdown
+    """
+    if not path:
+        return {"status": "file_not_provided", "buyouts": 0, "payout": 0.0, "orders": 0, "order_revenue": 0.0, "by_article": {}}
+
+    p = Path(path)
+    try:
+        df = pd.read_excel(p, sheet_name=0)
+    except Exception:
+        return {"status": "parse_error", "buyouts": 0, "payout": 0.0, "orders": 0, "order_revenue": 0.0, "by_article": {}}
+
+    if df is None or df.empty:
+        return {"status": "empty", "buyouts": 0, "payout": 0.0, "orders": 0, "order_revenue": 0.0, "by_article": {}}
+
+    buyout_col = None
+    payout_col = None
+    order_col = None
+    order_rev_col = None
+    article_col = None
+
+    for c in df.columns:
+        cl = _norm(str(c))
+        if "выкуп" in cl and "шт" in cl:
+            buyout_col = c
+        elif "перечислен" in cl or "перечисл" in cl:
+            payout_col = c
+        elif "заказан" in cl and "шт" in cl:
+            order_col = c
+        elif "сумма заказ" in cl or "заказов минус" in cl:
+            order_rev_col = c
+        elif "артикул продавца" in cl or "артикул поставщика" in cl:
+            article_col = c
+
+    if not article_col:
+        return {"status": "no_article_column", "buyouts": 0, "payout": 0.0, "orders": 0, "order_revenue": 0.0, "by_article": {}}
+
+    total_buyouts = 0
+    total_payout = 0.0
+    total_orders = 0
+    total_order_rev = 0.0
+    by_article: dict[str, dict[str, Any]] = {}
+
+    for _, row in df.iterrows():
+        article = str(row.get(article_col) or "").strip()
+        if not article:
+            continue
+
+        buyouts = _to_int(row.get(buyout_col)) if buyout_col else 0
+        payout = _to_float(row.get(payout_col)) if payout_col else 0.0
+        orders = _to_int(row.get(order_col)) if order_col else 0
+        order_rev = _to_float(row.get(order_rev_col)) if order_rev_col else 0.0
+
+        total_buyouts += buyouts
+        total_payout += payout
+        total_orders += orders
+        total_order_rev += order_rev
+
+        if article not in by_article:
+            by_article[article] = {"buyouts": 0, "payout": 0.0, "orders": 0, "order_revenue": 0.0}
+        by_article[article]["buyouts"] += buyouts
+        by_article[article]["payout"] += payout
+        by_article[article]["orders"] += orders
+        by_article[article]["order_revenue"] += order_rev
+
+    return {
+        "status": "ok",
+        "path": path,
+        "buyouts": total_buyouts,
+        "payout": round(total_payout, 2),
+        "orders": total_orders,
+        "order_revenue": round(total_order_rev, 2),
+        "by_article": by_article,
+    }
+
+
+def find_sales_dynamic_file(input_dir: str) -> str | None:
+    """Find 'Еженедельная динамика' file in input directory or sales_dynamic subfolder."""
+    base = Path(input_dir)
+    if not base.exists():
+        return None
+    search_dirs = [base]
+    sd_folder = base / "sales_dynamic"
+    if sd_folder.exists():
+        search_dirs.insert(0, sd_folder)
+    for search_dir in search_dirs:
+        for file in search_dir.rglob("*"):
+            if not file.is_file():
+                continue
+            if file.suffix.lower() not in {".xlsx", ".xls"}:
+                continue
+            try:
+                sheets = _excel_sheet_names(file)
+                if not sheets:
+                    continue
+                first_sheet = str(sheets[0]).lower()
+                if "report" in first_sheet or "динамик" in first_sheet:
+                    return str(file)
+            except Exception:
+                continue
+    return None

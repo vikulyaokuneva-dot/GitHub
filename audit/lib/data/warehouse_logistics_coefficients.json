@@ -1,0 +1,124 @@
+{
+  "Армения": [
+    {"warehouse": "СЦ Ереван", "coefficient": 155},
+    {"warehouse": "СК Ереван", "coefficient": 155}
+  ],
+  "Беларусь": [
+    {"warehouse": "Минск", "coefficient": null},
+    {"warehouse": "СЦ Брест", "coefficient": null},
+    {"warehouse": "СЦ Гродно", "coefficient": null}
+  ],
+  "Грузия": [
+    {"warehouse": "СЦ Тбилиси 3 Бонд", "coefficient": 130}
+  ],
+  "Дальневосточный + Сибирский": [
+    {"warehouse": "СЦ Хабаровск", "coefficient": null},
+    {"warehouse": "СЦ Барнаул", "coefficient": null},
+    {"warehouse": "Владивосток", "coefficient": null},
+    {"warehouse": "Юрга", "coefficient": null},
+    {"warehouse": "Новосибирск СГТ", "coefficient": null},
+    {"warehouse": "Владивосток СГТ", "coefficient": null},
+    {"warehouse": "Хабаровск", "coefficient": 220},
+    {"warehouse": "Новосибирск", "coefficient": 445}
+  ],
+  "Казахстан": [
+    {"warehouse": "СЦ Байсерке", "coefficient": null},
+    {"warehouse": "Атакент", "coefficient": 135},
+    {"warehouse": "Актобе", "coefficient": 145},
+    {"warehouse": "Астана Карагандинское шоссе", "coefficient": 145}
+  ],
+  "Приволжский": [
+    {"warehouse": "СЦ Ижевск", "coefficient": null},
+    {"warehouse": "СЦ Кузнецк", "coefficient": null},
+    {"warehouse": "Пермь 4", "coefficient": null},
+    {"warehouse": "Пенза СГТ", "coefficient": null},
+    {"warehouse": "Кузнецк СГТ", "coefficient": 100},
+    {"warehouse": "Пенза", "coefficient": 100},
+    {"warehouse": "Казань СГТ", "coefficient": 100},
+    {"warehouse": "СЦ Нижний Новгород Ларина", "coefficient": 150},
+    {"warehouse": "Самара (Новосемейкино)", "coefficient": 200},
+    {"warehouse": "Новосемейкино: Питание", "coefficient": 200},
+    {"warehouse": "Сарапул", "coefficient": 210},
+    {"warehouse": "Казань", "coefficient": 220},
+    {"warehouse": "Казань: Питание", "coefficient": 220}
+  ],
+  "Северо-Западный": [
+    {"warehouse": "СЦ Вологда 2", "coefficient": null},
+    {"warehouse": "СЦ Шушары", "coefficient": null},
+    {"warehouse": "Красный Бор СГТ", "coefficient": null},
+    {"warehouse": "Санкт-Петербург СГТ", "coefficient": 105},
+    {"warehouse": "Шушары: Питание", "coefficient": 220},
+    {"warehouse": "СПБ Шушары", "coefficient": 220},
+    {"warehouse": "Санкт-Петербург Уткина Заводь", "coefficient": 270}
+  ],
+  "Узбекистан": [
+    {"warehouse": "Ташкент", "coefficient": 100},
+    {"warehouse": "Ташкент 2", "coefficient": 100}
+  ],
+  "Уральский": [
+    {"warehouse": "Екатеринбург СГТ", "coefficient": null},
+    {"warehouse": "Нижний Тагил (Восточное) СГТ", "coefficient": null},
+    {"warehouse": "Челябинск СГТ", "coefficient": 100},
+    {"warehouse": "Екатеринбург - Испытателей 14г", "coefficient": 220},
+    {"warehouse": "Екатеринбург - Перспективная 14", "coefficient": 225},
+    {"warehouse": "Екатеринбург (Перспективная): Питание", "coefficient": 225}
+  ],
+  "Центральный": [
+    {"warehouse": "Пушкино", "coefficient": null},
+    {"warehouse": "Вёшки", "coefficient": null},
+    {"warehouse": "Иваново", "coefficient": null},
+    {"warehouse": "Подольск 3", "coefficient": null},
+    {"warehouse": "Радумля 1", "coefficient": null},
+    {"warehouse": "Подольск 4", "coefficient": null},
+    {"warehouse": "Обухово 2", "coefficient": null},
+    {"warehouse": "Чашниково", "coefficient": null},
+    {"warehouse": "Воронеж СГТ", "coefficient": null},
+    {"warehouse": "Истра", "coefficient": null},
+    {"warehouse": "Коледино: Горючее", "coefficient": null},
+    {"warehouse": "Домодедово 2", "coefficient": null},
+    {"warehouse": "Никольское", "coefficient": null},
+    {"warehouse": "Никольское СГТ", "coefficient": null},
+    {"warehouse": "Обухово СГТ новый", "coefficient": null},
+    {"warehouse": "Тверь СГТ", "coefficient": null},
+    {"warehouse": "Климовск СГТ", "coefficient": null},
+    {"warehouse": "СК Домодедово Шинный", "coefficient": null},
+    {"warehouse": "Щеглово (Холмогоры) СГТ", "coefficient": null},
+    {"warehouse": "Домодедово 2: Питание", "coefficient": null},
+    {"warehouse": "Чашниково СГТ", "coefficient": null},
+    {"warehouse": "Домодедово 2 СГТ", "coefficient": null},
+    {"warehouse": "Голицыно СГТ", "coefficient": 75},
+    {"warehouse": "Радумля СГТ", "coefficient": 95},
+    {"warehouse": "Софьино СГТ", "coefficient": 95},
+    {"warehouse": "Софрино СГТ", "coefficient": 95},
+    {"warehouse": "Ярославль СГТ", "coefficient": 100},
+    {"warehouse": "Цифровой склад", "coefficient": 100},
+    {"warehouse": "Рязань (Тюшевское)", "coefficient": 120},
+    {"warehouse": "Рязань (Тюшевское): Питание", "coefficient": 120},
+    {"warehouse": "Сабурово", "coefficient": 130},
+    {"warehouse": "Владимир", "coefficient": 140},
+    {"warehouse": "Тула", "coefficient": 150},
+    {"warehouse": "Котовск", "coefficient": 150},
+    {"warehouse": "Котовск: Питание", "coefficient": 150},
+    {"warehouse": "Электросталь", "coefficient": 160},
+    {"warehouse": "Воронеж", "coefficient": 160},
+    {"warehouse": "Воронеж: Питание", "coefficient": 160},
+    {"warehouse": "Электросталь: Питание", "coefficient": 160},
+    {"warehouse": "Обухово", "coefficient": 170},
+    {"warehouse": "Коледино", "coefficient": 195},
+    {"warehouse": "Белая дача", "coefficient": 195},
+    {"warehouse": "Подольск", "coefficient": 200},
+    {"warehouse": "Щербинка", "coefficient": 200},
+    {"warehouse": "Чехов 1", "coefficient": 205},
+    {"warehouse": "Чехов 2", "coefficient": 205},
+    {"warehouse": "Белые Столбы", "coefficient": 280}
+  ],
+  "Южный + Северо-Кавказский": [
+    {"warehouse": "Крыловская", "coefficient": null},
+    {"warehouse": "Краснодар СГТ", "coefficient": null},
+    {"warehouse": "Волгоград", "coefficient": 110},
+    {"warehouse": "Волгоград: Питание", "coefficient": 110},
+    {"warehouse": "Невинномысск", "coefficient": 130},
+    {"warehouse": "Краснодар", "coefficient": 160},
+    {"warehouse": "Краснодар (Тихорецкая): Питание", "coefficient": 160}
+  ]
+}

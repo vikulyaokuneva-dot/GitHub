@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from src.pdf_report import markdown_to_simple_pdf
+from audit.lib.pdf_report import markdown_to_simple_pdf
 
 from .facts_builder import build_ozon_facts
 from .loader import load_ozon_excel

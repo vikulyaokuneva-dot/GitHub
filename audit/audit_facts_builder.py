@@ -14,12 +14,14 @@ import pandas as pd
 
 from audit.audit_loader import (
     FILE_TYPES,
+    find_sales_dynamic_file,
     group_detected_files,
     parse_ads_file_with_diagnostics,
     parse_cogs_file_with_diagnostics,
     parse_finance_file_with_diagnostics,
     parse_funnel_file,
     parse_orders_file_with_diagnostics,
+    parse_sales_dynamic_file,
     parse_search_file_with_diagnostics,
     parse_stocks_file_with_diagnostics,
     scan_input_files,
@@ -27,18 +29,18 @@ from audit.audit_loader import (
 from audit.audit_stock_parser import parse_audit_stock_history_with_diagnostics
 from audit.localization_loss import estimate_total_localization_loss
 from audit.logistics_model import SUPPLY_TYPE_BOX, compute_wb_logistics_estimate
-from shared.logistics_reference import (
+from audit.lib.logistics_reference import (
     HIGH_COEFFICIENT_ALERT,
     build_region_logistics_summary,
     flatten_warehouse_logistics_reference,
     load_warehouse_logistics_reference,
 )
-from shared.wb_logistics_regions import (
+from audit.lib.wb_logistics_regions import (
     high_risk_regions_by_avg,
     normalize_region_coefficients,
 )
-from src.metrics import calc_ads_metrics, calc_financial_metrics, calc_funnel_metrics
-from src.sku_performance_analyzer import analyze_sku_performance
+from audit.lib.metrics import calc_ads_metrics, calc_financial_metrics, calc_funnel_metrics
+from audit.lib.sku_performance_analyzer import analyze_sku_performance
 
 
 WB_TIMEZONE = ZoneInfo(os.getenv("WB_TIMEZONE", "Europe/Moscow"))
@@ -293,6 +295,123 @@ def _to_bool_flag(value: Any) -> bool:
 def _norm_text(value: Any) -> str:
     text = str(value or "").replace("\xa0", " ").strip().lower()
     return " ".join(text.split())
+
+
+def _build_article_sku_mapping(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """Build seller_article → nmId mapping from rows (orders or funnel).
+
+    For each unique seller_article, picks the nmId that appears most frequently.
+    """
+    article_counts: dict[str, dict[int, int]] = {}
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        article = str(row.get("seller_article") or "").strip()
+        nm_id = _to_int(row.get("nmId"))
+        if not article or nm_id <= 0:
+            continue
+        if article not in article_counts:
+            article_counts[article] = {}
+        article_counts[article][nm_id] = article_counts[article].get(nm_id, 0) + 1
+
+    mapping: dict[str, int] = {}
+    for article, nm_map in article_counts.items():
+        best_nm = max(nm_map, key=nm_map.get)
+        mapping[article] = best_nm
+    return mapping
+
+
+def _override_sku_data_from_sales_dynamic(
+    sku_rows: list[dict[str, Any]],
+    orders_rows: list[dict[str, Any]],
+    sales_dynamic: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Override per-SKU buyouts/orders using sales_dynamic per-article data.
+
+    sales_dynamic['by_article'] has: {article_name: {buyouts, orders, payout, order_revenue}}
+    We map seller_article → nmId from orders rows, then override the matching sku_rows.
+    """
+    if not sales_dynamic or sales_dynamic.get("status") != "ok":
+        return sku_rows
+
+    by_article = sales_dynamic.get("by_article")
+    if not isinstance(by_article, dict) or not by_article:
+        return sku_rows
+
+    article_to_sku = _build_article_sku_mapping(orders_rows)
+    if not article_to_sku:
+        print("SALES_DYNAMIC_OVERRIDE: no article->SKU mapping available from orders")
+        return sku_rows
+
+    override_map: dict[int, dict[str, Any]] = {}
+    matched_articles = []
+    for article, art_data in by_article.items():
+        if not isinstance(art_data, dict):
+            continue
+        article_norm = _norm_text(article)
+        matched_sku = None
+        for art_key, sku_id in article_to_sku.items():
+            if _norm_text(art_key) == article_norm:
+                matched_sku = sku_id
+                break
+        if matched_sku is None:
+            for art_key, sku_id in article_to_sku.items():
+                if article_norm in _norm_text(art_key) or _norm_text(art_key) in article_norm:
+                    matched_sku = sku_id
+                    break
+        if matched_sku is not None and matched_sku not in override_map:
+            override_map[matched_sku] = {
+                "buyouts": _to_int(art_data.get("buyouts")),
+                "orders": _to_int(art_data.get("orders")),
+                "payout": _to_float(art_data.get("payout")),
+                "order_revenue": _to_float(art_data.get("order_revenue")),
+            }
+            matched_articles.append(f"{article} -> SKU {matched_sku}")
+
+    if not override_map:
+        print("SALES_DYNAMIC_OVERRIDE: no matching articles found between sales_dynamic and orders")
+        return sku_rows
+
+    print(f"SALES_DYNAMIC_OVERRIDE: matched {len(override_map)} articles: {matched_articles}")
+
+    overridden_count = 0
+    for row in sku_rows:
+        if not isinstance(row, dict):
+            continue
+        sku = _to_int(row.get("sku"))
+        if sku not in override_map:
+            continue
+        override = override_map[sku]
+        dyn_buyouts = override["buyouts"]
+        dyn_orders = override["orders"]
+
+        old_buyouts = _to_int(row.get("buyouts"))
+        old_orders = _to_int(row.get("orders"))
+
+        if dyn_buyouts > 0:
+            row["buyouts"] = dyn_buyouts
+        if dyn_orders > 0:
+            row["orders"] = dyn_orders
+
+        orders = max(_to_int(row.get("orders")), 1)
+        buys = _to_int(row.get("buyouts"))
+        views = _to_int(row.get("views")) or _to_int(row.get("impressions"))
+        cart = _to_int(row.get("add_to_cart")) or _to_int(row.get("cartCount"))
+
+        if buys > 0 and orders > 0:
+            row["buyout_rate"] = round(buys / orders, 4)
+        if orders > 0 and cart > 0:
+            row["cr_order"] = round(orders / cart, 4)
+        if buys > 0 and views > 0:
+            row["conversion"] = round(buys / views, 4)
+
+        overridden_count += 1
+        print(f"  SKU {sku}: buyouts {old_buyouts}->{dyn_buyouts}, orders {old_orders}->{dyn_orders}")
+
+    if overridden_count > 0:
+        print(f"SALES_DYNAMIC_OVERRIDE: overridden {overridden_count} SKU buyouts/orders from sales_dynamic")
+
+    return sku_rows
 
 
 def _to_float_relaxed(value: Any) -> float | None:
@@ -1361,9 +1480,34 @@ def _top5_comment_and_recommendation(
     drr_sku_pct: float | None,
     ads_load: str | None,
     profit_per_order: float | None,
+    ads_spend: float | None = None,
 ) -> tuple[str, str]:
+    ads_disabled = bool(ads_spend is None or float(ads_spend) <= 0)
     drr_is_high = bool(drr_sku_pct is not None and float(drr_sku_pct) >= 20.0)
     drr_is_critical = bool(drr_sku_pct is not None and float(drr_sku_pct) >= 30.0)
+
+    if ads_disabled:
+        parts = []
+        if profit_per_order is not None and profit_per_order > 500:
+            parts.append("Высокая прибыль на заказ")
+        elif profit_per_order is not None and profit_per_order > 0:
+            parts.append("Товар прибыльный")
+        else:
+            parts.append("Товар прибыльный")
+        if overpay_per_order is not None and float(overpay_per_order) > 0:
+            parts.append(f"переплата за логистику +{round(float(overpay_per_order), 2)} ₽/заказ")
+        elif logistics_new_per_order is not None and price_avg is not None and price_avg > 0:
+            log_pct = float(logistics_new_per_order) / float(price_avg) * 100
+            if log_pct > 15:
+                parts.append(f"логистика {round(log_pct)}% цены")
+        if localization_share_pct is not None and float(localization_share_pct) < 70:
+            parts.append(f"локализация {round(float(localization_share_pct))}%")
+        parts.append("реклама не включена")
+        comment = ", ".join(parts) + "."
+        recommendation = "При необходимости запустить рекламу по конверсионным запросам."
+        if overpay_per_order is not None and float(overpay_per_order) > 0:
+            recommendation = "Сначала перераспределить товар по складам для снижения переплаты, затем запустить рекламу."
+        return comment, recommendation
 
     if risk_level == "high":
         if overpay_per_order is not None:
@@ -1610,10 +1754,11 @@ def _build_top5_sku_unit_economics_payload(
             drr_sku_pct=drr_sku_pct,
             ads_load=ads_load,
             profit_per_order=profit_per_order,
+            ads_spend=ads_spend,
         )
         if margin_sku_pct is not None:
             if margin_sku_pct >= 25.0:
-                margin_comment = "Товар прибыльный, маржа комфортная."
+                margin_comment = "Маржа комфортная."
             elif margin_sku_pct < 10.0:
                 margin_comment = "Маржа ограничена, рост рекламы и логистики нужно контролировать."
             else:
@@ -3988,6 +4133,7 @@ def _parse_many_finance(files: list[str]) -> tuple[list[dict[str, Any]], dict[st
             "penalty",
             "_supplier_article",
             "_name",
+            "_row_number",
         ),
     )
     return deduped, {
@@ -4136,6 +4282,21 @@ def build_audit_facts(input_dir: str = "cabinets/seller_001/input", period_label
                 "warnings": stock_history_payload.get("warnings"),
             }
 
+    if stocks_rows and orders_rows:
+        _article_to_nmid = _build_article_sku_mapping(orders_rows)
+        _stocks_mapped = 0
+        for sr in stocks_rows:
+            if not isinstance(sr, dict):
+                continue
+            if _to_int(sr.get("nmId", 0)) > 0:
+                continue
+            art = str(sr.get("supplierArticle", "")).strip()
+            if art and art in _article_to_nmid:
+                sr["nmId"] = _article_to_nmid[art]
+                _stocks_mapped += 1
+        if _stocks_mapped:
+            print(f"STOCKS_OVERRIDE: mapped {_stocks_mapped} articles to WB SKU via orders")
+
     sku_dimensions, volume_coverage = _build_sku_dimensions(stocks_rows)
     volume_coverage["expected_source"] = "stocks"
     volume_coverage["expected_file"] = selected_files["stocks"][0] if selected_files["stocks"] else None
@@ -4150,12 +4311,22 @@ def build_audit_facts(input_dir: str = "cabinets/seller_001/input", period_label
     )
 
     funnel_summary = calc_funnel_metrics(funnel_rows) if funnel_rows else {}
+
+    sales_dynamic_path = find_sales_dynamic_file(input_dir)
+    sales_dynamic = parse_sales_dynamic_file(sales_dynamic_path) if sales_dynamic_path else {"status": "file_not_found"}
+    dyn_revenue_override = None
+    if sales_dynamic.get("status") == "ok":
+        dyn_payout = _to_float(sales_dynamic.get("payout"))
+        if dyn_payout and dyn_payout > 0:
+            dyn_revenue_override = dyn_payout
+
     financial_summary = (
         calc_financial_metrics(
             finance_rows,
             tax_rate=tax_rate,
             cogs_rows=cogs_rows,
             cogs_file_found=bool(selected_files["cogs"]),
+            revenue_override=dyn_revenue_override,
         )
         if finance_rows
         else {"rows_count": 0}
@@ -4170,6 +4341,29 @@ def build_audit_facts(input_dir: str = "cabinets/seller_001/input", period_label
     funnel_summary["impressions"] = funnel_traffic.get("impressions")
     funnel_summary["ctr"] = funnel_traffic.get("ctr")
     funnel_summary["impressions_source"] = funnel_traffic.get("impressions_source")
+
+    if sales_dynamic.get("status") == "ok":
+        dyn_buyouts = _to_int(sales_dynamic.get("buyouts"))
+        dyn_payout = _to_float(sales_dynamic.get("payout"))
+        dyn_orders = _to_int(sales_dynamic.get("orders"))
+        if dyn_buyouts > 0:
+            funnel_summary["buys"] = dyn_buyouts
+            funnel_summary["buys_source"] = "sales_dynamic"
+        if dyn_orders > 0:
+            funnel_summary["orders"] = dyn_orders
+            funnel_summary["orders_source"] = "sales_dynamic"
+        if dyn_payout > 0:
+            funnel_summary["revenue_buyouts"] = dyn_payout
+        funnel_summary["sales_dynamic"] = sales_dynamic
+
+        overridden_orders = _to_int(funnel_summary.get("orders"))
+        overridden_buys = _to_int(funnel_summary.get("buys"))
+        overridden_cart = _to_int(funnel_summary.get("add_to_cart"))
+        if overridden_orders > 0 and overridden_buys > 0:
+            funnel_summary["buyout_rate"] = round(overridden_buys / overridden_orders, 4)
+        if overridden_cart > 0 and overridden_orders > 0:
+            funnel_summary["cr_order"] = round(overridden_orders / overridden_cart, 4)
+
     ads_summary["files_count"] = len(selected_files["ads"])
     ads_summary["parse_diagnostics"] = ads_parse_diag
     financial_summary["files_count"] = len(selected_files["finance"])
@@ -4452,6 +4646,7 @@ def build_audit_facts(input_dir: str = "cabinets/seller_001/input", period_label
         sku_performance = {"error": f"sku_performance_failed: {exc}", "rows": [], "abc_summary": {}}
 
     sku_rows = (sku_performance.get("rows") or []) if isinstance(sku_performance, dict) else []
+    sku_rows = _override_sku_data_from_sales_dynamic(sku_rows, orders_rows, sales_dynamic)
     sku_profit = sorted(
         [
             {
@@ -4472,6 +4667,7 @@ def build_audit_facts(input_dir: str = "cabinets/seller_001/input", period_label
                 ),
             }
             for row in sku_rows
+            if _to_float(row.get("revenue")) > 0
         ],
         key=lambda x: x["profit"],
         reverse=True,
