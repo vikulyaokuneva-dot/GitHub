@@ -1,21 +1,18 @@
-"""Project entry point for the new modular pipeline."""
+"""Entry point for audit modes. Use python -m v3.entry daily for daily pipeline."""
 
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-
-from pipeline.runner import run_pipeline
 
 
 def main() -> int:
-    """Parse CLI args and run pipeline."""
-    parser = argparse.ArgumentParser(description="Run modular runtime pipeline (legacy wrapper).")
-    parser.add_argument("--seller", default="seller_001", help="Seller id in runtime/cabinets/")
-    parser.add_argument("--mode", default="daily", help="Pipeline mode (default: daily)")
-    parser.add_argument("--source", default="wb", help="Audit source for --mode audit: wb | ozon")
-    parser.add_argument("--audit-input-dir", default="", help="Audit input dir override (for --mode audit)")
-    parser.add_argument("--audit-out-dir", default="", help="Audit output dir override (for --mode audit)")
+    """Parse CLI args and run audit pipeline."""
+    parser = argparse.ArgumentParser(description="Run audit pipeline.")
+    parser.add_argument("--seller", default="seller_001", help="Seller id")
+    parser.add_argument("--mode", default="audit", help="Pipeline mode: audit | audit_ozon")
+    parser.add_argument("--source", default="wb", help="Audit source: wb | ozon")
+    parser.add_argument("--audit-input-dir", default="", help="Audit input dir override")
+    parser.add_argument("--audit-out-dir", default="", help="Audit output dir override")
     parser.add_argument("--period", default="", help="Optional period label for audit mode")
     parser.add_argument("--input", default="", help="Input file path for --mode audit_ozon")
     parser.add_argument("--output-dir", default="out", help="Output dir for --mode audit_ozon")
@@ -50,17 +47,8 @@ def main() -> int:
         )
         return 0
 
-    print(
-        "[legacy] run.py daily mode uses runtime/cabinets and is deprecated; "
-        "use 'python -m v3.entry daily --seller <seller>'"
-    )
-    seller_root = Path("runtime") / "cabinets" / args.seller
-    if not seller_root.exists() or not seller_root.is_dir():
-        print(f"Error: seller '{args.seller}' not found at runtime/cabinets/{args.seller}")
-        return 1
-
-    run_pipeline(seller=args.seller, mode=args.mode)
-    return 0
+    print(f"Unknown mode: {args.mode}. Use 'python -m v3.entry daily' for daily pipeline.")
+    return 1
 
 
 if __name__ == "__main__":

@@ -1,0 +1,10 @@
+seller_id: seller_002
+seller_name: "Test Seller 2"
+timezone: "Europe/Moscow"
+tax_rate: 0.06
+
+email_reports_to:
+  - "owner@example.com"
+
+wb:
+  token_ref: "WB_API_TOKEN"

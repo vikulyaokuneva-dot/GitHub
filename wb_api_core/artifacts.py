@@ -59,6 +59,8 @@ def _live_block_has_data(block: Dict[str, Any], live_key: str) -> bool:
         return block.get("count") is not None or block.get("amount") is not None
     if live_key == "stocks":
         return block.get("total_units") is not None
+    if live_key == "ads":
+        return block.get("count") is not None and int(block.get("count") or 0) > 0
     return False
 
 
@@ -70,14 +72,14 @@ def _snapshot_has_stale_live_fallback(snapshot: Dict[str, Any]) -> bool:
     live = snapshot.get("live_operational", {}) if isinstance(snapshot, dict) else {}
     if not isinstance(live, dict):
         return False
-    return any(_live_block_is_stale(live.get(key, {})) for key in ("orders", "sales", "stocks"))
+    return any(_live_block_is_stale(live.get(key, {})) for key in ("orders", "sales", "stocks", "ads"))
 
 
 def _snapshot_has_cacheable_live_data(snapshot: Dict[str, Any]) -> bool:
     live = snapshot.get("live_operational", {}) if isinstance(snapshot, dict) else {}
     if not isinstance(live, dict):
         return False
-    return all(_live_block_has_data(live.get(key, {}), key) for key in ("orders", "sales", "stocks"))
+    return all(_live_block_has_data(live.get(key, {}), key) for key in ("orders", "sales", "stocks", "ads"))
 
 
 def _debug_is_rate_limited(debug: Dict[str, Any]) -> bool:
@@ -96,7 +98,7 @@ def _debug_is_rate_limited(debug: Dict[str, Any]) -> bool:
 
 
 def _rate_limited_live_keys(raw_bundle: Dict[str, Any]) -> list[tuple[str, str]]:
-    pairs = (("orders", "orders"), ("sales", "sales"), ("stocks", "stocks"))
+    pairs = (("orders", "orders"), ("sales", "sales"), ("stocks", "stocks"), ("ads", "ads"))
     rate_limited: list[tuple[str, str]] = []
     for endpoint_key, live_key in pairs:
         debug = (raw_bundle.get(endpoint_key) or {}).get("debug", {}) if isinstance(raw_bundle, dict) else {}
@@ -147,7 +149,8 @@ def apply_latest_successful_live_fallback(
                 fallback_block["target_date"] = current_block.get("target_date")
             if live_key == "stocks" and current_block.get("operational_date_reference") is not None:
                 fallback_block["operational_date_reference"] = current_block.get("operational_date_reference")
-            fallback_block["rows"] = list(current_block.get("rows", []) or [])
+            cached_rows = list(cached_block.get("rows", []) or [])
+            fallback_block["rows"] = cached_rows if cached_rows else list(current_block.get("rows", []) or [])
         fallback_block.update(
             {
                 "available": True,
@@ -282,7 +285,7 @@ def build_debug(
     reconcile_result: Dict[str, Any],
 ) -> Dict[str, Any]:
     endpoints = {}
-    for key in ("cabinet_commerce", "finance_final", "orders", "sales", "stocks"):
+    for key in ("cabinet_commerce", "finance_final", "orders", "sales", "stocks", "ads"):
         debug = dict((raw_bundle.get(key) or {}).get("debug", {}) or {})
         endpoints[key] = {
             "success": bool(debug.get("success", False)),
@@ -321,6 +324,7 @@ def build_debug(
         "orders": len(list((raw_bundle.get("orders") or {}).get("rows_raw", []))),
         "sales": len(list((raw_bundle.get("sales") or {}).get("rows_raw", []))),
         "stocks": len(list((raw_bundle.get("stocks") or {}).get("rows_raw", []))),
+        "ads": len(list((raw_bundle.get("ads") or {}).get("rows_raw", []))),
     }
     normalized_counts = dict((normalized_bundle.get("debug") or {}).get("counts", {}) or {})
     reconciled_counts = dict((reconcile_result.get("counts") or {}).get("reconciled", {}) or {})
@@ -366,6 +370,27 @@ def build_debug(
     }
 
 
+def _merge_reconciled_rows_preserve_existing(new_payload: Dict[str, Any], existing_path: str, reconcile_result: Dict[str, Any]) -> Dict[str, Any]:
+    live_operational = reconcile_result.get("live_operational", {})
+    live_keys = ("orders", "sales", "stocks", "ads")
+    all_rate_limited = all(
+        not bool(live_operational.get(k, {}).get("rows", []))
+        for k in live_keys
+        if isinstance(live_operational, dict)
+    )
+    if all_rate_limited and os.path.isfile(existing_path):
+        try:
+            existing = _read_json(existing_path)
+            if isinstance(existing, dict):
+                row_keys = ("cabinet_commerce_rows", "live_orders_rows", "live_sales_rows", "live_stocks_rows", "live_ads_rows")
+                for key in row_keys:
+                    if existing.get(key):
+                        new_payload[key] = existing[key]
+        except Exception:
+            pass
+    return new_payload
+
+
 def write_artifacts(
     *,
     repo_root: str,
@@ -377,7 +402,7 @@ def write_artifacts(
 ) -> str:
     out_dir = os.path.join(repo_root, "cabinets", seller_id, "artifacts", "wb_api_core", run_date)
     live_operational = reconcile_result.get("live_operational", {})
-    rows_payload = {
+    new_rows_payload = {
         "seller_id": seller_id,
         "run_date": run_date,
         "operational_date": snapshot.get("operational_date"),
@@ -386,7 +411,10 @@ def write_artifacts(
         "live_orders_rows": list((((live_operational.get("orders") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
         "live_sales_rows": list((((live_operational.get("sales") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
         "live_stocks_rows": list((((live_operational.get("stocks") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
+        "live_ads_rows": list((((live_operational.get("ads") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
     }
+    existing_reconciled_path = os.path.join(out_dir, "reconciled_rows.json")
+    rows_payload = _merge_reconciled_rows_preserve_existing(new_rows_payload, existing_reconciled_path)
     _write_json(os.path.join(out_dir, "snapshot.json"), snapshot)
     _write_json(os.path.join(out_dir, "debug.json"), debug)
     _write_json(os.path.join(out_dir, "reconciled_rows.json"), rows_payload)

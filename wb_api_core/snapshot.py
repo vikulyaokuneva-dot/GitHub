@@ -30,6 +30,7 @@ def build_snapshot(
     live_orders = live_operational.get("orders", {}) if isinstance(live_operational, dict) else {}
     live_sales = live_operational.get("sales", {}) if isinstance(live_operational, dict) else {}
     live_stocks = live_operational.get("stocks", {}) if isinstance(live_operational, dict) else {}
+    live_ads = live_operational.get("ads", {}) if isinstance(live_operational, dict) else {}
 
     return {
         "seller_id": seller_id,
@@ -112,6 +113,13 @@ def build_snapshot(
                 "snapshot_date": live_stocks.get("snapshot_date"),
                 "total_units": live_stocks.get("total_units"),
                 **_live_cache_status_fields(live_stocks),
+            },
+            "ads": {
+                "source": live_ads.get("source"),
+                "available": bool(live_ads.get("available", False)),
+                "target_date": live_ads.get("target_date"),
+                "count": live_ads.get("count"),
+                "ads_spend_total": live_ads.get("ads_spend_total"),
             },
         },
     }

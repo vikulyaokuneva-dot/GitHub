@@ -5,36 +5,12 @@
     "watch": [],
     "liquidate": []
   },
-  "tasks": [
-    {
-      "sku": "PORTFOLIO",
-      "task": "collect_stock_distribution_data",
-      "priority": "P1"
-    },
-    {
-      "sku": "PORTFOLIO",
-      "task": "improve_regional_demand_attribution",
-      "priority": "P2"
-    }
-  ],
-  "signals": [
-    {
-      "code": "data_quality_issue",
-      "message": "Territorial recommendations are preview-only; operational rebalance tasks are blocked until evidence improves.",
-      "evidence": {
-        "analysis_mode": "preview",
-        "recommendation_status": "watch",
-        "confidence_level": "low",
-        "coverage_pct": 45.45,
-        "demand_coverage_pct": 45.45,
-        "stock_coverage_pct": 100.0
-      }
-    }
-  ],
-  "territorial_analysis_enabled": true,
+  "tasks": [],
+  "signals": [],
+  "territorial_analysis_enabled": false,
   "territorial_actionable_enabled": false,
-  "territorial_analysis_mode": "preview",
-  "territorial_recommendation_status": "watch",
+  "territorial_analysis_mode": "disabled",
+  "territorial_recommendation_status": "blocked_by_data",
   "territorial_confidence_level": "low",
   "sku_attribution_status": "ok",
   "profit_contribution_enabled": true

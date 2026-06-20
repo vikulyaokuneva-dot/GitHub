@@ -155,6 +155,7 @@ def reconcile_bundle(
     orders_all = list(normalized_bundle.get("orders_rows", []))
     sales_all = list(normalized_bundle.get("sales_rows", []))
     stocks_all = list(normalized_bundle.get("stocks_rows", []))
+    ads_all = list(normalized_bundle.get("ads_rows", []))
 
     cabinet_rows = _filter_rows_by_day(cabinet_all, target_date)
     finance_rows, finance_actual_date, finance_date_aligned = _select_finance_rows(finance_all, target_date)
@@ -162,6 +163,7 @@ def reconcile_bundle(
     orders_rows = _dedupe_orders_rows(orders_rows_before_dedupe)
     sales_rows = _filter_rows_by_day(sales_all, target_date)
     stock_rows, stock_actual_date = _select_stock_rows(stocks_all, target_date)
+    ads_rows = _filter_rows_by_day(ads_all, target_date)
 
     cabinet_available = bool(cabinet_debug.get("success", False))
     finance_available = bool(finance_debug.get("success", False))
@@ -303,6 +305,8 @@ def reconcile_bundle(
             },
         }
 
+    ads_available = bool((raw_bundle.get("ads") or {}).get("debug", {}).get("success", False))
+
     live_operational = {
         "orders": {
             "source": SOURCE_RULES["live_operational.orders"],
@@ -336,6 +340,14 @@ def reconcile_bundle(
             "total_units": _safe_total(stock_rows, "stock") if stocks_available else None,
             "rows": stock_rows,
         },
+        "ads": {
+            "source": "ads_api",
+            "available": ads_available,
+            "target_date": target_date,
+            "count": len(ads_rows),
+            "ads_spend_total": _safe_total(ads_rows, "ads_spend") if ads_available else 0.0,
+            "rows": ads_rows,
+        },
     }
 
     return {
@@ -352,6 +364,7 @@ def reconcile_bundle(
                 "orders": len(orders_rows),
                 "sales": len(sales_rows),
                 "stocks": len(stock_rows),
+                "ads": len(ads_rows),
             }
         },
     }

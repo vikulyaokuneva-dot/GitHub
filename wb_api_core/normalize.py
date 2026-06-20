@@ -608,18 +608,45 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
     return rows, normalized_diag
 
 
+def _normalize_ads(rows_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for index, row in enumerate(rows_raw):
+        if not isinstance(row, dict):
+            continue
+        nm_id = _pick_text(row, ("nmId", "nm_id", "nmid", "nmID", "sku"))
+        rows.append(
+            {
+                "date": row.get("date", ""),
+                "sku": _normalize_sku(nm_id),
+                "nm_id": nm_id,
+                "ads_spend": round(_safe_float(row.get("ads_spend"), default=0.0), 2),
+                "impressions": round(_safe_float(row.get("impressions"), default=0.0), 0),
+                "clicks": round(_safe_float(row.get("clicks"), default=0.0), 0),
+                "add_to_cart": round(_safe_float(row.get("add_to_cart"), default=0.0), 0),
+                "orders": round(_safe_float(row.get("orders"), default=0.0), 0),
+                "ctr": row.get("ctr"),
+                "cpo": row.get("cpo"),
+                "source": "ads_api",
+                "_raw_row_index": index,
+            }
+        )
+    return rows
+
+
 def normalize_bundle(raw_bundle: Dict[str, Any]) -> Dict[str, Any]:
     cabinet_commerce_rows = _normalize_cabinet_commerce(list((raw_bundle.get("cabinet_commerce") or {}).get("rows_raw", [])))
     finance_final_rows, finance_mapping = _normalize_finance_final(list((raw_bundle.get("finance_final") or {}).get("rows_raw", [])))
     orders_rows = _normalize_orders(list((raw_bundle.get("orders") or {}).get("rows_raw", [])))
     sales_rows = _normalize_sales(list((raw_bundle.get("sales") or {}).get("rows_raw", [])))
     stocks_rows = _normalize_stocks(list((raw_bundle.get("stocks") or {}).get("rows_raw", [])))
+    ads_rows = _normalize_ads(list((raw_bundle.get("ads") or {}).get("rows_raw", [])))
     return {
         "cabinet_commerce_rows": cabinet_commerce_rows,
         "finance_final_rows": finance_final_rows,
         "orders_rows": orders_rows,
         "sales_rows": sales_rows,
         "stocks_rows": stocks_rows,
+        "ads_rows": ads_rows,
         "debug": {
             "counts": {
                 "cabinet_commerce": len(cabinet_commerce_rows),
@@ -627,6 +654,7 @@ def normalize_bundle(raw_bundle: Dict[str, Any]) -> Dict[str, Any]:
                 "orders": len(orders_rows),
                 "sales": len(sales_rows),
                 "stocks": len(stocks_rows),
+                "ads": len(ads_rows),
             },
             "finance_mapping": finance_mapping,
         },

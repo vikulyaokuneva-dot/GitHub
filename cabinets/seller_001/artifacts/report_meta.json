@@ -1,7 +1,7 @@
 {
   "seller_id": "seller_001",
-  "report_date": "2026-04-21",
-  "operational_day": "2026-04-21",
+  "report_date": "2026-06-19",
+  "operational_day": "2026-06-19",
   "source_mode": "wb_api_core_v2",
   "status": "success",
   "report_version": "v2",
@@ -13,8 +13,8 @@
     "email_html": "email_v2.html",
     "email_txt": "email_v2.txt"
   },
-  "snapshot_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-04-21\\snapshot.json",
-  "debug_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-04-21\\debug.json",
+  "snapshot_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-06-19\\snapshot.json",
+  "debug_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-06-19\\debug.json",
   "report_payload_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_payload_v2.json",
   "pdf_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_v2.pdf",
   "email_html_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\email_v2.html",
@@ -22,27 +22,45 @@
   "warnings": [
     {
       "code": "finance_final_api_unavailable",
-      "message": "WB_API_TOKEN not provided",
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"303e2752fd002d90e1a1765f30552e43\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=40280, x_ratelimit_reset=40280",
       "level": "warning",
       "block": "meta"
     },
     {
       "code": "orders_api_unavailable",
-      "message": "WB_API_TOKEN not provided",
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"9610cbf52ef977496beb7f037ed49dba\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=6106, x_ratelimit_reset=6106",
       "level": "warning",
       "block": "meta"
     },
     {
       "code": "sales_api_unavailable",
-      "message": "WB_API_TOKEN not provided",
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"49a2a5713c678a5f3abdf0c69b7ba73a\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=2501, x_ratelimit_reset=2501",
       "level": "warning",
       "block": "meta"
     },
     {
       "code": "stocks_api_unavailable",
-      "message": "WB_API_TOKEN not provided",
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"3300878124b583d47facc8c49cc88f7f\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=6103, x_ratelimit_reset=6103",
       "level": "warning",
       "block": "meta"
+    },
+    {
+      "code": "orders_latest_successful_cache_fallback",
+      "message": "orders returned 429; live_operational.orders was filled from latest_successful snapshot and marked stale.",
+      "level": "warning",
+      "block": "live_operational"
+    },
+    {
+      "code": "sales_latest_successful_cache_fallback",
+      "message": "sales returned 429; live_operational.sales was filled from latest_successful snapshot and marked stale.",
+      "level": "warning",
+      "block": "live_operational"
+    },
+    {
+      "code": "stocks_latest_successful_cache_fallback",
+      "message": "stocks returned 429; live_operational.stocks was filled from latest_successful snapshot and marked stale.",
+      "level": "warning",
+      "block": "live_operational"
     },
     {
       "code": "finance_final_unavailable",
@@ -55,7 +73,43 @@
       "message": "Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them.",
       "level": "warning",
       "block": "cabinet_commerce"
+    },
+    {
+      "code": "stock_goods_source_missing",
+      "message": "Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.",
+      "level": "info",
+      "block": "stock_section"
+    },
+    {
+      "code": "operational_stock_differs_from_goods_stock",
+      "message": "Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день.",
+      "level": "info",
+      "block": "live_operational.stocks"
+    },
+    {
+      "code": "advertising_efficiency_ads_missing",
+      "message": "Advertising efficiency analysis is disabled because ads data is missing.",
+      "level": "warning",
+      "block": "advertising_efficiency"
+    },
+    {
+      "code": "advertising_efficiency_query_missing",
+      "message": "Query-level advertising rows are missing; query analysis is limited.",
+      "level": "warning",
+      "block": "advertising_efficiency"
+    },
+    {
+      "code": "sku_health_warning",
+      "message": "SKU-level metrics not found in metrics payload",
+      "level": "warning",
+      "block": "sku_health"
+    },
+    {
+      "code": "profit_contribution_warning",
+      "message": "sku_metrics_missing",
+      "level": "warning",
+      "block": "profit_contribution"
     }
   ],
-  "warnings_count": 6
+  "warnings_count": 15
 }

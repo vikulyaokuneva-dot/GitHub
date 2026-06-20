@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from datetime import date, datetime, timedelta
@@ -8,6 +8,39 @@ from wb_api_core.token_resolver import resolve_wb_api_token
 
 from ..domain.event_model import build_event_date_model
 from .daily_stage_support import sync_from_entry
+
+
+def _try_load_wb_api_core_snapshot(
+    *, repo_root: str, seller_id: str, run_date: str,
+) -> Dict[str, Any] | None:
+    import json
+
+    snapshot_dir = os.path.join(
+        repo_root, "cabinets", seller_id, "artifacts", "wb_api_core", run_date,
+    )
+    reconciled_path = os.path.join(snapshot_dir, "reconciled_rows.json")
+    snapshot_path = os.path.join(snapshot_dir, "snapshot.json")
+    if not os.path.isfile(reconciled_path) or not os.path.isfile(snapshot_path):
+        return None
+    try:
+        with open(snapshot_path, "r", encoding="utf-8-sig") as f:
+            snap = json.load(f)
+        if not isinstance(snap, dict):
+            return None
+        if str(snap.get("seller_id") or "").strip() != seller_id:
+            return None
+        if str(snap.get("run_date") or "").strip() != run_date:
+            return None
+    except Exception:
+        return None
+    try:
+        with open(reconciled_path, "r", encoding="utf-8-sig") as f:
+            rows = json.load(f)
+        if not isinstance(rows, dict):
+            return None
+        return rows
+    except Exception:
+        return None
 
 
 def _safe_float_metric(value: Any) -> float | None:
@@ -267,7 +300,37 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         api_ads_rows=api_ads_rows,
     )
 
-    if token:
+    snapshot_rows = _try_load_wb_api_core_snapshot(
+        repo_root=repo_root, seller_id=seller_id, run_date=run_date,
+    )
+    if snapshot_rows is not None:
+        print(
+            "[snapshot-first] wb_api_core snapshot found, "
+            f"orders={len(snapshot_rows.get('live_orders_rows', []))} "
+            f"sales={len(snapshot_rows.get('live_sales_rows', []))} "
+            f"stocks={len(snapshot_rows.get('live_stocks_rows', []))} "
+            f"cabinet_commerce={len(snapshot_rows.get('cabinet_commerce_rows', []))} "
+            f"finance={len(snapshot_rows.get('finance_final_rows', []))}"
+        )
+        source_mode = "wb_api_core_snapshot"
+        api_orders_rows = list(snapshot_rows.get("live_orders_rows", []))
+        api_sales_rows = list(snapshot_rows.get("live_sales_rows", []))
+        api_stocks_rows = list(snapshot_rows.get("live_stocks_rows", []))
+        api_ads_rows = list(snapshot_rows.get("live_ads_rows", []))
+        api_realization_rows = []
+        sales_rows = list(api_sales_rows)
+        stocks_rows = list(api_stocks_rows)
+        ads_rows = list(api_ads_rows)
+        api_debug = {
+            "source": "wb_api_core_snapshot",
+            "snapshot_orders": len(api_orders_rows),
+            "snapshot_sales": len(api_sales_rows),
+            "snapshot_stocks": len(api_stocks_rows),
+            "snapshot_ads": len(api_ads_rows),
+            "snapshot_cabinet_commerce": len(snapshot_rows.get("cabinet_commerce_rows", [])),
+            "snapshot_finance_final": len(snapshot_rows.get("finance_final_rows", [])),
+        }
+    elif token:
         source_mode = "wb_api"
         from ..api.wb_client import WBApiClient
         from ..ingestion.api_orders_loader import load_orders_from_api

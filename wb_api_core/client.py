@@ -13,12 +13,15 @@ from .token_resolver import resolve_wb_api_token
 STATISTICS_BASE_URL = "https://statistics-api.wildberries.ru"
 FINANCE_BASE_URL = "https://finance-api.wildberries.ru"
 ANALYTICS_BASE_URL = "https://seller-analytics-api.wildberries.ru"
+ADVERT_BASE_URL = "https://advert-api.wildberries.ru"
 
 ORDERS_PATH = "/api/v1/supplier/orders"
 SALES_PATH = "/api/v1/supplier/sales"
 STOCKS_PATH = "/api/v1/supplier/stocks"
 FINANCE_DETAILED_PATH = "/api/finance/v1/sales-reports/detailed"
 SALES_FUNNEL_PRODUCTS_PATH = "/api/analytics/v3/sales-funnel/products"
+ADVERTS_PATH = "/api/advert/v2/adverts"
+ADVERT_STATS_PATH = "/adv/v3/fullstats"
 DEFAULT_RATE_LIMIT_RETRY_DELAY_CAP_SECONDS = 30.0
 
 
@@ -28,6 +31,7 @@ class WBApiClient:
         self.statistics_base_url = os.getenv("WB_STATISTICS_BASE_URL", STATISTICS_BASE_URL).rstrip("/")
         self.finance_base_url = os.getenv("WB_FINANCE_BASE_URL", FINANCE_BASE_URL).rstrip("/")
         self.analytics_base_url = os.getenv("WB_ANALYTICS_BASE_URL", ANALYTICS_BASE_URL).rstrip("/")
+        self.advert_base_url = os.getenv("WB_ADVERT_BASE_URL", ADVERT_BASE_URL).rstrip("/")
         self.base_url = self.statistics_base_url
         self.timeout_seconds = max(5, int(str(os.getenv("WB_API_TIMEOUT_SECONDS", "60") or "60")))
         self.max_retries = max(1, int(str(os.getenv("WB_API_MAX_RETRIES", "5") or "5")))

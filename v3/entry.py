@@ -1100,7 +1100,20 @@ def _finalize_daily_delivery(result: Dict[str, Any], *, seller_id: str, run_date
         f"resolved={report_version}"
     )
     if report_version == _REPORT_VERSION_V2:
-        return result
+        pdf_path = str(result.get("pdf_path") or "")
+        if not pdf_path:
+            pdf_path = os.path.join(str(result.get("artifacts_dir") or ""), "report_v2.pdf")
+        email_summary = result.get("email_summary", {}) if isinstance(result, dict) else {}
+        finalized_result = orchestrate_daily_email_send(
+            job=result if isinstance(result, dict) else {},
+            seller_id=seller_id,
+            run_date=run_date,
+            report_pdf_path=pdf_path,
+            email_summary=email_summary if isinstance(email_summary, dict) else {},
+            build_body=_build_management_email_body,
+        )
+        persist_result_job_if_possible(finalized_result if isinstance(finalized_result, dict) else {})
+        return finalized_result
 
     report_pdf_path = os.path.join(str(result.get("artifacts_dir") or ""), "report.pdf")
     email_summary = result.get("email_summary", {}) if isinstance(result, dict) else {}

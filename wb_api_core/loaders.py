@@ -6,6 +6,8 @@ import time
 from typing import Any, Dict, List
 
 from .client import (
+    ADVERTS_PATH,
+    ADVERT_STATS_PATH,
     FINANCE_DETAILED_PATH,
     ORDERS_PATH,
     SALES_FUNNEL_PRODUCTS_PATH,
@@ -16,7 +18,9 @@ from .client import (
 
 SALES_FUNNEL_PAGE_LIMIT = 1000
 FINANCE_PAGE_LIMIT = 100000
+ADS_CHUNK_SIZE = 50
 CABINET_COMMERCE_SOURCE_FAMILY = "cabinet_commerce_daily"
+ADS_SOURCE_FAMILY = "ads_api"
 
 
 def _env_int(name: str, default: int) -> int:
@@ -450,6 +454,7 @@ def load_orders(client: WBApiClient, target_date: str) -> Dict[str, Any]:
         params={"dateFrom": target_date, "flag": 0},
         allow_204=True,
         empty_on_204=[],
+        retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
     )
     payload = response.get("payload", [])
     rows_raw = client.extract_rows(payload, ("data", "items", "rows"))
@@ -475,6 +480,7 @@ def load_sales(client: WBApiClient, target_date: str) -> Dict[str, Any]:
         params={"dateFrom": target_date, "flag": 1},
         allow_204=True,
         empty_on_204=[],
+        retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
     )
     payload = response.get("payload", [])
     rows_raw = client.extract_rows(payload, ("data", "items", "rows"))
@@ -491,6 +497,7 @@ def load_stocks(client: WBApiClient, target_date: str) -> Dict[str, Any]:
         params={"dateFrom": target_date},
         allow_204=True,
         empty_on_204=[],
+        retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
     )
     payload = response.get("payload", [])
     rows_raw = client.extract_rows(payload, ("data", "items", "rows"))
@@ -515,6 +522,7 @@ def load_finance_final(client: WBApiClient, target_date: str) -> Dict[str, Any]:
         allow_204=True,
         empty_on_204=[],
         base_url=client.finance_base_url,
+        retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
     )
     payload = response.get("payload", [])
     rows_raw = _extract_realization_rows(payload, client)
@@ -542,17 +550,206 @@ def load_finance_final(client: WBApiClient, target_date: str) -> Dict[str, Any]:
     }
 
 
+def _safe_float(row: Dict[str, Any], keys: tuple) -> float:
+    for key in keys:
+        value = row.get(key)
+        if value is None:
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def load_ads(client: WBApiClient, target_date: str) -> Dict[str, Any]:
+    adverts_response = client.request_json(
+        endpoint_name="ads_adverts",
+        path=ADVERTS_PATH,
+        method="GET",
+        json_body=None,
+        allow_204=True,
+        empty_on_204={"data": {"adverts": []}},
+        base_url=client.advert_base_url,
+        retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
+    )
+    adverts_payload = adverts_response.get("payload", {})
+    advert_rows = []
+    if isinstance(adverts_payload, dict):
+        advert_rows = adverts_payload.get("adverts", adverts_payload.get("items", []))
+    if not isinstance(advert_rows, list):
+        advert_rows = []
+
+    advert_ids: List[int] = []
+    for row in advert_rows:
+        if not isinstance(row, dict):
+            continue
+        raw_id = row.get("advertId") or row.get("id")
+        try:
+            advert_ids.append(int(float(str(raw_id or "0"))))
+        except (TypeError, ValueError):
+            continue
+    advert_ids = [aid for aid in advert_ids if aid > 0]
+
+    if not advert_ids:
+        return {
+            "rows_raw": [],
+            "debug": _build_debug(
+                adverts_response,
+                rows_loaded=0,
+                date_from=target_date,
+                date_to=target_date,
+                extra={
+                    "source_family": ADS_SOURCE_FAMILY,
+                    "adverts_listed": len(advert_rows),
+                    "advert_ids_found": 0,
+                },
+            ),
+        }
+
+    bucket: Dict[str, Dict[str, float]] = {}
+    stats_debug = adverts_response
+    for idx in range(0, len(advert_ids), ADS_CHUNK_SIZE):
+        chunk = advert_ids[idx:idx + ADS_CHUNK_SIZE]
+        stats_response = client.request_json(
+            endpoint_name="ads_stats",
+            path=ADVERT_STATS_PATH,
+            method="GET",
+            json_body=None,
+            params={
+                "ids": ",".join(str(aid) for aid in chunk),
+                "beginDate": target_date,
+                "endDate": target_date,
+            },
+            allow_204=True,
+            empty_on_204=[],
+            base_url=client.advert_base_url,
+            retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
+        )
+        stats_debug = stats_response
+        stats_payload = stats_response.get("payload", [])
+        if not isinstance(stats_payload, list):
+            stats_payload = []
+
+        for stat in stats_payload:
+            if not isinstance(stat, dict):
+                continue
+            day_rows = stat.get("days", [])
+            if not isinstance(day_rows, list):
+                day_rows = []
+            for day in day_rows:
+                if not isinstance(day, dict):
+                    continue
+                nm_rows = day.get("nm", day.get("nms", []))
+                if not isinstance(nm_rows, list):
+                    nm_rows = []
+                if not nm_rows:
+                    app_rows = day.get("apps", [])
+                    if not isinstance(app_rows, list):
+                        app_rows = []
+                    for app in app_rows:
+                        if isinstance(app, dict):
+                            app_nm = app.get("nm", app.get("nms", []))
+                            if isinstance(app_nm, list):
+                                nm_rows.extend(app_nm)
+                for nm in nm_rows:
+                    if not isinstance(nm, dict):
+                        continue
+                    sku = str(nm.get("nmId") or nm.get("nm_id") or nm.get("nmid") or nm.get("nm") or "").strip()
+                    if not sku:
+                        continue
+                    spend = _safe_float(nm, ("sum", "spend", "cost", "expenses", "price"))
+                    impressions = _safe_float(nm, ("impressions", "views", "shows", "imps"))
+                    clicks = _safe_float(nm, ("clicks", "click"))
+                    add_to_cart = _safe_float(nm, ("addToCart", "add_to_cart", "atbs", "cart_count"))
+                    orders = _safe_float(nm, ("orders", "order_count", "ordersCount"))
+                    if sku not in bucket:
+                        bucket[sku] = {"ads_spend": 0.0, "impressions": 0.0, "clicks": 0.0, "add_to_cart": 0.0, "orders": 0.0}
+                    bucket[sku]["ads_spend"] += spend
+                    bucket[sku]["impressions"] += impressions
+                    bucket[sku]["clicks"] += clicks
+                    bucket[sku]["add_to_cart"] += add_to_cart
+                    bucket[sku]["orders"] += orders
+
+    rows_raw: List[Dict[str, Any]] = []
+    for sku, agg in bucket.items():
+        impressions = agg.get("impressions", 0.0)
+        clicks = agg.get("clicks", 0.0)
+        orders_val = agg.get("orders", 0.0)
+        spend = agg.get("ads_spend", 0.0)
+        ctr = (clicks / impressions * 100.0) if impressions > 0 else None
+        cpo = (spend / orders_val) if orders_val > 0 else None
+        rows_raw.append({
+            "date": target_date,
+            "sku": sku,
+            "nm_id": sku,
+            "ads_spend": round(spend, 2),
+            "impressions": round(impressions, 0),
+            "clicks": round(clicks, 0),
+            "add_to_cart": round(agg.get("add_to_cart", 0.0), 0),
+            "orders": round(orders_val, 0),
+            "ctr": round(ctr, 2) if ctr is not None else None,
+            "cpo": round(cpo, 2) if cpo is not None else None,
+            "source": "ads_api",
+        })
+
+    return {
+        "rows_raw": rows_raw,
+        "debug": _build_debug(
+            stats_debug,
+            rows_loaded=len(rows_raw),
+            date_from=target_date,
+            date_to=target_date,
+            extra={
+                "source_family": ADS_SOURCE_FAMILY,
+                "adverts_listed": len(advert_rows),
+                "advert_ids_found": len(advert_ids),
+                "ads_spend_total": round(sum(r.get("ads_spend", 0.0) for r in rows_raw), 2),
+            },
+        ),
+    }
+
+
+def load_finance_final_with_lag(client: WBApiClient, target_date: str, max_lag_days: int = 3) -> Dict[str, Any]:
+    from datetime import datetime, timedelta
+    primary = load_finance_final(client, target_date)
+    if primary.get("rows_raw"):
+        return primary
+    finance_debug = primary.get("debug", {})
+    if finance_debug.get("status_code") == 429:
+        return primary
+    for lag in range(1, max_lag_days + 1):
+        try:
+            lag_date = (datetime.strptime(target_date, "%Y-%m-%d").date() - timedelta(days=lag)).isoformat()
+        except Exception:
+            continue
+        lag_result = load_finance_final(client, lag_date)
+        if lag_result.get("rows_raw"):
+            debug = dict(lag_result.get("debug", {}))
+            debug["finance_lag_used"] = True
+            debug["finance_lag_days"] = lag
+            debug["finance_original_date"] = target_date
+            debug["finance_actual_date"] = lag_date
+            lag_result["debug"] = debug
+            return lag_result
+        if lag_result.get("debug", {}).get("status_code") == 429:
+            break
+    return primary
+
+
 def load_bundle(
     client: WBApiClient,
     target_date: str,
     *,
     seller_id: str | None = None,
     repo_root: str | None = None,
+    max_finance_lag_days: int = 3,
 ) -> Dict[str, Any]:
     return {
         "cabinet_commerce": load_cabinet_commerce(client, target_date, seller_id=seller_id, repo_root=repo_root),
-        "finance_final": load_finance_final(client, target_date),
+        "finance_final": load_finance_final_with_lag(client, target_date, max_lag_days=max_finance_lag_days),
         "orders": load_orders(client, target_date),
         "sales": load_sales(client, target_date),
         "stocks": load_stocks(client, target_date),
+        "ads": load_ads(client, target_date),
     }

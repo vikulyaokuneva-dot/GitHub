@@ -1,31 +1,87 @@
 WB Core Report v2
 seller_001
-Date: 2026-04-21
-Operational date: 2026-04-21
+Date: 2026-06-19
+Operational date: 2026-06-19
 
 Commerce:
-Orders: 5
-Orders amount: 4 260.00
-Buyouts: 2
-Buyouts amount: 1 700.00
+Заказы: 15 шт (ok; Источник: cabinet_commerce_daily)
+Сумма заказов: 28 200 ₽ (ok; Источник: sales_funnel_api)
+Выкупы: 0 шт (ok; Подтвержденные выкупы из cabinet_commerce_daily.)
+Сумма выкупов: 0 ₽ (ok; Источник: sales_funnel_api)
+Источник: sales_funnel_api (ok; Блок: cabinet_commerce_daily; fallback: нет)
+
+Advertising:
+Spend: 0.00
+DRR: unavailable
+ROAS: unavailable
+ROMI: unavailable
+Wasted spend: unavailable
+Action: Рекламная аналитика отключена или рекламные данные отсутствуют.
+
+Поисковые запросы:
+Статус: нет данных
+
+Товары:
+SKU в росте: 0
+SKU под риском: 0
+Требуют внимания: 0
+Dead stock: 0
+Действие: SKU-аналитика недоступна
+
+Прибыль и ассортимент:
+Топ прибыльных SKU: 0 SKU; доля прибыли недоступна
+Убыточные SKU: 0
+A-категория: unavailable SKU
 
 Finance:
+Realized sales: unavailable / unavailable
 Gross revenue: unavailable
 Seller payout: unavailable
+Returns: unavailable
+Deliveries: unavailable
 WB commission: unavailable
 Logistics: unavailable
 Storage: unavailable
 Acquiring: unavailable
 
 Live:
-Live orders: unavailable / unavailable
-Live sales: unavailable / unavailable
-Live stocks: unavailable
+Live orders: 16 / 28 952.00
+Live sales: 4 / 3 340.13
+Live stocks: 186
 
 Warnings:
-- [meta] WB_API_TOKEN not provided
-- [meta] WB_API_TOKEN not provided
-- [meta] WB_API_TOKEN not provided
-- [meta] WB_API_TOKEN not provided
+- [meta] 429: {
+    "title": "too many requests",
+    "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
+    "code": "461a0b83d6bd 2950e93b5fda",
+    "requestId": "303e2752fd002d90e1a1765f30552e43",
+    "origin": "s2s-fin; rate_limit_headers: x_ratelimit_retry=40280, x_ratelimit_reset=40280
+- [meta] 429: {
+    "title": "too many requests",
+    "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
+    "code": "461a0b83d6bd 2950e93b5fda",
+    "requestId": "9610cbf52ef977496beb7f037ed49dba",
+    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=6106, x_ratelimit_reset=6106
+- [meta] 429: {
+    "title": "too many requests",
+    "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
+    "code": "461a0b83d6bd 2950e93b5fda",
+    "requestId": "49a2a5713c678a5f3abdf0c69b7ba73a",
+    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=2501, x_ratelimit_reset=2501
+- [meta] 429: {
+    "title": "too many requests",
+    "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
+    "code": "461a0b83d6bd 2950e93b5fda",
+    "requestId": "3300878124b583d47facc8c49cc88f7f",
+    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=6103, x_ratelimit_reset=6103
+- [live_operational] orders returned 429; live_operational.orders was filled from latest_successful snapshot and marked stale.
+- [live_operational] sales returned 429; live_operational.sales was filled from latest_successful snapshot and marked stale.
+- [live_operational] stocks returned 429; live_operational.stocks was filled from latest_successful snapshot and marked stale.
 - [finance_final] finance_final_daily is present but marked unavailable.
 - [cabinet_commerce] Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them.
+- [stock_section] Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.
+- [live_operational.stocks] Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день.
+- [advertising_efficiency] Advertising efficiency analysis is disabled because ads data is missing.
+- [advertising_efficiency] Query-level advertising rows are missing; query analysis is limited.
+- [sku_health] SKU-level metrics not found in metrics payload
+- [profit_contribution] sku_metrics_missing
