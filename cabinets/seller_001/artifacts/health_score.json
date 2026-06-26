@@ -1,11 +1,10 @@
 {
-  "generated_at": "2026-06-20T22:02:41Z",
+  "generated_at": "2026-06-26T22:17:47Z",
   "seller_id": "seller_001",
-  "date": "2026-06-19",
-  "status": "insufficient_data",
+  "date": "2026-06-25",
+  "status": "ok",
   "warnings": [
-    "SKU-level metrics not found in metrics payload",
-    "insufficient_data"
+    "funnel_insufficient_data"
   ],
   "thresholds": {
     "orders_strong": 10.0,
@@ -26,31 +25,626 @@
     "unstable_max_score": 6.5,
     "healthy_max_score": 8.5
   },
-  "items": [],
+  "items": [
+    {
+      "sku": "333615320",
+      "health_score": 4.88,
+      "health_status": "unstable",
+      "status": "WATCH",
+      "scoring_status": "ok",
+      "confidence": "medium",
+      "factors": [
+        "low_orders",
+        "healthy_buyout_rate",
+        "zero_profit",
+        "critical_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "warnings": [
+        "funnel_insufficient_data"
+      ],
+      "reasons": [
+        "low_orders",
+        "healthy_buyout_rate",
+        "zero_profit",
+        "critical_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.45
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 0.4
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.1
+        },
+        "funnel": {
+          "available": false,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Собрать больше данных",
+          "details": "Недостаточно статистики для уверенного решения."
+        },
+        {
+          "priority": "P2",
+          "title": "Мини-тест рекламы",
+          "details": "Запустить ограниченный тест и измерить эффективность."
+        },
+        {
+          "priority": "P3",
+          "title": "Проверить остатки/дефицит",
+          "details": "Исключить влияние out-of-stock на динамику SKU."
+        }
+      ]
+    },
+    {
+      "sku": "452102417",
+      "health_score": 2.06,
+      "health_status": "risk",
+      "status": "LIQUIDATE",
+      "scoring_status": "ok",
+      "confidence": "medium",
+      "factors": [
+        "no_orders",
+        "zero_profit",
+        "critical_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "warnings": [
+        "funnel_insufficient_data"
+      ],
+      "reasons": [
+        "no_orders",
+        "zero_profit",
+        "critical_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.0
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 0.4
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.1
+        },
+        "funnel": {
+          "available": false,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Снижение цены/распродажа остатков",
+          "details": "Ускорить оборачиваемость и высвободить капитал."
+        },
+        {
+          "priority": "P2",
+          "title": "Отключить рекламу",
+          "details": "Остановить неэффективные кампании до пересмотра unit-экономики."
+        },
+        {
+          "priority": "P3",
+          "title": "Решение: вывести из ассортимента",
+          "details": "Проверить целесообразность дальнейших закупок SKU."
+        }
+      ]
+    },
+    {
+      "sku": "590614192",
+      "health_score": 2.06,
+      "health_status": "risk",
+      "status": "LIQUIDATE",
+      "scoring_status": "ok",
+      "confidence": "medium",
+      "factors": [
+        "no_orders",
+        "zero_profit",
+        "critical_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "warnings": [
+        "funnel_insufficient_data"
+      ],
+      "reasons": [
+        "no_orders",
+        "zero_profit",
+        "critical_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.0
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 0.4
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.1
+        },
+        "funnel": {
+          "available": false,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Снижение цены/распродажа остатков",
+          "details": "Ускорить оборачиваемость и высвободить капитал."
+        },
+        {
+          "priority": "P2",
+          "title": "Отключить рекламу",
+          "details": "Остановить неэффективные кампании до пересмотра unit-экономики."
+        },
+        {
+          "priority": "P3",
+          "title": "Решение: вывести из ассортимента",
+          "details": "Проверить целесообразность дальнейших закупок SKU."
+        }
+      ]
+    },
+    {
+      "sku": "453526507",
+      "health_score": 4.88,
+      "health_status": "unstable",
+      "status": "WATCH",
+      "scoring_status": "ok",
+      "confidence": "medium",
+      "factors": [
+        "low_orders",
+        "healthy_buyout_rate",
+        "zero_profit",
+        "critical_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "warnings": [
+        "funnel_insufficient_data"
+      ],
+      "reasons": [
+        "low_orders",
+        "healthy_buyout_rate",
+        "zero_profit",
+        "critical_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.45
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 1.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 0.4
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.1
+        },
+        "funnel": {
+          "available": false,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Собрать больше данных",
+          "details": "Недостаточно статистики для уверенного решения."
+        },
+        {
+          "priority": "P2",
+          "title": "Мини-тест рекламы",
+          "details": "Запустить ограниченный тест и измерить эффективность."
+        },
+        {
+          "priority": "P3",
+          "title": "Проверить остатки/дефицит",
+          "details": "Исключить влияние out-of-stock на динамику SKU."
+        }
+      ]
+    },
+    {
+      "sku": "969315704",
+      "health_score": 2.05,
+      "health_status": "risk",
+      "status": "LIQUIDATE",
+      "scoring_status": "ok",
+      "confidence": "high",
+      "factors": [
+        "no_orders",
+        "zero_profit",
+        "critical_margin",
+        "weak_funnel",
+        "funnel_traffic_problem",
+        "no_ads_activity"
+      ],
+      "warnings": [],
+      "reasons": [
+        "no_orders",
+        "zero_profit",
+        "critical_margin",
+        "weak_funnel",
+        "funnel_traffic_problem",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.0
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 0.4
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.1
+        },
+        "funnel": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.2
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Снижение цены/распродажа остатков",
+          "details": "Ускорить оборачиваемость и высвободить капитал."
+        },
+        {
+          "priority": "P2",
+          "title": "Отключить рекламу",
+          "details": "Остановить неэффективные кампании до пересмотра unit-экономики."
+        },
+        {
+          "priority": "P3",
+          "title": "Решение: вывести из ассортимента",
+          "details": "Проверить целесообразность дальнейших закупок SKU."
+        }
+      ]
+    },
+    {
+      "sku": "551253854",
+      "health_score": 2.06,
+      "health_status": "risk",
+      "status": "LIQUIDATE",
+      "scoring_status": "ok",
+      "confidence": "medium",
+      "factors": [
+        "no_orders",
+        "zero_profit",
+        "critical_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "warnings": [
+        "funnel_insufficient_data"
+      ],
+      "reasons": [
+        "no_orders",
+        "zero_profit",
+        "critical_margin",
+        "funnel_insufficient_data",
+        "no_ads_activity"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.0
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 0.4
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.1
+        },
+        "funnel": {
+          "available": false,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Снижение цены/распродажа остатков",
+          "details": "Ускорить оборачиваемость и высвободить капитал."
+        },
+        {
+          "priority": "P2",
+          "title": "Отключить рекламу",
+          "details": "Остановить неэффективные кампании до пересмотра unit-экономики."
+        },
+        {
+          "priority": "P3",
+          "title": "Решение: вывести из ассортимента",
+          "details": "Проверить целесообразность дальнейших закупок SKU."
+        }
+      ]
+    },
+    {
+      "sku": "898642228",
+      "health_score": 0.55,
+      "health_status": "risk",
+      "status": "LIQUIDATE",
+      "scoring_status": "ok",
+      "confidence": "high",
+      "factors": [
+        "no_orders",
+        "negative_profit",
+        "critical_margin",
+        "weak_funnel",
+        "funnel_ads_efficiency_problem",
+        "ads_without_orders"
+      ],
+      "warnings": [],
+      "reasons": [
+        "no_orders",
+        "negative_profit",
+        "critical_margin",
+        "weak_funnel",
+        "funnel_ads_efficiency_problem",
+        "ads_without_orders"
+      ],
+      "components": {
+        "orders": {
+          "available": true,
+          "weight": 2.0,
+          "value": 0.0
+        },
+        "buyout": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.0
+        },
+        "profit": {
+          "available": true,
+          "weight": 2.5,
+          "value": 0.0
+        },
+        "margin": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.1
+        },
+        "funnel": {
+          "available": true,
+          "weight": 1.5,
+          "value": 0.2
+        },
+        "ads": {
+          "available": true,
+          "weight": 1.0,
+          "value": 0.1
+        }
+      },
+      "actions": [
+        {
+          "priority": "P1",
+          "title": "Снижение цены/распродажа остатков",
+          "details": "Ускорить оборачиваемость и высвободить капитал."
+        },
+        {
+          "priority": "P2",
+          "title": "Отключить рекламу",
+          "details": "Остановить неэффективные кампании до пересмотра unit-экономики."
+        },
+        {
+          "priority": "P3",
+          "title": "Решение: вывести из ассортимента",
+          "details": "Проверить целесообразность дальнейших закупок SKU."
+        }
+      ]
+    }
+  ],
   "summary": {
-    "status": "insufficient_data",
-    "sku_count": 0,
-    "scored_sku_count": 0,
+    "status": "ok",
+    "sku_count": 7,
+    "scored_sku_count": 7,
     "insufficient_data_count": 0,
     "status_counts": {
-      "risk": 0,
-      "unstable": 0,
+      "risk": 5,
+      "unstable": 2,
       "healthy": 0,
       "strong": 0
     },
-    "average_health_score": null,
-    "top_risk_sku": [],
+    "average_health_score": 2.65,
+    "top_risk_sku": [
+      {
+        "sku": "898642228",
+        "score": 0.55,
+        "health_status": "risk",
+        "status": "LIQUIDATE",
+        "profit": -178.16,
+        "warnings": []
+      },
+      {
+        "sku": "969315704",
+        "score": 2.05,
+        "health_status": "risk",
+        "status": "LIQUIDATE",
+        "profit": 0.0,
+        "warnings": []
+      },
+      {
+        "sku": "452102417",
+        "score": 2.06,
+        "health_status": "risk",
+        "status": "LIQUIDATE",
+        "profit": 0.0,
+        "warnings": [
+          "funnel_insufficient_data"
+        ]
+      },
+      {
+        "sku": "551253854",
+        "score": 2.06,
+        "health_status": "risk",
+        "status": "LIQUIDATE",
+        "profit": 0.0,
+        "warnings": [
+          "funnel_insufficient_data"
+        ]
+      },
+      {
+        "sku": "590614192",
+        "score": 2.06,
+        "health_status": "risk",
+        "status": "LIQUIDATE",
+        "profit": 0.0,
+        "warnings": [
+          "funnel_insufficient_data"
+        ]
+      }
+    ],
     "top_strong_sku": [],
-    "total_skus": 0,
+    "total_skus": 7,
     "SCALE": 0,
     "FIX": 0,
-    "WATCH": 0,
-    "LIQUIDATE": 0,
-    "confidence": "low",
-    "reasons": [
-      "SKU-level metrics not found in metrics payload"
-    ],
+    "WATCH": 2,
+    "LIQUIDATE": 5,
+    "confidence": "medium",
+    "reasons": [],
     "top_scale": [],
-    "top_liquidate": []
+    "top_liquidate": [
+      {
+        "sku": "898642228",
+        "score": 0.55,
+        "health_status": "risk",
+        "status": "LIQUIDATE",
+        "profit": -178.16,
+        "warnings": []
+      },
+      {
+        "sku": "969315704",
+        "score": 2.05,
+        "health_status": "risk",
+        "status": "LIQUIDATE",
+        "profit": 0.0,
+        "warnings": []
+      },
+      {
+        "sku": "452102417",
+        "score": 2.06,
+        "health_status": "risk",
+        "status": "LIQUIDATE",
+        "profit": 0.0,
+        "warnings": [
+          "funnel_insufficient_data"
+        ]
+      }
+    ]
   }
 }

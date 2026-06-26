@@ -160,6 +160,20 @@ def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
             "artifacts_dir": out_dir,
         }
     )
+    try:
+        history_payload = {
+            "seller_id": normalized_seller_id,
+            "run_date": report_date,
+            "out_dir": out_dir,
+            "facts": report_payload.get("facts", {}) if isinstance(report_payload, dict) else {},
+            "warnings_collector": None,
+            "job": result,
+        }
+        history_result = run_daily_history_stage(history_payload)
+        if isinstance(history_result, dict):
+            result["history_snapshot"] = history_result.get("history_snapshot", {})
+    except Exception as exc:
+        print(f"[daily_output_stage] history save failed: {exc}")
     print(
         "[daily_output_stage] v2 output result "
         f"status={result.get('status')} "

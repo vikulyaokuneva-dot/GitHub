@@ -64,6 +64,7 @@ def build_snapshot(
             "upper_funnel_status": funnel.get("upper_funnel_status"),
             "lower_funnel_status": funnel.get("lower_funnel_status"),
             "status": funnel.get("status"),
+            "sku_rows": funnel.get("sku_rows", []),
         },
         "finance_final_daily": {
             "source": finance_final.get("source"),
@@ -87,6 +88,7 @@ def build_snapshot(
             "deductions": finance_final.get("deductions"),
             "acquiring": finance_final.get("acquiring"),
             "tax": finance_final.get("tax"),
+            "rows": finance_final.get("rows", []),
         },
         "live_operational": {
             "orders": {
@@ -95,6 +97,7 @@ def build_snapshot(
                 "target_date": live_orders.get("target_date"),
                 "count": live_orders.get("count"),
                 "amount": live_orders.get("amount"),
+                "rows": live_orders.get("rows", []),
                 **_live_cache_status_fields(live_orders),
             },
             "sales": {
@@ -103,6 +106,7 @@ def build_snapshot(
                 "target_date": live_sales.get("target_date"),
                 "count": live_sales.get("count"),
                 "amount": live_sales.get("amount"),
+                "rows": live_sales.get("rows", []),
                 **_live_cache_status_fields(live_sales),
             },
             "stocks": {
@@ -112,6 +116,7 @@ def build_snapshot(
                 "operational_date_reference": live_stocks.get("operational_date_reference"),
                 "snapshot_date": live_stocks.get("snapshot_date"),
                 "total_units": live_stocks.get("total_units"),
+                "rows": live_stocks.get("rows", []),
                 **_live_cache_status_fields(live_stocks),
             },
             "ads": {
@@ -120,6 +125,13 @@ def build_snapshot(
                 "target_date": live_ads.get("target_date"),
                 "count": live_ads.get("count"),
                 "ads_spend_total": live_ads.get("ads_spend_total"),
+                "rows": live_ads.get("rows", []),
+            },
+            "search_report": {
+                "source": "search_report_api",
+                "available": bool(live_operational.get("search_report", {}).get("available", False)) if isinstance(live_operational.get("search_report"), dict) else False,
+                "target_date": live_operational.get("search_report", {}).get("target_date") if isinstance(live_operational.get("search_report"), dict) else None,
+                "count": live_operational.get("search_report", {}).get("count") if isinstance(live_operational.get("search_report"), dict) else 0,
             },
         },
     }

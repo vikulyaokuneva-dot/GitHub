@@ -9,8 +9,10 @@ from zoneinfo import ZoneInfo
 from .artifacts import (
     apply_latest_successful_live_fallback,
     build_debug,
+    read_latest_finance_cache,
     read_latest_successful_snapshot,
     write_artifacts,
+    write_finance_cache,
 )
 from .client import WBApiClient
 from .loaders import load_bundle
@@ -75,6 +77,30 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
         raw_bundle=raw_bundle,
         latest_snapshot_cache=latest_snapshot_cache,
     )
+
+    finance_daily = reconcile_result.get("finance_final_daily", {})
+    if isinstance(finance_daily, dict) and finance_daily.get("available"):
+        write_finance_cache(
+            repo_root=resolved_repo_root,
+            seller_id=seller_id,
+            finance_block=finance_daily,
+        )
+    elif isinstance(finance_daily, dict) and not finance_daily.get("available"):
+        finance_cache = read_latest_finance_cache(
+            repo_root=resolved_repo_root,
+            seller_id=seller_id,
+        )
+        if finance_cache and isinstance(finance_cache.get("data"), dict) and finance_cache["data"].get("available"):
+            reconcile_result["finance_final_daily"] = dict(finance_cache["data"])
+            warnings = list(reconcile_result.get("warnings", []) or [])
+            warnings.append({
+                "code": "finance_final_finance_cache_fallback",
+                "message": "finance_final_daily filled from latest_finance.json cache.",
+                "level": "warning",
+                "block": "finance_final",
+            })
+            reconcile_result["warnings"] = warnings
+
     snapshot = build_snapshot(
         seller_id=seller_id,
         run_date=resolved_run_date,

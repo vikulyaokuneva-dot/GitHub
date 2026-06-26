@@ -22,7 +22,10 @@ FINANCE_DETAILED_PATH = "/api/finance/v1/sales-reports/detailed"
 SALES_FUNNEL_PRODUCTS_PATH = "/api/analytics/v3/sales-funnel/products"
 ADVERTS_PATH = "/api/advert/v2/adverts"
 ADVERT_STATS_PATH = "/adv/v3/fullstats"
+SEARCH_REPORT_GROUPS_PATH = "/api/v2/search-report/table/groups"
+SEARCH_REPORT_DETAILS_PATH = "/api/v2/search-report/table/details"
 DEFAULT_RATE_LIMIT_RETRY_DELAY_CAP_SECONDS = 30.0
+DEFAULT_GLOBAL_REQUEST_BUDGET = 15
 
 
 class WBApiClient:
@@ -35,9 +38,20 @@ class WBApiClient:
         self.base_url = self.statistics_base_url
         self.timeout_seconds = max(5, int(str(os.getenv("WB_API_TIMEOUT_SECONDS", "60") or "60")))
         self.max_retries = max(1, int(str(os.getenv("WB_API_MAX_RETRIES", "5") or "5")))
+        self.global_request_budget = max(1, int(str(os.getenv("WB_API_GLOBAL_BUDGET", str(DEFAULT_GLOBAL_REQUEST_BUDGET)) or str(DEFAULT_GLOBAL_REQUEST_BUDGET))))
+        self._global_request_count = 0
 
     def has_token(self) -> bool:
         return bool(self.token)
+
+    def has_request_budget(self) -> bool:
+        return self._global_request_count < self.global_request_budget
+
+    def _increment_request_count(self) -> None:
+        self._global_request_count += 1
+
+    def request_count(self) -> int:
+        return self._global_request_count
 
     def _headers(self) -> Dict[str, str]:
         return {
@@ -313,6 +327,28 @@ class WBApiClient:
                 "token_present": False,
                 "token_env_name_used": self.token_env_name_used,
             }
+
+        if not self.has_request_budget():
+            return {
+                "endpoint": endpoint_name,
+                "path": path,
+                "success": False,
+                "payload": None,
+                "error_text": f"global request budget exhausted ({self.global_request_budget})",
+                "status_code": None,
+                "attempts": 0,
+                "retry_count": 0,
+                "retry_delays": [],
+                "final_failure_reason": f"global request budget exhausted ({self.global_request_budget})",
+                "method": str(method or "GET").strip().upper() or "GET",
+                "base_url": str(base_url or self.statistics_base_url).rstrip("/"),
+                "token_present": True,
+                "token_env_name_used": self.token_env_name_used,
+                "global_budget_exhausted": True,
+                "global_request_count": self._global_request_count,
+            }
+
+        self._increment_request_count()
 
         request_method = str(method or "GET").strip().upper() or "GET"
         resolved_base_url = str(base_url or self.statistics_base_url).rstrip("/")

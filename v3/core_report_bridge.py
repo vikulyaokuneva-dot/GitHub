@@ -389,6 +389,15 @@ def build_core_snapshot_stage_view(core_report_payload: Dict[str, Any]) -> Dict[
 
     buyouts_count = cabinet.get("buyouts_count")
     buyouts_amount = cabinet.get("buyouts_amount")
+    buyouts_source = cabinet_source
+
+    live_sales_count = live_sales.get("count") if isinstance(live_sales, dict) else None
+    live_sales_amount = live_sales.get("amount") if isinstance(live_sales, dict) else None
+    if (not buyouts_count or buyouts_count == 0) and live_sales_count and live_sales_count > 0:
+        buyouts_count = live_sales_count
+        buyouts_amount = live_sales_amount
+        buyouts_source = "sales_api"
+
     buyouts_count_number = _safe_float_value(buyouts_count)
     buyouts_amount_number = _safe_float_value(buyouts_amount)
     avg_check = None
@@ -426,9 +435,9 @@ def build_core_snapshot_stage_view(core_report_payload: Dict[str, Any]) -> Dict[
         "data_source_orders": cabinet_source,
         "data_source_orders_count": cabinet_source,
         "data_source_orders_amount": cabinet_source,
-        "data_source_buyouts": cabinet_source,
-        "data_source_buyouts_count": cabinet_source,
-        "data_source_buyouts_amount": cabinet_source,
+        "data_source_buyouts": buyouts_source,
+        "data_source_buyouts_count": buyouts_source,
+        "data_source_buyouts_amount": buyouts_source,
     }
     order_kpi = {
         "date": cabinet.get("target_date") or meta.get("operational_date"),
@@ -445,8 +454,8 @@ def build_core_snapshot_stage_view(core_report_payload: Dict[str, Any]) -> Dict[
         "buyouts_amount": buyouts_amount,
         "buyouts_count_confirmed": buyouts_count_confirmed,
         "buyouts_amount_confirmed": buyouts_amount_confirmed,
-        "source_count": cabinet_source,
-        "source_amount": cabinet_source,
+        "source_count": buyouts_source,
+        "source_amount": buyouts_source,
     }
     financial_components = {
         "revenue": {"available": finance.get("seller_payout") is not None},
@@ -537,9 +546,9 @@ def build_core_snapshot_stage_view(core_report_payload: Dict[str, Any]) -> Dict[
         "orders": cabinet_source,
         "orders_count": cabinet_source,
         "orders_amount": cabinet_source,
-        "buyouts": cabinet_source,
-        "buyouts_count": cabinet_source,
-        "buyouts_amount": cabinet_source,
+        "buyouts": buyouts_source,
+        "buyouts_count": buyouts_source,
+        "buyouts_amount": buyouts_source,
         "revenue": finance_source,
     }
     live_section = {

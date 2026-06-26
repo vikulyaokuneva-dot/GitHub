@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -114,6 +114,18 @@ def _apply_core_snapshot_mirrors(
         if finance.get("buyouts_amount") is not None
         else cabinet.get("buyouts_amount")
     )
+
+    live_sales = core_report_payload.get("live_operational", {}).get("sales", {}) if isinstance(core_report_payload, dict) else {}
+    if not isinstance(live_sales, dict):
+        live_sales = {}
+    live_sales_count = live_sales.get("count")
+    live_sales_amount = live_sales.get("amount")
+    buyouts_source = finance_source
+    if (not finance_buyouts_count or finance_buyouts_count == 0) and live_sales_count and live_sales_count > 0:
+        finance_buyouts_count = live_sales_count
+        finance_buyouts_amount = live_sales_amount
+        buyouts_source = "sales_api"
+
     finance_buyouts_confirmed = finance_buyouts_count is not None or finance_buyouts_amount is not None
 
     daily_kpi = {
@@ -127,9 +139,9 @@ def _apply_core_snapshot_mirrors(
         "data_source_orders": cabinet_source,
         "data_source_orders_count": cabinet_source,
         "data_source_orders_amount": cabinet_source,
-        "data_source_buyouts": finance_source,
-        "data_source_buyouts_count": finance_source,
-        "data_source_buyouts_amount": finance_source,
+        "data_source_buyouts": buyouts_source,
+        "data_source_buyouts_count": buyouts_source,
+        "data_source_buyouts_amount": buyouts_source,
     }
     financial_kpi = {
         "revenue": finance.get("seller_payout"),
@@ -170,7 +182,7 @@ def _apply_core_snapshot_mirrors(
     buyout_kpi = {
         "buyouts_count": finance_buyouts_count,
         "buyouts_amount": finance_buyouts_amount,
-        "source": finance_source,
+        "source": buyouts_source,
         "status": "confirmed" if finance_buyouts_confirmed else "missing",
     }
     daily_status_matrix = {

@@ -12,9 +12,13 @@ from .client import (
     ORDERS_PATH,
     SALES_FUNNEL_PRODUCTS_PATH,
     SALES_PATH,
+    SEARCH_REPORT_DETAILS_PATH,
+    SEARCH_REPORT_GROUPS_PATH,
     STOCKS_PATH,
     WBApiClient,
 )
+
+FINANCE_LEGACY_PATH = "/api/v5/supplier/reportDetailByPeriod"
 
 SALES_FUNNEL_PAGE_LIMIT = 1000
 FINANCE_PAGE_LIMIT = 100000
@@ -562,6 +566,40 @@ def _safe_float(row: Dict[str, Any], keys: tuple) -> float:
     return 0.0
 
 
+def load_finance_legacy(client: WBApiClient, target_date: str) -> Dict[str, Any]:
+    response = client.request_json(
+        endpoint_name="finance_legacy",
+        path=FINANCE_LEGACY_PATH,
+        method="GET",
+        params={
+            "dateFrom": target_date,
+            "dateTo": target_date,
+            "limit": 100000,
+            "rrdid": 0,
+        },
+        allow_204=True,
+        empty_on_204=[],
+        base_url=client.statistics_base_url,
+        retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
+    )
+    payload = response.get("payload", [])
+    rows_raw = _extract_realization_rows(payload, client)
+    return {
+        "rows_raw": rows_raw,
+        "debug": _build_debug(
+            response,
+            rows_loaded=len(rows_raw),
+            date_from=target_date,
+            date_to=target_date,
+            extra={
+                "source_family": "finance_legacy",
+                "finance_endpoint_used": FINANCE_LEGACY_PATH,
+                "finance_api_mode": "legacy_direct",
+            },
+        ),
+    }
+
+
 def load_ads(client: WBApiClient, target_date: str) -> Dict[str, Any]:
     adverts_response = client.request_json(
         endpoint_name="ads_adverts",
@@ -710,6 +748,50 @@ def load_ads(client: WBApiClient, target_date: str) -> Dict[str, Any]:
     }
 
 
+def load_finance_final_single_attempt(client: WBApiClient, target_date: str) -> Dict[str, Any]:
+    response = client.request_json(
+        endpoint_name="finance_final",
+        path=FINANCE_DETAILED_PATH,
+        method="POST",
+        json_body={
+            "dateFrom": target_date,
+            "dateTo": target_date,
+            "period": "daily",
+            "limit": FINANCE_PAGE_LIMIT,
+            "rrdId": 0,
+        },
+        allow_204=True,
+        empty_on_204=[],
+        base_url=client.finance_base_url,
+        retry_policy={"retryable_statuses": (), "max_attempts": 1},
+    )
+    payload = response.get("payload", [])
+    rows_raw = _extract_realization_rows(payload, client)
+    payload_incompatible = bool(bool(response.get("success", False)) and payload not in ({}, [], None) and not rows_raw)
+    return {
+        "rows_raw": rows_raw,
+        "debug": _build_debug(
+            response,
+            rows_loaded=len(rows_raw),
+            date_from=target_date,
+            date_to=target_date,
+            extra={
+                "source_family": "finance_final_daily",
+                "finance_endpoint_used": FINANCE_DETAILED_PATH,
+                "finance_requested_fields_count": 0,
+                "finance_requested_fields": [],
+                "finance_request_uses_all_fields": True,
+                "finance_period": "daily",
+                "finance_limit": FINANCE_PAGE_LIMIT,
+                "finance_rrd_id": 0,
+                "finance_pagination_truncated": len(rows_raw) >= FINANCE_PAGE_LIMIT,
+                "finance_payload_incompatible": payload_incompatible,
+                "finance_single_attempt": True,
+            },
+        ),
+    }
+
+
 def load_finance_final_with_lag(client: WBApiClient, target_date: str, max_lag_days: int = 3) -> Dict[str, Any]:
     from datetime import datetime, timedelta
     primary = load_finance_final(client, target_date)
@@ -717,13 +799,27 @@ def load_finance_final_with_lag(client: WBApiClient, target_date: str, max_lag_d
         return primary
     finance_debug = primary.get("debug", {})
     if finance_debug.get("status_code") == 429:
+        legacy = load_finance_legacy(client, target_date)
+        legacy_debug = legacy.get("debug", {})
+        if legacy.get("rows_raw"):
+            debug = dict(legacy_debug)
+            debug["finance_fallback_used"] = True
+            debug["finance_fallback_reason"] = "primary_429_to_legacy"
+            debug["finance_primary_status_code"] = 429
+            legacy["debug"] = debug
+            return legacy
+        debug = dict(primary.get("debug", {}))
+        debug["finance_legacy_attempted"] = True
+        debug["finance_legacy_status_code"] = legacy_debug.get("status_code")
+        debug["finance_legacy_error_text"] = str(legacy_debug.get("error_text") or "")
+        primary["debug"] = debug
         return primary
     for lag in range(1, max_lag_days + 1):
         try:
             lag_date = (datetime.strptime(target_date, "%Y-%m-%d").date() - timedelta(days=lag)).isoformat()
         except Exception:
             continue
-        lag_result = load_finance_final(client, lag_date)
+        lag_result = load_finance_final_single_attempt(client, lag_date)
         if lag_result.get("rows_raw"):
             debug = dict(lag_result.get("debug", {}))
             debug["finance_lag_used"] = True
@@ -735,6 +831,104 @@ def load_finance_final_with_lag(client: WBApiClient, target_date: str, max_lag_d
         if lag_result.get("debug", {}).get("status_code") == 429:
             break
     return primary
+
+
+def load_search_report(client: WBApiClient, target_date: str) -> Dict[str, Any]:
+    if not client.has_token():
+        return {"available": False, "rows_raw": [], "source": "search_report_api", "debug": {"success": False, "reason": "no_token"}}
+
+    date_from = target_date
+    date_to = target_date
+
+    body = {
+        "selectedPeriod": {"start": date_from, "end": date_to},
+        "currentPeriod": {"start": date_from, "end": date_to},
+        "nmIds": [],
+        "brandNames": [],
+        "subjectIds": [],
+        "tagIds": [],
+        "skipDeletedNm": True,
+        "limit": 1000,
+        "offset": 0,
+        "orderBy": "orderSum",
+        "positionCluster": "searchQueriesCount",
+    }
+
+    try:
+        url = f"{client.analytics_base_url}{SEARCH_REPORT_GROUPS_PATH}"
+        result = client.request_json(
+            endpoint_name="search_report_groups",
+            path=SEARCH_REPORT_GROUPS_PATH,
+            method="POST",
+            json_body=body,
+            base_url=client.analytics_base_url,
+            retry_policy={
+                "retryable_statuses": (500, 502, 503, 504),
+                "max_attempts": 2,
+            },
+        )
+        if not result.get("success"):
+            return {"available": False, "rows_raw": [], "source": "search_report_api", "debug": {"success": False, "status_code": result.get("status_code"), "error": result.get("error_text", "")[:500]}}
+
+        payload = result.get("payload") or {}
+        groups = payload.get("data", {}).get("groups", []) if isinstance(payload.get("data"), dict) else []
+
+        all_rows = []
+        for group in groups:
+            nm_ids = [p.get("nmId") for p in group.get("products", []) if p.get("nmId")]
+            if not nm_ids:
+                continue
+
+            detail_body = {
+                "selectedPeriod": {"start": date_from, "end": date_to},
+                "currentPeriod": {"start": date_from, "end": date_to},
+                "nmIds": nm_ids,
+                "limit": 1000,
+                "offset": 0,
+                "orderBy": "orderSum",
+                "positionCluster": "searchQueriesCount",
+            }
+            try:
+                detail_result = client.request_json(
+                    endpoint_name="search_report_details",
+                    path=SEARCH_REPORT_DETAILS_PATH,
+                    method="POST",
+                    json_body=detail_body,
+                    base_url=client.analytics_base_url,
+                    retry_policy={
+                        "retryable_statuses": (500, 502, 503, 504),
+                        "max_attempts": 2,
+                    },
+                )
+                if detail_result.get("success"):
+                    detail_payload = detail_result.get("payload") or {}
+                    details = detail_payload.get("data", {}).get("details", []) if isinstance(detail_payload.get("data"), dict) else []
+                    for d in details:
+                        all_rows.append({
+                            "nmId": d.get("nmId"),
+                            "vendorCode": d.get("vendorCode", ""),
+                            "title": d.get("title", ""),
+                            "searchQueriesCount": d.get("searchQueriesCount", 0),
+                            "viewedWithSearchCount": d.get("viewedWithSearchCount", 0),
+                            "clickedWithSearchCount": d.get("clickedWithSearchCount", 0),
+                            "addToCartWithSearchCount": d.get("addToCartWithSearchCount", 0),
+                            "ordersWithSearchCount": d.get("ordersWithSearchCount", 0),
+                            "sumWithSearch": d.get("sumWithSearch", 0),
+                            "buyoutWithSearchCount": d.get("buyoutWithSearchCount", 0),
+                            "buyoutSumWithSearch": d.get("buyoutSumWithSearch", 0),
+                        })
+            except Exception:
+                pass
+
+        return {
+            "available": True,
+            "rows_raw": all_rows,
+            "source": "search_report_api",
+            "target_date": target_date,
+            "debug": {"success": True, "status_code": 200, "rows_loaded": len(all_rows), "groups_count": len(groups)},
+        }
+    except Exception as exc:
+        return {"available": False, "rows_raw": [], "source": "search_report_api", "debug": {"success": False, "error": str(exc)[:500]}}
 
 
 def load_bundle(
@@ -752,4 +946,5 @@ def load_bundle(
         "sales": load_sales(client, target_date),
         "stocks": load_stocks(client, target_date),
         "ads": load_ads(client, target_date),
+        "search_report": load_search_report(client, target_date),
     }

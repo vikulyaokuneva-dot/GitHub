@@ -150,14 +150,11 @@ def _hero_cards_table(cards: list[dict[str, Any]], *, width: float, font_name: s
     for start in range(0, len(safe_cards), column_count):
         row: list[Paragraph] = []
         for card in safe_cards[start : start + column_count]:
-            badge = _status_label(card.get("status"))
             row.append(
                 Paragraph(
                     (
                         f"<font size=\"8\">{_format_text(card.get('label'))}</font><br/>"
-                        f"<font size=\"15\"><b>{_format_text(card.get('value'))}</b></font><br/>"
-                        f"<font size=\"8\">{_format_text(card.get('subvalue'))}</font><br/>"
-                        f"<font size=\"7\">{badge}</font>"
+                        f"<font size=\"15\"><b>{_format_text(card.get('value'))}</b></font>"
                     ),
                     style,
                 )
@@ -190,8 +187,6 @@ def _display_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: 
         [
             Paragraph("Показатель", style),
             Paragraph("Значение", style),
-            Paragraph("Комментарий", style),
-            Paragraph("Статус", style),
         ]
     ]
     for item in rows:
@@ -200,12 +195,10 @@ def _display_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: 
             [
                 Paragraph(_format_text(row.get("label")), style),
                 Paragraph(_format_text(row.get("value")), style),
-                Paragraph(_format_text(row.get("note")), style),
-                Paragraph(_status_label(row.get("status")), style),
             ]
         )
 
-    table = Table(table_rows, colWidths=[width * 0.30, width * 0.22, width * 0.33, width * 0.15])
+    table = Table(table_rows, colWidths=[width * 0.45, width * 0.55])
     table.setStyle(
         TableStyle(
             [
@@ -230,9 +223,6 @@ def _funnel_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: s
         [
             Paragraph("Этап", style),
             Paragraph("Значение", style),
-            Paragraph("Источник", style),
-            Paragraph("Статус", style),
-            Paragraph("Комментарий", style),
         ]
     ]
     for item in rows:
@@ -241,13 +231,10 @@ def _funnel_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: s
             [
                 Paragraph(_format_text(row.get("stage")), style),
                 Paragraph(_format_text(row.get("value")), style),
-                Paragraph(_format_text(row.get("source")), style),
-                Paragraph(_status_label(row.get("status")), style),
-                Paragraph(_format_text(row.get("note")), style),
             ]
         )
 
-    table = Table(table_rows, colWidths=[width * 0.20, width * 0.16, width * 0.22, width * 0.14, width * 0.28])
+    table = Table(table_rows, colWidths=[width * 0.45, width * 0.55])
     table.setStyle(
         TableStyle(
             [
@@ -272,9 +259,6 @@ def _ads_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str,
         [
             Paragraph("Показатель", style),
             Paragraph("Значение", style),
-            Paragraph("Источник", style),
-            Paragraph("Статус", style),
-            Paragraph("Комментарий", style),
         ]
     ]
     for item in rows:
@@ -283,13 +267,10 @@ def _ads_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str,
             [
                 Paragraph(_format_text(row.get("label")), style),
                 Paragraph(_format_text(row.get("value")), style),
-                Paragraph(_format_text(row.get("source")), style),
-                Paragraph(_status_label(row.get("status")), style),
-                Paragraph(_format_text(row.get("note")), style),
             ]
         )
 
-    table = Table(table_rows, colWidths=[width * 0.22, width * 0.18, width * 0.22, width * 0.14, width * 0.24])
+    table = Table(table_rows, colWidths=[width * 0.45, width * 0.55])
     table.setStyle(
         TableStyle(
             [
@@ -648,6 +629,104 @@ def _source_flags_table(rows: list[tuple[str, str, str]], *, width: float, font_
     return table
 
 
+
+
+def _sku_detail_table(sku: dict[str, Any], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
+    rows_data = [
+        ("Заказы", f"{sku.get('orders_count', 0)} шт"),
+        ("Выкупы", f"{sku.get('buyouts_count', 0)} шт"),
+        ("Выручка", _format_money(sku.get("revenue"))),
+        ("Себестоимость", _format_money(-sku.get("cogs", 0)) if sku.get("cogs") else None),
+        ("Комиссия WB", _format_money(-sku.get("commission", 0)) if sku.get("commission") else None),
+        ("Логистика", _format_money(-sku.get("logistics", 0)) if sku.get("logistics") else None),
+        ("Эквайринг", _format_money(-sku.get("acquiring", 0)) if sku.get("acquiring") else None),
+        ("Хранение", _format_money(-sku.get("storage_share", 0)) if sku.get("storage_share") else None),
+        ("Удержания", _format_money(-sku.get("deductions_share", 0)) if sku.get("deductions_share") else None),
+        ("Реклама", _format_money(-sku.get("ads_spend", 0)) if sku.get("ads_spend") else None),
+        ("Чистая прибыль", _format_money(sku.get("profit"))),
+        ("Маржа", f"{sku.get('margin_pct', 0)}%"),
+        ("Доля выручки", f"{sku.get('share_pct', 0)}%"),
+    ]
+    table_rows = [[Paragraph("Метрика", style), Paragraph("Значение", style)]]
+    for label, value in rows_data:
+        if value is None:
+            continue
+        table_rows.append([Paragraph(label, style), Paragraph(str(value), style)])
+    table = Table(table_rows, colWidths=[width * 0.5, width * 0.5])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#16A34A")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F5")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BACKGROUND", (0, -2), (-1, -2), colors.HexColor("#e8f5e9")),
+    ]))
+    return table
+
+
+def _sku_funnel_table(funnel: dict[str, Any], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
+    impressions = funnel.get("impressions", 0)
+    views = funnel.get("views", 0)
+    cart = funnel.get("cart", 0)
+    orders = funnel.get("orders", 0)
+    buyouts = funnel.get("buyouts", 0)
+    ctr = funnel.get("ctr_pct", 0)
+    cr_cart = funnel.get("cr_cart_pct", 0)
+    cr_order = funnel.get("cr_order_pct", 0)
+    imp_to_click = round(views / impressions * 100, 1) if impressions else 0
+    rows_data = [
+        ("Показы", str(impressions) if impressions else "—", f"{imp_to_click}%" if impressions else "—"),
+        ("Клики", str(views), "—"),
+        ("Корзина", str(cart), f"{ctr}% CTR" if views else "—"),
+        ("Заказы", str(orders), f"{cr_cart}%" if cart else "—"),
+        ("Выкупы", str(buyouts), f"{cr_order}%" if orders else "—"),
+    ]
+    table_rows = [[Paragraph("Этап", style), Paragraph("Значение", style), Paragraph("Конверсия", style)]]
+    for label, value, conv in rows_data:
+        table_rows.append([Paragraph(label, style), Paragraph(value, style), Paragraph(conv, style)])
+    table = Table(table_rows, colWidths=[width * 0.33, width * 0.33, width * 0.34])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4a90e2")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#e3f2fd"), colors.HexColor("#bbdefb")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    return table
+
+
+def _render_sku_block(story: list[Any], rank: int, sku: dict[str, Any], styles: dict[str, ParagraphStyle], content_width: float, font_name: str) -> None:
+    nm_id = sku.get("nm_id", "")
+    seller_article = sku.get("seller_article", "")
+    title = sku.get("title", "")
+    header_text = f"ТОП-{rank}: {nm_id}"
+    if seller_article:
+        header_text += f" | {seller_article}"
+    story.append(Paragraph(header_text, styles["section"]))
+    if title:
+        story.append(Paragraph(_format_text(title), styles["meta"]))
+    half_width = content_width / 2 - 2 * mm
+    unit_table = _sku_detail_table(sku, width=half_width, font_name=font_name, style=styles["hero_card"])
+    funnel = sku.get("funnel", {})
+    has_funnel = any(v for k, v in funnel.items() if k not in ("ctr_pct", "cr_cart_pct", "cr_order_pct") and v)
+    if has_funnel:
+        funnel_table = _sku_funnel_table(funnel, width=half_width, font_name=font_name, style=styles["hero_card"])
+        outer = Table([[unit_table, funnel_table]], colWidths=[half_width + 2 * mm, half_width + 2 * mm])
+        outer.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+        story.append(outer)
+    else:
+        story.append(unit_table)
+    story.append(Spacer(1, 8))
+
+
 def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
     font_info = _ensure_font_registered()
     styles = _styles(font_info["font_name"])
@@ -659,42 +738,6 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     hero = payload.get("hero", {}) if isinstance(payload, dict) else {}
     if not isinstance(hero, dict):
         hero = {}
-    commerce_section = payload.get("commerce_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(commerce_section, dict):
-        commerce_section = {}
-    funnel_section = payload.get("funnel_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(funnel_section, dict):
-        funnel_section = {}
-    ads_efficiency_section = payload.get("ads_efficiency_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(ads_efficiency_section, dict):
-        ads_efficiency_section = {}
-    ads_section = payload.get("ads_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(ads_section, dict):
-        ads_section = {}
-    query_profitability_section = payload.get("query_profitability_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(query_profitability_section, dict):
-        query_profitability_section = {}
-    sku_health_section = payload.get("sku_health_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(sku_health_section, dict):
-        sku_health_section = {}
-    profit_contribution_section = payload.get("profit_contribution_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(profit_contribution_section, dict):
-        profit_contribution_section = {}
-    abc_section = payload.get("abc_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(abc_section, dict):
-        abc_section = {}
-    abc_analysis_section = payload.get("abc_analysis_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(abc_analysis_section, dict):
-        abc_analysis_section = {}
-    finance_section = payload.get("finance_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(finance_section, dict):
-        finance_section = {}
-    finance_notice = payload.get("finance_alignment_notice", {}) if isinstance(payload, dict) else {}
-    if not isinstance(finance_notice, dict):
-        finance_notice = {}
-    live_section = payload.get("live_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(live_section, dict):
-        live_section = {}
     diagnostics = payload.get("diagnostics", {}) if isinstance(payload, dict) else {}
     if not isinstance(diagnostics, dict):
         diagnostics = {}
@@ -710,318 +753,476 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     content_width = A4[0] - doc.leftMargin - doc.rightMargin
 
     story: list[Any] = []
-    hero_cards = hero.get("cards", [])
-    if not isinstance(hero_cards, list):
-        hero_cards = []
-    story.append(Paragraph(_format_text(hero.get("title") or "WB Core Report v2"), styles["title"]))
-    story.append(Paragraph(_format_text(hero.get("subtitle")), styles["meta"]))
-    if hero_cards:
+
+    hero_section = payload.get("hero_section", {})
+    if not isinstance(hero_section, dict):
+        hero_section = {}
+    hero_rows = hero_section.get("rows", [])
+    if isinstance(hero_rows, list) and hero_rows:
+        story.append(Paragraph(_format_text(hero_section.get("title") or "Ежедневный отчёт WB"), styles["title"]))
+        story.append(Paragraph(_format_text(hero_section.get("subtitle")), styles["meta"]))
         story.append(Spacer(1, 6))
-        story.append(_hero_cards_table(hero_cards, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    story.append(
-        Paragraph(
-            (
-                f"{_format_text(hero.get('data_status_message'))}<br/>"
-                f"Источник данных: {_format_text(meta.get('snapshot_source_mode'))}"
-            ),
-            styles["meta"],
-        )
-    )
-    story.append(Spacer(1, 6))
 
-    commerce_rows = commerce_section.get("rows", [])
-    if not isinstance(commerce_rows, list):
-        commerce_rows = []
-    story.append(Paragraph(_format_text(commerce_section.get("title")), styles["section"]))
-    story.append(Paragraph(_format_text(commerce_section.get("subtitle")), styles["meta"]))
-    story.append(_display_rows_table(commerce_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    story.append(Spacer(1, 6))
+        alert_boxes = hero_section.get("alert_boxes", [])
+        if isinstance(alert_boxes, list) and alert_boxes and len(alert_boxes) >= 3:
+            box_colors = {"critical": colors.HexColor("#DC2626"), "warning": colors.HexColor("#D97706"), "ok": colors.HexColor("#16A34A")}
+            box_bg = {"critical": colors.HexColor("#FEF2F2"), "warning": colors.HexColor("#FFFBEB"), "ok": colors.HexColor("#F0FDF4")}
+            box_style = ParagraphStyle("BoxText", parent=styles["hero_card"], fontSize=8, leading=10, alignment=1)
+            box_label_style = ParagraphStyle("BoxLabel", parent=styles["hero_card"], fontSize=7, leading=9, alignment=1, textColor=colors.HexColor("#6B7280"))
+            box_cells = []
+            for box in alert_boxes[:3]:
+                if not isinstance(box, dict):
+                    continue
+                status = box.get("status", "ok")
+                cell_color = box_colors.get(status, colors.black)
+                cell_bg = box_bg.get(status, colors.white)
+                label_p = Paragraph(f"<font color='#6B7280'>{_format_text(box.get('label', ''))}</font>", box_label_style)
+                value_p = Paragraph(f"<b><font color='{cell_color.hexval()}'>{_format_text(box.get('value', ''))}</font></b>", box_style)
+                detail_p = Paragraph(f"<font color='#6B7280'>{_format_text(box.get('detail', ''))}</font>", box_label_style)
+                cell_content = Table([[label_p], [value_p], [detail_p]], colWidths=[content_width / 3 - 4 * mm])
+                cell_content.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, -1), cell_bg),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#E5E7EB")),
+                ]))
+                box_cells.append(cell_content)
+            if len(box_cells) >= 3:
+                boxes_row = Table([box_cells], colWidths=[content_width / 3 - 2 * mm] * 3)
+                boxes_row.setStyle(TableStyle([
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                ]))
+                story.append(boxes_row)
+                story.append(Spacer(1, 6))
 
+        story.append(_display_rows_table(hero_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+        story.append(Spacer(1, 4))
+
+        hero_actions = hero_section.get("actions", [])
+        if isinstance(hero_actions, list) and hero_actions:
+            action_header_style = ParagraphStyle("ActionHeader", parent=styles["section"], textColor=colors.HexColor("#1a1a2e"))
+            story.append(Paragraph("Что делать сегодня:", action_header_style))
+            act_header_style = ParagraphStyle("ActHeader", parent=styles["hero_card"], textColor=colors.white)
+            act_table_rows = [[Paragraph(h, act_header_style) for h in ['#', 'Действие', 'Эффект']]]
+            for idx, act in enumerate(hero_actions[:5]):
+                if not isinstance(act, dict):
+                    continue
+                priority = act.get("priority", "info")
+                effect = act.get("effect", "")
+                act_table_rows.append([
+                    Paragraph(str(idx + 1), styles["hero_card"]),
+                    Paragraph(_format_text(act.get("text", "")), styles["hero_card"]),
+                    Paragraph(_format_text(effect), styles["hero_card"]),
+                ])
+            act_table = Table(act_table_rows, colWidths=[content_width * 0.05, content_width * 0.55, content_width * 0.40])
+            act_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F5")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ]))
+            story.append(act_table)
+            story.append(Spacer(1, 6))
+
+    losses = payload.get("losses_of_the_day", {}) if isinstance(payload, dict) else {}
+    if not isinstance(losses, dict):
+        losses = {}
+    loss_items = losses.get("items", [])
+    if isinstance(loss_items, list) and loss_items:
+        story.append(Paragraph(_format_text(losses.get("title") or "Потери дня"), styles["section"]))
+        loss_header_style = ParagraphStyle("LossHeader", parent=styles["hero_card"], textColor=colors.white)
+        loss_table_rows = [[Paragraph(h, loss_header_style) for h in ['Статья', 'Сумма']]]
+        for item in loss_items:
+            if not isinstance(item, dict):
+                continue
+            loss_table_rows.append([
+                Paragraph(_format_text(item.get("label", "")), styles["hero_card"]),
+                Paragraph(_format_text(item.get("value", "")), styles["hero_card"]),
+            ])
+        total_loss = losses.get("total", "0 ₽")
+        loss_table_rows.append([
+            Paragraph("Итого", styles["hero_card"]),
+            Paragraph(_format_text(total_loss), styles["hero_card"]),
+        ])
+        loss_table = Table(loss_table_rows, colWidths=[content_width * 0.6, content_width * 0.4])
+        loss_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#7C2D12")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#FEF2F2")),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ]))
+        story.append(loss_table)
+        story.append(Spacer(1, 6))
+
+    profit_section = payload.get("profit_section", {})
+    if not isinstance(profit_section, dict):
+        profit_section = {}
+    profit_rows = profit_section.get("rows", [])
+    if isinstance(profit_rows, list) and profit_rows:
+        story.append(Paragraph(_format_text(profit_section.get("title") or "Прибыль"), styles["section"]))
+        profit_header_style = ParagraphStyle("ProfitHeader", parent=styles["hero_card"], textColor=colors.white)
+        p_table_rows = [[Paragraph("Показатель", profit_header_style), Paragraph("Значение", profit_header_style)]]
+        for row in profit_rows:
+            if not isinstance(row, dict):
+                continue
+            label = _format_text(row.get("label", ""))
+            value = _format_text(row.get("value", ""))
+            val_str = value.replace("₽", "").replace(" ", "").replace(",", ".").strip()
+            try:
+                val_num = float(val_str)
+            except (ValueError, TypeError):
+                val_num = 0
+            is_negative = "-" in value and val_num < 0
+            is_positive_profit = "прибыль" in label.lower() and val_num > 0
+            if is_negative:
+                row_bg = colors.HexColor("#FEF2F2")
+                val_color = colors.HexColor("#DC2626")
+            elif is_positive_profit:
+                row_bg = colors.HexColor("#F0FDF4")
+                val_color = colors.HexColor("#16A34A")
+            else:
+                row_bg = colors.white
+                val_color = colors.black
+            val_style = ParagraphStyle("ValColor", parent=styles["hero_card"], textColor=val_color)
+            p_table_rows.append([
+                Paragraph(label, styles["hero_card"]),
+                Paragraph(value, val_style),
+            ])
+        profit_table = Table(p_table_rows, colWidths=[content_width * 0.5, content_width * 0.5])
+        profit_style_list = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]
+        for idx, row in enumerate(profit_rows):
+            if not isinstance(row, dict):
+                continue
+            label = _format_text(row.get("label", ""))
+            value = _format_text(row.get("value", ""))
+            val_str = value.replace("₽", "").replace(" ", "").replace(",", ".").strip()
+            try:
+                val_num = float(val_str)
+            except (ValueError, TypeError):
+                val_num = 0
+            is_negative = "-" in value and val_num < 0
+            is_positive_profit = "прибыль" in label.lower() and val_num > 0
+            if is_negative:
+                profit_style_list.append(("BACKGROUND", (0, idx + 1), (-1, idx + 1), colors.HexColor("#FEF2F2")))
+            elif is_positive_profit:
+                profit_style_list.append(("BACKGROUND", (0, idx + 1), (-1, idx + 1), colors.HexColor("#F0FDF4")))
+        profit_table.setStyle(TableStyle(profit_style_list))
+        story.append(profit_table)
+        story.append(Spacer(1, 6))
+
+    sales_dynamics = payload.get("sales_dynamics_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(sales_dynamics, dict):
+        sales_dynamics = {}
+    sd_rows = sales_dynamics.get("rows", [])
+    if isinstance(sd_rows, list) and sd_rows:
+        story.append(Paragraph(_format_text(sales_dynamics.get("title") or "Динамика продаж"), styles["section"]))
+        subtitle = sales_dynamics.get("subtitle", "")
+        if subtitle:
+            story.append(Paragraph(_format_text(subtitle), styles["meta"]))
+        header = [Paragraph(h, styles["hero_card"]) for h in ["Метрика", "Сегодня", "Вчера", "7 дн.", "Δ вчера", "Δ 7 дн."]]
+        table_rows = [header]
+        for row in sd_rows:
+            if not isinstance(row, dict):
+                continue
+            table_rows.append([
+                Paragraph(_format_text(row.get("label", "")), styles["hero_card"]),
+                Paragraph(_format_text(row.get("today", "")), styles["hero_card"]),
+                Paragraph(_format_text(row.get("yesterday", "")), styles["hero_card"]),
+                Paragraph(_format_text(row.get("week_ago", "")), styles["hero_card"]),
+                Paragraph(_format_text(row.get("vs_yesterday", "")), styles["hero_card"]),
+                Paragraph(_format_text(row.get("vs_week", "")), styles["hero_card"]),
+            ])
+        sd_table = Table(table_rows, colWidths=[content_width * 0.18, content_width * 0.18, content_width * 0.18, content_width * 0.18, content_width * 0.14, content_width * 0.14])
+        sd_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F5")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ]))
+        story.append(sd_table)
+        story.append(Spacer(1, 10))
+
+    story.append(PageBreak())
+
+    funnel_section = payload.get("funnel_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(funnel_section, dict):
+        funnel_section = {}
     funnel_rows = funnel_section.get("rows", [])
     if not isinstance(funnel_rows, list):
         funnel_rows = []
     story.append(Paragraph(_format_text(funnel_section.get("title")), styles["section"]))
-    story.append(Paragraph(_format_text(funnel_section.get("subtitle")), styles["meta"]))
-    story.append(Paragraph(_format_text(funnel_section.get("message")), styles["warning"]))
     story.append(_funnel_rows_table(funnel_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
     story.append(Spacer(1, 6))
 
+    ads_section = payload.get("ads_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(ads_section, dict):
+        ads_section = {}
+    ads_efficiency_section = payload.get("ads_efficiency_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(ads_efficiency_section, dict):
+        ads_efficiency_section = {}
     ads_rows = ads_efficiency_section.get("metric_rows") or ads_section.get("rows", [])
     if not isinstance(ads_rows, list):
         ads_rows = []
     story.append(Paragraph(_format_text(ads_efficiency_section.get("title") or ads_section.get("title")), styles["section"]))
-    story.append(Paragraph(_format_text(ads_efficiency_section.get("subtitle") or ads_section.get("subtitle")), styles["meta"]))
-    story.append(Paragraph(_format_text(ads_efficiency_section.get("message") or ads_section.get("message")), styles["warning"]))
     story.append(_ads_rows_table(ads_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    loss_rows = ads_efficiency_section.get("loss_rows", [])
-    if not isinstance(loss_rows, list):
-        loss_rows = []
-    opportunity_rows = ads_efficiency_section.get("opportunity_rows", [])
-    if not isinstance(opportunity_rows, list):
-        opportunity_rows = []
-    recommendations = ads_efficiency_section.get("recommendations", [])
-    if not isinstance(recommendations, list):
-        recommendations = []
-    if loss_rows:
-        story.append(Paragraph("Потери рекламы", styles["section"]))
-        story.append(_ads_query_rows_table(loss_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    if opportunity_rows:
-        story.append(Paragraph("Прибыльные и перспективные запросы", styles["section"]))
-        story.append(_ads_query_rows_table(opportunity_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    if recommendations:
-        story.append(Paragraph("Рекомендации по рекламе", styles["section"]))
-        for item in recommendations[:5]:
-            story.append(Paragraph(f"- {_format_text(item)}", styles["warning"]))
-    story.append(Spacer(1, 6))
-
-    query_loss_rows = query_profitability_section.get("top_loss_queries", [])
-    if not isinstance(query_loss_rows, list):
-        query_loss_rows = []
-    query_weak_rows = query_profitability_section.get("weak_queries", [])
-    if not isinstance(query_weak_rows, list):
-        query_weak_rows = []
-    query_performing_rows = query_profitability_section.get("top_performing_queries", [])
-    if not isinstance(query_performing_rows, list):
-        query_performing_rows = []
-    query_status = str(query_profitability_section.get("status") or "no_data").strip().lower()
-    story.append(Paragraph(_format_text(query_profitability_section.get("title") or "Поисковые запросы"), styles["section"]))
-    story.append(Paragraph(_format_text(query_profitability_section.get("subtitle") or "Прибыльность и качество поисковых запросов."), styles["meta"]))
-    story.append(Paragraph(_format_text(query_profitability_section.get("message") or "Данные query_profitability.json недоступны."), styles["warning"]))
-    if query_status != "no_data":
-        if query_loss_rows:
-            story.append(Paragraph("TOP убыточных запросов", styles["section"]))
-            story.append(_ads_query_rows_table(query_loss_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-        if query_weak_rows:
-            story.append(Paragraph("Слабые запросы", styles["section"]))
-            story.append(_ads_query_rows_table(query_weak_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-        if query_performing_rows:
-            story.append(Paragraph("Эффективные запросы", styles["section"]))
-            story.append(_ads_query_rows_table(query_performing_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    story.append(Spacer(1, 6))
-
-    sku_summary_rows = sku_health_section.get("summary_rows", [])
-    if not isinstance(sku_summary_rows, list):
-        sku_summary_rows = []
-    sku_risk_rows = sku_health_section.get("risk_rows", [])
-    if not isinstance(sku_risk_rows, list):
-        sku_risk_rows = []
-    sku_growth_rows = sku_health_section.get("growth_rows", [])
-    if not isinstance(sku_growth_rows, list):
-        sku_growth_rows = []
-    sku_attention_rows = sku_health_section.get("attention_rows", [])
-    if not isinstance(sku_attention_rows, list):
-        sku_attention_rows = []
-    sku_alert_rows = sku_health_section.get("alerts", [])
-    if not isinstance(sku_alert_rows, list):
-        sku_alert_rows = []
-    story.append(Paragraph(_format_text(sku_health_section.get("title")), styles["section"]))
-    story.append(Paragraph(_format_text(sku_health_section.get("subtitle")), styles["meta"]))
-    story.append(Paragraph(_format_text(sku_health_section.get("message")), styles["warning"]))
-    if sku_summary_rows:
-        story.append(_display_rows_table(sku_summary_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    if sku_risk_rows:
-        story.append(Paragraph("SKU под риском", styles["section"]))
-        story.append(_sku_rows_table(sku_risk_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    if sku_growth_rows:
-        story.append(Paragraph("SKU для роста", styles["section"]))
-        story.append(_sku_rows_table(sku_growth_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    if sku_attention_rows:
-        story.append(Paragraph("SKU требуют внимания", styles["section"]))
-        story.append(_sku_rows_table(sku_attention_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    if sku_alert_rows:
-        story.append(Paragraph("Alert-ы по SKU", styles["section"]))
-        story.append(_sku_rows_table(sku_alert_rows[:10], width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    story.append(Spacer(1, 6))
-
-    profit_summary_rows = profit_contribution_section.get("summary_rows", [])
-    if not isinstance(profit_summary_rows, list):
-        profit_summary_rows = []
-    profit_top_rows = profit_contribution_section.get("top_profit_skus", [])
-    if not isinstance(profit_top_rows, list):
-        profit_top_rows = []
-    profit_loss_rows = profit_contribution_section.get("loss_skus", [])
-    if not isinstance(profit_loss_rows, list):
-        profit_loss_rows = []
-    profit_status = str(profit_contribution_section.get("status") or "no_data").strip().lower()
-    story.append(Paragraph(_format_text(profit_contribution_section.get("title") or "Прибыль по товарам"), styles["section"]))
-    story.append(Paragraph(_format_text(profit_contribution_section.get("subtitle") or "Вклад SKU в прибыль."), styles["meta"]))
-    story.append(Paragraph(_format_text(profit_contribution_section.get("message") or "Данные profit_contribution.json недоступны."), styles["warning"]))
-    if profit_status != "no_data":
-        if profit_summary_rows:
-            story.append(_display_rows_table(profit_summary_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-        if profit_top_rows:
-            story.append(Paragraph("Топ прибыльных SKU", styles["section"]))
-            story.append(_profit_sku_rows_table(profit_top_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=10))
-        if profit_loss_rows:
-            story.append(Paragraph("Убыточные SKU", styles["section"]))
-            story.append(_profit_sku_rows_table(profit_loss_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=10))
-    story.append(Spacer(1, 6))
-
-    abc_render_section = abc_section or abc_analysis_section
-    abc_summary_rows = abc_render_section.get("summary_rows", [])
-    if not isinstance(abc_summary_rows, list):
-        abc_summary_rows = []
-    abc_top_a_rows = abc_render_section.get("top_a_skus", [])
-    if not isinstance(abc_top_a_rows, list):
-        abc_top_a_rows = []
-    abc_critical_a_rows = abc_render_section.get("critical_a_skus", [])
-    if not isinstance(abc_critical_a_rows, list):
-        abc_critical_a_rows = []
-    abc_c_ads_rows = abc_render_section.get("c_skus_with_ads", [])
-    if not isinstance(abc_c_ads_rows, list):
-        abc_c_ads_rows = []
-    abc_low_margin_rows = abc_render_section.get("low_margin_skus", [])
-    if not isinstance(abc_low_margin_rows, list):
-        abc_low_margin_rows = []
-    abc_categories = abc_analysis_section.get("categories", {})
-    if not isinstance(abc_categories, dict):
-        abc_categories = {}
-    abc_a_rows = abc_categories.get("A", [])
-    if not isinstance(abc_a_rows, list):
-        abc_a_rows = []
-    abc_b_rows = abc_categories.get("B", [])
-    if not isinstance(abc_b_rows, list):
-        abc_b_rows = []
-    abc_c_rows = abc_categories.get("C", [])
-    if not isinstance(abc_c_rows, list):
-        abc_c_rows = []
-    abc_status = str(abc_render_section.get("status") or "no_data").strip().lower()
-    story.append(Paragraph(_format_text(abc_render_section.get("title") or "Ассортимент / ABC"), styles["section"]))
-    story.append(Paragraph(_format_text(abc_render_section.get("subtitle") or "ABC-анализ SKU."), styles["meta"]))
-    story.append(Paragraph(_format_text(abc_render_section.get("message") or "Данные abc_analysis.json недоступны."), styles["warning"]))
-    if abc_status != "no_data":
-        if abc_summary_rows:
-            story.append(_display_rows_table(abc_summary_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-        if not abc_section:
-            if abc_a_rows:
-                story.append(Paragraph("A-SKU: ключевые товары", styles["section"]))
-                story.append(_abc_sku_rows_table(abc_a_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=10))
-            if abc_b_rows:
-                story.append(Paragraph("B-SKU", styles["section"]))
-                story.append(_abc_sku_rows_table(abc_b_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=5))
-            if abc_c_rows:
-                story.append(Paragraph("C-SKU", styles["section"]))
-                story.append(_abc_sku_rows_table(abc_c_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=5))
-        elif abc_top_a_rows:
-            story.append(Paragraph("A-SKU: основной вклад", styles["section"]))
-            story.append(_abc_section_sku_rows_table(abc_top_a_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=8))
-        if abc_critical_a_rows:
-            story.append(Paragraph("Критичные A-SKU", styles["section"]))
-            story.append(_abc_section_sku_rows_table(abc_critical_a_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=8))
-        if abc_c_ads_rows:
-            story.append(Paragraph("C-SKU с рекламной активностью", styles["section"]))
-            story.append(_abc_section_sku_rows_table(abc_c_ads_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=8))
-        if abc_low_margin_rows:
-            story.append(Paragraph("SKU с низкой маржинальностью", styles["section"]))
-            story.append(_abc_section_sku_rows_table(abc_low_margin_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], limit=8))
-    story.append(Spacer(1, 6))
-
-    finance_notice_state = str(finance_notice.get("state") or "ok").strip().lower()
-    if finance_notice_state != "ok":
-        title = _format_text(finance_notice.get("title"))
-        lines = finance_notice.get("lines", [])
-        if not isinstance(lines, list):
-            lines = []
-        story.append(Paragraph(title, styles["warning"]))
-        for line in lines:
-            story.append(Paragraph(f"- {_format_text(line)}", styles["warning"]))
-        story.append(Spacer(1, 3))
-
-    finance_rows = finance_section.get("rows", [])
-    if not isinstance(finance_rows, list):
-        finance_rows = []
-    story.append(Paragraph(_format_text(finance_section.get("title")), styles["section"]))
-    story.append(Paragraph(_format_text(finance_section.get("subtitle")), styles["meta"]))
-    story.append(_display_rows_table(finance_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
-    story.append(Spacer(1, 6))
-
-    live_rows = live_section.get("rows", [])
-    if not isinstance(live_rows, list):
-        live_rows = []
-    story.append(Paragraph(_format_text(live_section.get("title")), styles["section"]))
-    story.append(Paragraph(_format_text(live_section.get("subtitle")), styles["meta"]))
-    story.append(_display_rows_table(live_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
     story.append(Spacer(1, 6))
 
     story.append(PageBreak())
-    story.append(Paragraph("Диагностика источников", styles["section"]))
-    diagnostic_warnings = diagnostics.get("warnings", [])
-    if not isinstance(diagnostic_warnings, list):
-        diagnostic_warnings = []
-    if diagnostic_warnings:
-        story.append(Paragraph("Предупреждения", styles["body"]))
-        for item in diagnostic_warnings:
-            if not isinstance(item, dict):
-                story.append(Paragraph(f"- {_format_text(item)}", styles["warning"]))
-                continue
-            code = _format_text(item.get("code"))
-            message = _format_text(item.get("message"))
-            block = _format_text(item.get("block"))
-            level = _format_text(item.get("level"))
-            story.append(Paragraph(f"- [{level}/{block}] {code}: {message}", styles["warning"]))
-    else:
-        story.append(Paragraph("Предупреждений нет.", styles["body"]))
 
-    source_flags = diagnostics.get("source_flags", [])
-    if not isinstance(source_flags, list):
-        source_flags = []
-    if source_flags:
-        story.append(Spacer(1, 6))
-        rows: list[tuple[str, str, str]] = [("Флаг", "Значение", "Статус")]
-        for item in source_flags:
-            if not isinstance(item, dict):
+    search_section = payload.get("search_section", {})
+    if not isinstance(search_section, dict):
+        search_section = {}
+    search_available = search_section.get("available", False)
+    search_sections = search_section.get("sections", [])
+    search_summary = search_section.get("summary", [])
+
+    if search_available and (search_sections or search_summary):
+        story.append(Paragraph(_format_text(search_section.get("title") or "Поисковые запросы"), styles["section"]))
+        story.append(Spacer(1, 4))
+
+        header_style = ParagraphStyle("SearchHeader", parent=styles["hero_card"], textColor=colors.white)
+        summary_table_rows = [[Paragraph(h, header_style) for h in ['Категория', 'Кол-во', 'Действие', 'Приоритет', 'Детали']]]
+        for s in search_summary:
+            if not isinstance(s, dict):
                 continue
-            rows.append(
-                (
-                    _format_text(item.get("name")),
-                    _format_text(item.get("value")),
-                    _status_label(item.get("status")),
-                )
-            )
-        story.append(_source_flags_table(rows, width=content_width, font_name=font_info["font_name"]))
+            summary_table_rows.append([
+                Paragraph(_format_text(s.get("category", "")), styles["hero_card"]),
+                Paragraph(str(s.get("count", 0)), styles["hero_card"]),
+                Paragraph(_format_text(s.get("action", "")), styles["hero_card"]),
+                Paragraph(_format_text(s.get("priority", "")), styles["hero_card"]),
+                Paragraph(_format_text(s.get("detail", "")), styles["hero_card"]),
+            ])
+        total_actions = search_section.get("total_actions", 0)
+        summary_table_rows.append([
+            Paragraph("Итого к действию", styles["hero_card"]),
+            Paragraph(str(total_actions), styles["hero_card"]),
+            Paragraph("", styles["hero_card"]),
+            Paragraph("", styles["hero_card"]),
+            Paragraph("", styles["hero_card"]),
+        ])
+        summary_table = Table(summary_table_rows, colWidths=[content_width * 0.25, content_width * 0.10, content_width * 0.20, content_width * 0.12, content_width * 0.33])
+        summary_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F5")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ]))
+        story.append(summary_table)
+        story.append(Spacer(1, 6))
+
+        for section in search_sections:
+            if not isinstance(section, dict):
+                continue
+            sec_title = section.get("title", "")
+            sec_criterion = section.get("criterion", "")
+            sec_rows = section.get("rows", [])
+
+            story.append(Paragraph(f"<b>{_format_text(sec_title)}</b>", styles["section"]))
+            if sec_criterion:
+                story.append(Paragraph(f"Критерий: {_format_text(sec_criterion)}", styles["meta"]))
+            story.append(Spacer(1, 2))
+
+            if sec_rows:
+                sec_title_lower = sec_title.lower()
+                if "убыточн" in sec_title_lower:
+                    sec_bg = colors.HexColor("#DC2626")
+                    sec_text = colors.black
+                elif "эффективн" in sec_title_lower:
+                    sec_bg = colors.HexColor("#16A34A")
+                    sec_text = colors.black
+                elif "гипотез" in sec_title_lower:
+                    sec_bg = colors.HexColor("#D97706")
+                    sec_text = colors.black
+                else:
+                    sec_bg = colors.HexColor("#1a1a2e")
+                    sec_text = colors.white
+                sec_header_style = ParagraphStyle("SecHeader", parent=styles["hero_card"], textColor=sec_text)
+                sec_header = [Paragraph(h, sec_header_style) for h in ['Запрос', 'Показы', 'Клики', 'CTR', 'Расход', 'Заказы', 'Выручка', 'ДРР', 'Действие']]
+                table_rows = [sec_header]
+                for r in sec_rows:
+                    if not isinstance(r, dict):
+                        continue
+                    drr_val = r.get("drr")
+                    drr_text = f"{drr_val}%" if drr_val is not None else "н/д"
+                    table_rows.append([
+                        Paragraph(_format_text(r.get("query", "")), styles["hero_card"]),
+                        Paragraph(str(r.get("impressions", 0)), styles["hero_card"]),
+                        Paragraph(str(r.get("clicks", 0)), styles["hero_card"]),
+                        Paragraph(f"{r.get('ctr', 0)}%", styles["hero_card"]),
+                        Paragraph(_format_money(r.get("spend")) if r.get("spend") else "0 ₽", styles["hero_card"]),
+                        Paragraph(str(r.get("orders", 0)), styles["hero_card"]),
+                        Paragraph(_format_money(r.get("revenue")) if r.get("revenue") else "0 ₽", styles["hero_card"]),
+                        Paragraph(drr_text, styles["hero_card"]),
+                        Paragraph(_format_text(r.get("action", "")), styles["hero_card"]),
+                    ])
+                show_total = section.get("show_total", False)
+                if show_total:
+                    total_label = section.get("total_label", "Итого")
+                    total_spend = section.get("total_spend", 0)
+                    total_revenue = section.get("total_revenue", 0)
+                    total_orders = section.get("total_orders", 0)
+                    total_style = ParagraphStyle("TotalHeader", parent=styles["hero_card"], textColor=sec_text, fontName=styles["hero_card"].fontName)
+                    table_rows.append([
+                        Paragraph(f"<b>{total_label}</b>", total_style),
+                        Paragraph("", styles["hero_card"]),
+                        Paragraph("", styles["hero_card"]),
+                        Paragraph("", styles["hero_card"]),
+                        Paragraph(f"<b>{_format_money(total_spend) if total_spend else ''}</b>" if total_spend else "", total_style),
+                        Paragraph(f"<b>{total_orders}</b>" if total_orders else "", total_style),
+                        Paragraph(f"<b>{_format_money(total_revenue) if total_revenue else ''}</b>" if total_revenue else "", total_style),
+                        Paragraph("", styles["hero_card"]),
+                        Paragraph("", styles["hero_card"]),
+                    ])
+                sec_table = Table(table_rows, colWidths=[content_width * 0.22, content_width * 0.07, content_width * 0.07, content_width * 0.07, content_width * 0.11, content_width * 0.07, content_width * 0.12, content_width * 0.07, content_width * 0.12])
+                sec_table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), sec_bg),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), sec_text),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F5")]),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ]))
+                story.append(sec_table)
+            story.append(Spacer(1, 6))
+
+    story.append(PageBreak())
+
+    abc_section = payload.get("abc_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(abc_section, dict):
+        abc_section = {}
+    abc_summary_rows = abc_section.get("summary_rows", [])
+    sku_detail = payload.get("sku_detail_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(sku_detail, dict):
+        sku_detail = {}
+
+    if isinstance(abc_summary_rows, list) and abc_summary_rows:
+        story.append(Paragraph(_format_text(abc_section.get("title") or "Ассортимент / ABC"), styles["section"]))
+        subtitle = abc_section.get("subtitle", "")
+        if subtitle:
+            story.append(Paragraph(_format_text(subtitle), styles["meta"]))
+        story.append(_display_rows_table(abc_summary_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+        story.append(Spacer(1, 6))
+
+        all_abc_skus = abc_section.get("top_a_skus", []) + abc_section.get("critical_a_skus", []) + abc_section.get("c_skus_with_ads", []) + abc_section.get("low_margin_skus", [])
+        seen_skus = set()
+        unique_abc_skus = []
+        for s in all_abc_skus:
+            sku_id = s.get("sku") or s.get("nm_id") or ""
+            if sku_id and sku_id not in seen_skus:
+                seen_skus.add(sku_id)
+                unique_abc_skus.append(s)
+
+        a_skus = [s for s in unique_abc_skus if (s.get("abc_class") or "").upper() == "A"]
+        c_negative_skus = [s for s in unique_abc_skus if (s.get("abc_class") or "").upper() == "C" and (s.get("profit") or 0) < 0]
+
+        if a_skus:
+            story.append(Paragraph("Товары категории А — основные драйверы", styles["section"]))
+            story.append(Spacer(1, 4))
+            top_skus_map = {str(s.get("nm_id") or ""): s for s in sku_detail.get("top_skus", []) if isinstance(s, dict)}
+            for idx, s in enumerate(a_skus):
+                sku_id = s.get("sku") or s.get("nm_id") or ""
+                detail = top_skus_map.get(str(sku_id), {})
+                nm_id = detail.get("nm_id") or sku_id
+                seller_article = detail.get("seller_article", "")
+                header_text = f"А-{idx+1}: {nm_id}"
+                if seller_article:
+                    header_text += f" | {seller_article}"
+                story.append(Paragraph(header_text, styles["section"]))
+                half_width = content_width / 2 - 2 * mm
+                unit_table = _sku_detail_table(detail if detail else {
+                    "nm_id": sku_id,
+                    "orders_count": 0,
+                    "buyouts_count": 0,
+                    "revenue": s.get("revenue"),
+                    "profit": s.get("profit"),
+                }, width=half_width, font_name=font_info["font_name"], style=styles["hero_card"])
+                funnel = detail.get("funnel", {})
+                has_funnel = any(v for k, v in funnel.items() if k not in ("ctr_pct", "cr_cart_pct", "cr_order_pct") and v)
+                if has_funnel:
+                    funnel_table = _sku_funnel_table(funnel, width=half_width, font_name=font_info["font_name"], style=styles["hero_card"])
+                    outer = Table([[unit_table, funnel_table]], colWidths=[half_width + 2 * mm, half_width + 2 * mm])
+                    outer.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+                    story.append(outer)
+                else:
+                    story.append(unit_table)
+                story.append(Spacer(1, 8))
+
+        if c_negative_skus:
+            story.append(Paragraph("Товары с отрицательной прибылью", styles["section"]))
+            story.append(Spacer(1, 4))
+            header_style = ParagraphStyle("AbcNegHeader", parent=styles["hero_card"], textColor=colors.white)
+            neg_header = [Paragraph(h, header_style) for h in ['SKU', 'Выручка', 'Прибыль', 'Причина', 'Рекомендация']]
+            neg_rows = [neg_header]
+            for s in c_negative_skus:
+                neg_rows.append([
+                    Paragraph(_format_text(s.get("sku") or s.get("nm_id") or ""), styles["hero_card"]),
+                    Paragraph(_format_query_money(s.get("revenue")), styles["hero_card"]),
+                    Paragraph(_format_query_money(s.get("profit")), styles["hero_card"]),
+                    Paragraph(_format_text(s.get("reason") or "низкая маржинальность"), styles["hero_card"]),
+                    Paragraph(_format_text(s.get("recommended_action") or "пересмотреть цену, скидки и себестоимость"), styles["hero_card"]),
+                ])
+            neg_table = Table(neg_rows, colWidths=[content_width * 0.12, content_width * 0.14, content_width * 0.14, content_width * 0.30, content_width * 0.30])
+            neg_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#7C2D12")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#FEF2F2"), colors.HexColor("#FEE2E2")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ]))
+            story.append(neg_table)
+            story.append(Spacer(1, 6))
 
     doc.build(story)
     return {
         "pdf_path": str(target),
         "font_name": font_info["font_name"],
         "font_path": font_info["font_path"],
-        "finance_section_state": finance_notice_state or "ok",
-        "finance_notice_state": finance_notice_state or "ok",
-        "hero_cards_count": len(hero_cards),
-        "hero_data_status": _format_text(hero.get("data_status")),
-        "commerce_section_rows_count": len(commerce_rows),
-        "funnel_section_rows_count": len(funnel_rows),
-        "funnel_section_status": _format_text(funnel_section.get("status")),
-        "ads_section_rows_count": len(ads_rows),
-        "ads_section_status": _format_text(ads_efficiency_section.get("status") or ads_section.get("status")),
-        "ads_efficiency_section_status": _format_text(ads_efficiency_section.get("status")),
-        "ads_efficiency_loss_rows_count": len(loss_rows),
-        "ads_efficiency_opportunity_rows_count": len(opportunity_rows),
-        "query_profitability_section_status": _format_text(query_profitability_section.get("status")),
-        "query_profitability_loss_rows_count": len(query_loss_rows),
-        "query_profitability_weak_rows_count": len(query_weak_rows),
-        "query_profitability_performing_rows_count": len(query_performing_rows),
-        "sku_health_section_status": _format_text(sku_health_section.get("status")),
-        "sku_health_summary_rows_count": len(sku_summary_rows),
-        "sku_health_risk_rows_count": len(sku_risk_rows),
-        "sku_health_growth_rows_count": len(sku_growth_rows),
-        "sku_health_attention_rows_count": len(sku_attention_rows),
-        "sku_health_alert_rows_count": len(sku_alert_rows),
-        "profit_contribution_section_status": _format_text(profit_contribution_section.get("status")),
-        "profit_contribution_top_rows_count": len(profit_top_rows),
-        "profit_contribution_loss_rows_count": len(profit_loss_rows),
-        "abc_section_status": _format_text(abc_render_section.get("status")),
-        "abc_top_a_rows_count": len(abc_top_a_rows),
-        "abc_critical_a_rows_count": len(abc_critical_a_rows),
-        "abc_c_ads_rows_count": len(abc_c_ads_rows),
-        "abc_low_margin_rows_count": len(abc_low_margin_rows),
-        "abc_analysis_section_status": _format_text(abc_analysis_section.get("status")),
-        "abc_analysis_a_rows_count": len(abc_a_rows),
-        "abc_analysis_b_rows_count": len(abc_b_rows),
-        "abc_analysis_c_rows_count": len(abc_c_rows),
-        "finance_section_rows_count": len(finance_rows),
-        "live_section_rows_count": len(live_rows),
-        "diagnostics_on_new_page": True,
-        "diagnostics_warnings_count": len(diagnostic_warnings),
-        "diagnostics_source_flags_count": len(source_flags),
+        "hero_rows_count": len(hero_rows),
+        "top_skus_count": len(a_skus) if isinstance(abc_summary_rows, list) and abc_summary_rows else 0,
+        "loss_skus_count": len(c_negative_skus) if isinstance(abc_summary_rows, list) and abc_summary_rows else 0,
     }

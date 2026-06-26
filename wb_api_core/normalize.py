@@ -640,6 +640,7 @@ def normalize_bundle(raw_bundle: Dict[str, Any]) -> Dict[str, Any]:
     sales_rows = _normalize_sales(list((raw_bundle.get("sales") or {}).get("rows_raw", [])))
     stocks_rows = _normalize_stocks(list((raw_bundle.get("stocks") or {}).get("rows_raw", [])))
     ads_rows = _normalize_ads(list((raw_bundle.get("ads") or {}).get("rows_raw", [])))
+    search_rows = list((raw_bundle.get("search_report") or {}).get("rows_raw", []))
     return {
         "cabinet_commerce_rows": cabinet_commerce_rows,
         "finance_final_rows": finance_final_rows,
@@ -647,6 +648,7 @@ def normalize_bundle(raw_bundle: Dict[str, Any]) -> Dict[str, Any]:
         "sales_rows": sales_rows,
         "stocks_rows": stocks_rows,
         "ads_rows": ads_rows,
+        "search_rows": search_rows,
         "debug": {
             "counts": {
                 "cabinet_commerce": len(cabinet_commerce_rows),
@@ -655,6 +657,7 @@ def normalize_bundle(raw_bundle: Dict[str, Any]) -> Dict[str, Any]:
                 "sales": len(sales_rows),
                 "stocks": len(stocks_rows),
                 "ads": len(ads_rows),
+                "search": len(search_rows),
             },
             "finance_mapping": finance_mapping,
         },

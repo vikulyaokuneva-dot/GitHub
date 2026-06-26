@@ -36,6 +36,39 @@ def latest_successful_snapshot_path(repo_root: str, seller_id: str) -> str:
     )
 
 
+def _finance_cache_path(repo_root: str, seller_id: str) -> str:
+    return os.path.join(
+        repo_root,
+        "cabinets",
+        seller_id,
+        "artifacts",
+        "wb_api_core",
+        "cache",
+        "snapshots",
+        "latest_finance.json",
+    )
+
+
+def read_latest_finance_cache(*, repo_root: str, seller_id: str) -> Dict[str, Any] | None:
+    path = _finance_cache_path(repo_root, seller_id)
+    payload = _read_json(path)
+    if not isinstance(payload, dict):
+        return None
+    try:
+        cache_age_seconds = max(0.0, time.time() - float(os.path.getmtime(path)))
+    except Exception:
+        cache_age_seconds = 0.0
+    return {"data": payload, "path": path, "cache_age_seconds": round(cache_age_seconds, 2)}
+
+
+def write_finance_cache(*, repo_root: str, seller_id: str, finance_block: Dict[str, Any]) -> str:
+    if not isinstance(finance_block, dict) or not finance_block.get("available"):
+        return ""
+    path = _finance_cache_path(repo_root, seller_id)
+    _write_json(path, finance_block)
+    return path
+
+
 def read_latest_successful_snapshot(*, repo_root: str, seller_id: str) -> Dict[str, Any] | None:
     path = latest_successful_snapshot_path(repo_root, seller_id)
     payload = _read_json(path)
@@ -188,6 +221,20 @@ def apply_latest_successful_live_fallback(
             "source_actual_date": source_actual_date,
         }
 
+    finance_daily = result.get("finance_final_daily", {})
+    if isinstance(finance_daily, dict) and not finance_daily.get("available"):
+        cached_finance = cached_snapshot.get("finance_final_daily", {})
+        if isinstance(cached_finance, dict) and cached_finance.get("available"):
+            result["finance_final_daily"] = dict(cached_finance)
+            warnings = list(result.get("warnings", []) or [])
+            warnings.append({
+                "code": "finance_final_latest_successful_cache_fallback",
+                "message": "finance_final_daily returned 429; filled from latest_successful snapshot.",
+                "level": "warning",
+                "block": "finance_final",
+            })
+            result["warnings"] = warnings
+
     return result
 
 
@@ -285,7 +332,7 @@ def build_debug(
     reconcile_result: Dict[str, Any],
 ) -> Dict[str, Any]:
     endpoints = {}
-    for key in ("cabinet_commerce", "finance_final", "orders", "sales", "stocks", "ads"):
+    for key in ("cabinet_commerce", "finance_final", "orders", "sales", "stocks", "ads", "search_report"):
         debug = dict((raw_bundle.get(key) or {}).get("debug", {}) or {})
         endpoints[key] = {
             "success": bool(debug.get("success", False)),
@@ -325,6 +372,7 @@ def build_debug(
         "sales": len(list((raw_bundle.get("sales") or {}).get("rows_raw", []))),
         "stocks": len(list((raw_bundle.get("stocks") or {}).get("rows_raw", []))),
         "ads": len(list((raw_bundle.get("ads") or {}).get("rows_raw", []))),
+        "search": len(list((raw_bundle.get("search_report") or {}).get("rows_raw", []))),
     }
     normalized_counts = dict((normalized_bundle.get("debug") or {}).get("counts", {}) or {})
     reconciled_counts = dict((reconcile_result.get("counts") or {}).get("reconciled", {}) or {})
@@ -382,7 +430,7 @@ def _merge_reconciled_rows_preserve_existing(new_payload: Dict[str, Any], existi
         try:
             existing = _read_json(existing_path)
             if isinstance(existing, dict):
-                row_keys = ("cabinet_commerce_rows", "live_orders_rows", "live_sales_rows", "live_stocks_rows", "live_ads_rows")
+                row_keys = ("cabinet_commerce_rows", "live_orders_rows", "live_sales_rows", "live_stocks_rows", "live_ads_rows", "live_search_rows")
                 for key in row_keys:
                     if existing.get(key):
                         new_payload[key] = existing[key]
@@ -412,9 +460,10 @@ def write_artifacts(
         "live_sales_rows": list((((live_operational.get("sales") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
         "live_stocks_rows": list((((live_operational.get("stocks") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
         "live_ads_rows": list((((live_operational.get("ads") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
+        "live_search_rows": list((((live_operational.get("search_report") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
     }
     existing_reconciled_path = os.path.join(out_dir, "reconciled_rows.json")
-    rows_payload = _merge_reconciled_rows_preserve_existing(new_rows_payload, existing_reconciled_path)
+    rows_payload = _merge_reconciled_rows_preserve_existing(new_rows_payload, existing_reconciled_path, reconcile_result)
     _write_json(os.path.join(out_dir, "snapshot.json"), snapshot)
     _write_json(os.path.join(out_dir, "debug.json"), debug)
     _write_json(os.path.join(out_dir, "reconciled_rows.json"), rows_payload)

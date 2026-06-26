@@ -10,8 +10,8 @@
     "target_date": "2026-06-19",
     "orders_count": 15.0,
     "orders_amount": 28200.0,
-    "buyouts_count": 0.0,
-    "buyouts_amount": 0.0
+    "buyouts_count": 1.0,
+    "buyouts_amount": 740.0
   },
   "funnel_daily": {
     "source": "sales_funnel_api",
@@ -22,11 +22,11 @@
     "cart_count": 38.0,
     "orders_count": 15.0,
     "orders_amount": 28200.0,
-    "buyouts_count": 0.0,
-    "buyouts_amount": 0.0,
+    "buyouts_count": 1.0,
+    "buyouts_amount": 740.0,
     "open_to_cart_rate": 12.34,
     "cart_to_order_rate": 39.47,
-    "order_to_buyout_rate": 0.0,
+    "order_to_buyout_rate": 6.67,
     "upper_funnel_status": "ok",
     "lower_funnel_status": "ok",
     "status": "ok"
@@ -64,7 +64,7 @@
       "stale": true,
       "stale_reason": "rate_limited",
       "source_actual_date": "2026-06-19",
-      "cache_age_seconds": 84640.47,
+      "cache_age_seconds": 162677.92,
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
       "cache_fallback_used": true
     },
@@ -77,7 +77,7 @@
       "stale": true,
       "stale_reason": "rate_limited",
       "source_actual_date": "2026-06-19",
-      "cache_age_seconds": 84640.47,
+      "cache_age_seconds": 162677.92,
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
       "cache_fallback_used": true
     },
@@ -91,7 +91,7 @@
       "stale": true,
       "stale_reason": "rate_limited",
       "source_actual_date": "2026-06-19",
-      "cache_age_seconds": 84640.47,
+      "cache_age_seconds": 162677.92,
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
       "cache_fallback_used": true
     },

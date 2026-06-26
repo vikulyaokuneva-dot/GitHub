@@ -235,6 +235,20 @@ def reconcile_bundle(
         "upper_funnel_status": "ok" if (funnel_open_count and funnel_open_count > 0) or (funnel_cart_count and funnel_cart_count > 0) else "unavailable",
         "lower_funnel_status": "ok" if (funnel_orders_count and funnel_orders_count > 0) or (funnel_buyouts_count and funnel_buyouts_count > 0) else "unavailable",
         "status": _determine_funnel_status(funnel_open_count, funnel_cart_count, funnel_orders_count, funnel_buyouts_count),
+        "sku_rows": [
+            {
+                "nm_id": r.get("nm_id"),
+                "seller_sku": r.get("seller_sku"),
+                "title": r.get("title"),
+                "views": r.get("open_count", 0),
+                "cart": r.get("cart_count", 0),
+                "orders": r.get("order_count", 0),
+                "order_sum": r.get("order_sum", 0),
+                "buyouts": r.get("buyout_count", 0),
+                "buyout_sum": r.get("buyout_sum", 0),
+            }
+            for r in (cabinet_rows if cabinet_available else [])
+        ],
     }
 
 
@@ -306,6 +320,8 @@ def reconcile_bundle(
         }
 
     ads_available = bool((raw_bundle.get("ads") or {}).get("debug", {}).get("success", False))
+    search_available = bool((raw_bundle.get("search_report") or {}).get("debug", {}).get("success", False))
+    search_rows = list(normalized_bundle.get("search_rows", []))
 
     live_operational = {
         "orders": {
@@ -347,6 +363,13 @@ def reconcile_bundle(
             "count": len(ads_rows),
             "ads_spend_total": _safe_total(ads_rows, "ads_spend") if ads_available else 0.0,
             "rows": ads_rows,
+        },
+        "search_report": {
+            "source": "search_report_api",
+            "available": search_available,
+            "target_date": target_date,
+            "count": len(search_rows),
+            "rows": search_rows,
         },
     }
 
