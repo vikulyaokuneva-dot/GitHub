@@ -1,0 +1,74 @@
+[
+  {
+    "sku": "333615320",
+    "revenue": 990.56,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "551253854",
+    "revenue": 0.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "590614192",
+    "revenue": 0.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "875380656",
+    "revenue": 0.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "875412618",
+    "revenue": 0.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "452102417",
+    "revenue": 538.12,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "898642228",
+    "revenue": 15603.75,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "453526507",
+    "revenue": 1111.04,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "969315704",
+    "revenue": 0.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  }
+]

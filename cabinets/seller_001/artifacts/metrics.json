@@ -3970,7 +3970,7 @@
       "version": "2.1",
       "seller_id": "seller_001",
       "run_date": "2026-06-25",
-      "generated_at": "2026-06-26T22:17:46Z",
+      "generated_at": "2026-06-26T22:31:40Z",
       "wb_irp_effective_date": "2026-03-23",
       "source_artifacts": [
         "metrics.json"

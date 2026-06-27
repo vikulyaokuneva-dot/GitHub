@@ -5,6 +5,7 @@
       "date": "2026-06-25",
       "path": "daily/2026-06-25",
       "files": [
+        "2026-06-25_outcomes.json",
         "abc_analysis.json",
         "decisions.json",
         "event_ledger.json",

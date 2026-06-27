@@ -1,0 +1,94 @@
+[
+  {
+    "code": "wb_api_realization_missing",
+    "message": "WB API sales rows are present, but realization rows are empty; financial contour is not confirmed."
+  },
+  {
+    "code": "input_files_found",
+    "message": "Input files found: total=0, sales=0, ads=0, stocks=0, funnel=0, supplier_goods=0, unknown=0"
+  },
+  {
+    "code": "input_files_missing",
+    "message": "No local input files found in cabinets/seller_001/input"
+  },
+  {
+    "code": "sales_report_missing",
+    "message": "No valid sales report found in input/."
+  },
+  {
+    "code": "ads_report_missing",
+    "message": "No valid ads report found in input/."
+  },
+  {
+    "code": "stocks_report_missing",
+    "message": "No valid stocks report found in input/."
+  },
+  {
+    "code": "financial_data_missing",
+    "message": "Financial contour is missing: no realization rows and no local financial fallback."
+  },
+  {
+    "code": "financial_kernel_input_missing_groups",
+    "message": "Missing required semantic groups: operation_name, quantity, row_amount"
+  },
+  {
+    "code": "financial_kernel_rows_empty",
+    "message": "No financial rows were provided for account-level calculation."
+  },
+  {
+    "code": "financial_contour_missing",
+    "message": "Financial contour missing: realization rows are unavailable for current operational day."
+  },
+  {
+    "code": "sales_funnel_insufficient_data",
+    "message": "Insufficient funnel data for 9 SKU."
+  },
+  {
+    "code": "keyword_source_rows_missing",
+    "message": "Keyword source rows are missing in the current daily input."
+  },
+  {
+    "code": "keyword_monitoring_insufficient_data",
+    "message": "Keyword monitoring has no query-level rows for analysis."
+  },
+  {
+    "code": "advertising_efficiency_disabled",
+    "message": "Advertising efficiency engine is disabled because ads data is missing."
+  },
+  {
+    "code": "advertising_efficiency_ads_missing",
+    "message": "Advertising efficiency analysis is disabled because ads data is missing."
+  },
+  {
+    "code": "advertising_efficiency_query_missing",
+    "message": "Query-level advertising rows are missing; query analysis is limited."
+  },
+  {
+    "code": "territorial_distribution_demand_geo_partial",
+    "message": "Demand geography is missing for 7 SKU rows."
+  },
+  {
+    "code": "territorial_distribution_suppressed_due_to_data_quality",
+    "message": "Portfolio-level territorial conclusions downgraded due to low evidence coverage."
+  },
+  {
+    "code": "territorial_distribution_built",
+    "message": "Territorial distribution built for 2 SKU with KTR"
+  },
+  {
+    "code": "territorial_distribution_preview_only",
+    "message": "Territorial conclusions are preview-only due to limited evidence coverage."
+  },
+  {
+    "code": "insufficient_warehouse_data",
+    "message": "Insufficient warehouse-level data for full territorial analysis"
+  },
+  {
+    "code": "decision_memory_updated",
+    "message": "Decision memory updated: added 9 records."
+  },
+  {
+    "code": "decision_outcomes_evaluated",
+    "message": "Decision outcomes evaluated: 11"
+  }
+]

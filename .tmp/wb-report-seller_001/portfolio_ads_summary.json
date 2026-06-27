@@ -1,0 +1,22 @@
+{
+  "analysis_mode": "disabled",
+  "portfolio_ad_spend": 0,
+  "portfolio_orders_from_ads": 0,
+  "portfolio_buyouts_from_ads": 0,
+  "portfolio_revenue_from_ads": 0,
+  "portfolio_profit_from_ads": 0,
+  "portfolio_ROMI": null,
+  "portfolio_DRR": null,
+  "portfolio_CPO": null,
+  "top_profitable_queries": [],
+  "top_unprofitable_queries": [],
+  "high_potential_queries": [],
+  "total_ad_spend": 0,
+  "orders_from_ads": 0,
+  "buyouts_from_ads": 0,
+  "revenue_from_ads": 0,
+  "profit_from_ads": 0,
+  "ROMI": null,
+  "DRR": null,
+  "CPO": null
+}

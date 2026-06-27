@@ -1,0 +1,12 @@
+{
+  "analysis_mode": "disabled",
+  "status": "disabled",
+  "summary": {
+    "query_count": 0,
+    "profitable": 0,
+    "neutral": 0,
+    "unprofitable": 0,
+    "insufficient_data": 0
+  },
+  "items": []
+}

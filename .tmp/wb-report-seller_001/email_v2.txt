@@ -1,0 +1,59 @@
+WB Core Report v2
+seller_001
+Date: 2026-06-27
+Operational date: 2026-06-26
+
+Commerce:
+Заказы: 15 шт (ok; Источник: cabinet_commerce_daily)
+Сумма заказов: 41 050 ₽ (ok; Источник: sales_funnel_api)
+Выкупы: 0 шт (ok; Подтвержденные выкупы из cabinet_commerce_daily.)
+Сумма выкупов: 0 ₽ (ok; Источник: sales_funnel_api)
+Источник: sales_funnel_api (ok; Блок: cabinet_commerce_daily; fallback: нет)
+
+Advertising:
+Spend: 0.00
+DRR: unavailable
+ROAS: unavailable
+ROMI: unavailable
+Wasted spend: unavailable
+Action: Рекламная аналитика отключена или рекламные данные отсутствуют.
+
+Поисковые запросы:
+Статус: нет данных
+
+Товары:
+SKU в росте: 0
+SKU под риском: 7
+Требуют внимания: 9
+Dead stock: 5
+Действие: Собрать больше данных
+
+Прибыль и ассортимент:
+Топ прибыльных SKU: 5 SKU; доля прибыли недоступна
+Убыточные SKU: 0
+A-категория: 0 SKU
+
+Finance:
+Realized sales: 14 / 17 525.08
+Gross revenue: 17 525.08
+Seller payout: 15 022.16
+Returns: unavailable
+Deliveries: 14
+WB commission: 1 479.71
+Logistics: unavailable
+Storage: 40.03
+Acquiring: 697.67
+
+Live:
+Live orders: 15 / 41 050.00
+Live sales: 14 / 29 475.69
+Live stocks: 121
+
+Warnings:
+- [cabinet_commerce] Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them.
+- [stock_section] Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.
+- [live_operational.stocks] Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день.
+- [advertising_efficiency] Advertising efficiency analysis is disabled because ads data is missing.
+- [advertising_efficiency] Query-level advertising rows are missing; query analysis is limited.
+- [sku_health] funnel_insufficient_data
+- [profit_contribution] total_profit_non_positive

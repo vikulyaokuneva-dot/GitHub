@@ -1,0 +1,371 @@
+{
+  "date": "2026-06-27",
+  "sku_count": 9,
+  "items": [
+    {
+      "sku": "333615320",
+      "nm_id": "333615320",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 129,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "stock": {
+          "value": 129.0,
+          "avg_7d": 0.0,
+          "delta": 129.0,
+          "delta_pct": null,
+          "days": 4
+        }
+      },
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "452102417",
+      "nm_id": "452102417",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 13,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "stock": {
+          "value": 13.0,
+          "avg_7d": 0.0,
+          "delta": 13.0,
+          "delta_pct": null,
+          "days": 4
+        }
+      },
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "453526507",
+      "nm_id": "453526507",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 10,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "stock": {
+          "value": 10.0,
+          "avg_7d": 0.0,
+          "delta": 10.0,
+          "delta_pct": null,
+          "days": 4
+        }
+      },
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "551253854",
+      "nm_id": "551253854",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 3,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {},
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "missing"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "590614192",
+      "nm_id": "590614192",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 70,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "stock": {
+          "value": 70.0,
+          "avg_7d": 0.0,
+          "delta": 70.0,
+          "delta_pct": null,
+          "days": 4
+        }
+      },
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "875380656",
+      "nm_id": "875380656",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 11,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {},
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "missing"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "875412618",
+      "nm_id": "875412618",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 3,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {},
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "missing"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "898642228",
+      "nm_id": "898642228",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 32,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {},
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "missing"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "969315704",
+      "nm_id": "969315704",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 5,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {},
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "missing"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    }
+  ]
+}

@@ -3,44 +3,44 @@
     "engine": "logistics_ktr_engine",
     "version": "1.0",
     "seller_id": "seller_001",
-    "run_date": "2026-06-25",
-    "generated_at": "2026-06-26T22:31:40Z",
+    "run_date": "2026-06-27",
+    "generated_at": "2026-06-27T07:51:21Z",
     "source_artifacts": [
       "territorial_distribution.json"
     ]
   },
   "summary": {
-    "sku_total": 7,
+    "sku_total": 9,
     "sku_with_ktr": 2,
     "efficient_count": 1,
-    "acceptable_count": 1,
+    "acceptable_count": 0,
     "inefficient_count": 0,
-    "critical_count": 0,
+    "critical_count": 1,
     "low_confidence_count": 7,
-    "avg_ktr": 1.0,
-    "avg_locality_score": 0.651,
-    "top_critical_skus": []
+    "avg_ktr": 1.3,
+    "avg_locality_score": 0.431,
+    "top_critical_skus": [
+      "898642228"
+    ]
   },
   "skus": [
     {
       "sku": "333615320",
-      "total_buys": 1,
-      "total_stock": 83,
-      "ktr": 1.2,
-      "distribution_gap": 0.53,
+      "total_buys": 0,
+      "total_stock": 129,
+      "ktr": null,
+      "distribution_gap": 0.5,
       "confidence": "low",
       "low_sample_warning": true,
-      "locality_score": 0.47,
-      "logistics_efficiency_status": "acceptable",
-      "priority_for_relocation": "low",
-      "dominant_demand_warehouses": [
-        "электросталь"
-      ],
+      "locality_score": null,
+      "logistics_efficiency_status": "insufficient_data",
+      "priority_for_relocation": "none",
+      "dominant_demand_warehouses": [],
       "dominant_stock_warehouses": [
         "электросталь",
         "тула"
       ],
-      "explanation": "Distribution is mostly aligned with demand. Monitor for further changes."
+      "explanation": "Insufficient data for logistics assessment."
     },
     {
       "sku": "452102417",
@@ -62,27 +62,8 @@
     },
     {
       "sku": "453526507",
-      "total_buys": 1,
-      "total_stock": 12,
-      "ktr": 0.8,
-      "distribution_gap": 0.167,
-      "confidence": "low",
-      "low_sample_warning": true,
-      "locality_score": 0.833,
-      "logistics_efficiency_status": "efficient",
-      "priority_for_relocation": "none",
-      "dominant_demand_warehouses": [
-        "электросталь"
-      ],
-      "dominant_stock_warehouses": [
-        "электросталь"
-      ],
-      "explanation": "Stock distribution is well aligned with demand geography."
-    },
-    {
-      "sku": "551253854",
       "total_buys": 0,
-      "total_stock": 2,
+      "total_stock": 10,
       "ktr": null,
       "distribution_gap": 0.5,
       "confidence": "low",
@@ -92,12 +73,12 @@
       "priority_for_relocation": "none",
       "dominant_demand_warehouses": [],
       "dominant_stock_warehouses": [
-        "екатеринбург перспективная 14"
+        "электросталь"
       ],
       "explanation": "Insufficient data for logistics assessment."
     },
     {
-      "sku": "590614192",
+      "sku": "551253854",
       "total_buys": 0,
       "total_stock": 3,
       "ktr": null,
@@ -109,44 +90,101 @@
       "priority_for_relocation": "none",
       "dominant_demand_warehouses": [],
       "dominant_stock_warehouses": [
-        "остальные склады"
+        "екатеринбург перспективная 14",
+        "волгоград"
+      ],
+      "explanation": "Insufficient data for logistics assessment."
+    },
+    {
+      "sku": "590614192",
+      "total_buys": 0,
+      "total_stock": 70,
+      "ktr": null,
+      "distribution_gap": 0.5,
+      "confidence": "low",
+      "low_sample_warning": true,
+      "locality_score": null,
+      "logistics_efficiency_status": "insufficient_data",
+      "priority_for_relocation": "none",
+      "dominant_demand_warehouses": [],
+      "dominant_stock_warehouses": [
+        "тула"
+      ],
+      "explanation": "Insufficient data for logistics assessment."
+    },
+    {
+      "sku": "875380656",
+      "total_buys": 0,
+      "total_stock": 11,
+      "ktr": null,
+      "distribution_gap": 0.5,
+      "confidence": "low",
+      "low_sample_warning": true,
+      "locality_score": null,
+      "logistics_efficiency_status": "insufficient_data",
+      "priority_for_relocation": "none",
+      "dominant_demand_warehouses": [],
+      "dominant_stock_warehouses": [
+        "электросталь"
+      ],
+      "explanation": "Insufficient data for logistics assessment."
+    },
+    {
+      "sku": "875412618",
+      "total_buys": 0,
+      "total_stock": 3,
+      "ktr": null,
+      "distribution_gap": 0.5,
+      "confidence": "low",
+      "low_sample_warning": true,
+      "locality_score": null,
+      "logistics_efficiency_status": "insufficient_data",
+      "priority_for_relocation": "none",
+      "dominant_demand_warehouses": [],
+      "dominant_stock_warehouses": [
+        "электросталь"
       ],
       "explanation": "Insufficient data for logistics assessment."
     },
     {
       "sku": "898642228",
-      "total_buys": 0,
-      "total_stock": 41,
-      "ktr": null,
-      "distribution_gap": 0.5,
-      "confidence": "low",
-      "low_sample_warning": true,
-      "locality_score": null,
-      "logistics_efficiency_status": "insufficient_data",
-      "priority_for_relocation": "none",
-      "dominant_demand_warehouses": [],
+      "total_buys": 11,
+      "total_stock": 32,
+      "ktr": 1.8,
+      "distribution_gap": 0.938,
+      "confidence": "high",
+      "low_sample_warning": false,
+      "locality_score": 0.062,
+      "logistics_efficiency_status": "critical",
+      "priority_for_relocation": "high",
+      "dominant_demand_warehouses": [
+        "брянск"
+      ],
       "dominant_stock_warehouses": [
         "остальные склады",
-        "сц брянск 2"
+        "обухово"
       ],
-      "explanation": "Insufficient data for logistics assessment."
+      "explanation": "Strong mismatch between demand geography and stock geography."
     },
     {
       "sku": "969315704",
-      "total_buys": 0,
+      "total_buys": 4,
       "total_stock": 5,
-      "ktr": null,
-      "distribution_gap": 0.5,
-      "confidence": "low",
-      "low_sample_warning": true,
-      "locality_score": null,
-      "logistics_efficiency_status": "insufficient_data",
+      "ktr": 0.8,
+      "distribution_gap": 0.2,
+      "confidence": "medium",
+      "low_sample_warning": false,
+      "locality_score": 0.8,
+      "logistics_efficiency_status": "efficient",
       "priority_for_relocation": "none",
-      "dominant_demand_warehouses": [],
-      "dominant_stock_warehouses": [
-        "сц вологда 2"
+      "dominant_demand_warehouses": [
+        "владимир",
+        "рязань тюшевское"
       ],
-      "explanation": "Insufficient data for logistics assessment."
+      "dominant_stock_warehouses": [
+        "владимир"
+      ],
+      "explanation": "Stock distribution is well aligned with demand geography."
     }
   ]
 }
