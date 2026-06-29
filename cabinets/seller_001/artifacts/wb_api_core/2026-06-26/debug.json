@@ -1,7 +1,7 @@
 {
   "seller_id": "seller_001",
   "run_date": "2026-06-26",
-  "operational_date": "2026-06-25",
+  "operational_date": "2026-06-26",
   "timezone": "Europe/Moscow",
   "source_mode": "wb_api_core_v2",
   "source_rules": {
@@ -14,28 +14,32 @@
   },
   "endpoints": {
     "cabinet_commerce": {
-      "success": true,
-      "status_code": 200,
-      "attempts": 0,
-      "rows_loaded": 25,
-      "error_text": "",
+      "success": false,
+      "status_code": 429,
+      "attempts": 4,
+      "rows_loaded": 0,
+      "error_text": "retry_window_exhausted: 429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"6ab5db8b624a9d62b2cc1e98fb7fcef8\",\n    \"origin\": \"s2sauth; rate_limit_headers: x_ratelimit_retry=27, x_ratelimit_reset=27",
       "base_url": "https://seller-analytics-api.wildberries.ru",
-      "cache_hit": true,
-      "retry_count": 0,
-      "retry_delays": [],
-      "final_failure_reason": "",
+      "cache_hit": false,
+      "retry_count": 3,
+      "retry_delays": [
+        30.0,
+        30.0,
+        30.0
+      ],
+      "final_failure_reason": "retry_window_exhausted: 429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"6ab5db8b624a9d62b2cc1e98fb7fcef8\",\n    \"origin\": \"s2sauth; rate_limit_headers: x_ratelimit_retry=27, x_ratelimit_reset=27",
       "retry_after": "",
-      "x_ratelimit_retry": "",
-      "x_ratelimit_reset": "",
+      "x_ratelimit_retry": "27",
+      "x_ratelimit_reset": "27",
       "x_ratelimit_remaining": "",
       "rate_limit_delay_seconds": null,
-      "token_present": false,
-      "token_env_name_used": "",
+      "token_present": true,
+      "token_env_name_used": "WB_API_TOKEN",
       "pages_loaded": 0,
       "page_limit": 1000,
-      "cache_mode": "fresh_local_cache",
-      "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\cabinet_commerce_daily\\2026-06-25.json",
-      "cache_age_seconds": 6951.87,
+      "cache_mode": "miss",
+      "cache_path": "",
+      "cache_age_seconds": null,
       "cache_fallback_used": false
     },
     "finance_final": {
@@ -43,15 +47,15 @@
       "status_code": 429,
       "attempts": 1,
       "rows_loaded": 0,
-      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"f0f5772e02dff7cb8e427f4d39609779\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=36250, x_ratelimit_reset=36250",
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"42392f25a9852dce6d5cbb4c2a0a8edb\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=43073, x_ratelimit_reset=43073",
       "base_url": "https://finance-api.wildberries.ru",
       "cache_hit": false,
       "retry_count": 0,
       "retry_delays": [],
-      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"f0f5772e02dff7cb8e427f4d39609779\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=36250, x_ratelimit_reset=36250",
+      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"42392f25a9852dce6d5cbb4c2a0a8edb\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=43073, x_ratelimit_reset=43073",
       "retry_after": "",
-      "x_ratelimit_retry": "36250",
-      "x_ratelimit_reset": "36250",
+      "x_ratelimit_retry": "43073",
+      "x_ratelimit_reset": "43073",
       "x_ratelimit_remaining": "",
       "rate_limit_delay_seconds": null,
       "token_present": true,
@@ -65,15 +69,15 @@
       "status_code": 429,
       "attempts": 1,
       "rows_loaded": 0,
-      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"b5d848a714c9a7b1f7c587470ca10186\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=3846, x_ratelimit_reset=3846",
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"88f872b9e0fdfe1a9247004efc93dc8c\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=8935, x_ratelimit_reset=8935",
       "base_url": "https://statistics-api.wildberries.ru",
       "cache_hit": false,
       "retry_count": 0,
       "retry_delays": [],
-      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"b5d848a714c9a7b1f7c587470ca10186\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=3846, x_ratelimit_reset=3846",
+      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"88f872b9e0fdfe1a9247004efc93dc8c\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=8935, x_ratelimit_reset=8935",
       "retry_after": "",
-      "x_ratelimit_retry": "3846",
-      "x_ratelimit_reset": "3846",
+      "x_ratelimit_retry": "8935",
+      "x_ratelimit_reset": "8935",
       "x_ratelimit_remaining": "",
       "rate_limit_delay_seconds": null,
       "token_present": true,
@@ -84,15 +88,15 @@
       "status_code": 429,
       "attempts": 1,
       "rows_loaded": 0,
-      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"4f25b5a1045a3c6f9286e61086b58535\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=170, x_ratelimit_reset=170",
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"96b7207f9b20eabcb7034c6042c601a8\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=5307, x_ratelimit_reset=5307",
       "base_url": "https://statistics-api.wildberries.ru",
       "cache_hit": false,
       "retry_count": 0,
       "retry_delays": [],
-      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"4f25b5a1045a3c6f9286e61086b58535\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=170, x_ratelimit_reset=170",
+      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"96b7207f9b20eabcb7034c6042c601a8\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=5307, x_ratelimit_reset=5307",
       "retry_after": "",
-      "x_ratelimit_retry": "170",
-      "x_ratelimit_reset": "170",
+      "x_ratelimit_retry": "5307",
+      "x_ratelimit_reset": "5307",
       "x_ratelimit_remaining": "",
       "rate_limit_delay_seconds": null,
       "token_present": true,
@@ -103,15 +107,15 @@
       "status_code": 429,
       "attempts": 1,
       "rows_loaded": 0,
-      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"75eac0f75fdb8ddc25eb9812d4fc9f52\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=3771, x_ratelimit_reset=3771",
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"06ce5ae98e429cf17c3a8b64ed738217\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=8932, x_ratelimit_reset=8932",
       "base_url": "https://statistics-api.wildberries.ru",
       "cache_hit": false,
       "retry_count": 0,
       "retry_delays": [],
-      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"75eac0f75fdb8ddc25eb9812d4fc9f52\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=3771, x_ratelimit_reset=3771",
+      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"06ce5ae98e429cf17c3a8b64ed738217\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=8932, x_ratelimit_reset=8932",
       "retry_after": "",
-      "x_ratelimit_retry": "3771",
-      "x_ratelimit_reset": "3771",
+      "x_ratelimit_retry": "8932",
+      "x_ratelimit_reset": "8932",
       "x_ratelimit_remaining": "",
       "rate_limit_delay_seconds": null,
       "token_present": true,
@@ -122,15 +126,15 @@
       "status_code": 429,
       "attempts": 1,
       "rows_loaded": 0,
-      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"65659594503b9914bafc20eb8ecf7269\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=3496, x_ratelimit_reset=3496",
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"bbbcd32c3f48eac0169ab5bc547a6133\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=2540, x_ratelimit_reset=2540",
       "base_url": "https://advert-api.wildberries.ru",
       "cache_hit": false,
       "retry_count": 0,
       "retry_delays": [],
-      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"65659594503b9914bafc20eb8ecf7269\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=3496, x_ratelimit_reset=3496",
+      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"bbbcd32c3f48eac0169ab5bc547a6133\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=2540, x_ratelimit_reset=2540",
       "retry_after": "",
-      "x_ratelimit_retry": "3496",
-      "x_ratelimit_reset": "3496",
+      "x_ratelimit_retry": "2540",
+      "x_ratelimit_reset": "2540",
       "x_ratelimit_remaining": "",
       "rate_limit_delay_seconds": null,
       "token_present": true,
@@ -158,7 +162,7 @@
   },
   "counts": {
     "raw": {
-      "cabinet_commerce": 25,
+      "cabinet_commerce": 0,
       "finance_final": 0,
       "orders": 0,
       "sales": 0,
@@ -167,7 +171,7 @@
       "search": 0
     },
     "normalized": {
-      "cabinet_commerce": 25,
+      "cabinet_commerce": 0,
       "finance_final": 0,
       "orders": 0,
       "sales": 0,
@@ -176,7 +180,7 @@
       "search": 0
     },
     "reconciled": {
-      "cabinet_commerce": 25,
+      "cabinet_commerce": 0,
       "finance_final": 0,
       "orders": 0,
       "sales": 0,
@@ -185,7 +189,7 @@
     }
   },
   "reconcile": {
-    "target_date": "2026-06-25",
+    "target_date": "2026-06-26",
     "finance_final_actual_date": "2026-06-25",
     "finance_final_date_aligned": true,
     "live_stocks_snapshot_date": "2026-06-25",
@@ -229,25 +233,29 @@
       "ads"
     ],
     "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
-    "cache_age_seconds": 67985.25,
+    "cache_age_seconds": 183292.52,
     "source_actual_date": "2026-06-24"
   },
   "warnings": [
     {
+      "code": "cabinet_commerce_api_unavailable",
+      "message": "retry_window_exhausted: 429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"6ab5db8b624a9d62b2cc1e98fb7fcef8\",\n    \"origin\": \"s2sauth; rate_limit_headers: x_ratelimit_retry=27, x_ratelimit_reset=27"
+    },
+    {
       "code": "finance_final_api_unavailable",
-      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"f0f5772e02dff7cb8e427f4d39609779\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=36250, x_ratelimit_reset=36250"
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"42392f25a9852dce6d5cbb4c2a0a8edb\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=43073, x_ratelimit_reset=43073"
     },
     {
       "code": "orders_api_unavailable",
-      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"b5d848a714c9a7b1f7c587470ca10186\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=3846, x_ratelimit_reset=3846"
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"88f872b9e0fdfe1a9247004efc93dc8c\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=8935, x_ratelimit_reset=8935"
     },
     {
       "code": "sales_api_unavailable",
-      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"4f25b5a1045a3c6f9286e61086b58535\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=170, x_ratelimit_reset=170"
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"96b7207f9b20eabcb7034c6042c601a8\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=5307, x_ratelimit_reset=5307"
     },
     {
       "code": "stocks_api_unavailable",
-      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"75eac0f75fdb8ddc25eb9812d4fc9f52\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=3771, x_ratelimit_reset=3771"
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"06ce5ae98e429cf17c3a8b64ed738217\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=8932, x_ratelimit_reset=8932"
     },
     {
       "code": "orders_latest_successful_cache_fallback",

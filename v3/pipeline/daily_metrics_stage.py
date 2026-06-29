@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
@@ -39,6 +39,10 @@ def _safe_int_local(value: Any, default: int = 0) -> int:
         return int(float(value))
     except (TypeError, ValueError):
         return int(default)
+
+
+def _safe_dict_local(value: Any) -> Dict[str, Any]:
+    return dict(value) if isinstance(value, dict) else {}
 
 
 def _normalize_token_local(value: Any) -> str:
@@ -743,6 +747,47 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     )
     if not isinstance(financial_kpi, dict):
         financial_kpi = {}
+
+    # Fallback: if kernel returned empty financial data but snapshot has it, use snapshot
+    if (not financial_kpi.get("revenue") and not financial_kpi.get("seller_payout")):
+        snap_finance = _safe_dict_local(ctx.get("snapshot_finance_final_daily"))
+        if not snap_finance:
+            raw_snap = ctx.get("snapshot_data")
+            if isinstance(raw_snap, dict):
+                snap_finance = _safe_dict_local(raw_snap.get("finance_final_daily", {}))
+        if snap_finance and bool(snap_finance.get("available", False)):
+            _revenue = _safe_float_local(snap_finance.get("realized_sales_revenue"))
+            _payout = _safe_float_local(snap_finance.get("seller_payout"))
+            _commission = _safe_float_local(snap_finance.get("wb_commission"))
+            _logistics = _safe_float_local(snap_finance.get("logistics_amount"))
+            _storage = _safe_float_local(snap_finance.get("storage"))
+            _acquiring = _safe_float_local(snap_finance.get("acquiring"))
+            _penalties = _safe_float_local(snap_finance.get("penalties"))
+            _deductions = _safe_float_local(snap_finance.get("deductions"))
+            _tax = _safe_float_local(snap_finance.get("tax"))
+            _returns_qty = _safe_float_local(snap_finance.get("returns_qty"))
+            _realized_qty = _safe_float_local(snap_finance.get("realized_sales_qty"))
+            _net = _payout if _payout else (_revenue - _commission - abs(_logistics) - _storage - _acquiring - _penalties - _deductions - _tax)
+            _cost = _safe_float_local(financial_kpi.get("cost_price"))
+            financial_kpi["revenue"] = round(_revenue, 2) if _revenue else None
+            financial_kpi["gross_revenue"] = round(_revenue, 2) if _revenue else None
+            financial_kpi["seller_payout"] = round(_payout, 2) if _payout else None
+            financial_kpi["wb_commission"] = round(_commission, 2)
+            financial_kpi["logistics"] = round(_logistics, 2)
+            financial_kpi["storage"] = round(_storage, 2)
+            financial_kpi["acquiring"] = round(_acquiring, 2)
+            financial_kpi["penalties"] = round(_penalties, 2)
+            financial_kpi["deductions"] = round(_deductions, 2)
+            financial_kpi["tax"] = round(_tax, 2)
+            financial_kpi["net_profit"] = round(_net, 2)
+            financial_kpi["profit"] = round(_net, 2)
+            financial_kpi["gross_profit"] = round(_payout - _cost - _commission, 2) if _payout else None
+            financial_kpi["margin_pct"] = round(_net / _payout * 100, 1) if _payout and abs(_payout) > 1e-9 else None
+            financial_kpi["financial_status"] = "confirmed_from_snapshot"
+            financial_kpi["is_partial"] = False
+            financial_kpi["confirmed"] = True
+            print(f"[financial_kpi] fallback from snapshot: revenue={financial_kpi['revenue']}, payout={financial_kpi['seller_payout']}, net={financial_kpi['net_profit']}")
+
     financial_assembly = {"financial_kpi": financial_kpi, "warning_additions": []}
     metrics_data_quality.update(
         {
@@ -888,7 +933,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         or financial_source_token in {"", "missing", "unknown"}
         or financial_snapshot_status_token == "missing"
     )
-    if financial_contour_missing:
+    if financial_contour_missing and not financial_kpi.get("confirmed"):
         for key in (
             "seller_payout",
             "revenue",

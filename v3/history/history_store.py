@@ -128,20 +128,39 @@ def save_daily_history_snapshot(seller_id: str, run_date: str, artifacts_dir: Pa
 
     facts_kpi = facts.get("kpi", {}) if isinstance(facts, dict) else {}
     totals = metrics.get("totals", {}) if isinstance(metrics, dict) else {}
+    financial_kpi = metrics.get("financial_kpi", {}) if isinstance(metrics, dict) else {}
     data_quality = facts.get("data_quality", {}) if isinstance(facts, dict) else {}
     sku_metrics = metrics.get("sku_metrics", []) if isinstance(metrics, dict) else []
     if not isinstance(sku_metrics, list):
         sku_metrics = []
+
+    _fk_revenue = _safe_float(financial_kpi.get("revenue")) if isinstance(financial_kpi, dict) else 0.0
+    _fk_profit = _safe_float(financial_kpi.get("net_profit") or financial_kpi.get("profit")) if isinstance(financial_kpi, dict) else 0.0
+    _fk_ads = _safe_float(financial_kpi.get("ads_spend")) if isinstance(financial_kpi, dict) else 0.0
 
     snapshot_meta = {
         "date": run_date,
         "path": f"daily/{run_date}",
         "files": sorted(copied_files),
         "kpi": {
-            "revenue": round(_safe_float(facts_kpi.get("revenue", totals.get("revenue", 0.0))), 4),
-            "profit": round(_safe_float(facts_kpi.get("profit", totals.get("profit", 0.0))), 4),
+            "revenue": round(
+                _safe_float(facts_kpi.get("revenue"))
+                or _fk_revenue
+                or _safe_float(totals.get("revenue", 0.0)),
+                4,
+            ),
+            "profit": round(
+                _safe_float(facts_kpi.get("profit"))
+                or _fk_profit
+                or _safe_float(totals.get("profit", 0.0)),
+                4,
+            ),
             "buyouts": _safe_int(facts_kpi.get("buyouts", totals.get("buys", 0))),
-            "ads_spend": round(_safe_float(totals.get("ads_spend", 0.0)), 4),
+            "ads_spend": round(
+                _safe_float(totals.get("ads_spend", 0.0))
+                or _fk_ads,
+                4,
+            ),
             "sku_count": len([x for x in sku_metrics if isinstance(x, dict)]),
             "valid_sku_count": _safe_int(data_quality.get("valid_sku_count", 0)),
             "invalid_sku_rows": _safe_int(data_quality.get("invalid_sku_rows", 0)),

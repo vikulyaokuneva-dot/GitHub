@@ -303,7 +303,18 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     snapshot_rows = _try_load_wb_api_core_snapshot(
         repo_root=repo_root, seller_id=seller_id, run_date=run_date,
     )
+    snapshot_data = None
     if snapshot_rows is not None:
+        import json as _json
+        _snap_path = os.path.join(
+            repo_root, "cabinets", seller_id, "artifacts", "wb_api_core", run_date, "snapshot.json",
+        )
+        if os.path.isfile(_snap_path):
+            try:
+                with open(_snap_path, "r", encoding="utf-8-sig") as _f:
+                    snapshot_data = _json.load(_f)
+            except Exception:
+                snapshot_data = None
         print(
             "[snapshot-first] wb_api_core snapshot found, "
             f"orders={len(snapshot_rows.get('live_orders_rows', []))} "
@@ -317,7 +328,7 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         api_sales_rows = list(snapshot_rows.get("live_sales_rows", []))
         api_stocks_rows = list(snapshot_rows.get("live_stocks_rows", []))
         api_ads_rows = list(snapshot_rows.get("live_ads_rows", []))
-        api_realization_rows = []
+        api_realization_rows = list(snapshot_rows.get("finance_final_rows", []))
         sales_rows = list(api_sales_rows)
         stocks_rows = list(api_stocks_rows)
         ads_rows = list(api_ads_rows)
@@ -818,6 +829,7 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         "api_debug": api_debug,
         "event_date_model": event_date_model,
         "financial_snapshot": financial_snapshot,  # PHASE 3: NEW - Unified financial data SSOT
+        "snapshot_data": snapshot_data,
         "sales_rows": sales_rows,
         "ads_rows": ads_rows,
         "stocks_rows": stocks_rows,

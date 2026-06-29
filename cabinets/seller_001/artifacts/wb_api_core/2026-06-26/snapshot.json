@@ -1,312 +1,36 @@
 {
   "seller_id": "seller_001",
   "run_date": "2026-06-26",
-  "operational_date": "2026-06-25",
+  "operational_date": "2026-06-26",
   "timezone": "Europe/Moscow",
   "source_mode": "wb_api_core_v2",
   "cabinet_commerce_daily": {
     "source": "sales_funnel_api",
-    "available": true,
-    "target_date": "2026-06-25",
-    "orders_count": 3.0,
-    "orders_amount": 2300.0,
-    "buyouts_count": 0.0,
-    "buyouts_amount": 0.0
+    "available": false,
+    "target_date": "2026-06-26",
+    "orders_count": null,
+    "orders_amount": null,
+    "buyouts_count": null,
+    "buyouts_amount": null
   },
   "funnel_daily": {
     "source": "sales_funnel_api",
     "owner_block": "funnel_daily",
-    "available": true,
-    "target_date": "2026-06-25",
-    "open_count": 347.0,
-    "cart_count": 19.0,
-    "orders_count": 3.0,
-    "orders_amount": 2300.0,
-    "buyouts_count": 0.0,
-    "buyouts_amount": 0.0,
-    "open_to_cart_rate": 5.48,
-    "cart_to_order_rate": 15.79,
-    "order_to_buyout_rate": 0.0,
-    "upper_funnel_status": "ok",
-    "lower_funnel_status": "ok",
-    "status": "ok",
-    "sku_rows": [
-      {
-        "nm_id": "898642228",
-        "seller_sku": "Кросс блок 100/100",
-        "title": "Фундаментный блок для теплицы под брус 100×100 мм",
-        "views": 137.0,
-        "cart": 12.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "969315704",
-        "seller_sku": "Кросс блок 50 х 100мм",
-        "title": "Фундаментный блок для теплицы под брус 100×50 мм",
-        "views": 88.0,
-        "cart": 1.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "452102417",
-        "seller_sku": "Маз Простор",
-        "title": "Накладки на педали для грузовика",
-        "views": 31.0,
-        "cart": 1.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "453526507",
-        "seller_sku": "Shacman",
-        "title": "Накладки на педали для грузовиков Shacman",
-        "views": 18.0,
-        "cart": 2.0,
-        "orders": 1.0,
-        "order_sum": 820.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "333615320",
-        "seller_sku": "Трёшка стандарт",
-        "title": "Накладки на педали Sitrak, Mercedes для грузовика",
-        "views": 14.0,
-        "cart": 3.0,
-        "orders": 2.0,
-        "order_sum": 1480.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "590614192",
-        "seller_sku": "Sitrak красный 2х",
-        "title": "Накладки на педали грузового авто Sitrak",
-        "views": 13.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "875412618",
-        "seller_sku": "Маз Простор Бежевый",
-        "title": "Накладки на педали Маз Простор для грузовика",
-        "views": 13.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "414589567",
-        "seller_sku": "Маз автомат",
-        "title": "Накладки на педали для грузовика",
-        "views": 9.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "295325676",
-        "seller_sku": "wb2fp7wxeg",
-        "title": "Корзина для хранения вязаная белая",
-        "views": 3.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "411974544",
-        "seller_sku": "Газон Next",
-        "title": "Накладки на педали грузового автомобиля Газон Next",
-        "views": 3.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "875380656",
-        "seller_sku": "Накладки Iveco",
-        "title": "Накладки на педали Iveco грузового авто",
-        "views": 3.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "430679462",
-        "seller_sku": "Sitrak",
-        "title": "Накладки на педали грузового авто Sitrak",
-        "views": 2.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "551251065",
-        "seller_sku": "Лошадь Фигурная",
-        "title": "Новогодние подушки декоративные 35 см на 35 см",
-        "views": 2.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "551253854",
-        "seller_sku": "Лошадь Огненная",
-        "title": "Новогодние подушки декоративные 35 см на 35 см",
-        "views": 2.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "739384273",
-        "seller_sku": "Shacman синий",
-        "title": "Накладки на педали для грузовиков Shacman",
-        "views": 2.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "291361554",
-        "seller_sku": "wb5j0f7z1w",
-        "title": "Корзина для хранения вязаная с крышкой красная",
-        "views": 1.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "547274690",
-        "seller_sku": "Подушка белки",
-        "title": "Новогодние подушки декоративные 35 см на 35 см",
-        "views": 1.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "550928555",
-        "seller_sku": "Подушка Олени",
-        "title": "Новогодние подушки декоративные 35 см на 35 см",
-        "views": 1.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "584904841",
-        "seller_sku": "Трешка бежевая",
-        "title": "Накладки на педали универсальные для грузовиков",
-        "views": 1.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "584925420",
-        "seller_sku": "Sitrak бежевый",
-        "title": "Накладки на педали грузового авто Sitrak",
-        "views": 1.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "739377515",
-        "seller_sku": "Простор синий",
-        "title": "Накладки на педали для грузовика Маз Простор",
-        "views": 1.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "875337018",
-        "seller_sku": "Shacman бежевый",
-        "title": "Накладки на педали Shacman для грузовиков",
-        "views": 1.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "453436372",
-        "seller_sku": "Scania",
-        "title": "Накладки на педали универсальные для грузовиков",
-        "views": 0.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "583470321",
-        "seller_sku": "Педали Sitrak красные",
-        "title": "Накладки на педали грузового авто Sitrak",
-        "views": 0.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      },
-      {
-        "nm_id": "583633646",
-        "seller_sku": "Трешка Синяя",
-        "title": "Накладки на педали универсальные для грузовиков",
-        "views": 0.0,
-        "cart": 0.0,
-        "orders": 0.0,
-        "order_sum": 0.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
-      }
-    ]
+    "available": false,
+    "target_date": "2026-06-26",
+    "open_count": null,
+    "cart_count": null,
+    "orders_count": null,
+    "orders_amount": null,
+    "buyouts_count": null,
+    "buyouts_amount": null,
+    "open_to_cart_rate": null,
+    "cart_to_order_rate": null,
+    "order_to_buyout_rate": null,
+    "upper_funnel_status": "unavailable",
+    "lower_funnel_status": "unavailable",
+    "status": "unavailable",
+    "sku_rows": []
   },
   "finance_final_daily": {
     "source": "finance_detailed_api",
@@ -2625,7 +2349,7 @@
     "orders": {
       "source": "orders_api",
       "available": true,
-      "target_date": "2026-06-25",
+      "target_date": "2026-06-26",
       "count": 3.0,
       "amount": 5760.0,
       "rows": [
@@ -2702,14 +2426,14 @@
       "stale": true,
       "stale_reason": "rate_limited",
       "source_actual_date": "2026-06-24",
-      "cache_age_seconds": 67985.25,
+      "cache_age_seconds": 183292.52,
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
       "cache_fallback_used": true
     },
     "sales": {
       "source": "sales_api",
       "available": true,
-      "target_date": "2026-06-25",
+      "target_date": "2026-06-26",
       "count": 5.0,
       "amount": 3857.2,
       "rows": [
@@ -2772,7 +2496,7 @@
       "stale": true,
       "stale_reason": "rate_limited",
       "source_actual_date": "2026-06-24",
-      "cache_age_seconds": 67985.25,
+      "cache_age_seconds": 183292.52,
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
       "cache_fallback_used": true
     },
@@ -2780,7 +2504,7 @@
       "source": "stocks_api",
       "available": true,
       "snapshot_kind": "live_snapshot",
-      "operational_date_reference": "2026-06-25",
+      "operational_date_reference": "2026-06-26",
       "snapshot_date": "2026-06-25",
       "total_units": 159.0,
       "rows": [
@@ -3058,7 +2782,7 @@
       "stale": true,
       "stale_reason": "rate_limited",
       "source_actual_date": "2026-06-24",
-      "cache_age_seconds": 67985.25,
+      "cache_age_seconds": 183292.52,
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
       "cache_fallback_used": true
     },
@@ -3102,7 +2826,7 @@
     "search_report": {
       "source": "search_report_api",
       "available": false,
-      "target_date": "2026-06-25",
+      "target_date": "2026-06-26",
       "count": 0
     }
   }

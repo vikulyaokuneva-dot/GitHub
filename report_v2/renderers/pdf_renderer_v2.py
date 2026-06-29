@@ -997,8 +997,6 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     story.append(_ads_rows_table(ads_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
     story.append(Spacer(1, 6))
 
-    story.append(PageBreak())
-
     search_section = payload.get("search_section", {})
     if not isinstance(search_section, dict):
         search_section = {}
@@ -1007,6 +1005,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     search_summary = search_section.get("summary", [])
 
     if search_available and (search_sections or search_summary):
+        story.append(PageBreak())
         story.append(Paragraph(_format_text(search_section.get("title") or "Поисковые запросы"), styles["section"]))
         story.append(Spacer(1, 4))
 
@@ -1124,8 +1123,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                 ]))
                 story.append(sec_table)
             story.append(Spacer(1, 6))
-
-    story.append(PageBreak())
+        story.append(PageBreak())
 
     abc_section = payload.get("abc_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(abc_section, dict):

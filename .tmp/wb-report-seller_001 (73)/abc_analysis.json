@@ -1,0 +1,42 @@
+[
+  {
+    "sku": "453526507",
+    "revenue": 0.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "333615320",
+    "revenue": 0.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "452102417",
+    "revenue": 0.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "969315704",
+    "revenue": 0.0,
+    "profit": 0.0,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  },
+  {
+    "sku": "898642228",
+    "revenue": 0.0,
+    "profit": -138.35,
+    "share": 0.0,
+    "cumulative_share": 0.0,
+    "abc_class": "C"
+  }
+]

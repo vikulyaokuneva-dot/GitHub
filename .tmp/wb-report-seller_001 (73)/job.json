@@ -1,0 +1,118 @@
+{
+  "seller_id": "seller_001",
+  "mode": "daily",
+  "run_date": "2026-06-27",
+  "status": "success",
+  "started_at": "2026-06-27T20:39:06Z",
+  "finished_at": "2026-06-27T20:39:07Z",
+  "error": null,
+  "artifacts_dir": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts",
+  "source_mode": "wb_api_core_v2",
+  "email_attempted": true,
+  "email_sent": true,
+  "email_to": "vi***@yandex.ru",
+  "email_error": null,
+  "email_stage": "send",
+  "email_transport_status": "success",
+  "email_failure_reason_normalized": "",
+  "report_version": "v2",
+  "renderer": "report_v2",
+  "source_of_truth": "snapshot.json",
+  "artifacts": {
+    "pdf": "report_v2.pdf",
+    "payload": "report_payload_v2.json",
+    "email_html": "email_v2.html",
+    "email_txt": "email_v2.txt"
+  },
+  "report_meta": {
+    "seller_id": "seller_001",
+    "report_date": "2026-06-27",
+    "operational_day": "2026-06-26",
+    "source_mode": "wb_api_core_v2",
+    "status": "success",
+    "report_version": "v2",
+    "renderer": "report_v2",
+    "source_of_truth": "snapshot.json",
+    "artifacts": {
+      "pdf": "report_v2.pdf",
+      "payload": "report_payload_v2.json",
+      "email_html": "email_v2.html",
+      "email_txt": "email_v2.txt"
+    },
+    "snapshot_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/wb_api_core/2026-06-27/snapshot.json",
+    "debug_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/wb_api_core/2026-06-27/debug.json",
+    "report_payload_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/report_payload_v2.json",
+    "pdf_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/report_v2.pdf",
+    "email_html_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/email_v2.html",
+    "email_txt_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/email_v2.txt",
+    "warnings": [
+      {
+        "code": "buyouts_override_from_sales_api",
+        "message": "Cabinet commerce reported 0 buyouts but sales API confirmed actual sales. Using sales API data.",
+        "level": "warning",
+        "block": "live_operational"
+      },
+      {
+        "code": "stock_goods_source_missing",
+        "message": "Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.",
+        "level": "info",
+        "block": "stock_section"
+      },
+      {
+        "code": "operational_stock_differs_from_goods_stock",
+        "message": "Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день.",
+        "level": "info",
+        "block": "live_operational.stocks"
+      },
+      {
+        "code": "advertising_efficiency_query_missing",
+        "message": "Query-level advertising rows are missing; query analysis is limited.",
+        "level": "warning",
+        "block": "advertising_efficiency"
+      },
+      {
+        "code": "sku_health_warning",
+        "message": "funnel_insufficient_data",
+        "level": "warning",
+        "block": "sku_health"
+      },
+      {
+        "code": "profit_contribution_warning",
+        "message": "total_profit_non_positive",
+        "level": "warning",
+        "block": "profit_contribution"
+      }
+    ],
+    "warnings_count": 6
+  },
+  "payload_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/report_payload_v2.json",
+  "pdf_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/report_v2.pdf",
+  "email_html_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/email_v2.html",
+  "email_txt_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/email_v2.txt",
+  "report_meta_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/report_meta.json",
+  "history_snapshot": {
+    "date": "2026-06-27",
+    "path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/history/daily/2026-06-27",
+    "files": [
+      "2026-06-27_outcomes.json",
+      "abc_analysis.json",
+      "decisions.json",
+      "event_ledger.json",
+      "facts.json",
+      "health_score.json",
+      "keyword_monitoring.json",
+      "logistics_ktr.json",
+      "metrics.json",
+      "profit_contribution.json",
+      "sku_alerts.json",
+      "sku_daily_dynamics.json",
+      "sku_watchlists.json",
+      "territorial_distribution.json",
+      "territorial_distribution_metrics.json",
+      "territorial_distribution_summary.json",
+      "warnings.json"
+    ]
+  },
+  "email_subject": "WB ИИ-агент v3 — управленческое резюме: seller_001 (2026-06-27)",
+  "email_body_text": "Управленческое резюме WB ИИ-агент v3\nКабинет: seller_001\nДата отчета: 2026-06-27\nОперационный день: 2026-06-27\n\nКЛЮЧЕВЫЕ ПОКАЗАТЕЛИ\n- Заказы: недостаточно данных\n- Выкупы: недостаточно данных\n- Заказы, сумма: недостаточно данных\n- Выкупы, сумма: недостаточно данных\n- Средний чек: недостаточно данных\n- Конверсия просмотр → заказ: недостаточно данных\n- Конверсия заказ → выкуп: недостаточно данных\n\nФИНАНСОВЫЕ ПОКАЗАТЕЛИ\n- К перечислению продавцу: недостаточно данных\n- Чистая прибыль: недостаточно данных\n- Маржа: недостаточно данных для расчета\n- Рентабельность: недостаточно данных для расчета\n\nГЛАВНЫЕ ВЫВОДЫ\n- Данные по заказам пока не подтверждены.\n- Маржа: недостаточно данных для расчета.\n- Финансовые показатели за день предварительные.\n\nРЕКОМЕНДАЦИИ\n- Дождаться подтверждения заказов и выкупов перед изменением стратегии.\n- После подтверждения данных повторно оценить маржу и воронку продаж.\n\nВЫВОД ДНЯ\nОперационный день: 2026-06-27. Данные по заказам пока не подтверждены. Маржа: недостаточно данных для расчета. Конверсия просмотр → заказ: недостаточно данных.\n\nДетали в PDF."
+}

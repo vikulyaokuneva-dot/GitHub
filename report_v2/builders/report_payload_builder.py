@@ -4330,6 +4330,10 @@ def build_sales_dynamics_section_v2(
 
     root = Path(repo_root) if repo_root else Path(".")
     history_index_path = root / "cabinets" / seller_id / "history" / "history_index.json"
+    if not history_index_path.is_file():
+        alt_path = Path(".") / "cabinets" / seller_id / "history" / "history_index.json"
+        if alt_path.is_file():
+            history_index_path = alt_path
     index = _read_json_dict(history_index_path)
     snapshots_list = index.get("snapshots", []) if isinstance(index, dict) else []
     if not isinstance(snapshots_list, list) or not snapshots_list:
@@ -4359,6 +4363,17 @@ def build_sales_dynamics_section_v2(
     today_kpi = _kpi_for(operational_date)
     yesterday_kpi = _kpi_for(yesterday)
     week_kpi = _kpi_for(week_ago)
+
+    # Fallback: if today's KPI is missing from history, use current snapshot data
+    if not today_kpi.get("revenue") and not today_kpi.get("profit"):
+        finance_daily = snapshot.get("finance_final_daily") or {}
+        live_sales = (snapshot.get("live_operational") or {}).get("sales") or {}
+        today_kpi = {
+            "revenue": finance_daily.get("realized_sales_revenue") or live_sales.get("amount"),
+            "profit": None,
+            "buyouts": live_sales.get("count"),
+            "ads_spend": today_kpi.get("ads_spend"),
+        }
 
     metrics = [
         ("Выручка", "revenue", "money"),
@@ -4644,7 +4659,7 @@ def build_report_payload_v2(
         "losses_of_the_day": _build_losses_of_the_day(snapshot),
         "commerce_section": build_commerce_section_v2(cabinet_block),
         "profit_section": _build_profit_section(snapshot, cabinet_commerce=cabinet_block),
-        "sales_dynamics_section": build_sales_dynamics_section_v2(snapshot, repo_root=Path(artifact_dir).parent.parent if artifact_dir else None),
+        "sales_dynamics_section": build_sales_dynamics_section_v2(snapshot, repo_root=Path(artifact_dir).parent.parent.parent if artifact_dir else None),
         "funnel_section": build_funnel_section_v2(snapshot, cabinet_block, debug),
         "ads_efficiency_section": ads_efficiency_section,
         "ads_section": build_ads_section_v2(

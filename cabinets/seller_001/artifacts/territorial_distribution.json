@@ -1,11 +1,11 @@
 {
   "seller_id": "seller_001",
-  "report_date": "2026-06-25",
-  "status": "partial",
+  "report_date": "2026-06-27",
+  "status": "insufficient_data",
   "warnings": [
     {
       "code": "territorial_distribution_demand_geo_partial",
-      "message": "Demand geography is missing for 5 SKU rows."
+      "message": "Demand geography is missing for 7 SKU rows."
     },
     {
       "code": "territorial_distribution_suppressed_due_to_data_quality",
@@ -16,8 +16,8 @@
     "engine": "territorial_distribution_engine",
     "version": "2.1",
     "seller_id": "seller_001",
-    "run_date": "2026-06-25",
-    "generated_at": "2026-06-26T22:31:40Z",
+    "run_date": "2026-06-27",
+    "generated_at": "2026-06-27T22:21:59Z",
     "wb_irp_effective_date": "2026-03-23",
     "source_artifacts": [
       "metrics.json"
@@ -43,56 +43,38 @@
   "summary": {
     "total_skus_analyzed": 7,
     "skus_with_irp_penalty": 0,
-    "skus_below_60_localization": 1,
+    "skus_below_60_localization": 0,
     "skus_below_40_localization": 0,
     "skus_critical_below_20_localization": 0,
     "aggregate_estimated_irp_penalty_total": 0,
-    "weighted_average_localization_share": 65.1607,
-    "distribution_efficiency_score": 65.16,
+    "weighted_average_localization_share": null,
+    "distribution_efficiency_score": 0.0,
     "distribution_state_counts": {
-      "no_orders": 5,
-      "strong": 1,
-      "watch": 1,
+      "no_orders": 7,
+      "strong": 0,
+      "watch": 0,
       "weak": 0,
       "critical": 0,
       "insufficient_data": 0
     },
-    "top_weak_localization_skus": [
-      {
-        "sku": "333615320",
-        "localization_share": 46.988,
-        "total_orders": 1.0,
-        "analysis_mode": "preview",
-        "recommendation_status": "watch"
-      },
-      {
-        "sku": "453526507",
-        "localization_share": 83.3333,
-        "total_orders": 1.0,
-        "analysis_mode": "preview",
-        "recommendation_status": "watch"
-      }
-    ],
+    "top_weak_localization_skus": [],
     "top_irp_penalty_skus": [],
     "sku_total": 7,
-    "sku_with_ktr": 2,
-    "balanced_count": 1,
-    "moderate_mismatch_count": 1,
+    "sku_with_ktr": 0,
+    "balanced_count": 0,
+    "moderate_mismatch_count": 0,
     "misallocated_count": 0,
-    "insufficient_distribution_data_count": 5,
+    "insufficient_distribution_data_count": 7,
     "no_stock_data_count": 0,
-    "insufficient_total_count": 5,
-    "avg_ktr": 1.0,
-    "top_misaligned_skus": [
-      "333615320",
-      "453526507"
-    ],
-    "coverage_pct": 28.57,
-    "demand_coverage_pct": 28.57,
+    "insufficient_total_count": 7,
+    "avg_ktr": null,
+    "top_misaligned_skus": [],
+    "coverage_pct": 0.0,
+    "demand_coverage_pct": 0.0,
     "stock_coverage_pct": 100.0,
-    "unknown_localization_skus": 5,
-    "known_localization_skus": 2,
-    "unknown_share_pct": 71.43,
+    "unknown_localization_skus": 7,
+    "known_localization_skus": 0,
+    "unknown_share_pct": 100.0,
     "confidence_level": "low",
     "suppressed_due_to_data_quality": true,
     "suppression_reasons": [
@@ -101,13 +83,11 @@
       "too_many_unknown_skus"
     ],
     "blocked_reason_counts": {
-      "insufficient_order_volume": 2,
-      "missing_order_count": 5,
-      "missing_demand_geography": 5,
-      "localization_not_computable": 5
+      "missing_order_count": 7,
+      "missing_demand_geography": 7,
+      "localization_not_computable": 7
     },
     "blocked_reasons": [
-      "insufficient_order_volume",
       "localization_not_computable",
       "missing_demand_geography",
       "missing_order_count"
@@ -117,30 +97,24 @@
       "min_demand_coverage_pct": 50.0,
       "min_stock_coverage_pct": 40.0,
       "max_unknown_share_pct": 60.0,
-      "actual_coverage_pct": 28.57,
-      "actual_demand_coverage_pct": 28.57,
+      "actual_coverage_pct": 0.0,
+      "actual_demand_coverage_pct": 0.0,
       "actual_stock_coverage_pct": 100.0,
-      "actual_unknown_share_pct": 71.43
+      "actual_unknown_share_pct": 100.0
     },
-    "analysis_mode": "preview",
-    "analysis_status": "preview",
-    "data_quality_status": "low_confidence",
-    "recommendation_status": "watch",
+    "analysis_mode": "disabled",
+    "analysis_status": "blocked_by_data",
+    "data_quality_status": "insufficient_data",
+    "recommendation_status": "blocked_by_data",
     "portfolio_territorial_risk": "unknown",
     "full_analysis_skus": 0,
-    "preview_analysis_skus": 2,
-    "disabled_analysis_skus": 5,
+    "preview_analysis_skus": 0,
+    "disabled_analysis_skus": 7,
     "usable_analysis_skus": 0,
-    "blocked_analysis_skus": 5,
-    "recommendation_candidate_skus": 2,
+    "blocked_analysis_skus": 7,
+    "recommendation_candidate_skus": 0,
     "actionable_recommendation_skus": 0,
-    "top_demand_regions": [
-      {
-        "region": "электросталь",
-        "orders": 2.0,
-        "share_pct": 100.0
-      }
-    ]
+    "top_demand_regions": []
   },
   "signals": [
     {
@@ -151,110 +125,73 @@
       "title": "Portfolio territorial conclusions are downgraded",
       "description": "Portfolio-level territorial risk is preview-only due to low evidence coverage.",
       "evidence": {
-        "coverage_pct": 28.57,
+        "coverage_pct": 0.0,
         "confidence_level": "low",
         "suppressed_due_to_data_quality": true,
-        "recommendation_status": "watch",
+        "recommendation_status": "blocked_by_data",
         "suppression_reasons": [
           "low_localization_coverage",
           "low_demand_geography_coverage",
           "too_many_unknown_skus"
         ],
         "blocked_reason_counts": {
-          "insufficient_order_volume": 2,
-          "missing_order_count": 5,
-          "missing_demand_geography": 5,
-          "localization_not_computable": 5
+          "missing_order_count": 7,
+          "missing_demand_geography": 7,
+          "localization_not_computable": 7
         },
         "blocked_reason_details": {
           "min_portfolio_coverage_pct": 40.0,
           "min_demand_coverage_pct": 50.0,
           "min_stock_coverage_pct": 40.0,
           "max_unknown_share_pct": 60.0,
-          "actual_coverage_pct": 28.57,
-          "actual_demand_coverage_pct": 28.57,
+          "actual_coverage_pct": 0.0,
+          "actual_demand_coverage_pct": 0.0,
           "actual_stock_coverage_pct": 100.0,
-          "actual_unknown_share_pct": 71.43
+          "actual_unknown_share_pct": 100.0
         }
       },
       "recommendation": "Connect stock and demand geography sources to unlock actionable territorial recommendations.",
       "impact_score": 40.0
     },
     {
-      "signal_type": "distribution_low_confidence",
+      "signal_type": "distribution_insufficient_data",
       "entity_type": "sku",
       "entity_id": "333615320",
       "severity": "low",
-      "title": "Territorial signal is low-confidence",
-      "description": "Preliminary logistics risk is detected, but evidence is not sufficient for strong action.",
+      "title": "Territorial analysis unavailable for SKU",
+      "description": "Insufficient evidence to confirm territorial risk for this SKU.",
       "evidence": {
         "sku": "333615320",
-        "localization_share": 46.988,
-        "ktr": 1.2,
-        "krp": 0.0205,
+        "localization_share": null,
+        "ktr": null,
+        "krp": null,
         "estimated_irp_penalty_total": 0.0,
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
-        "analysis_mode": "preview",
-        "recommendation_status": "watch",
-        "analysis_status": "preview",
+        "analysis_mode": "disabled",
+        "recommendation_status": "blocked_by_data",
+        "analysis_status": "blocked_by_data",
         "blocked_reasons": [
-          "insufficient_order_volume"
+          "missing_order_count",
+          "missing_demand_geography",
+          "localization_not_computable"
         ],
         "blocked_reason_details": {
           "valid_sku_attribution": true,
-          "order_count_available": true,
-          "demand_geography_available": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
           "stock_geography_available": true,
           "minimum_sample_met": false,
           "minimum_orders_required": 5,
-          "total_orders": 1.0,
-          "localization_known": true
+          "total_orders": 0.0,
+          "localization_known": false
         }
       },
-      "recommendation": "Improve stock geography coverage and increase sample before operational rebalancing.",
-      "impact_score": 30.0
-    },
-    {
-      "signal_type": "distribution_low_confidence",
-      "entity_type": "sku",
-      "entity_id": "453526507",
-      "severity": "low",
-      "title": "Territorial signal is low-confidence",
-      "description": "Preliminary logistics risk is detected, but evidence is not sufficient for strong action.",
-      "evidence": {
-        "sku": "453526507",
-        "localization_share": 83.3333,
-        "ktr": 0.8,
-        "krp": 0.0,
-        "estimated_irp_penalty_total": 0.0,
-        "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
-        "stock_geography_available": true,
-        "minimum_sample_met": false,
-        "analysis_mode": "preview",
-        "recommendation_status": "watch",
-        "analysis_status": "preview",
-        "blocked_reasons": [
-          "insufficient_order_volume"
-        ],
-        "blocked_reason_details": {
-          "valid_sku_attribution": true,
-          "order_count_available": true,
-          "demand_geography_available": true,
-          "stock_geography_available": true,
-          "minimum_sample_met": false,
-          "minimum_orders_required": 5,
-          "total_orders": 1.0,
-          "localization_known": true
-        }
-      },
-      "recommendation": "Improve stock geography coverage and increase sample before operational rebalancing.",
-      "impact_score": 30.0
+      "recommendation": "Collect demand/stock geography and restore SKU attribution quality before rebalancing.",
+      "impact_score": 20.0
     },
     {
       "signal_type": "distribution_insufficient_data",
@@ -265,6 +202,46 @@
       "description": "Insufficient evidence to confirm territorial risk for this SKU.",
       "evidence": {
         "sku": "452102417",
+        "localization_share": null,
+        "ktr": null,
+        "krp": null,
+        "estimated_irp_penalty_total": 0.0,
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": true,
+        "minimum_sample_met": false,
+        "analysis_mode": "disabled",
+        "recommendation_status": "blocked_by_data",
+        "analysis_status": "blocked_by_data",
+        "blocked_reasons": [
+          "missing_order_count",
+          "missing_demand_geography",
+          "localization_not_computable"
+        ],
+        "blocked_reason_details": {
+          "valid_sku_attribution": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
+          "stock_geography_available": true,
+          "minimum_sample_met": false,
+          "minimum_orders_required": 5,
+          "total_orders": 0.0,
+          "localization_known": false
+        }
+      },
+      "recommendation": "Collect demand/stock geography and restore SKU attribution quality before rebalancing.",
+      "impact_score": 20.0
+    },
+    {
+      "signal_type": "distribution_insufficient_data",
+      "entity_type": "sku",
+      "entity_id": "453526507",
+      "severity": "low",
+      "title": "Territorial analysis unavailable for SKU",
+      "description": "Insufficient evidence to confirm territorial risk for this SKU.",
+      "evidence": {
+        "sku": "453526507",
         "localization_share": null,
         "ktr": null,
         "krp": null,
@@ -460,37 +437,33 @@
   "sku_metrics": [
     {
       "sku": "333615320",
-      "total_orders": 1.0,
-      "local_orders": 0.46988,
-      "localization_share": 46.988,
-      "ktr": 1.2,
-      "krp": 0.0205,
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
       "average_retail_price": null,
       "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
-      "distribution_state": "watch",
-      "distribution_state_label_ru": "зона наблюдения",
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
       "effective_date_applied": true,
       "confidence": "low",
-      "analysis_mode": "preview",
-      "data_quality_status": "low_confidence",
-      "recommendation_status": "watch",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
       "diagnostics": {
         "price_source": "missing",
-        "local_orders_source": "estimated_from_warehouse_shares",
-        "distribution_gap": 0.53012,
-        "locality_score": 0.46988,
-        "demand_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": 0.5,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
         "stock_by_warehouse": {
           "электросталь": 39.0,
           "тула": 38.0,
           "остальные склады": 6.0
         },
-        "demand_share_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "demand_share_by_warehouse": {},
         "stock_share_by_warehouse": {
           "электросталь": 0.46988,
           "тула": 0.457831,
@@ -502,76 +475,73 @@
         "stock_share_by_region": {},
         "top_demand_regions": [],
         "top_supply_regions": [],
-        "non_local_orders_estimate": 0.53012,
-        "non_local_share_pct": 53.012,
-        "analysis_status": "preview",
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
         "blocked_reasons": [
-          "insufficient_order_volume"
+          "missing_order_count",
+          "missing_demand_geography",
+          "localization_not_computable"
         ],
         "blocked_reason_details": {
           "valid_sku_attribution": true,
-          "order_count_available": true,
-          "demand_geography_available": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
           "stock_geography_available": true,
           "minimum_sample_met": false,
           "minimum_orders_required": 5,
-          "total_orders": 1.0,
-          "localization_known": true
+          "total_orders": 0.0,
+          "localization_known": false
         },
-        "dominant_demand_warehouses": [
-          "электросталь"
-        ],
+        "dominant_demand_warehouses": [],
         "dominant_stock_warehouses": [
           "электросталь",
           "тула"
         ],
         "reverse_logistics_modeling": "deferred_until_volume_fields_available",
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "evidence_sources": {
-          "local_orders": "estimated_from_warehouse_shares",
-          "demand_geography": "sales_rows",
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
           "stock_geography": "stocks_rows",
           "demand_regions": "missing",
           "stock_regions": "missing",
           "sku_attribution": "metrics_data_quality"
         },
         "known_facts": {
-          "total_orders": 1.0,
-          "demand_warehouses_count": 1,
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
           "stock_warehouses_count": 3,
           "demand_regions_count": 0,
           "stock_regions_count": 0
         },
-        "estimated_metrics": {
-          "local_orders": 0.46988,
-          "localization_share": 46.988
-        },
-        "unavailable_metrics": [],
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "localization_share"
+        ],
         "suppressed_recommendations": [
           "rebalance_stock",
           "relocate_inventory"
         ]
       },
       "notes": [
-        "average_retail_price_missing"
+        "average_retail_price_missing",
+        "localization_share_unknown"
       ],
-      "status": "moderate_mismatch",
-      "distribution_gap": 0.53012,
-      "demand_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "status": "no_demand_data",
+      "distribution_gap": 0.5,
+      "demand_by_warehouse": {},
       "stock_by_warehouse": {
         "электросталь": 39.0,
         "тула": 38.0,
         "остальные склады": 6.0
       },
-      "demand_share_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "demand_share_by_warehouse": {},
       "stock_share_by_warehouse": {
         "электросталь": 0.46988,
         "тула": 0.457831,
@@ -583,73 +553,63 @@
       "stock_share_by_region": {},
       "top_demand_regions": [],
       "top_supply_regions": [],
-      "dominant_demand_warehouses": [
-        "электросталь"
-      ],
+      "dominant_demand_warehouses": [],
       "dominant_stock_warehouses": [
         "электросталь",
         "тула"
       ],
-      "locality_score": 0.46988,
-      "total_buys": 1,
+      "locality_score": 0.0,
+      "total_buys": 0,
       "total_stock": 83,
       "low_sample_warning": true,
-      "relocation_hint": "monitor",
+      "relocation_hint": null,
       "valid_sku_attribution": true,
-      "order_count_available": true,
-      "demand_geography_available": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
       "stock_geography_available": true,
       "minimum_sample_met": false,
-      "analysis_status": "preview",
+      "analysis_status": "blocked_by_data",
       "blocked_reasons": [
-        "insufficient_order_volume"
+        "missing_order_count",
+        "missing_demand_geography",
+        "localization_not_computable"
       ],
       "blocked_reason_details": {
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "minimum_orders_required": 5,
-        "total_orders": 1.0,
-        "localization_known": true
+        "total_orders": 0.0,
+        "localization_known": false
       },
-      "non_local_orders_estimate": 0.53012,
-      "non_local_share_pct": 53.012,
-      "recommendation_candidates": [
-        {
-          "destination_region": "электросталь",
-          "demand_share_pct": 100.0,
-          "stock_share_pct": 46.988,
-          "gap_share_pct": 53.012,
-          "demand_orders": 1.0,
-          "priority": "high",
-          "reason": "non_local_demand_exceeds_supply_share"
-        }
-      ],
-      "recommended_destination": "электросталь",
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
       "recommendation_ready": false,
       "recommendation_notes": [],
       "evidence_sources": {
-        "local_orders": "estimated_from_warehouse_shares",
-        "demand_geography": "sales_rows",
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
         "stock_geography": "stocks_rows",
         "demand_regions": "missing",
         "stock_regions": "missing",
         "sku_attribution": "metrics_data_quality"
       },
       "known_facts": {
-        "total_orders": 1.0,
-        "demand_warehouses_count": 1,
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
         "stock_warehouses_count": 3,
         "demand_regions_count": 0,
         "stock_regions_count": 0
       },
-      "estimated_metrics": {
-        "local_orders": 0.46988,
-        "localization_share": 46.988
-      },
-      "unavailable_metrics": [],
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "localization_share"
+      ],
       "suppressed_recommendations": [
         "rebalance_stock",
         "relocate_inventory"
@@ -833,37 +793,33 @@
     },
     {
       "sku": "453526507",
-      "total_orders": 1.0,
-      "local_orders": 0.833333,
-      "localization_share": 83.3333,
-      "ktr": 0.8,
-      "krp": 0.0,
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
       "average_retail_price": null,
-      "irp_penalty_per_order": 0.0,
+      "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
-      "distribution_state": "strong",
-      "distribution_state_label_ru": "распределение хорошее",
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
       "effective_date_applied": true,
       "confidence": "low",
-      "analysis_mode": "preview",
-      "data_quality_status": "low_confidence",
-      "recommendation_status": "watch",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
       "diagnostics": {
         "price_source": "missing",
-        "local_orders_source": "estimated_from_warehouse_shares",
-        "distribution_gap": 0.166666,
-        "locality_score": 0.833333,
-        "demand_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": 0.499999,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
         "stock_by_warehouse": {
           "сц кемерово": 1.0,
           "остальные склады": 1.0,
           "электросталь": 10.0
         },
-        "demand_share_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "demand_share_by_warehouse": {},
         "stock_share_by_warehouse": {
           "сц кемерово": 0.083333,
           "остальные склады": 0.083333,
@@ -875,54 +831,54 @@
         "stock_share_by_region": {},
         "top_demand_regions": [],
         "top_supply_regions": [],
-        "non_local_orders_estimate": 0.166667,
-        "non_local_share_pct": 16.6667,
-        "analysis_status": "preview",
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
         "blocked_reasons": [
-          "insufficient_order_volume"
+          "missing_order_count",
+          "missing_demand_geography",
+          "localization_not_computable"
         ],
         "blocked_reason_details": {
           "valid_sku_attribution": true,
-          "order_count_available": true,
-          "demand_geography_available": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
           "stock_geography_available": true,
           "minimum_sample_met": false,
           "minimum_orders_required": 5,
-          "total_orders": 1.0,
-          "localization_known": true
+          "total_orders": 0.0,
+          "localization_known": false
         },
-        "dominant_demand_warehouses": [
-          "электросталь"
-        ],
+        "dominant_demand_warehouses": [],
         "dominant_stock_warehouses": [
           "электросталь"
         ],
         "reverse_logistics_modeling": "deferred_until_volume_fields_available",
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "evidence_sources": {
-          "local_orders": "estimated_from_warehouse_shares",
-          "demand_geography": "sales_rows",
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
           "stock_geography": "stocks_rows",
           "demand_regions": "missing",
           "stock_regions": "missing",
           "sku_attribution": "metrics_data_quality"
         },
         "known_facts": {
-          "total_orders": 1.0,
-          "demand_warehouses_count": 1,
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
           "stock_warehouses_count": 3,
           "demand_regions_count": 0,
           "stock_regions_count": 0
         },
-        "estimated_metrics": {
-          "local_orders": 0.833333,
-          "localization_share": 83.3333
-        },
-        "unavailable_metrics": [],
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "localization_share"
+        ],
         "suppressed_recommendations": [
           "rebalance_stock",
           "relocate_inventory"
@@ -930,21 +886,17 @@
       },
       "notes": [
         "average_retail_price_missing",
-        "krp_zero_due_to_localization_60_plus"
+        "localization_share_unknown"
       ],
-      "status": "balanced",
-      "distribution_gap": 0.166666,
-      "demand_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "status": "no_demand_data",
+      "distribution_gap": 0.499999,
+      "demand_by_warehouse": {},
       "stock_by_warehouse": {
         "сц кемерово": 1.0,
         "остальные склады": 1.0,
         "электросталь": 10.0
       },
-      "demand_share_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "demand_share_by_warehouse": {},
       "stock_share_by_warehouse": {
         "сц кемерово": 0.083333,
         "остальные склады": 0.083333,
@@ -956,72 +908,62 @@
       "stock_share_by_region": {},
       "top_demand_regions": [],
       "top_supply_regions": [],
-      "dominant_demand_warehouses": [
-        "электросталь"
-      ],
+      "dominant_demand_warehouses": [],
       "dominant_stock_warehouses": [
         "электросталь"
       ],
-      "locality_score": 0.833333,
-      "total_buys": 1,
+      "locality_score": 0.0,
+      "total_buys": 0,
       "total_stock": 12,
       "low_sample_warning": true,
       "relocation_hint": null,
       "valid_sku_attribution": true,
-      "order_count_available": true,
-      "demand_geography_available": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
       "stock_geography_available": true,
       "minimum_sample_met": false,
-      "analysis_status": "preview",
+      "analysis_status": "blocked_by_data",
       "blocked_reasons": [
-        "insufficient_order_volume"
+        "missing_order_count",
+        "missing_demand_geography",
+        "localization_not_computable"
       ],
       "blocked_reason_details": {
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "minimum_orders_required": 5,
-        "total_orders": 1.0,
-        "localization_known": true
+        "total_orders": 0.0,
+        "localization_known": false
       },
-      "non_local_orders_estimate": 0.166667,
-      "non_local_share_pct": 16.6667,
-      "recommendation_candidates": [
-        {
-          "destination_region": "электросталь",
-          "demand_share_pct": 100.0,
-          "stock_share_pct": 83.3333,
-          "gap_share_pct": 16.6667,
-          "demand_orders": 1.0,
-          "priority": "medium",
-          "reason": "non_local_demand_exceeds_supply_share"
-        }
-      ],
-      "recommended_destination": "электросталь",
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
       "recommendation_ready": false,
       "recommendation_notes": [],
       "evidence_sources": {
-        "local_orders": "estimated_from_warehouse_shares",
-        "demand_geography": "sales_rows",
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
         "stock_geography": "stocks_rows",
         "demand_regions": "missing",
         "stock_regions": "missing",
         "sku_attribution": "metrics_data_quality"
       },
       "known_facts": {
-        "total_orders": 1.0,
-        "demand_warehouses_count": 1,
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
         "stock_warehouses_count": 3,
         "demand_regions_count": 0,
         "stock_regions_count": 0
       },
-      "estimated_metrics": {
-        "local_orders": 0.833333,
-        "localization_share": 83.3333
-      },
-      "unavailable_metrics": [],
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "localization_share"
+      ],
       "suppressed_recommendations": [
         "rebalance_stock",
         "relocate_inventory"
@@ -1733,37 +1675,33 @@
   "skus": [
     {
       "sku": "333615320",
-      "total_orders": 1.0,
-      "local_orders": 0.46988,
-      "localization_share": 46.988,
-      "ktr": 1.2,
-      "krp": 0.0205,
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
       "average_retail_price": null,
       "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
-      "distribution_state": "watch",
-      "distribution_state_label_ru": "зона наблюдения",
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
       "effective_date_applied": true,
       "confidence": "low",
-      "analysis_mode": "preview",
-      "data_quality_status": "low_confidence",
-      "recommendation_status": "watch",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
       "diagnostics": {
         "price_source": "missing",
-        "local_orders_source": "estimated_from_warehouse_shares",
-        "distribution_gap": 0.53012,
-        "locality_score": 0.46988,
-        "demand_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": 0.5,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
         "stock_by_warehouse": {
           "электросталь": 39.0,
           "тула": 38.0,
           "остальные склады": 6.0
         },
-        "demand_share_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "demand_share_by_warehouse": {},
         "stock_share_by_warehouse": {
           "электросталь": 0.46988,
           "тула": 0.457831,
@@ -1775,76 +1713,73 @@
         "stock_share_by_region": {},
         "top_demand_regions": [],
         "top_supply_regions": [],
-        "non_local_orders_estimate": 0.53012,
-        "non_local_share_pct": 53.012,
-        "analysis_status": "preview",
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
         "blocked_reasons": [
-          "insufficient_order_volume"
+          "missing_order_count",
+          "missing_demand_geography",
+          "localization_not_computable"
         ],
         "blocked_reason_details": {
           "valid_sku_attribution": true,
-          "order_count_available": true,
-          "demand_geography_available": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
           "stock_geography_available": true,
           "minimum_sample_met": false,
           "minimum_orders_required": 5,
-          "total_orders": 1.0,
-          "localization_known": true
+          "total_orders": 0.0,
+          "localization_known": false
         },
-        "dominant_demand_warehouses": [
-          "электросталь"
-        ],
+        "dominant_demand_warehouses": [],
         "dominant_stock_warehouses": [
           "электросталь",
           "тула"
         ],
         "reverse_logistics_modeling": "deferred_until_volume_fields_available",
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "evidence_sources": {
-          "local_orders": "estimated_from_warehouse_shares",
-          "demand_geography": "sales_rows",
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
           "stock_geography": "stocks_rows",
           "demand_regions": "missing",
           "stock_regions": "missing",
           "sku_attribution": "metrics_data_quality"
         },
         "known_facts": {
-          "total_orders": 1.0,
-          "demand_warehouses_count": 1,
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
           "stock_warehouses_count": 3,
           "demand_regions_count": 0,
           "stock_regions_count": 0
         },
-        "estimated_metrics": {
-          "local_orders": 0.46988,
-          "localization_share": 46.988
-        },
-        "unavailable_metrics": [],
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "localization_share"
+        ],
         "suppressed_recommendations": [
           "rebalance_stock",
           "relocate_inventory"
         ]
       },
       "notes": [
-        "average_retail_price_missing"
+        "average_retail_price_missing",
+        "localization_share_unknown"
       ],
-      "status": "moderate_mismatch",
-      "distribution_gap": 0.53012,
-      "demand_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "status": "no_demand_data",
+      "distribution_gap": 0.5,
+      "demand_by_warehouse": {},
       "stock_by_warehouse": {
         "электросталь": 39.0,
         "тула": 38.0,
         "остальные склады": 6.0
       },
-      "demand_share_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "demand_share_by_warehouse": {},
       "stock_share_by_warehouse": {
         "электросталь": 0.46988,
         "тула": 0.457831,
@@ -1856,73 +1791,63 @@
       "stock_share_by_region": {},
       "top_demand_regions": [],
       "top_supply_regions": [],
-      "dominant_demand_warehouses": [
-        "электросталь"
-      ],
+      "dominant_demand_warehouses": [],
       "dominant_stock_warehouses": [
         "электросталь",
         "тула"
       ],
-      "locality_score": 0.46988,
-      "total_buys": 1,
+      "locality_score": 0.0,
+      "total_buys": 0,
       "total_stock": 83,
       "low_sample_warning": true,
-      "relocation_hint": "monitor",
+      "relocation_hint": null,
       "valid_sku_attribution": true,
-      "order_count_available": true,
-      "demand_geography_available": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
       "stock_geography_available": true,
       "minimum_sample_met": false,
-      "analysis_status": "preview",
+      "analysis_status": "blocked_by_data",
       "blocked_reasons": [
-        "insufficient_order_volume"
+        "missing_order_count",
+        "missing_demand_geography",
+        "localization_not_computable"
       ],
       "blocked_reason_details": {
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "minimum_orders_required": 5,
-        "total_orders": 1.0,
-        "localization_known": true
+        "total_orders": 0.0,
+        "localization_known": false
       },
-      "non_local_orders_estimate": 0.53012,
-      "non_local_share_pct": 53.012,
-      "recommendation_candidates": [
-        {
-          "destination_region": "электросталь",
-          "demand_share_pct": 100.0,
-          "stock_share_pct": 46.988,
-          "gap_share_pct": 53.012,
-          "demand_orders": 1.0,
-          "priority": "high",
-          "reason": "non_local_demand_exceeds_supply_share"
-        }
-      ],
-      "recommended_destination": "электросталь",
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
       "recommendation_ready": false,
       "recommendation_notes": [],
       "evidence_sources": {
-        "local_orders": "estimated_from_warehouse_shares",
-        "demand_geography": "sales_rows",
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
         "stock_geography": "stocks_rows",
         "demand_regions": "missing",
         "stock_regions": "missing",
         "sku_attribution": "metrics_data_quality"
       },
       "known_facts": {
-        "total_orders": 1.0,
-        "demand_warehouses_count": 1,
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
         "stock_warehouses_count": 3,
         "demand_regions_count": 0,
         "stock_regions_count": 0
       },
-      "estimated_metrics": {
-        "local_orders": 0.46988,
-        "localization_share": 46.988
-      },
-      "unavailable_metrics": [],
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "localization_share"
+      ],
       "suppressed_recommendations": [
         "rebalance_stock",
         "relocate_inventory"
@@ -2106,37 +2031,33 @@
     },
     {
       "sku": "453526507",
-      "total_orders": 1.0,
-      "local_orders": 0.833333,
-      "localization_share": 83.3333,
-      "ktr": 0.8,
-      "krp": 0.0,
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
       "average_retail_price": null,
-      "irp_penalty_per_order": 0.0,
+      "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
-      "distribution_state": "strong",
-      "distribution_state_label_ru": "распределение хорошее",
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
       "effective_date_applied": true,
       "confidence": "low",
-      "analysis_mode": "preview",
-      "data_quality_status": "low_confidence",
-      "recommendation_status": "watch",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
       "diagnostics": {
         "price_source": "missing",
-        "local_orders_source": "estimated_from_warehouse_shares",
-        "distribution_gap": 0.166666,
-        "locality_score": 0.833333,
-        "demand_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": 0.499999,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
         "stock_by_warehouse": {
           "сц кемерово": 1.0,
           "остальные склады": 1.0,
           "электросталь": 10.0
         },
-        "demand_share_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "demand_share_by_warehouse": {},
         "stock_share_by_warehouse": {
           "сц кемерово": 0.083333,
           "остальные склады": 0.083333,
@@ -2148,54 +2069,54 @@
         "stock_share_by_region": {},
         "top_demand_regions": [],
         "top_supply_regions": [],
-        "non_local_orders_estimate": 0.166667,
-        "non_local_share_pct": 16.6667,
-        "analysis_status": "preview",
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
         "blocked_reasons": [
-          "insufficient_order_volume"
+          "missing_order_count",
+          "missing_demand_geography",
+          "localization_not_computable"
         ],
         "blocked_reason_details": {
           "valid_sku_attribution": true,
-          "order_count_available": true,
-          "demand_geography_available": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
           "stock_geography_available": true,
           "minimum_sample_met": false,
           "minimum_orders_required": 5,
-          "total_orders": 1.0,
-          "localization_known": true
+          "total_orders": 0.0,
+          "localization_known": false
         },
-        "dominant_demand_warehouses": [
-          "электросталь"
-        ],
+        "dominant_demand_warehouses": [],
         "dominant_stock_warehouses": [
           "электросталь"
         ],
         "reverse_logistics_modeling": "deferred_until_volume_fields_available",
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "evidence_sources": {
-          "local_orders": "estimated_from_warehouse_shares",
-          "demand_geography": "sales_rows",
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
           "stock_geography": "stocks_rows",
           "demand_regions": "missing",
           "stock_regions": "missing",
           "sku_attribution": "metrics_data_quality"
         },
         "known_facts": {
-          "total_orders": 1.0,
-          "demand_warehouses_count": 1,
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
           "stock_warehouses_count": 3,
           "demand_regions_count": 0,
           "stock_regions_count": 0
         },
-        "estimated_metrics": {
-          "local_orders": 0.833333,
-          "localization_share": 83.3333
-        },
-        "unavailable_metrics": [],
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "localization_share"
+        ],
         "suppressed_recommendations": [
           "rebalance_stock",
           "relocate_inventory"
@@ -2203,21 +2124,17 @@
       },
       "notes": [
         "average_retail_price_missing",
-        "krp_zero_due_to_localization_60_plus"
+        "localization_share_unknown"
       ],
-      "status": "balanced",
-      "distribution_gap": 0.166666,
-      "demand_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "status": "no_demand_data",
+      "distribution_gap": 0.499999,
+      "demand_by_warehouse": {},
       "stock_by_warehouse": {
         "сц кемерово": 1.0,
         "остальные склады": 1.0,
         "электросталь": 10.0
       },
-      "demand_share_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "demand_share_by_warehouse": {},
       "stock_share_by_warehouse": {
         "сц кемерово": 0.083333,
         "остальные склады": 0.083333,
@@ -2229,72 +2146,62 @@
       "stock_share_by_region": {},
       "top_demand_regions": [],
       "top_supply_regions": [],
-      "dominant_demand_warehouses": [
-        "электросталь"
-      ],
+      "dominant_demand_warehouses": [],
       "dominant_stock_warehouses": [
         "электросталь"
       ],
-      "locality_score": 0.833333,
-      "total_buys": 1,
+      "locality_score": 0.0,
+      "total_buys": 0,
       "total_stock": 12,
       "low_sample_warning": true,
       "relocation_hint": null,
       "valid_sku_attribution": true,
-      "order_count_available": true,
-      "demand_geography_available": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
       "stock_geography_available": true,
       "minimum_sample_met": false,
-      "analysis_status": "preview",
+      "analysis_status": "blocked_by_data",
       "blocked_reasons": [
-        "insufficient_order_volume"
+        "missing_order_count",
+        "missing_demand_geography",
+        "localization_not_computable"
       ],
       "blocked_reason_details": {
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "minimum_orders_required": 5,
-        "total_orders": 1.0,
-        "localization_known": true
+        "total_orders": 0.0,
+        "localization_known": false
       },
-      "non_local_orders_estimate": 0.166667,
-      "non_local_share_pct": 16.6667,
-      "recommendation_candidates": [
-        {
-          "destination_region": "электросталь",
-          "demand_share_pct": 100.0,
-          "stock_share_pct": 83.3333,
-          "gap_share_pct": 16.6667,
-          "demand_orders": 1.0,
-          "priority": "medium",
-          "reason": "non_local_demand_exceeds_supply_share"
-        }
-      ],
-      "recommended_destination": "электросталь",
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
       "recommendation_ready": false,
       "recommendation_notes": [],
       "evidence_sources": {
-        "local_orders": "estimated_from_warehouse_shares",
-        "demand_geography": "sales_rows",
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
         "stock_geography": "stocks_rows",
         "demand_regions": "missing",
         "stock_regions": "missing",
         "sku_attribution": "metrics_data_quality"
       },
       "known_facts": {
-        "total_orders": 1.0,
-        "demand_warehouses_count": 1,
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
         "stock_warehouses_count": 3,
         "demand_regions_count": 0,
         "stock_regions_count": 0
       },
-      "estimated_metrics": {
-        "local_orders": 0.833333,
-        "localization_share": 83.3333
-      },
-      "unavailable_metrics": [],
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "localization_share"
+      ],
       "suppressed_recommendations": [
         "rebalance_stock",
         "relocate_inventory"
@@ -3006,37 +2913,33 @@
   "items": [
     {
       "sku": "333615320",
-      "total_orders": 1.0,
-      "local_orders": 0.46988,
-      "localization_share": 46.988,
-      "ktr": 1.2,
-      "krp": 0.0205,
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
       "average_retail_price": null,
       "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
-      "distribution_state": "watch",
-      "distribution_state_label_ru": "зона наблюдения",
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
       "effective_date_applied": true,
       "confidence": "low",
-      "analysis_mode": "preview",
-      "data_quality_status": "low_confidence",
-      "recommendation_status": "watch",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
       "diagnostics": {
         "price_source": "missing",
-        "local_orders_source": "estimated_from_warehouse_shares",
-        "distribution_gap": 0.53012,
-        "locality_score": 0.46988,
-        "demand_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": 0.5,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
         "stock_by_warehouse": {
           "электросталь": 39.0,
           "тула": 38.0,
           "остальные склады": 6.0
         },
-        "demand_share_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "demand_share_by_warehouse": {},
         "stock_share_by_warehouse": {
           "электросталь": 0.46988,
           "тула": 0.457831,
@@ -3048,76 +2951,73 @@
         "stock_share_by_region": {},
         "top_demand_regions": [],
         "top_supply_regions": [],
-        "non_local_orders_estimate": 0.53012,
-        "non_local_share_pct": 53.012,
-        "analysis_status": "preview",
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
         "blocked_reasons": [
-          "insufficient_order_volume"
+          "missing_order_count",
+          "missing_demand_geography",
+          "localization_not_computable"
         ],
         "blocked_reason_details": {
           "valid_sku_attribution": true,
-          "order_count_available": true,
-          "demand_geography_available": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
           "stock_geography_available": true,
           "minimum_sample_met": false,
           "minimum_orders_required": 5,
-          "total_orders": 1.0,
-          "localization_known": true
+          "total_orders": 0.0,
+          "localization_known": false
         },
-        "dominant_demand_warehouses": [
-          "электросталь"
-        ],
+        "dominant_demand_warehouses": [],
         "dominant_stock_warehouses": [
           "электросталь",
           "тула"
         ],
         "reverse_logistics_modeling": "deferred_until_volume_fields_available",
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "evidence_sources": {
-          "local_orders": "estimated_from_warehouse_shares",
-          "demand_geography": "sales_rows",
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
           "stock_geography": "stocks_rows",
           "demand_regions": "missing",
           "stock_regions": "missing",
           "sku_attribution": "metrics_data_quality"
         },
         "known_facts": {
-          "total_orders": 1.0,
-          "demand_warehouses_count": 1,
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
           "stock_warehouses_count": 3,
           "demand_regions_count": 0,
           "stock_regions_count": 0
         },
-        "estimated_metrics": {
-          "local_orders": 0.46988,
-          "localization_share": 46.988
-        },
-        "unavailable_metrics": [],
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "localization_share"
+        ],
         "suppressed_recommendations": [
           "rebalance_stock",
           "relocate_inventory"
         ]
       },
       "notes": [
-        "average_retail_price_missing"
+        "average_retail_price_missing",
+        "localization_share_unknown"
       ],
-      "status": "moderate_mismatch",
-      "distribution_gap": 0.53012,
-      "demand_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "status": "no_demand_data",
+      "distribution_gap": 0.5,
+      "demand_by_warehouse": {},
       "stock_by_warehouse": {
         "электросталь": 39.0,
         "тула": 38.0,
         "остальные склады": 6.0
       },
-      "demand_share_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "demand_share_by_warehouse": {},
       "stock_share_by_warehouse": {
         "электросталь": 0.46988,
         "тула": 0.457831,
@@ -3129,73 +3029,63 @@
       "stock_share_by_region": {},
       "top_demand_regions": [],
       "top_supply_regions": [],
-      "dominant_demand_warehouses": [
-        "электросталь"
-      ],
+      "dominant_demand_warehouses": [],
       "dominant_stock_warehouses": [
         "электросталь",
         "тула"
       ],
-      "locality_score": 0.46988,
-      "total_buys": 1,
+      "locality_score": 0.0,
+      "total_buys": 0,
       "total_stock": 83,
       "low_sample_warning": true,
-      "relocation_hint": "monitor",
+      "relocation_hint": null,
       "valid_sku_attribution": true,
-      "order_count_available": true,
-      "demand_geography_available": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
       "stock_geography_available": true,
       "minimum_sample_met": false,
-      "analysis_status": "preview",
+      "analysis_status": "blocked_by_data",
       "blocked_reasons": [
-        "insufficient_order_volume"
+        "missing_order_count",
+        "missing_demand_geography",
+        "localization_not_computable"
       ],
       "blocked_reason_details": {
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "minimum_orders_required": 5,
-        "total_orders": 1.0,
-        "localization_known": true
+        "total_orders": 0.0,
+        "localization_known": false
       },
-      "non_local_orders_estimate": 0.53012,
-      "non_local_share_pct": 53.012,
-      "recommendation_candidates": [
-        {
-          "destination_region": "электросталь",
-          "demand_share_pct": 100.0,
-          "stock_share_pct": 46.988,
-          "gap_share_pct": 53.012,
-          "demand_orders": 1.0,
-          "priority": "high",
-          "reason": "non_local_demand_exceeds_supply_share"
-        }
-      ],
-      "recommended_destination": "электросталь",
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
       "recommendation_ready": false,
       "recommendation_notes": [],
       "evidence_sources": {
-        "local_orders": "estimated_from_warehouse_shares",
-        "demand_geography": "sales_rows",
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
         "stock_geography": "stocks_rows",
         "demand_regions": "missing",
         "stock_regions": "missing",
         "sku_attribution": "metrics_data_quality"
       },
       "known_facts": {
-        "total_orders": 1.0,
-        "demand_warehouses_count": 1,
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
         "stock_warehouses_count": 3,
         "demand_regions_count": 0,
         "stock_regions_count": 0
       },
-      "estimated_metrics": {
-        "local_orders": 0.46988,
-        "localization_share": 46.988
-      },
-      "unavailable_metrics": [],
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "localization_share"
+      ],
       "suppressed_recommendations": [
         "rebalance_stock",
         "relocate_inventory"
@@ -3379,37 +3269,33 @@
     },
     {
       "sku": "453526507",
-      "total_orders": 1.0,
-      "local_orders": 0.833333,
-      "localization_share": 83.3333,
-      "ktr": 0.8,
-      "krp": 0.0,
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
       "average_retail_price": null,
-      "irp_penalty_per_order": 0.0,
+      "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
-      "distribution_state": "strong",
-      "distribution_state_label_ru": "распределение хорошее",
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
       "effective_date_applied": true,
       "confidence": "low",
-      "analysis_mode": "preview",
-      "data_quality_status": "low_confidence",
-      "recommendation_status": "watch",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
       "diagnostics": {
         "price_source": "missing",
-        "local_orders_source": "estimated_from_warehouse_shares",
-        "distribution_gap": 0.166666,
-        "locality_score": 0.833333,
-        "demand_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": 0.499999,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
         "stock_by_warehouse": {
           "сц кемерово": 1.0,
           "остальные склады": 1.0,
           "электросталь": 10.0
         },
-        "demand_share_by_warehouse": {
-          "электросталь": 1.0
-        },
+        "demand_share_by_warehouse": {},
         "stock_share_by_warehouse": {
           "сц кемерово": 0.083333,
           "остальные склады": 0.083333,
@@ -3421,54 +3307,54 @@
         "stock_share_by_region": {},
         "top_demand_regions": [],
         "top_supply_regions": [],
-        "non_local_orders_estimate": 0.166667,
-        "non_local_share_pct": 16.6667,
-        "analysis_status": "preview",
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
         "blocked_reasons": [
-          "insufficient_order_volume"
+          "missing_order_count",
+          "missing_demand_geography",
+          "localization_not_computable"
         ],
         "blocked_reason_details": {
           "valid_sku_attribution": true,
-          "order_count_available": true,
-          "demand_geography_available": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
           "stock_geography_available": true,
           "minimum_sample_met": false,
           "minimum_orders_required": 5,
-          "total_orders": 1.0,
-          "localization_known": true
+          "total_orders": 0.0,
+          "localization_known": false
         },
-        "dominant_demand_warehouses": [
-          "электросталь"
-        ],
+        "dominant_demand_warehouses": [],
         "dominant_stock_warehouses": [
           "электросталь"
         ],
         "reverse_logistics_modeling": "deferred_until_volume_fields_available",
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "evidence_sources": {
-          "local_orders": "estimated_from_warehouse_shares",
-          "demand_geography": "sales_rows",
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
           "stock_geography": "stocks_rows",
           "demand_regions": "missing",
           "stock_regions": "missing",
           "sku_attribution": "metrics_data_quality"
         },
         "known_facts": {
-          "total_orders": 1.0,
-          "demand_warehouses_count": 1,
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
           "stock_warehouses_count": 3,
           "demand_regions_count": 0,
           "stock_regions_count": 0
         },
-        "estimated_metrics": {
-          "local_orders": 0.833333,
-          "localization_share": 83.3333
-        },
-        "unavailable_metrics": [],
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "localization_share"
+        ],
         "suppressed_recommendations": [
           "rebalance_stock",
           "relocate_inventory"
@@ -3476,21 +3362,17 @@
       },
       "notes": [
         "average_retail_price_missing",
-        "krp_zero_due_to_localization_60_plus"
+        "localization_share_unknown"
       ],
-      "status": "balanced",
-      "distribution_gap": 0.166666,
-      "demand_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "status": "no_demand_data",
+      "distribution_gap": 0.499999,
+      "demand_by_warehouse": {},
       "stock_by_warehouse": {
         "сц кемерово": 1.0,
         "остальные склады": 1.0,
         "электросталь": 10.0
       },
-      "demand_share_by_warehouse": {
-        "электросталь": 1.0
-      },
+      "demand_share_by_warehouse": {},
       "stock_share_by_warehouse": {
         "сц кемерово": 0.083333,
         "остальные склады": 0.083333,
@@ -3502,72 +3384,62 @@
       "stock_share_by_region": {},
       "top_demand_regions": [],
       "top_supply_regions": [],
-      "dominant_demand_warehouses": [
-        "электросталь"
-      ],
+      "dominant_demand_warehouses": [],
       "dominant_stock_warehouses": [
         "электросталь"
       ],
-      "locality_score": 0.833333,
-      "total_buys": 1,
+      "locality_score": 0.0,
+      "total_buys": 0,
       "total_stock": 12,
       "low_sample_warning": true,
       "relocation_hint": null,
       "valid_sku_attribution": true,
-      "order_count_available": true,
-      "demand_geography_available": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
       "stock_geography_available": true,
       "minimum_sample_met": false,
-      "analysis_status": "preview",
+      "analysis_status": "blocked_by_data",
       "blocked_reasons": [
-        "insufficient_order_volume"
+        "missing_order_count",
+        "missing_demand_geography",
+        "localization_not_computable"
       ],
       "blocked_reason_details": {
         "valid_sku_attribution": true,
-        "order_count_available": true,
-        "demand_geography_available": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
         "stock_geography_available": true,
         "minimum_sample_met": false,
         "minimum_orders_required": 5,
-        "total_orders": 1.0,
-        "localization_known": true
+        "total_orders": 0.0,
+        "localization_known": false
       },
-      "non_local_orders_estimate": 0.166667,
-      "non_local_share_pct": 16.6667,
-      "recommendation_candidates": [
-        {
-          "destination_region": "электросталь",
-          "demand_share_pct": 100.0,
-          "stock_share_pct": 83.3333,
-          "gap_share_pct": 16.6667,
-          "demand_orders": 1.0,
-          "priority": "medium",
-          "reason": "non_local_demand_exceeds_supply_share"
-        }
-      ],
-      "recommended_destination": "электросталь",
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
       "recommendation_ready": false,
       "recommendation_notes": [],
       "evidence_sources": {
-        "local_orders": "estimated_from_warehouse_shares",
-        "demand_geography": "sales_rows",
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
         "stock_geography": "stocks_rows",
         "demand_regions": "missing",
         "stock_regions": "missing",
         "sku_attribution": "metrics_data_quality"
       },
       "known_facts": {
-        "total_orders": 1.0,
-        "demand_warehouses_count": 1,
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
         "stock_warehouses_count": 3,
         "demand_regions_count": 0,
         "stock_regions_count": 0
       },
-      "estimated_metrics": {
-        "local_orders": 0.833333,
-        "localization_share": 83.3333
-      },
-      "unavailable_metrics": [],
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "localization_share"
+      ],
       "suppressed_recommendations": [
         "rebalance_stock",
         "relocate_inventory"
@@ -4277,64 +4149,54 @@
     }
   ],
   "aggregate_estimated_irp_penalty_total": 0,
-  "distribution_efficiency_score": 65.16,
-  "analysis_mode": "preview",
-  "analysis_status": "preview",
-  "data_quality_status": "low_confidence",
-  "recommendation_status": "watch",
+  "distribution_efficiency_score": 0.0,
+  "analysis_mode": "disabled",
+  "analysis_status": "blocked_by_data",
+  "data_quality_status": "insufficient_data",
+  "recommendation_status": "blocked_by_data",
   "blocked_reasons": [
-    "insufficient_order_volume",
     "localization_not_computable",
     "missing_demand_geography",
     "missing_order_count"
   ],
   "blocked_reason_counts": {
-    "insufficient_order_volume": 2,
-    "missing_order_count": 5,
-    "missing_demand_geography": 5,
-    "localization_not_computable": 5
+    "missing_order_count": 7,
+    "missing_demand_geography": 7,
+    "localization_not_computable": 7
   },
   "blocked_reason_details": {
     "min_portfolio_coverage_pct": 40.0,
     "min_demand_coverage_pct": 50.0,
     "min_stock_coverage_pct": 40.0,
     "max_unknown_share_pct": 60.0,
-    "actual_coverage_pct": 28.57,
-    "actual_demand_coverage_pct": 28.57,
+    "actual_coverage_pct": 0.0,
+    "actual_demand_coverage_pct": 0.0,
     "actual_stock_coverage_pct": 100.0,
-    "actual_unknown_share_pct": 71.43
+    "actual_unknown_share_pct": 100.0
   },
-  "coverage_pct": 28.57,
+  "coverage_pct": 0.0,
   "confidence_level": "low",
   "suppressed_due_to_data_quality": true,
   "evidence_sources": {
     "sku_attribution_status": "ok",
-    "demand_coverage_pct": 28.57,
+    "demand_coverage_pct": 0.0,
     "stock_coverage_pct": 100.0,
-    "known_localization_skus": 2,
+    "known_localization_skus": 0,
     "total_skus": 7
   },
   "recommendation_candidates": [
     {
       "sku": "333615320",
-      "analysis_status": "preview",
-      "recommendation_candidates": [
-        {
-          "destination_region": "электросталь",
-          "demand_share_pct": 100.0,
-          "stock_share_pct": 46.988,
-          "gap_share_pct": 53.012,
-          "demand_orders": 1.0,
-          "priority": "high",
-          "reason": "non_local_demand_exceeds_supply_share"
-        }
-      ],
-      "recommended_destination": "электросталь",
+      "analysis_status": "blocked_by_data",
+      "recommendation_candidates": [],
+      "recommended_destination": "",
       "blocked_reasons": [
-        "insufficient_order_volume"
+        "missing_order_count",
+        "missing_demand_geography",
+        "localization_not_computable"
       ],
-      "non_local_orders_estimate": 0.53012,
-      "non_local_share_pct": 53.012
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null
     },
     {
       "sku": "452102417",
@@ -4351,24 +4213,16 @@
     },
     {
       "sku": "453526507",
-      "analysis_status": "preview",
-      "recommendation_candidates": [
-        {
-          "destination_region": "электросталь",
-          "demand_share_pct": 100.0,
-          "stock_share_pct": 83.3333,
-          "gap_share_pct": 16.6667,
-          "demand_orders": 1.0,
-          "priority": "medium",
-          "reason": "non_local_demand_exceeds_supply_share"
-        }
-      ],
-      "recommended_destination": "электросталь",
+      "analysis_status": "blocked_by_data",
+      "recommendation_candidates": [],
+      "recommended_destination": "",
       "blocked_reasons": [
-        "insufficient_order_volume"
+        "missing_order_count",
+        "missing_demand_geography",
+        "localization_not_computable"
       ],
-      "non_local_orders_estimate": 0.166667,
-      "non_local_share_pct": 16.6667
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null
     },
     {
       "sku": "551253854",

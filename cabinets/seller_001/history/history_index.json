@@ -24,8 +24,74 @@
         "warnings.json"
       ],
       "kpi": {
-        "revenue": 0.0,
-        "profit": 0.0,
+        "revenue": 7138.0,
+        "profit": 5716.58,
+        "buyouts": 5,
+        "ads_spend": 178.16,
+        "sku_count": 7,
+        "valid_sku_count": 7,
+        "invalid_sku_rows": 0
+      },
+      "seller_id": "seller_001"
+    },
+    {
+      "date": "2026-06-26",
+      "path": "daily/2026-06-26",
+      "files": [
+        "2026-06-26_outcomes.json",
+        "abc_analysis.json",
+        "decisions.json",
+        "event_ledger.json",
+        "facts.json",
+        "health_score.json",
+        "keyword_monitoring.json",
+        "logistics_ktr.json",
+        "metrics.json",
+        "profit_contribution.json",
+        "sku_alerts.json",
+        "sku_daily_dynamics.json",
+        "sku_watchlists.json",
+        "territorial_distribution.json",
+        "territorial_distribution_metrics.json",
+        "territorial_distribution_summary.json",
+        "warnings.json"
+      ],
+      "kpi": {
+        "revenue": 7138.0,
+        "profit": 5716.58,
+        "buyouts": 5,
+        "ads_spend": 178.16,
+        "sku_count": 7,
+        "valid_sku_count": 7,
+        "invalid_sku_rows": 0
+      },
+      "seller_id": "seller_001"
+    },
+    {
+      "date": "2026-06-27",
+      "path": "daily/2026-06-27",
+      "files": [
+        "2026-06-27_outcomes.json",
+        "abc_analysis.json",
+        "decisions.json",
+        "event_ledger.json",
+        "facts.json",
+        "health_score.json",
+        "keyword_monitoring.json",
+        "logistics_ktr.json",
+        "metrics.json",
+        "profit_contribution.json",
+        "sku_alerts.json",
+        "sku_daily_dynamics.json",
+        "sku_watchlists.json",
+        "territorial_distribution.json",
+        "territorial_distribution_metrics.json",
+        "territorial_distribution_summary.json",
+        "warnings.json"
+      ],
+      "kpi": {
+        "revenue": 7138.0,
+        "profit": 5716.58,
         "buyouts": 5,
         "ads_spend": 178.16,
         "sku_count": 7,

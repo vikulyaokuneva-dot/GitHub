@@ -1,10 +1,10 @@
 {
   "seller_id": "seller_001",
   "mode": "daily",
-  "run_date": "2026-06-25",
+  "run_date": "2026-06-27",
   "status": "success",
-  "started_at": "2026-06-26T22:31:40Z",
-  "finished_at": "2026-06-26T22:31:42Z",
+  "started_at": "2026-06-27T22:21:59Z",
+  "finished_at": "2026-06-27T22:22:01Z",
   "error": null,
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
   "source_mode": "wb_api_core_v2",
@@ -26,8 +26,8 @@
   },
   "report_meta": {
     "seller_id": "seller_001",
-    "report_date": "2026-06-25",
-    "operational_day": "2026-06-25",
+    "report_date": "2026-06-27",
+    "operational_day": "2026-06-27",
     "source_mode": "wb_api_core_v2",
     "status": "success",
     "report_version": "v2",
@@ -39,24 +39,42 @@
       "email_html": "email_v2.html",
       "email_txt": "email_v2.txt"
     },
-    "snapshot_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-06-25\\snapshot.json",
-    "debug_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-06-25\\debug.json",
+    "snapshot_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-06-27\\snapshot.json",
+    "debug_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\2026-06-27\\debug.json",
     "report_payload_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_payload_v2.json",
     "pdf_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_v2.pdf",
     "email_html_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\email_v2.html",
     "email_txt_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\email_v2.txt",
     "warnings": [
       {
+        "code": "finance_final_api_unavailable",
+        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"374d2f6a0f92383a9dc745d58ebf272f\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=38708, x_ratelimit_reset=38708",
+        "level": "warning",
+        "block": "meta"
+      },
+      {
+        "code": "orders_api_unavailable",
+        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"515715aa81f4847839b591d618b1c29d\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=6304, x_ratelimit_reset=6304",
+        "level": "warning",
+        "block": "meta"
+      },
+      {
         "code": "sales_api_unavailable",
-        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"acbdfe2ec0d436c8059dc86e9142431f\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=7125, x_ratelimit_reset=7125",
+        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"6b2e7f5004b669b788d8628d21d21c47\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=6367, x_ratelimit_reset=6367",
         "level": "warning",
         "block": "meta"
       },
       {
         "code": "stocks_api_unavailable",
-        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"4ab874d0d5a75e463da297018c4e89aa\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=10727, x_ratelimit_reset=10727",
+        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"efb0d682828caef2999798c63b1cc0eb\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=9993, x_ratelimit_reset=9993",
         "level": "warning",
         "block": "meta"
+      },
+      {
+        "code": "orders_latest_successful_cache_fallback",
+        "message": "orders returned 429; live_operational.orders was filled from latest_successful snapshot and marked stale.",
+        "level": "warning",
+        "block": "live_operational"
       },
       {
         "code": "sales_latest_successful_cache_fallback",
@@ -75,6 +93,12 @@
         "message": "ads returned 429; live_operational.ads was filled from latest_successful snapshot and marked stale.",
         "level": "warning",
         "block": "live_operational"
+      },
+      {
+        "code": "finance_final_finance_cache_fallback",
+        "message": "finance_final_daily filled from latest_finance.json cache.",
+        "level": "warning",
+        "block": "finance_final"
       },
       {
         "code": "buyouts_override_from_sales_api",
@@ -113,7 +137,7 @@
         "block": "profit_contribution"
       }
     ],
-    "warnings_count": 11
+    "warnings_count": 15
   },
   "payload_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_payload_v2.json",
   "pdf_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_v2.pdf",
@@ -121,10 +145,10 @@
   "email_txt_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\email_v2.txt",
   "report_meta_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_meta.json",
   "history_snapshot": {
-    "date": "2026-06-25",
-    "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\history\\daily\\2026-06-25",
+    "date": "2026-06-27",
+    "path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\history\\daily\\2026-06-27",
     "files": [
-      "2026-06-25_outcomes.json",
+      "2026-06-27_outcomes.json",
       "abc_analysis.json",
       "decisions.json",
       "event_ledger.json",
@@ -143,6 +167,6 @@
       "warnings.json"
     ]
   },
-  "email_subject": "WB ИИ-агент v3 — управленческое резюме: seller_001 (2026-06-25)",
-  "email_body_text": "Управленческое резюме WB ИИ-агент v3\nКабинет: seller_001\nДата отчета: 2026-06-25\nОперационный день: 2026-06-25\n\nКЛЮЧЕВЫЕ ПОКАЗАТЕЛИ\n- Заказы: недостаточно данных\n- Выкупы: недостаточно данных\n- Заказы, сумма: недостаточно данных\n- Выкупы, сумма: недостаточно данных\n- Средний чек: недостаточно данных\n- Конверсия просмотр → заказ: недостаточно данных\n- Конверсия заказ → выкуп: недостаточно данных\n\nФИНАНСОВЫЕ ПОКАЗАТЕЛИ\n- К перечислению продавцу: недостаточно данных\n- Чистая прибыль: недостаточно данных\n- Маржа: недостаточно данных для расчета\n- Рентабельность: недостаточно данных для расчета\n\nГЛАВНЫЕ ВЫВОДЫ\n- Данные по заказам пока не подтверждены.\n- Маржа: недостаточно данных для расчета.\n- Финансовые показатели за день предварительные.\n\nРЕКОМЕНДАЦИИ\n- Дождаться подтверждения заказов и выкупов перед изменением стратегии.\n- После подтверждения данных повторно оценить маржу и воронку продаж.\n\nВЫВОД ДНЯ\nОперационный день: 2026-06-25. Данные по заказам пока не подтверждены. Маржа: недостаточно данных для расчета. Конверсия просмотр → заказ: недостаточно данных.\n\nДетали в PDF."
+  "email_subject": "WB ИИ-агент v3 — управленческое резюме: seller_001 (2026-06-27)",
+  "email_body_text": "Управленческое резюме WB ИИ-агент v3\nКабинет: seller_001\nДата отчета: 2026-06-27\nОперационный день: 2026-06-27\n\nКЛЮЧЕВЫЕ ПОКАЗАТЕЛИ\n- Заказы: недостаточно данных\n- Выкупы: недостаточно данных\n- Заказы, сумма: недостаточно данных\n- Выкупы, сумма: недостаточно данных\n- Средний чек: недостаточно данных\n- Конверсия просмотр → заказ: недостаточно данных\n- Конверсия заказ → выкуп: недостаточно данных\n\nФИНАНСОВЫЕ ПОКАЗАТЕЛИ\n- К перечислению продавцу: недостаточно данных\n- Чистая прибыль: недостаточно данных\n- Маржа: недостаточно данных для расчета\n- Рентабельность: недостаточно данных для расчета\n\nГЛАВНЫЕ ВЫВОДЫ\n- Данные по заказам пока не подтверждены.\n- Маржа: недостаточно данных для расчета.\n- Финансовые показатели за день предварительные.\n\nРЕКОМЕНДАЦИИ\n- Дождаться подтверждения заказов и выкупов перед изменением стратегии.\n- После подтверждения данных повторно оценить маржу и воронку продаж.\n\nВЫВОД ДНЯ\nОперационный день: 2026-06-27. Данные по заказам пока не подтверждены. Маржа: недостаточно данных для расчета. Конверсия просмотр → заказ: недостаточно данных.\n\nДетали в PDF."
 }
