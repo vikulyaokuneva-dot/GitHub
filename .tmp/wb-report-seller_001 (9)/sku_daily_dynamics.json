@@ -1,0 +1,957 @@
+{
+  "date": "2026-04-10",
+  "sku_count": 15,
+  "items": [
+    {
+      "sku": "283212418",
+      "nm_id": "283212418",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 2,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "stock": {
+          "value": 2.0,
+          "avg_7d": 0.0,
+          "delta": 2.0,
+          "delta_pct": null,
+          "days": 1
+        }
+      },
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "333615320",
+      "nm_id": "333615320",
+      "vendor_code": "трёшка стандарт",
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": 5978,
+      "clicks": 189,
+      "ctr": 3.21,
+      "cart_count": null,
+      "orders": 6,
+      "buyouts": 34,
+      "revenue": 3014.22,
+      "gross_profit": 2712.59,
+      "net_profit": -376.82,
+      "ads_spend": 2664.39,
+      "stock": 196,
+      "avg_check": 88.65,
+      "margin_pct": -12.5,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "orders": {
+          "value": 6.0,
+          "avg_7d": 18.0,
+          "delta": -12.0,
+          "delta_pct": -66.67,
+          "days": 4
+        },
+        "buyouts": {
+          "value": 34.0,
+          "avg_7d": 26.5,
+          "delta": 7.5,
+          "delta_pct": 28.3,
+          "days": 4
+        },
+        "revenue": {
+          "value": 3014.22,
+          "avg_7d": 2260.665,
+          "delta": 753.555,
+          "delta_pct": 33.33,
+          "days": 4
+        },
+        "net_profit": {
+          "value": -376.82,
+          "avg_7d": 643.58,
+          "delta": -1020.4,
+          "delta_pct": -158.55,
+          "days": 4
+        },
+        "stock": {
+          "value": 196.0,
+          "avg_7d": 0.0,
+          "delta": 196.0,
+          "delta_pct": null,
+          "days": 4
+        },
+        "impressions": {
+          "value": 5978.0,
+          "avg_7d": 1359.0,
+          "delta": 4619.0,
+          "delta_pct": 339.88,
+          "days": 1
+        },
+        "clicks": {
+          "value": 189.0,
+          "avg_7d": 50.0,
+          "delta": 139.0,
+          "delta_pct": 278.0,
+          "days": 1
+        },
+        "ctr": {
+          "value": 3.21,
+          "avg_7d": 3.68,
+          "delta": -0.47,
+          "delta_pct": -12.77,
+          "days": 1
+        },
+        "ads_spend": {
+          "value": 2664.39,
+          "avg_7d": 1405.3775,
+          "delta": 1259.0125,
+          "delta_pct": 89.59,
+          "days": 4
+        }
+      },
+      "data_confidence": "high",
+      "source_completeness": "full",
+      "source_flags": {
+        "sales": "available",
+        "ads": "available",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": []
+    },
+    {
+      "sku": "414589567",
+      "nm_id": "414589567",
+      "vendor_code": "маз автомат",
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": 1,
+      "buyouts": 3,
+      "revenue": 243.36,
+      "gross_profit": 207.76,
+      "net_profit": 175.77,
+      "ads_spend": null,
+      "stock": 1,
+      "avg_check": 81.12,
+      "margin_pct": 72.23,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "orders": {
+          "value": 1.0,
+          "avg_7d": 2.5,
+          "delta": -1.5,
+          "delta_pct": -60.0,
+          "days": 4
+        },
+        "buyouts": {
+          "value": 3.0,
+          "avg_7d": 3.25,
+          "delta": -0.25,
+          "delta_pct": -7.69,
+          "days": 4
+        },
+        "revenue": {
+          "value": 243.36,
+          "avg_7d": 182.52,
+          "delta": 60.84,
+          "delta_pct": 33.33,
+          "days": 4
+        },
+        "net_profit": {
+          "value": 175.77,
+          "avg_7d": 134.97,
+          "delta": 40.8,
+          "delta_pct": 30.23,
+          "days": 4
+        },
+        "stock": {
+          "value": 1.0,
+          "avg_7d": 0.0,
+          "delta": 1.0,
+          "delta_pct": null,
+          "days": 4
+        }
+      },
+      "data_confidence": "medium",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "available",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "430679462",
+      "nm_id": "430679462",
+      "vendor_code": "sitrak",
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": 2,
+      "buyouts": 10,
+      "revenue": 803.46,
+      "gross_profit": 758.2,
+      "net_profit": 665.86,
+      "ads_spend": null,
+      "stock": 32,
+      "avg_check": 80.35,
+      "margin_pct": 82.87,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "orders": {
+          "value": 2.0,
+          "avg_7d": 5.0,
+          "delta": -3.0,
+          "delta_pct": -60.0,
+          "days": 4
+        },
+        "buyouts": {
+          "value": 10.0,
+          "avg_7d": 7.5,
+          "delta": 2.5,
+          "delta_pct": 33.33,
+          "days": 4
+        },
+        "revenue": {
+          "value": 803.46,
+          "avg_7d": 602.595,
+          "delta": 200.865,
+          "delta_pct": 33.33,
+          "days": 4
+        },
+        "net_profit": {
+          "value": 665.86,
+          "avg_7d": 521.845,
+          "delta": 144.015,
+          "delta_pct": 27.6,
+          "days": 4
+        },
+        "stock": {
+          "value": 32.0,
+          "avg_7d": 0.0,
+          "delta": 32.0,
+          "delta_pct": null,
+          "days": 4
+        }
+      },
+      "data_confidence": "medium",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "available",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "452102417",
+      "nm_id": "452102417",
+      "vendor_code": "маз простор",
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": 5,
+      "buyouts": 25,
+      "revenue": 2315.66,
+      "gross_profit": 2082.36,
+      "net_profit": 1851.9,
+      "ads_spend": null,
+      "stock": 95,
+      "avg_check": 92.63,
+      "margin_pct": 79.97,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "orders": {
+          "value": 5.0,
+          "avg_7d": 14.25,
+          "delta": -9.25,
+          "delta_pct": -64.91,
+          "days": 4
+        },
+        "buyouts": {
+          "value": 25.0,
+          "avg_7d": 20.5,
+          "delta": 4.5,
+          "delta_pct": 21.95,
+          "days": 4
+        },
+        "revenue": {
+          "value": 2315.66,
+          "avg_7d": 1846.345,
+          "delta": 469.315,
+          "delta_pct": 25.42,
+          "days": 4
+        },
+        "net_profit": {
+          "value": 1851.9,
+          "avg_7d": 1702.065,
+          "delta": 149.835,
+          "delta_pct": 8.8,
+          "days": 4
+        },
+        "stock": {
+          "value": 95.0,
+          "avg_7d": 0.0,
+          "delta": 95.0,
+          "delta_pct": null,
+          "days": 4
+        }
+      },
+      "data_confidence": "medium",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "available",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "453526507",
+      "nm_id": "453526507",
+      "vendor_code": "shacman",
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": 0,
+      "clicks": 0,
+      "ctr": 0.0,
+      "cart_count": null,
+      "orders": 5,
+      "buyouts": 21,
+      "revenue": 2448.51,
+      "gross_profit": 2240.96,
+      "net_profit": 2035.86,
+      "ads_spend": 0.0,
+      "stock": 79,
+      "avg_check": 116.6,
+      "margin_pct": 83.15,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "orders": {
+          "value": 5.0,
+          "avg_7d": 11.0,
+          "delta": -6.0,
+          "delta_pct": -54.55,
+          "days": 4
+        },
+        "buyouts": {
+          "value": 21.0,
+          "avg_7d": 16.25,
+          "delta": 4.75,
+          "delta_pct": 29.23,
+          "days": 4
+        },
+        "revenue": {
+          "value": 2448.51,
+          "avg_7d": 1836.3825,
+          "delta": 612.1275,
+          "delta_pct": 33.33,
+          "days": 4
+        },
+        "net_profit": {
+          "value": 2035.86,
+          "avg_7d": 1617.67,
+          "delta": 418.19,
+          "delta_pct": 25.85,
+          "days": 4
+        },
+        "stock": {
+          "value": 79.0,
+          "avg_7d": 0.0,
+          "delta": 79.0,
+          "delta_pct": null,
+          "days": 4
+        },
+        "impressions": {
+          "value": 0.0,
+          "avg_7d": 0.0,
+          "delta": 0.0,
+          "delta_pct": 0.0,
+          "days": 1
+        },
+        "clicks": {
+          "value": 0.0,
+          "avg_7d": 0.0,
+          "delta": 0.0,
+          "delta_pct": 0.0,
+          "days": 1
+        },
+        "ads_spend": {
+          "value": 0.0,
+          "avg_7d": 0.0,
+          "delta": 0.0,
+          "delta_pct": 0.0,
+          "days": 4
+        }
+      },
+      "data_confidence": "high",
+      "source_completeness": "full",
+      "source_flags": {
+        "sales": "available",
+        "ads": "available",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": []
+    },
+    {
+      "sku": "551253854",
+      "nm_id": "551253854",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 1,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {},
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "missing"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "583470321",
+      "nm_id": null,
+      "vendor_code": "педали sitrak красные",
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": 1,
+      "buyouts": 11,
+      "revenue": 551.64,
+      "gross_profit": 493.0,
+      "net_profit": 443.61,
+      "ads_spend": null,
+      "stock": null,
+      "avg_check": 50.15,
+      "margin_pct": 80.42,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "orders": {
+          "value": 1.0,
+          "avg_7d": 7.3333,
+          "delta": -6.3333,
+          "delta_pct": -86.36,
+          "days": 3
+        },
+        "buyouts": {
+          "value": 11.0,
+          "avg_7d": 11.0,
+          "delta": 0.0,
+          "delta_pct": 0.0,
+          "days": 3
+        },
+        "revenue": {
+          "value": 551.64,
+          "avg_7d": 551.64,
+          "delta": 0.0,
+          "delta_pct": 0.0,
+          "days": 3
+        },
+        "net_profit": {
+          "value": 443.61,
+          "avg_7d": 508.74,
+          "delta": -65.13,
+          "delta_pct": -12.8,
+          "days": 3
+        }
+      },
+      "data_confidence": "medium",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "available",
+        "ads": "missing",
+        "stocks": "missing",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "ads_data_missing",
+        "stock_data_missing"
+      ]
+    },
+    {
+      "sku": "584904841",
+      "nm_id": "584904841",
+      "vendor_code": "трешка бежевая",
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": 0,
+      "clicks": 0,
+      "ctr": 0.0,
+      "cart_count": null,
+      "orders": 1,
+      "buyouts": 3,
+      "revenue": 543.88,
+      "gross_profit": 524.29,
+      "net_profit": 498.57,
+      "ads_spend": 0.0,
+      "stock": 14,
+      "avg_check": 181.29,
+      "margin_pct": 91.67,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "orders": {
+          "value": 1.0,
+          "avg_7d": 2.0,
+          "delta": -1.0,
+          "delta_pct": -50.0,
+          "days": 3
+        },
+        "buyouts": {
+          "value": 3.0,
+          "avg_7d": 3.0,
+          "delta": 0.0,
+          "delta_pct": 0.0,
+          "days": 3
+        },
+        "revenue": {
+          "value": 543.88,
+          "avg_7d": 543.88,
+          "delta": 0.0,
+          "delta_pct": 0.0,
+          "days": 3
+        },
+        "net_profit": {
+          "value": 498.57,
+          "avg_7d": 397.68,
+          "delta": 100.89,
+          "delta_pct": 25.37,
+          "days": 3
+        },
+        "stock": {
+          "value": 14.0,
+          "avg_7d": 0.0,
+          "delta": 14.0,
+          "delta_pct": null,
+          "days": 3
+        },
+        "ads_spend": {
+          "value": 0.0,
+          "avg_7d": 0.0,
+          "delta": 0.0,
+          "delta_pct": 0.0,
+          "days": 3
+        }
+      },
+      "data_confidence": "high",
+      "source_completeness": "full",
+      "source_flags": {
+        "sales": "available",
+        "ads": "available",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": []
+    },
+    {
+      "sku": "590614192",
+      "nm_id": "590614192",
+      "vendor_code": "sitrak красный 2х",
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": 1,
+      "buyouts": 9,
+      "revenue": 484.48,
+      "gross_profit": 455.55,
+      "net_profit": 409.61,
+      "ads_spend": null,
+      "stock": 34,
+      "avg_check": 53.83,
+      "margin_pct": 84.55,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "orders": {
+          "value": 1.0,
+          "avg_7d": 5.0,
+          "delta": -4.0,
+          "delta_pct": -80.0,
+          "days": 4
+        },
+        "buyouts": {
+          "value": 9.0,
+          "avg_7d": 7.25,
+          "delta": 1.75,
+          "delta_pct": 24.14,
+          "days": 4
+        },
+        "revenue": {
+          "value": 484.48,
+          "avg_7d": 363.36,
+          "delta": 121.12,
+          "delta_pct": 33.33,
+          "days": 4
+        },
+        "net_profit": {
+          "value": 409.61,
+          "avg_7d": 333.425,
+          "delta": 76.185,
+          "delta_pct": 22.85,
+          "days": 4
+        },
+        "stock": {
+          "value": 34.0,
+          "avg_7d": 0.0,
+          "delta": 34.0,
+          "delta_pct": null,
+          "days": 4
+        }
+      },
+      "data_confidence": "medium",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "available",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "739377515",
+      "nm_id": null,
+      "vendor_code": "простор синий",
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": 0,
+      "buyouts": 2,
+      "revenue": 0.0,
+      "gross_profit": -7.11,
+      "net_profit": -15.79,
+      "ads_spend": null,
+      "stock": null,
+      "avg_check": 0.0,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "orders": {
+          "value": 0.0,
+          "avg_7d": 1.3333,
+          "delta": -1.3333,
+          "delta_pct": -100.0,
+          "days": 3
+        },
+        "buyouts": {
+          "value": 2.0,
+          "avg_7d": 2.0,
+          "delta": 0.0,
+          "delta_pct": 0.0,
+          "days": 3
+        },
+        "revenue": {
+          "value": 0.0,
+          "avg_7d": 0.0,
+          "delta": 0.0,
+          "delta_pct": 0.0,
+          "days": 3
+        },
+        "net_profit": {
+          "value": -15.79,
+          "avg_7d": 0.0,
+          "delta": -15.79,
+          "delta_pct": null,
+          "days": 3
+        }
+      },
+      "data_confidence": "medium",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "available",
+        "ads": "missing",
+        "stocks": "missing",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "ads_data_missing",
+        "stock_data_missing"
+      ]
+    },
+    {
+      "sku": "739384273",
+      "nm_id": "739384273",
+      "vendor_code": "shacman синий",
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": 2,
+      "buyouts": 16,
+      "revenue": 983.28,
+      "gross_profit": 912.81,
+      "net_profit": 812.22,
+      "ads_spend": null,
+      "stock": 1,
+      "avg_check": 61.45,
+      "margin_pct": 82.6,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {
+        "orders": {
+          "value": 2.0,
+          "avg_7d": 8.5,
+          "delta": -6.5,
+          "delta_pct": -76.47,
+          "days": 4
+        },
+        "buyouts": {
+          "value": 16.0,
+          "avg_7d": 12.5,
+          "delta": 3.5,
+          "delta_pct": 28.0,
+          "days": 4
+        },
+        "revenue": {
+          "value": 983.28,
+          "avg_7d": 737.46,
+          "delta": 245.82,
+          "delta_pct": 33.33,
+          "days": 4
+        },
+        "net_profit": {
+          "value": 812.22,
+          "avg_7d": 677.3575,
+          "delta": 134.8625,
+          "delta_pct": 19.91,
+          "days": 4
+        },
+        "stock": {
+          "value": 1.0,
+          "avg_7d": 0.0,
+          "delta": 1.0,
+          "delta_pct": null,
+          "days": 4
+        }
+      },
+      "data_confidence": "medium",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "available",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "available"
+      },
+      "notes": [
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "875337018",
+      "nm_id": "875337018",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 4,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {},
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "missing"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "875380656",
+      "nm_id": "875380656",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 11,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {},
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "missing"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    },
+    {
+      "sku": "875412618",
+      "nm_id": "875412618",
+      "vendor_code": null,
+      "name": null,
+      "brand": null,
+      "subject": null,
+      "impressions": null,
+      "clicks": null,
+      "ctr": null,
+      "cart_count": null,
+      "orders": null,
+      "buyouts": null,
+      "revenue": null,
+      "gross_profit": null,
+      "net_profit": null,
+      "ads_spend": null,
+      "stock": 5,
+      "avg_check": null,
+      "margin_pct": null,
+      "profitability_pct": null,
+      "vs_previous_day": {},
+      "vs_7d_avg": {},
+      "data_confidence": "low",
+      "source_completeness": "partial",
+      "source_flags": {
+        "sales": "missing",
+        "ads": "missing",
+        "stocks": "available",
+        "history_previous_day": "missing",
+        "history_7d": "missing"
+      },
+      "notes": [
+        "financial_base_missing",
+        "ads_data_missing"
+      ]
+    }
+  ]
+}

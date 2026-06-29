@@ -1,0 +1,132 @@
+{
+  "status": "partial",
+  "warnings": [],
+  "summary": {
+    "total_skus_analyzed": 15,
+    "skus_with_irp_penalty": 3,
+    "skus_below_60_localization": 8,
+    "skus_below_40_localization": 8,
+    "skus_critical_below_20_localization": 7,
+    "aggregate_estimated_irp_penalty_total": 178.73,
+    "weighted_average_localization_share": 12.9205,
+    "distribution_efficiency_score": 12.92,
+    "distribution_state_counts": {
+      "no_orders": 6,
+      "strong": 0,
+      "watch": 0,
+      "weak": 1,
+      "critical": 7,
+      "insufficient_data": 1
+    },
+    "top_weak_localization_skus": [
+      {
+        "sku": "452102417",
+        "localization_share": 0.0,
+        "total_orders": 5.0,
+        "analysis_mode": "full",
+        "recommendation_status": "actionable"
+      },
+      {
+        "sku": "430679462",
+        "localization_share": 0.0,
+        "total_orders": 2.0,
+        "analysis_mode": "preview",
+        "recommendation_status": "watch"
+      },
+      {
+        "sku": "739384273",
+        "localization_share": 0.0,
+        "total_orders": 2.0,
+        "analysis_mode": "preview",
+        "recommendation_status": "watch"
+      },
+      {
+        "sku": "414589567",
+        "localization_share": 0.0,
+        "total_orders": 1.0,
+        "analysis_mode": "preview",
+        "recommendation_status": "watch"
+      },
+      {
+        "sku": "584904841",
+        "localization_share": 0.0,
+        "total_orders": 1.0,
+        "analysis_mode": "preview",
+        "recommendation_status": "watch"
+      },
+      {
+        "sku": "590614192",
+        "localization_share": 0.0,
+        "total_orders": 1.0,
+        "analysis_mode": "preview",
+        "recommendation_status": "watch"
+      },
+      {
+        "sku": "453526507",
+        "localization_share": 13.9241,
+        "total_orders": 5.0,
+        "analysis_mode": "full",
+        "recommendation_status": "actionable"
+      },
+      {
+        "sku": "333615320",
+        "localization_share": 37.9251,
+        "total_orders": 6.0,
+        "analysis_mode": "full",
+        "recommendation_status": "actionable"
+      }
+    ],
+    "top_irp_penalty_skus": [
+      {
+        "sku": "333615320",
+        "estimated_irp_penalty_total": 63.29862,
+        "localization_share": 37.9251,
+        "analysis_mode": "full"
+      },
+      {
+        "sku": "452102417",
+        "estimated_irp_penalty_total": 57.8915,
+        "localization_share": 0.0,
+        "analysis_mode": "full"
+      },
+      {
+        "sku": "453526507",
+        "estimated_irp_penalty_total": 57.539985,
+        "localization_share": 13.9241,
+        "analysis_mode": "full"
+      }
+    ],
+    "sku_total": 15,
+    "sku_with_ktr": 8,
+    "balanced_count": 0,
+    "moderate_mismatch_count": 0,
+    "misallocated_count": 8,
+    "insufficient_distribution_data_count": 7,
+    "no_stock_data_count": 2,
+    "insufficient_total_count": 7,
+    "avg_ktr": 1.8938,
+    "top_misaligned_skus": [
+      "452102417",
+      "430679462",
+      "739384273",
+      "414589567",
+      "584904841"
+    ],
+    "coverage_pct": 53.33,
+    "demand_coverage_pct": 60.0,
+    "stock_coverage_pct": 86.67,
+    "unknown_localization_skus": 7,
+    "known_localization_skus": 8,
+    "unknown_share_pct": 46.67,
+    "confidence_level": "low",
+    "suppressed_due_to_data_quality": false,
+    "suppression_reasons": [],
+    "analysis_mode": "preview",
+    "data_quality_status": "low_confidence",
+    "recommendation_status": "watch",
+    "portfolio_territorial_risk": "high",
+    "full_analysis_skus": 3,
+    "preview_analysis_skus": 6,
+    "disabled_analysis_skus": 6
+  }
+}

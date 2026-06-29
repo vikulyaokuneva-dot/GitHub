@@ -1,0 +1,542 @@
+{
+  "date": "2026-04-10",
+  "watchlists": {
+    "top_growth": [
+      {
+        "sku": "430679462",
+        "attention_score": 75,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 10.0,
+          "revenue": 803.46,
+          "net_profit": 665.86,
+          "stock": 32.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -60.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 33.33,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 27.6
+        }
+      },
+      {
+        "sku": "453526507",
+        "attention_score": 63,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 5.0,
+          "buyouts": 21.0,
+          "revenue": 2448.51,
+          "net_profit": 2035.86,
+          "stock": 79.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -54.55,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 29.23,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 25.85
+        }
+      },
+      {
+        "sku": "739384273",
+        "attention_score": 75,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 16.0,
+          "revenue": 983.28,
+          "net_profit": 812.22,
+          "stock": 1.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -76.47,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 28.0,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 19.91
+        }
+      },
+      {
+        "sku": "590614192",
+        "attention_score": 75,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 9.0,
+          "revenue": 484.48,
+          "net_profit": 409.61,
+          "stock": 34.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -80.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 24.14,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 22.85
+        }
+      },
+      {
+        "sku": "414589567",
+        "attention_score": 75,
+        "reason": "Рост относительно 7d baseline",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 3.0,
+          "revenue": 243.36,
+          "net_profit": 175.77,
+          "stock": 1.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -60.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -7.69,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 30.23
+        }
+      }
+    ],
+    "top_risk": [
+      {
+        "sku": "333615320",
+        "attention_score": 121,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 6.0,
+          "buyouts": 34.0,
+          "revenue": 3014.22,
+          "net_profit": -376.82,
+          "stock": 196.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -66.67,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 28.3,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": -158.55
+        }
+      },
+      {
+        "sku": "414589567",
+        "attention_score": 75,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 3.0,
+          "revenue": 243.36,
+          "net_profit": 175.77,
+          "stock": 1.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -60.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -7.69,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 30.23
+        }
+      },
+      {
+        "sku": "430679462",
+        "attention_score": 75,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 10.0,
+          "revenue": 803.46,
+          "net_profit": 665.86,
+          "stock": 32.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -60.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 33.33,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 27.6
+        }
+      },
+      {
+        "sku": "452102417",
+        "attention_score": 75,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 5.0,
+          "buyouts": 25.0,
+          "revenue": 2315.66,
+          "net_profit": 1851.9,
+          "stock": 95.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -64.91,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 21.95,
+          "revenue_vs_7d_pct": 25.42,
+          "net_profit_vs_7d_pct": 8.8
+        }
+      },
+      {
+        "sku": "590614192",
+        "attention_score": 75,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 9.0,
+          "revenue": 484.48,
+          "net_profit": 409.61,
+          "stock": 34.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -80.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 24.14,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 22.85
+        }
+      }
+    ],
+    "dead_stock": [
+      {
+        "sku": "283212418",
+        "attention_score": 37,
+        "reason": "Риск зависших остатков",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": 2.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      },
+      {
+        "sku": "551253854",
+        "attention_score": 18,
+        "reason": "Риск зависших остатков",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": 1.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      },
+      {
+        "sku": "875337018",
+        "attention_score": 18,
+        "reason": "Риск зависших остатков",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": 4.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      },
+      {
+        "sku": "875380656",
+        "attention_score": 18,
+        "reason": "Риск зависших остатков",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": 11.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      },
+      {
+        "sku": "875412618",
+        "attention_score": 18,
+        "reason": "Риск зависших остатков",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": 5.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      }
+    ],
+    "ad_inefficiency": [
+      {
+        "sku": "333615320",
+        "attention_score": 121,
+        "reason": "Риск неэффективной рекламы",
+        "metrics": {
+          "orders": 6.0,
+          "buyouts": 34.0,
+          "revenue": 3014.22,
+          "net_profit": -376.82,
+          "stock": 196.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -66.67,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 28.3,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": -158.55
+        }
+      }
+    ],
+    "conversion_drop": [
+      {
+        "sku": "333615320",
+        "attention_score": 121,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 6.0,
+          "buyouts": 34.0,
+          "revenue": 3014.22,
+          "net_profit": -376.82,
+          "stock": 196.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -66.67,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 28.3,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": -158.55
+        }
+      },
+      {
+        "sku": "414589567",
+        "attention_score": 75,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 3.0,
+          "revenue": 243.36,
+          "net_profit": 175.77,
+          "stock": 1.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -60.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -7.69,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 30.23
+        }
+      },
+      {
+        "sku": "430679462",
+        "attention_score": 75,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 10.0,
+          "revenue": 803.46,
+          "net_profit": 665.86,
+          "stock": 32.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -60.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 33.33,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 27.6
+        }
+      },
+      {
+        "sku": "452102417",
+        "attention_score": 75,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 5.0,
+          "buyouts": 25.0,
+          "revenue": 2315.66,
+          "net_profit": 1851.9,
+          "stock": 95.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -64.91,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 21.95,
+          "revenue_vs_7d_pct": 25.42,
+          "net_profit_vs_7d_pct": 8.8
+        }
+      },
+      {
+        "sku": "590614192",
+        "attention_score": 75,
+        "reason": "Падение конверсии/продажной воронки",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 9.0,
+          "revenue": 484.48,
+          "net_profit": 409.61,
+          "stock": 34.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -80.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 24.14,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 22.85
+        }
+      }
+    ],
+    "logistics_risk": [
+      {
+        "sku": "333615320",
+        "attention_score": 121,
+        "reason": "Риск по KTR/логистике",
+        "metrics": {
+          "orders": 6.0,
+          "buyouts": 34.0,
+          "revenue": 3014.22,
+          "net_profit": -376.82,
+          "stock": 196.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -66.67,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 28.3,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": -158.55
+        },
+        "ktr": 1.4
+      },
+      {
+        "sku": "414589567",
+        "attention_score": 75,
+        "reason": "Риск по KTR/логистике",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 3.0,
+          "revenue": 243.36,
+          "net_profit": 175.77,
+          "stock": 1.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -60.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": -7.69,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 30.23
+        },
+        "ktr": 2.0
+      },
+      {
+        "sku": "430679462",
+        "attention_score": 75,
+        "reason": "Риск по KTR/логистике",
+        "metrics": {
+          "orders": 2.0,
+          "buyouts": 10.0,
+          "revenue": 803.46,
+          "net_profit": 665.86,
+          "stock": 32.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -60.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 33.33,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 27.6
+        },
+        "ktr": 2.0
+      },
+      {
+        "sku": "452102417",
+        "attention_score": 75,
+        "reason": "Риск по KTR/логистике",
+        "metrics": {
+          "orders": 5.0,
+          "buyouts": 25.0,
+          "revenue": 2315.66,
+          "net_profit": 1851.9,
+          "stock": 95.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -64.91,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 21.95,
+          "revenue_vs_7d_pct": 25.42,
+          "net_profit_vs_7d_pct": 8.8
+        },
+        "ktr": 2.0
+      },
+      {
+        "sku": "590614192",
+        "attention_score": 75,
+        "reason": "Риск по KTR/логистике",
+        "metrics": {
+          "orders": 1.0,
+          "buyouts": 9.0,
+          "revenue": 484.48,
+          "net_profit": 409.61,
+          "stock": 34.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": -80.0,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": 24.14,
+          "revenue_vs_7d_pct": 33.33,
+          "net_profit_vs_7d_pct": 22.85
+        },
+        "ktr": 2.0
+      }
+    ]
+  }
+}

@@ -1,0 +1,2207 @@
+{
+  "date": "2026-04-10",
+  "items": [
+    {
+      "sku": "333615320",
+      "attention_score": 121,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "ok",
+          "reason": "Снижение трафика не обнаружено.",
+          "current_value": {
+            "impressions": 5978.0,
+            "clicks": 189.0
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": 1359.0,
+            "clicks": 50.0
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 278.0
+        },
+        {
+          "type": "ctr_drop",
+          "status": "ok",
+          "reason": "CTR без критичного снижения.",
+          "current_value": 3.21,
+          "previous_day": null,
+          "rolling_7d_avg": 3.68,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -12.77
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "critical",
+          "reason": "Резкое падение заказов относительно предыдущего дня/7d.",
+          "current_value": 6.0,
+          "previous_day": null,
+          "rolling_7d_avg": 18.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -66.67
+        },
+        {
+          "type": "buyout_drop",
+          "status": "ok",
+          "reason": "выкупов без критичного снижения.",
+          "current_value": 34.0,
+          "previous_day": null,
+          "rolling_7d_avg": 26.5,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 28.3
+        },
+        {
+          "type": "profit_drop",
+          "status": "critical",
+          "reason": "Резкое падение чистой прибыли относительно предыдущего дня/7d.",
+          "current_value": -376.82,
+          "previous_day": null,
+          "rolling_7d_avg": 643.58,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -158.55
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "critical",
+          "reason": "расходы на рекламу при отрицательной прибыли",
+          "current_value": 2664.39,
+          "previous_day": null,
+          "rolling_7d_avg": 1405.3775,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 89.59
+        },
+        {
+          "type": "dead_stock",
+          "status": "ok",
+          "reason": "Остатки не выглядят зависшими.",
+          "current_value": 196.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "ok",
+          "reason": "Сигнал zero_sales_with_stock не подтвержден.",
+          "current_value": 196.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "warning",
+          "reason": "KTR выше целевого.",
+          "current_value": 1.4,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 4.1,
+          "previous_day": null,
+          "rolling_7d_avg": 51.02,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -91.96
+        }
+      ],
+      "score_debug": {
+        "raw_score": 120.6,
+        "triggered": [
+          {
+            "type": "orders_drop",
+            "status": "critical",
+            "weight": 20,
+            "multiplier": 1.6,
+            "points": 32.0
+          },
+          {
+            "type": "profit_drop",
+            "status": "critical",
+            "weight": 22,
+            "multiplier": 1.6,
+            "points": 35.2
+          },
+          {
+            "type": "ad_inefficiency",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          },
+          {
+            "type": "critical_ktr",
+            "status": "warning",
+            "weight": 15,
+            "multiplier": 1.0,
+            "points": 15.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "414589567",
+      "attention_score": 75,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "critical",
+          "reason": "Резкое падение заказов относительно предыдущего дня/7d.",
+          "current_value": 1.0,
+          "previous_day": null,
+          "rolling_7d_avg": 2.5,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -60.0
+        },
+        {
+          "type": "buyout_drop",
+          "status": "ok",
+          "reason": "выкупов без критичного снижения.",
+          "current_value": 3.0,
+          "previous_day": null,
+          "rolling_7d_avg": 3.25,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -7.69
+        },
+        {
+          "type": "profit_drop",
+          "status": "ok",
+          "reason": "чистой прибыли без критичного снижения.",
+          "current_value": 175.77,
+          "previous_day": null,
+          "rolling_7d_avg": 134.97,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 30.23
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "ok",
+          "reason": "Остатки не выглядят зависшими.",
+          "current_value": 1.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "ok",
+          "reason": "Сигнал zero_sales_with_stock не подтвержден.",
+          "current_value": 1.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "critical",
+          "reason": "Критичный KTR.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 8.24,
+          "previous_day": null,
+          "rolling_7d_avg": 54.34,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -84.84
+        }
+      ],
+      "score_debug": {
+        "raw_score": 75.2,
+        "triggered": [
+          {
+            "type": "orders_drop",
+            "status": "critical",
+            "weight": 20,
+            "multiplier": 1.6,
+            "points": 32.0
+          },
+          {
+            "type": "critical_ktr",
+            "status": "critical",
+            "weight": 15,
+            "multiplier": 1.6,
+            "points": 24.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "430679462",
+      "attention_score": 75,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "critical",
+          "reason": "Резкое падение заказов относительно предыдущего дня/7d.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": 5.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -60.0
+        },
+        {
+          "type": "buyout_drop",
+          "status": "ok",
+          "reason": "выкупов без критичного снижения.",
+          "current_value": 10.0,
+          "previous_day": null,
+          "rolling_7d_avg": 7.5,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 33.33
+        },
+        {
+          "type": "profit_drop",
+          "status": "ok",
+          "reason": "чистой прибыли без критичного снижения.",
+          "current_value": 665.86,
+          "previous_day": null,
+          "rolling_7d_avg": 521.845,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 27.6
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "ok",
+          "reason": "Остатки не выглядят зависшими.",
+          "current_value": 32.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "ok",
+          "reason": "Сигнал zero_sales_with_stock не подтвержден.",
+          "current_value": 32.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "critical",
+          "reason": "Критичный KTR.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 8.24,
+          "previous_day": null,
+          "rolling_7d_avg": 57.72,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -85.72
+        }
+      ],
+      "score_debug": {
+        "raw_score": 75.2,
+        "triggered": [
+          {
+            "type": "orders_drop",
+            "status": "critical",
+            "weight": 20,
+            "multiplier": 1.6,
+            "points": 32.0
+          },
+          {
+            "type": "critical_ktr",
+            "status": "critical",
+            "weight": 15,
+            "multiplier": 1.6,
+            "points": 24.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "452102417",
+      "attention_score": 75,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "critical",
+          "reason": "Резкое падение заказов относительно предыдущего дня/7d.",
+          "current_value": 5.0,
+          "previous_day": null,
+          "rolling_7d_avg": 14.25,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -64.91
+        },
+        {
+          "type": "buyout_drop",
+          "status": "ok",
+          "reason": "выкупов без критичного снижения.",
+          "current_value": 25.0,
+          "previous_day": null,
+          "rolling_7d_avg": 20.5,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 21.95
+        },
+        {
+          "type": "profit_drop",
+          "status": "ok",
+          "reason": "чистой прибыли без критичного снижения.",
+          "current_value": 1851.9,
+          "previous_day": null,
+          "rolling_7d_avg": 1702.065,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 8.8
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "ok",
+          "reason": "Остатки не выглядят зависшими.",
+          "current_value": 95.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "ok",
+          "reason": "Сигнал zero_sales_with_stock не подтвержден.",
+          "current_value": 95.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "critical",
+          "reason": "Критичный KTR.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 8.94,
+          "previous_day": null,
+          "rolling_7d_avg": 59.73,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -85.03
+        }
+      ],
+      "score_debug": {
+        "raw_score": 75.2,
+        "triggered": [
+          {
+            "type": "orders_drop",
+            "status": "critical",
+            "weight": 20,
+            "multiplier": 1.6,
+            "points": 32.0
+          },
+          {
+            "type": "critical_ktr",
+            "status": "critical",
+            "weight": 15,
+            "multiplier": 1.6,
+            "points": 24.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "590614192",
+      "attention_score": 75,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "critical",
+          "reason": "Резкое падение заказов относительно предыдущего дня/7d.",
+          "current_value": 1.0,
+          "previous_day": null,
+          "rolling_7d_avg": 5.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -80.0
+        },
+        {
+          "type": "buyout_drop",
+          "status": "ok",
+          "reason": "выкупов без критичного снижения.",
+          "current_value": 9.0,
+          "previous_day": null,
+          "rolling_7d_avg": 7.25,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 24.14
+        },
+        {
+          "type": "profit_drop",
+          "status": "ok",
+          "reason": "чистой прибыли без критичного снижения.",
+          "current_value": 409.61,
+          "previous_day": null,
+          "rolling_7d_avg": 333.425,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 22.85
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "ok",
+          "reason": "Остатки не выглядят зависшими.",
+          "current_value": 34.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "ok",
+          "reason": "Сигнал zero_sales_with_stock не подтвержден.",
+          "current_value": 34.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "critical",
+          "reason": "Критичный KTR.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 8.24,
+          "previous_day": null,
+          "rolling_7d_avg": 58.99,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -86.03
+        }
+      ],
+      "score_debug": {
+        "raw_score": 75.2,
+        "triggered": [
+          {
+            "type": "orders_drop",
+            "status": "critical",
+            "weight": 20,
+            "multiplier": 1.6,
+            "points": 32.0
+          },
+          {
+            "type": "critical_ktr",
+            "status": "critical",
+            "weight": 15,
+            "multiplier": 1.6,
+            "points": 24.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "739384273",
+      "attention_score": 75,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "critical",
+          "reason": "Резкое падение заказов относительно предыдущего дня/7d.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": 8.5,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -76.47
+        },
+        {
+          "type": "buyout_drop",
+          "status": "ok",
+          "reason": "выкупов без критичного снижения.",
+          "current_value": 16.0,
+          "previous_day": null,
+          "rolling_7d_avg": 12.5,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 28.0
+        },
+        {
+          "type": "profit_drop",
+          "status": "ok",
+          "reason": "чистой прибыли без критичного снижения.",
+          "current_value": 812.22,
+          "previous_day": null,
+          "rolling_7d_avg": 677.3575,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 19.91
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "ok",
+          "reason": "Остатки не выглядят зависшими.",
+          "current_value": 1.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "ok",
+          "reason": "Сигнал zero_sales_with_stock не подтвержден.",
+          "current_value": 1.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "critical",
+          "reason": "Критичный KTR.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 8.24,
+          "previous_day": null,
+          "rolling_7d_avg": 59.16,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -86.07
+        }
+      ],
+      "score_debug": {
+        "raw_score": 75.2,
+        "triggered": [
+          {
+            "type": "orders_drop",
+            "status": "critical",
+            "weight": 20,
+            "multiplier": 1.6,
+            "points": 32.0
+          },
+          {
+            "type": "critical_ktr",
+            "status": "critical",
+            "weight": 15,
+            "multiplier": 1.6,
+            "points": 24.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "453526507",
+      "attention_score": 63,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "ok",
+          "reason": "Снижение трафика не обнаружено.",
+          "current_value": {
+            "impressions": 0.0,
+            "clicks": 0.0
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": 0.0,
+            "clicks": 0.0
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 0.0
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": 0.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "warning",
+          "reason": "Снижение заказов относительно предыдущего дня/7d.",
+          "current_value": 5.0,
+          "previous_day": null,
+          "rolling_7d_avg": 11.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -54.55
+        },
+        {
+          "type": "buyout_drop",
+          "status": "ok",
+          "reason": "выкупов без критичного снижения.",
+          "current_value": 21.0,
+          "previous_day": null,
+          "rolling_7d_avg": 16.25,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 29.23
+        },
+        {
+          "type": "profit_drop",
+          "status": "ok",
+          "reason": "чистой прибыли без критичного снижения.",
+          "current_value": 2035.86,
+          "previous_day": null,
+          "rolling_7d_avg": 1617.67,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 25.85
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "not_applicable",
+          "reason": "рекламные расходы отсутствуют",
+          "current_value": 0.0,
+          "previous_day": null,
+          "rolling_7d_avg": 0.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 0.0
+        },
+        {
+          "type": "dead_stock",
+          "status": "ok",
+          "reason": "Остатки не выглядят зависшими.",
+          "current_value": 79.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "ok",
+          "reason": "Сигнал zero_sales_with_stock не подтвержден.",
+          "current_value": 79.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "critical",
+          "reason": "Критичный KTR.",
+          "current_value": 1.75,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 7.9,
+          "previous_day": null,
+          "rolling_7d_avg": 59.16,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -86.65
+        }
+      ],
+      "score_debug": {
+        "raw_score": 63.2,
+        "triggered": [
+          {
+            "type": "orders_drop",
+            "status": "warning",
+            "weight": 20,
+            "multiplier": 1.0,
+            "points": 20.0
+          },
+          {
+            "type": "critical_ktr",
+            "status": "critical",
+            "weight": 15,
+            "multiplier": 1.6,
+            "points": 24.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "584904841",
+      "attention_score": 63,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": 0.0,
+            "clicks": 0.0
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": 0.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "warning",
+          "reason": "Снижение заказов относительно предыдущего дня/7d.",
+          "current_value": 1.0,
+          "previous_day": null,
+          "rolling_7d_avg": 2.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -50.0
+        },
+        {
+          "type": "buyout_drop",
+          "status": "ok",
+          "reason": "выкупов без критичного снижения.",
+          "current_value": 3.0,
+          "previous_day": null,
+          "rolling_7d_avg": 3.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 0.0
+        },
+        {
+          "type": "profit_drop",
+          "status": "ok",
+          "reason": "чистой прибыли без критичного снижения.",
+          "current_value": 498.57,
+          "previous_day": null,
+          "rolling_7d_avg": 397.68,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 25.37
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "not_applicable",
+          "reason": "рекламные расходы отсутствуют",
+          "current_value": 0.0,
+          "previous_day": null,
+          "rolling_7d_avg": 0.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 0.0
+        },
+        {
+          "type": "dead_stock",
+          "status": "ok",
+          "reason": "Остатки не выглядят зависшими.",
+          "current_value": 14.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "ok",
+          "reason": "Сигнал zero_sales_with_stock не подтвержден.",
+          "current_value": 14.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "critical",
+          "reason": "Критичный KTR.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 7.3,
+          "previous_day": null,
+          "rolling_7d_avg": 70.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -89.57
+        }
+      ],
+      "score_debug": {
+        "raw_score": 63.2,
+        "triggered": [
+          {
+            "type": "orders_drop",
+            "status": "warning",
+            "weight": 20,
+            "multiplier": 1.0,
+            "points": 20.0
+          },
+          {
+            "type": "critical_ktr",
+            "status": "critical",
+            "weight": 15,
+            "multiplier": 1.6,
+            "points": 24.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "583470321",
+      "attention_score": 51,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "critical",
+          "reason": "Резкое падение заказов относительно предыдущего дня/7d.",
+          "current_value": 1.0,
+          "previous_day": null,
+          "rolling_7d_avg": 7.3333,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -86.36
+        },
+        {
+          "type": "buyout_drop",
+          "status": "ok",
+          "reason": "выкупов без критичного снижения.",
+          "current_value": 11.0,
+          "previous_day": null,
+          "rolling_7d_avg": 11.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 0.0
+        },
+        {
+          "type": "profit_drop",
+          "status": "ok",
+          "reason": "чистой прибыли без критичного снижения.",
+          "current_value": 443.61,
+          "previous_day": null,
+          "rolling_7d_avg": 508.74,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -12.8
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "unknown",
+          "reason": "Stock-данные отсутствуют.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "unknown",
+          "reason": "Stock-данные отсутствуют.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "unknown",
+          "reason": "Недостаточно данных для KTR.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 8.24,
+          "previous_day": null,
+          "rolling_7d_avg": 76.67,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -89.25
+        }
+      ],
+      "score_debug": {
+        "raw_score": 51.2,
+        "triggered": [
+          {
+            "type": "orders_drop",
+            "status": "critical",
+            "weight": 20,
+            "multiplier": 1.6,
+            "points": 32.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "739377515",
+      "attention_score": 51,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "critical",
+          "reason": "Резкое падение заказов относительно предыдущего дня/7d.",
+          "current_value": 0.0,
+          "previous_day": null,
+          "rolling_7d_avg": 1.3333,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -100.0
+        },
+        {
+          "type": "buyout_drop",
+          "status": "ok",
+          "reason": "выкупов без критичного снижения.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": 2.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": 0.0
+        },
+        {
+          "type": "profit_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по чистой прибыли для сравнения.",
+          "current_value": -15.79,
+          "previous_day": null,
+          "rolling_7d_avg": 0.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "unknown",
+          "reason": "Stock-данные отсутствуют.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "unknown",
+          "reason": "Stock-данные отсутствуют.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "unknown",
+          "reason": "Недостаточно данных для KTR.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 0.88,
+          "previous_day": null,
+          "rolling_7d_avg": 30.0,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -97.07
+        }
+      ],
+      "score_debug": {
+        "raw_score": 51.2,
+        "triggered": [
+          {
+            "type": "orders_drop",
+            "status": "critical",
+            "weight": 20,
+            "multiplier": 1.6,
+            "points": 32.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "283212418",
+      "attention_score": 37,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по заказов для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "buyout_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по выкупов для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "profit_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по чистой прибыли для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "warning",
+          "reason": "Есть остатки при нулевых заказах и выкупах.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "unknown",
+          "reason": "Выручка по SKU не определена.",
+          "current_value": 2.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "unknown",
+          "reason": "Недостаточно данных для KTR.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "critical",
+          "reason": "Критичное снижение health_score.",
+          "current_value": 2.06,
+          "previous_day": null,
+          "rolling_7d_avg": 7.35,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": -71.97
+        }
+      ],
+      "score_debug": {
+        "raw_score": 37.2,
+        "triggered": [
+          {
+            "type": "dead_stock",
+            "status": "warning",
+            "weight": 18,
+            "multiplier": 1.0,
+            "points": 18.0
+          },
+          {
+            "type": "health_score_drop",
+            "status": "critical",
+            "weight": 12,
+            "multiplier": 1.6,
+            "points": 19.2
+          }
+        ]
+      }
+    },
+    {
+      "sku": "551253854",
+      "attention_score": 18,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по заказов для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "buyout_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по выкупов для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "profit_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по чистой прибыли для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "warning",
+          "reason": "Есть остатки при нулевых заказах и выкупах.",
+          "current_value": 1.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "unknown",
+          "reason": "Выручка по SKU не определена.",
+          "current_value": 1.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "unknown",
+          "reason": "Недостаточно данных для KTR.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "unknown",
+          "reason": "Недостаточно исторических данных для health_score.",
+          "current_value": 2.06,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        }
+      ],
+      "score_debug": {
+        "raw_score": 18.0,
+        "triggered": [
+          {
+            "type": "dead_stock",
+            "status": "warning",
+            "weight": 18,
+            "multiplier": 1.0,
+            "points": 18.0
+          }
+        ]
+      }
+    },
+    {
+      "sku": "875337018",
+      "attention_score": 18,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по заказов для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "buyout_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по выкупов для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "profit_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по чистой прибыли для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "warning",
+          "reason": "Есть остатки при нулевых заказах и выкупах.",
+          "current_value": 4.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "unknown",
+          "reason": "Выручка по SKU не определена.",
+          "current_value": 4.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "unknown",
+          "reason": "Недостаточно данных для KTR.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "unknown",
+          "reason": "Недостаточно исторических данных для health_score.",
+          "current_value": 2.06,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        }
+      ],
+      "score_debug": {
+        "raw_score": 18.0,
+        "triggered": [
+          {
+            "type": "dead_stock",
+            "status": "warning",
+            "weight": 18,
+            "multiplier": 1.0,
+            "points": 18.0
+          }
+        ]
+      }
+    },
+    {
+      "sku": "875380656",
+      "attention_score": 18,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по заказов для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "buyout_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по выкупов для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "profit_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по чистой прибыли для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "warning",
+          "reason": "Есть остатки при нулевых заказах и выкупах.",
+          "current_value": 11.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "unknown",
+          "reason": "Выручка по SKU не определена.",
+          "current_value": 11.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "unknown",
+          "reason": "Недостаточно данных для KTR.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "unknown",
+          "reason": "Недостаточно исторических данных для health_score.",
+          "current_value": 2.06,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        }
+      ],
+      "score_debug": {
+        "raw_score": 18.0,
+        "triggered": [
+          {
+            "type": "dead_stock",
+            "status": "warning",
+            "weight": 18,
+            "multiplier": 1.0,
+            "points": 18.0
+          }
+        ]
+      }
+    },
+    {
+      "sku": "875412618",
+      "attention_score": 18,
+      "alerts": [
+        {
+          "type": "traffic_drop",
+          "status": "unknown",
+          "reason": "Нет достаточных данных по трафику (показы/клики).",
+          "current_value": {
+            "impressions": null,
+            "clicks": null
+          },
+          "previous_day": {
+            "impressions": null,
+            "clicks": null
+          },
+          "rolling_7d_avg": {
+            "impressions": null,
+            "clicks": null
+          },
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ctr_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по CTR для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "cart_conversion_drop",
+          "status": "unknown",
+          "reason": "Cart-данные недоступны в текущем слое.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "orders_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по заказов для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "buyout_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по выкупов для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "profit_drop",
+          "status": "unknown",
+          "reason": "Недостаточно данных по чистой прибыли для сравнения.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "ad_inefficiency",
+          "status": "unknown",
+          "reason": "ads_spend отсутствует",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "dead_stock",
+          "status": "warning",
+          "reason": "Есть остатки при нулевых заказах и выкупах.",
+          "current_value": 5.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "zero_sales_with_stock",
+          "status": "unknown",
+          "reason": "Выручка по SKU не определена.",
+          "current_value": 5.0,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "critical_ktr",
+          "status": "unknown",
+          "reason": "Недостаточно данных для KTR.",
+          "current_value": null,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        },
+        {
+          "type": "health_score_drop",
+          "status": "unknown",
+          "reason": "Недостаточно исторических данных для health_score.",
+          "current_value": 2.06,
+          "previous_day": null,
+          "rolling_7d_avg": null,
+          "delta_vs_prev_pct": null,
+          "delta_vs_7d_pct": null
+        }
+      ],
+      "score_debug": {
+        "raw_score": 18.0,
+        "triggered": [
+          {
+            "type": "dead_stock",
+            "status": "warning",
+            "weight": 18,
+            "multiplier": 1.0,
+            "points": 18.0
+          }
+        ]
+      }
+    }
+  ]
+}

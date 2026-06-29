@@ -10,6 +10,8 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
+from reportlab.graphics.charts.barcharts import VerticalBarChart
 
 
 FONT_NAME = "ReportV2DejaVu"
@@ -1164,8 +1166,93 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             if mapped in sd_map:
                 ads_sd[lbl] = sd_map[mapped]
     story.append(Paragraph(_format_text(ads_efficiency_section.get("title") or ads_section.get("title")), styles["section"]))
-    story.append(_table_with_comparison(ads_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], key_map=ads_sd))
+    story.append(_ads_rows_table(ads_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
     story.append(Spacer(1, 6))
+
+    _ads_history = {}
+    _orders_history = {}
+    _meta_ads = payload.get("meta", {}) if isinstance(payload, dict) else {}
+    _sid_ads = _meta_ads.get("seller_id", "")
+    _opd_ads = _meta_ads.get("operational_date", "")
+    _hi = {}
+    if _sid_ads and _opd_ads:
+        import json as _ja
+        from pathlib import Path as _Pa
+        from datetime import datetime as _dta, timedelta as _tda
+        _hp = _Pa(r"D:\WB\Бот ИИ менеджер\GitHub\cabinets") / _sid_ads / "history" / "history_index.json"
+        if not _hp.is_file():
+            _hp = _Pa("cabinets") / _sid_ads / "history" / "history_index.json"
+        if _hp.is_file():
+            try:
+                _hi = _ja.load(open(_hp, encoding="utf-8"))
+                for _s in _hi.get("snapshots", []):
+                    if isinstance(_s, dict):
+                        _d = _s.get("date", "")
+                        _a = _s.get("kpi", {}).get("ads_spend")
+                        _ov = _s.get("kpi", {}).get("orders_amount")
+                        if _d:
+                            if _a is not None:
+                                _ads_history[_d] = float(_a)
+                            if _ov is not None:
+                                _orders_history[_d] = float(_ov)
+            except Exception:
+                pass
+    if _ads_history:
+        _today_d = _opd_ads
+        _dates = []
+        try:
+            _base_d = _dta.strptime(_today_d, "%Y-%m-%d")
+            for _i in range(6, -1, -1):
+                _dd = (_base_d - _tda(days=_i)).strftime("%Y-%m-%d")
+                _dates.append(_dd)
+        except Exception:
+            pass
+        if _dates:
+            _spend_vals = [_ads_history.get(d, 0) for d in _dates]
+            _orders_vals = [_orders_history.get(d, 0) for d in _dates]
+            _labels = [d[-5:] for d in _dates]
+            _drawing = Drawing(content_width, 160)
+            _drawing.add(String(content_width / 2, 145, "Расходы на рекламу и сумма заказов за 7 дней (₽)", fontName=font_info["font_name"], fontSize=9, textAnchor="middle", fillColor=colors.HexColor("#374151")))
+            _chart_left = 50
+            _chart_right = content_width - 30
+            _chart_top = 125
+            _chart_bottom = 30
+            _chart_w = _chart_right - _chart_left
+            _chart_h = _chart_top - _chart_bottom
+            _all_vals = _spend_vals + _orders_vals
+            _max_val = max(_all_vals) if _all_vals and max(_all_vals) > 0 else 1
+            _n = len(_spend_vals)
+            _step = _chart_w / max(_n - 1, 1)
+            _pts_spend = []
+            _pts_orders = []
+            for _i in range(_n):
+                _x = _chart_left + _i * _step
+                _ys = _chart_bottom + (_spend_vals[_i] / _max_val) * _chart_h if _max_val > 0 else _chart_bottom
+                _yo = _chart_bottom + (_orders_vals[_i] / _max_val) * _chart_h if _max_val > 0 else _chart_bottom
+                _pts_spend.append((_x, _ys, _spend_vals[_i]))
+                _pts_orders.append((_x, _yo, _orders_vals[_i]))
+            for _j in range(len(_pts_spend) - 1):
+                _drawing.add(Line(_pts_spend[_j][0], _pts_spend[_j][1], _pts_spend[_j + 1][0], _pts_spend[_j + 1][1], strokeColor=colors.HexColor("#DC2626"), strokeWidth=2))
+                _drawing.add(Line(_pts_orders[_j][0], _pts_orders[_j][1], _pts_orders[_j + 1][0], _pts_orders[_j + 1][1], strokeColor=colors.HexColor("#2563EB"), strokeWidth=2))
+            for _x, _y, _v in _pts_spend:
+                _drawing.add(Circle(_x, _y, 3, fillColor=colors.HexColor("#DC2626"), strokeColor=colors.white, strokeWidth=1))
+                _vt = f"{_v:.0f}" if _v == int(_v) else f"{_v:.1f}"
+                if _v > 0:
+                    _drawing.add(String(_x, _y + 8, _vt, fontName=font_info["font_name"], fontSize=7, textAnchor="middle", fillColor=colors.HexColor("#DC2626")))
+            for _x, _y, _v in _pts_orders:
+                _drawing.add(Circle(_x, _y, 3, fillColor=colors.HexColor("#2563EB"), strokeColor=colors.white, strokeWidth=1))
+                if _v > 0:
+                    _drawing.add(String(_x, _y - 12, f"{_v:.0f}", fontName=font_info["font_name"], fontSize=7, textAnchor="middle", fillColor=colors.HexColor("#2563EB")))
+            for _i, _lb in enumerate(_labels):
+                _drawing.add(String(_chart_left + _i * _step, _chart_bottom - 12, _lb, fontName=font_info["font_name"], fontSize=7, textAnchor="middle", fillColor=colors.HexColor("#6B7280")))
+            _drawing.add(Line(_chart_left, _chart_bottom, _chart_right, _chart_bottom, strokeColor=colors.HexColor("#D1D5DB"), strokeWidth=0.5))
+            _legend_y = 5
+            _drawing.add(Line(_chart_left, _legend_y, _chart_left + 15, _legend_y, strokeColor=colors.HexColor("#DC2626"), strokeWidth=2))
+            _drawing.add(String(_chart_left + 18, _legend_y - 3, "Расходы на рекламу", fontName=font_info["font_name"], fontSize=7, fillColor=colors.HexColor("#374151")))
+            _drawing.add(Line(_chart_left + 130, _legend_y, _chart_left + 145, _legend_y, strokeColor=colors.HexColor("#2563EB"), strokeWidth=2))
+            _drawing.add(String(_chart_left + 148, _legend_y - 3, "Сумма заказов", fontName=font_info["font_name"], fontSize=7, fillColor=colors.HexColor("#374151")))
+            story.append(_drawing)
+            story.append(Spacer(1, 6))
 
     search_section = payload.get("search_section", {})
     if not isinstance(search_section, dict):

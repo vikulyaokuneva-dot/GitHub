@@ -1,0 +1,62 @@
+{
+  "skus": [
+    {
+      "sku": "453526507",
+      "base_profit": 2035.86,
+      "simulations": [
+        {
+          "traffic_increase_pct": 10,
+          "expected_orders": 6,
+          "expected_buys": 23,
+          "expected_profit": 2239.45,
+          "profit_delta": 203.59
+        },
+        {
+          "traffic_increase_pct": 20,
+          "expected_orders": 6,
+          "expected_buys": 25,
+          "expected_profit": 2443.03,
+          "profit_delta": 407.17
+        },
+        {
+          "traffic_increase_pct": 30,
+          "expected_orders": 6,
+          "expected_buys": 27,
+          "expected_profit": 2646.62,
+          "profit_delta": 610.76
+        }
+      ]
+    },
+    {
+      "sku": "452102417",
+      "base_profit": 1851.9,
+      "simulations": [
+        {
+          "traffic_increase_pct": 10,
+          "expected_orders": 6,
+          "expected_buys": 28,
+          "expected_profit": 2037.09,
+          "profit_delta": 185.19
+        },
+        {
+          "traffic_increase_pct": 20,
+          "expected_orders": 6,
+          "expected_buys": 30,
+          "expected_profit": 2222.28,
+          "profit_delta": 370.38
+        },
+        {
+          "traffic_increase_pct": 30,
+          "expected_orders": 6,
+          "expected_buys": 32,
+          "expected_profit": 2407.47,
+          "profit_delta": 555.57
+        }
+      ]
+    }
+  ],
+  "top_growth_skus": [
+    "453526507",
+    "452102417"
+  ]
+}

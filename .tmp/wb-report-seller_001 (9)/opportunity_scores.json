@@ -1,0 +1,42 @@
+{
+  "opportunities": [
+    {
+      "sku": "739384273",
+      "score": 7.13691,
+      "profit": 812.22,
+      "margin_pct": 0.826031,
+      "abc_class": "A",
+      "health_status": "FIX"
+    },
+    {
+      "sku": "452102417",
+      "score": 6.237885,
+      "profit": 1851.9,
+      "margin_pct": 0.799729,
+      "abc_class": "A",
+      "health_status": "SCALE"
+    },
+    {
+      "sku": "453526507",
+      "score": 3.771543,
+      "profit": 2035.86,
+      "margin_pct": 0.831469,
+      "abc_class": "A",
+      "health_status": "FIX"
+    },
+    {
+      "sku": "430679462",
+      "score": 3.729333,
+      "profit": 665.86,
+      "margin_pct": 0.828741,
+      "abc_class": "B",
+      "health_status": "FIX"
+    }
+  ],
+  "top_opportunities": [
+    "739384273",
+    "452102417",
+    "453526507",
+    "430679462"
+  ]
+}
