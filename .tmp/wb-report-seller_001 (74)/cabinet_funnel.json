@@ -1,0 +1,500 @@
+{
+  "date": "2026-06-29",
+  "funnel": {
+    "views": 388,
+    "views_status": "confirmed",
+    "views_source": "analytics_api",
+    "impressions": 388,
+    "impressions_status": "confirmed",
+    "impressions_source": "analytics_api",
+    "clicks": 73,
+    "clicks_status": "confirmed",
+    "clicks_source": "analytics_api",
+    "add_to_cart": null,
+    "add_to_cart_status": "missing",
+    "add_to_cart_source": "unknown",
+    "orders": 6,
+    "orders_status": "confirmed",
+    "orders_source": "api",
+    "buyouts": 3,
+    "buyouts_status": "confirmed",
+    "buyouts_source": "api",
+    "view_to_order_conversion": 1.55,
+    "view_to_order_status": "computed",
+    "view_to_order_reason": "",
+    "view_to_order": 1.55,
+    "cart_rate": null,
+    "cart_to_order": null,
+    "cart_to_order_status": "insufficient_data",
+    "cart_to_order_reason": "add_to_cart_or_orders_missing",
+    "buyout_rate": 50.0,
+    "order_to_buyout_status": "computed",
+    "order_to_buyout_reason": "",
+    "order_to_buyout": 50.0,
+    "order_to_buyout_over_100": false,
+    "order_to_buyout_note": "",
+    "orders_amount": null,
+    "buyouts_amount": null,
+    "ads_spend": 161.3,
+    "cpo": 26.88,
+    "cpo_status": "computed",
+    "cpo_reason": "",
+    "ctr": 18.81,
+    "ctr_status": "computed",
+    "ctr_reason": "",
+    "cart_count": null,
+    "cart_conversion_pct": null,
+    "cart_rate_pct": null,
+    "click_to_order_conversion_pct": 8.22,
+    "order_to_buyout_conversion_pct": 50.0,
+    "conversion_rates": {
+      "view_to_order": 1.55,
+      "cart_to_order": null,
+      "order_to_buyout": 50.0,
+      "order_to_buyout_over_100": false,
+      "order_to_buyout_note": ""
+    },
+    "conversion_status": {
+      "view_to_order": {
+        "status": "computed",
+        "reason": ""
+      },
+      "cart_to_order": {
+        "status": "insufficient_data",
+        "reason": "add_to_cart_or_orders_missing"
+      },
+      "order_to_buyout": {
+        "status": "computed",
+        "reason": ""
+      },
+      "ctr": {
+        "status": "computed",
+        "reason": ""
+      },
+      "cpo": {
+        "status": "computed",
+        "reason": ""
+      }
+    },
+    "funnel_status": {
+      "upper_funnel": "partial",
+      "middle_funnel": "full",
+      "lower_funnel": "full",
+      "overall": "partial",
+      "reason_codes": [
+        "upper_funnel_partial_fields"
+      ]
+    },
+    "marketing_layer": {
+      "basis": "orders",
+      "orders": 6,
+      "ads_spend": 161.3,
+      "cpo": 26.88
+    },
+    "financial_layer": {
+      "basis": "buyouts",
+      "buyouts": 3,
+      "revenue": 1291.0,
+      "commission": -196.14,
+      "logistics": 0.0,
+      "tax": 0.0,
+      "cogs": 0.0,
+      "profit": 1474.35
+    }
+  },
+  "data_sources": {
+    "views": "analytics_api",
+    "impressions": "analytics_api",
+    "clicks": "analytics_api",
+    "add_to_cart": "unknown",
+    "orders": "api",
+    "buyouts": "api",
+    "orders_amount": "unknown",
+    "buyouts_amount": "unknown",
+    "ads_spend": "fallback",
+    "cpo": "derived"
+  },
+  "status": {
+    "traffic": "partial",
+    "conversion": "confirmed",
+    "buyout_stage": "confirmed"
+  },
+  "funnel_status": {
+    "upper_funnel": "partial",
+    "middle_funnel": "full",
+    "lower_funnel": "full",
+    "overall": "partial",
+    "reason_codes": [
+      "upper_funnel_partial_fields"
+    ]
+  },
+  "marketing_layer": {
+    "basis": "orders",
+    "orders": 6,
+    "ads_spend": 161.3,
+    "cpo": 26.88
+  },
+  "financial_layer": {
+    "basis": "buyouts",
+    "buyouts": 3,
+    "revenue": 1291.0,
+    "commission": -196.14,
+    "logistics": 0.0,
+    "tax": 0.0,
+    "cogs": 0.0,
+    "profit": 1474.35
+  },
+  "sku_funnel": [
+    {
+      "views": 0,
+      "add_to_cart": null,
+      "orders": 0,
+      "buyouts": 2,
+      "view_to_order_conversion": null,
+      "cart_rate": null,
+      "cart_to_order": null,
+      "buyout_rate": null,
+      "buyout_rate_over_100": false,
+      "buyout_rate_note": "",
+      "ads_spend": 0.0,
+      "cpo": null,
+      "marketing_layer": {
+        "basis": "orders",
+        "orders": 0,
+        "ads_spend": 0.0,
+        "cpo": null
+      },
+      "financial_layer": {
+        "basis": "buyouts",
+        "buyouts": 2,
+        "revenue": 0.0,
+        "commission": 0.0,
+        "logistics": 0.0,
+        "tax": 0.0,
+        "cogs": 0.0,
+        "profit": 0.0
+      },
+      "sku": "333615320"
+    },
+    {
+      "views": 0,
+      "add_to_cart": null,
+      "orders": 0,
+      "buyouts": 1,
+      "view_to_order_conversion": null,
+      "cart_rate": null,
+      "cart_to_order": null,
+      "buyout_rate": null,
+      "buyout_rate_over_100": false,
+      "buyout_rate_note": "",
+      "ads_spend": 0.0,
+      "cpo": null,
+      "marketing_layer": {
+        "basis": "orders",
+        "orders": 0,
+        "ads_spend": 0.0,
+        "cpo": null
+      },
+      "financial_layer": {
+        "basis": "buyouts",
+        "buyouts": 1,
+        "revenue": 0.0,
+        "commission": 0.0,
+        "logistics": 0.0,
+        "tax": 0.0,
+        "cogs": 0.0,
+        "profit": 0.0
+      },
+      "sku": "452102417"
+    },
+    {
+      "views": 0,
+      "add_to_cart": null,
+      "orders": 0,
+      "buyouts": 0,
+      "view_to_order_conversion": null,
+      "cart_rate": null,
+      "cart_to_order": null,
+      "buyout_rate": null,
+      "buyout_rate_over_100": false,
+      "buyout_rate_note": "",
+      "ads_spend": 0.0,
+      "cpo": null,
+      "marketing_layer": {
+        "basis": "orders",
+        "orders": 0,
+        "ads_spend": 0.0,
+        "cpo": null
+      },
+      "financial_layer": {
+        "basis": "buyouts",
+        "buyouts": 0,
+        "revenue": 0.0,
+        "commission": 0.0,
+        "logistics": 0.0,
+        "tax": 0.0,
+        "cogs": 0.0,
+        "profit": 0.0
+      },
+      "sku": "969315704"
+    },
+    {
+      "views": 0,
+      "add_to_cart": null,
+      "orders": 0,
+      "buyouts": 0,
+      "view_to_order_conversion": null,
+      "cart_rate": null,
+      "cart_to_order": null,
+      "buyout_rate": null,
+      "buyout_rate_over_100": false,
+      "buyout_rate_note": "",
+      "ads_spend": 0.0,
+      "cpo": null,
+      "marketing_layer": {
+        "basis": "orders",
+        "orders": 0,
+        "ads_spend": 0.0,
+        "cpo": null
+      },
+      "financial_layer": {
+        "basis": "buyouts",
+        "buyouts": 0,
+        "revenue": 0.0,
+        "commission": 0.0,
+        "logistics": 0.0,
+        "tax": 0.0,
+        "cogs": 0.0,
+        "profit": 0.0
+      },
+      "sku": "551253854"
+    },
+    {
+      "views": 0,
+      "add_to_cart": null,
+      "orders": 0,
+      "buyouts": 0,
+      "view_to_order_conversion": null,
+      "cart_rate": null,
+      "cart_to_order": null,
+      "buyout_rate": null,
+      "buyout_rate_over_100": false,
+      "buyout_rate_note": "",
+      "ads_spend": 0.0,
+      "cpo": null,
+      "marketing_layer": {
+        "basis": "orders",
+        "orders": 0,
+        "ads_spend": 0.0,
+        "cpo": null
+      },
+      "financial_layer": {
+        "basis": "buyouts",
+        "buyouts": 0,
+        "revenue": 0.0,
+        "commission": 0.0,
+        "logistics": 0.0,
+        "tax": 0.0,
+        "cogs": 0.0,
+        "profit": 0.0
+      },
+      "sku": "453526507"
+    },
+    {
+      "views": 388,
+      "add_to_cart": null,
+      "orders": 0,
+      "buyouts": 0,
+      "view_to_order_conversion": 0.0,
+      "cart_rate": null,
+      "cart_to_order": null,
+      "buyout_rate": null,
+      "buyout_rate_over_100": false,
+      "buyout_rate_note": "",
+      "ads_spend": 161.3,
+      "cpo": null,
+      "marketing_layer": {
+        "basis": "orders",
+        "orders": 0,
+        "ads_spend": 161.3,
+        "cpo": null
+      },
+      "financial_layer": {
+        "basis": "buyouts",
+        "buyouts": 0,
+        "revenue": 0.0,
+        "commission": 0.0,
+        "logistics": 0.0,
+        "tax": 0.0,
+        "cogs": 0.0,
+        "profit": -161.3
+      },
+      "sku": "898642228"
+    }
+  ],
+  "sku_diagnostics": {
+    "date": "2026-06-29",
+    "status": "partial_success",
+    "thresholds": {
+      "min_views_for_analysis": 50.0,
+      "low_cart_rate": 0.03,
+      "low_conversion": 0.01,
+      "low_cart_to_order": 0.25,
+      "low_buyout_rate": 0.8,
+      "min_ads_spend_for_efficiency": 1.0,
+      "max_orders_for_ads_efficiency_problem": 0.0,
+      "weak_conversion_for_ads_efficiency": 0.005
+    },
+    "items": [
+      {
+        "sku": "333615320",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 0,
+        "buyouts": 2,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": null,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": false,
+        "has_buyouts": true,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "452102417",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 0,
+        "buyouts": 1,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": null,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": false,
+        "has_buyouts": true,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "969315704",
+        "views": 0,
+        "add_to_cart": null,
+        "orders": 0,
+        "buyouts": 0,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": null,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": false,
+        "has_buyouts": false,
+        "issue_type": "traffic_problem",
+        "issue_reason_ru": "Низкий трафик: товар получает слишком мало просмотров."
+      },
+      {
+        "sku": "551253854",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 0,
+        "buyouts": 0,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": null,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": false,
+        "has_buyouts": false,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "453526507",
+        "views": null,
+        "add_to_cart": null,
+        "orders": 0,
+        "buyouts": 0,
+        "ads_spend": 0.0,
+        "conversion": null,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": null,
+        "has_views": false,
+        "has_cart": false,
+        "has_orders": false,
+        "has_buyouts": false,
+        "issue_type": "insufficient_data",
+        "issue_reason_ru": "Недостаточно данных для уверенной диагностики воронки."
+      },
+      {
+        "sku": "898642228",
+        "views": 388,
+        "add_to_cart": null,
+        "orders": 0,
+        "buyouts": 0,
+        "ads_spend": 161.3,
+        "conversion": 0.0,
+        "cart_rate": null,
+        "cart_to_order": null,
+        "buyout_rate": null,
+        "has_views": true,
+        "has_cart": false,
+        "has_orders": false,
+        "has_buyouts": false,
+        "issue_type": "ads_efficiency_problem",
+        "issue_reason_ru": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+      }
+    ],
+    "summary": {
+      "sku_count": 6,
+      "analyzed_sku_count": 2,
+      "issue_counts": {
+        "traffic_problem": 1,
+        "card_problem": 0,
+        "price_or_offer_problem": 0,
+        "buyout_problem": 0,
+        "ads_efficiency_problem": 1,
+        "healthy_funnel": 0,
+        "insufficient_data": 4
+      },
+      "top_problem_groups": [
+        {
+          "issue_type": "ads_efficiency_problem",
+          "count": 1
+        },
+        {
+          "issue_type": "traffic_problem",
+          "count": 1
+        }
+      ],
+      "top_problem_skus": [
+        {
+          "sku": "969315704",
+          "issue_type": "traffic_problem",
+          "reason": "Низкий трафик: товар получает слишком мало просмотров."
+        },
+        {
+          "sku": "898642228",
+          "issue_type": "ads_efficiency_problem",
+          "reason": "Проблема рекламы: расходы есть, но заказы не подтверждают эффективность трафика."
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "code": "sales_funnel_insufficient_data",
+        "message": "Insufficient funnel data for 4 SKU."
+      }
+    ]
+  }
+}

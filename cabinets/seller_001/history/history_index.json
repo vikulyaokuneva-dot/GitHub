@@ -30,7 +30,8 @@
         "ads_spend": 178.16,
         "sku_count": 7,
         "valid_sku_count": 7,
-        "invalid_sku_rows": 0
+        "invalid_sku_rows": 0,
+        "funnel": {}
       },
       "seller_id": "seller_001"
     },
@@ -63,7 +64,8 @@
         "ads_spend": 178.16,
         "sku_count": 7,
         "valid_sku_count": 7,
-        "invalid_sku_rows": 0
+        "invalid_sku_rows": 0,
+        "funnel": {}
       },
       "seller_id": "seller_001"
     },
@@ -96,7 +98,42 @@
         "ads_spend": 178.16,
         "sku_count": 7,
         "valid_sku_count": 7,
-        "invalid_sku_rows": 0
+        "invalid_sku_rows": 0,
+        "funnel": {
+          "clicks": 500,
+          "cart": 55,
+          "orders": 10,
+          "buyouts": 5,
+          "orders_amount": 7138.0,
+          "buyouts_amount": 7138.0
+        },
+        "orders": 10,
+        "orders_amount": 7138.0
+      },
+      "seller_id": "seller_001"
+    },
+    {
+      "date": "2026-06-28",
+      "path": "daily/2026-06-28",
+      "files": [],
+      "kpi": {
+        "revenue": 1291.0,
+        "profit": 153.86,
+        "buyouts": 3,
+        "ads_spend": 161.3,
+        "funnel": {
+          "clicks": 386,
+          "cart": 42,
+          "orders": 7,
+          "buyouts": 3,
+          "orders_amount": 5280.0,
+          "buyouts_amount": 2217.8
+        },
+        "sku_count": 6,
+        "valid_sku_count": 6,
+        "invalid_sku_rows": 0,
+        "orders": 7,
+        "orders_amount": 5280.0
       },
       "seller_id": "seller_001"
     }

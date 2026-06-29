@@ -3211,13 +3211,15 @@ def build_abc_section_v2(
             logist = abs(_safe_float(row.get("logistics_amount")) or 0)
             stor = abs(_safe_float(row.get("storage")) or 0)
             acqu = abs(_safe_float(row.get("acquiring")) or 0)
+            ded = abs(_safe_float(row.get("deductions")) or 0)
             if key not in finance_by_sku:
-                finance_by_sku[key] = {"revenue": 0.0, "commission": 0.0, "logistics": 0.0, "storage": 0.0, "acquiring": 0.0}
+                finance_by_sku[key] = {"revenue": 0.0, "commission": 0.0, "logistics": 0.0, "storage": 0.0, "acquiring": 0.0, "deductions": 0.0}
             finance_by_sku[key]["revenue"] += rev
             finance_by_sku[key]["commission"] += comm
             finance_by_sku[key]["logistics"] += logist
             finance_by_sku[key]["storage"] += stor
             finance_by_sku[key]["acquiring"] += acqu
+            finance_by_sku[key]["deductions"] += ded
 
         for row in sales_rows:
             nm_id = row.get("nm_id") or row.get("nmId")
@@ -3233,19 +3235,31 @@ def build_abc_section_v2(
             cogs_val = cogs_map_local.get(nm_int, 0) * int(qty) if nm_int else 0
 
             fin = finance_by_sku.get(key)
-            if fin and fin["revenue"] > 0:
+            if amount > 0:
+                rev = amount
+                if fin and fin["revenue"] > 0:
+                    scale = rev / fin["revenue"] if fin["revenue"] > 0 else 1.0
+                    total_exp = (fin["commission"] + fin["logistics"] + fin["storage"] + fin["acquiring"] + fin["deductions"]) * scale + cogs_val
+                else:
+                    total_exp = cogs_val
+                profit = rev - total_exp
+            elif fin and fin["revenue"] > 0:
                 rev = fin["revenue"]
-                total_exp = fin["commission"] + fin["logistics"] + fin["storage"] + fin["acquiring"] + cogs_val
+                total_exp = fin["commission"] + fin["logistics"] + fin["storage"] + fin["acquiring"] + fin["deductions"] + cogs_val
                 profit = rev - total_exp
             else:
-                rev = amount
-                profit = amount - cogs_val
+                rev = 0
+                profit = 0
 
-            sku_rev_profit[key] = {"revenue": rev, "profit": profit}
+            if key in sku_rev_profit:
+                sku_rev_profit[key]["revenue"] += rev
+                sku_rev_profit[key]["profit"] += profit
+            else:
+                sku_rev_profit[key] = {"revenue": rev, "profit": profit}
 
         for key, fin in finance_by_sku.items():
             if key not in sku_rev_profit and fin["revenue"] > 0:
-                total_exp = fin["commission"] + fin["logistics"] + fin["storage"] + fin["acquiring"]
+                total_exp = fin["commission"] + fin["logistics"] + fin["storage"] + fin["acquiring"] + fin["deductions"]
                 sku_rev_profit[key] = {"revenue": fin["revenue"], "profit": fin["revenue"] - total_exp}
 
         if not sku_rev_profit:
@@ -3256,10 +3270,47 @@ def build_abc_section_v2(
                     sku_rev_profit[nm] = {"revenue": s.get("revenue", 0), "profit": s.get("profit", 0)}
 
         if sku_rev_profit:
+            total_deductions_val = abs(_safe_float(finance.get("deductions")) or 0)
+            total_rev_for_ded = sum(v["revenue"] for v in sku_rev_profit.values() if v["revenue"] > 0)
+            for k, v in sku_rev_profit.items():
+                if v["revenue"] > 0 and total_rev_for_ded > 0:
+                    ded_share = total_deductions_val * (v["revenue"] / total_rev_for_ded)
+                    v["profit"] -= ded_share
+
             sales_only_skus = {str(row.get("nm_id") or row.get("nmId")) for row in sales_rows if row.get("nm_id") or row.get("nmId")}
             rows_for_abc = [{"sku": k, "revenue": v["revenue"], "profit": v["profit"]} for k, v in sku_rev_profit.items() if k in sales_only_skus and v["revenue"] > 0]
             if not rows_for_abc:
                 rows_for_abc = [{"sku": k, "revenue": v["revenue"], "profit": v["profit"]} for k, v in sku_rev_profit.items() if v["revenue"] > 0]
+            ad_spend_index = {}
+            for _ar in (snapshot.get("live_ads_rows") or []) if isinstance(snapshot, dict) else []:
+                if isinstance(_ar, dict):
+                    _nm = str(_ar.get("nm_id") or _ar.get("sku") or "")
+                    _sp = abs(_safe_float(_ar.get("ads_spend") or _ar.get("spend") or 0))
+                    if _nm and _sp > 0:
+                        ad_spend_index[_nm] = _sp
+            if not ad_spend_index and artifact_dir:
+                try:
+                    import json as _aj
+                    _rr_path = Path(artifact_dir) / "reconciled_rows.json"
+                    if _rr_path.is_file():
+                        _rr = _aj.load(open(_rr_path, encoding="utf-8"))
+                        for _ar in (_rr.get("live_ads_rows") or []):
+                            if isinstance(_ar, dict):
+                                _nm = str(_ar.get("nm_id") or _ar.get("sku") or "")
+                                _sp = abs(_safe_float(_ar.get("ads_spend") or _ar.get("spend") or 0))
+                                if _nm and _sp > 0:
+                                    ad_spend_index[_nm] = _sp
+                except Exception:
+                    pass
+                if isinstance(_ar, dict):
+                    _nm = str(_ar.get("nm_id") or _ar.get("sku") or "")
+                    _sp = abs(_safe_float(_ar.get("ads_spend") or _ar.get("spend") or 0))
+                    if _nm and _sp > 0 and _nm not in ad_spend_index:
+                        ad_spend_index[_nm] = _sp
+            existing_skus = {r["sku"] for r in rows_for_abc}
+            for _nm, _sp in ad_spend_index.items():
+                if _nm not in existing_skus:
+                    rows_for_abc.append({"sku": _nm, "revenue": 0, "profit": -_sp})
             rows_for_abc.sort(key=lambda r: r["profit"], reverse=True)
             positive_profit_total = sum(r["profit"] for r in rows_for_abc if r["profit"] > 0)
             total_revenue = sum(r["revenue"] for r in rows_for_abc)
@@ -4378,6 +4429,8 @@ def build_sales_dynamics_section_v2(
     metrics = [
         ("Выручка", "revenue", "money"),
         ("Прибыль", "profit", "money"),
+        ("Заказы", "orders", "int"),
+        ("Сумма заказов", "orders_amount", "money"),
         ("Выкупы", "buyouts", "int"),
         ("Реклама", "ads_spend", "money"),
     ]

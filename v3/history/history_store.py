@@ -138,6 +138,10 @@ def save_daily_history_snapshot(seller_id: str, run_date: str, artifacts_dir: Pa
     _fk_profit = _safe_float(financial_kpi.get("net_profit") or financial_kpi.get("profit")) if isinstance(financial_kpi, dict) else 0.0
     _fk_ads = _safe_float(financial_kpi.get("ads_spend")) if isinstance(financial_kpi, dict) else 0.0
 
+    funnel_daily = metrics.get("funnel_daily", {}) if isinstance(metrics, dict) else {}
+    if not isinstance(funnel_daily, dict):
+        funnel_daily = {}
+
     snapshot_meta = {
         "date": run_date,
         "path": f"daily/{run_date}",
@@ -160,6 +164,19 @@ def save_daily_history_snapshot(seller_id: str, run_date: str, artifacts_dir: Pa
                 _safe_float(totals.get("ads_spend", 0.0))
                 or _fk_ads,
                 4,
+            ),
+            "funnel": {
+                "impressions": _safe_float(funnel_daily.get("impressions")),
+                "clicks": _safe_float(funnel_daily.get("open_count")),
+                "cart": _safe_float(funnel_daily.get("cart_count")),
+                "orders": _safe_float(funnel_daily.get("orders_count")),
+                "buyouts": _safe_float(funnel_daily.get("buyouts_count")),
+                "orders_amount": _safe_float(funnel_daily.get("orders_amount")),
+                "buyouts_amount": _safe_float(funnel_daily.get("buyouts_amount")),
+            },
+            "orders": _safe_int(funnel_daily.get("orders_count")),
+            "orders_amount": round(
+                _safe_float(funnel_daily.get("orders_amount")) or 0.0, 4
             ),
             "sku_count": len([x for x in sku_metrics if isinstance(x, dict)]),
             "valid_sku_count": _safe_int(data_quality.get("valid_sku_count", 0)),

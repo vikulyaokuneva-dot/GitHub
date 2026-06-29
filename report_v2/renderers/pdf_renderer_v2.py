@@ -218,6 +218,97 @@ def _display_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: 
     return table
 
 
+def _parse_pct(val: str | None) -> float | None:
+    if not val or val in ("н/д", "нет данных", ""):
+        return None
+    cleaned = val.replace("%", "").replace("+", "").replace(" ", "").replace(",", ".").strip()
+    try:
+        return float(cleaned)
+    except (ValueError, TypeError):
+        return None
+
+
+def _calc_delta_from_values(today_str: str, yesterday_str: str) -> float | None:
+    def _to_num(s: str) -> float | None:
+        if not s or s in ("н/д", "нет данных", ""):
+            return None
+        cleaned = s.replace("₽", "").replace("шт", "").replace("%", "").replace("+", "").replace(" ", "").replace(",", ".").strip()
+        try:
+            return float(cleaned)
+        except (ValueError, TypeError):
+            return None
+    t = _to_num(today_str)
+    y = _to_num(yesterday_str)
+    if t is None or y is None:
+        return None
+    if y == 0:
+        return None
+    return round((t - y) / abs(y) * 100, 1)
+
+
+def _table_with_comparison(
+    rows_data: list[dict[str, Any]],
+    *,
+    width: float,
+    font_name: str,
+    style: ParagraphStyle,
+    key_map: dict[str, str] | None = None,
+    headers: list[str] | None = None,
+    label_key: str = "label",
+    value_key: str = "value",
+) -> Table:
+    sd_map: dict[str, dict[str, Any]] = {}
+    if key_map:
+        sd_map = key_map
+    hdrs = headers or ["Показатель", "Вчера", "Позавчера", "Изменение"]
+    table_rows: list[list[Paragraph]] = [[Paragraph(h, style) for h in hdrs]]
+    delta_list: list[float | None] = []
+    for item in rows_data:
+        row = item if isinstance(item, dict) else {}
+        label = _format_text(row.get(label_key, ""))
+        value = _format_text(row.get(value_key, ""))
+        match = sd_map.get(label, {})
+        today_val = _format_text(match.get("today", "")) if match else ""
+        prev_val = _format_text(match.get("yesterday", "н/д")) if match else "н/д"
+        delta_pct = _calc_delta_from_values(today_val, prev_val)
+        if delta_pct is not None and delta_pct > 0:
+            delta_cell = Paragraph(f'<font color="#166534">+{abs(delta_pct):.1f}%</font>', style)
+        elif delta_pct is not None and delta_pct < 0:
+            delta_cell = Paragraph(f'<font color="#991B1B">{delta_pct:.1f}%</font>', style)
+        else:
+            delta_cell = Paragraph("н/д", style)
+        delta_list.append(delta_pct)
+        table_rows.append([
+            Paragraph(label, style),
+            Paragraph(value, style),
+            Paragraph(prev_val, style),
+            delta_cell,
+        ])
+
+    col_w = [width * 0.30, width * 0.25, width * 0.25, width * 0.20]
+    table = Table(table_rows, colWidths=col_w)
+    style_cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#16A34A")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+        ("FONTNAME", (0, 0), (-1, -1), font_name),
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9FAFB")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]
+    for idx, dp in enumerate(delta_list):
+        row_idx = idx + 1
+        if dp is not None and dp > 0:
+            style_cmds.append(("BACKGROUND", (3, row_idx), (3, row_idx), colors.HexColor("#DCFCE7")))
+        elif dp is not None and dp < 0:
+            style_cmds.append(("BACKGROUND", (3, row_idx), (3, row_idx), colors.HexColor("#FEE2E2")))
+    table.setStyle(TableStyle(style_cmds))
+    return table
+
+
 def _funnel_rows_table(rows: list[dict[str, Any]], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
     table_rows: list[list[Paragraph]] = [
         [
@@ -638,7 +729,7 @@ def _sku_detail_table(sku: dict[str, Any], *, width: float, font_name: str, styl
         ("Выручка", _format_money(sku.get("revenue"))),
         ("Себестоимость", _format_money(-sku.get("cogs", 0)) if sku.get("cogs") else None),
         ("Комиссия WB", _format_money(-sku.get("commission", 0)) if sku.get("commission") else None),
-        ("Логистика", _format_money(-sku.get("logistics", 0)) if sku.get("logistics") else None),
+        ("Логистика", _format_money(-sku.get("logistics", 0))),
         ("Эквайринг", _format_money(-sku.get("acquiring", 0)) if sku.get("acquiring") else None),
         ("Хранение", _format_money(-sku.get("storage_share", 0)) if sku.get("storage_share") else None),
         ("Удержания", _format_money(-sku.get("deductions_share", 0)) if sku.get("deductions_share") else None),
@@ -758,6 +849,109 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     if not isinstance(hero_section, dict):
         hero_section = {}
     hero_rows = hero_section.get("rows", [])
+
+    sales_dynamics_raw = payload.get("sales_dynamics_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(sales_dynamics_raw, dict):
+        sales_dynamics_raw = {}
+    sd_rows_raw = sales_dynamics_raw.get("rows", [])
+    sd_map: dict[str, dict[str, Any]] = {}
+    if isinstance(sd_rows_raw, list):
+        for _r in sd_rows_raw:
+            if isinstance(_r, dict):
+                sd_map[_r.get("label", "")] = _r
+    sd_label_aliases = {
+        "Сумма выкупов": "Выручка",
+        "Сумма заказов": "Заказы",
+    }
+    for alias, target in sd_label_aliases.items():
+        if target in sd_map and alias not in sd_map:
+            sd_map[alias] = sd_map[target]
+    for _key in ("Реклама",):
+        if _key in sd_map:
+            for _fld in ("today", "yesterday", "week_ago"):
+                _v = sd_map[_key].get(_fld, "")
+                if _v and _v not in ("н/д", "нет данных") and not _v.startswith("-"):
+                    sd_map[_key][_fld] = f"-{_v}"
+    if isinstance(hero_rows, list):
+        for _hr in hero_rows:
+            if not isinstance(_hr, dict):
+                continue
+            _hl = _hr.get("label", "")
+            _hv = _hr.get("value", "")
+            if _hl in sd_map and sd_map[_hl].get("today") in ("нет данных", "", None):
+                sd_map[_hl]["today"] = _hv
+    funnel_comparison: dict[str, dict[str, Any]] = {}
+    _meta = payload.get("meta", {}) if isinstance(payload, dict) else {}
+    _seller_id = _meta.get("seller_id", "")
+    _op_date = _meta.get("operational_date", "")
+    if _seller_id and _op_date:
+        import json as _json_mod
+        from pathlib import Path as _Path
+        _hist_path = _Path("cabinets") / _seller_id / "history" / "history_index.json"
+        if not _hist_path.is_file():
+            _hist_path = _Path(__file__).resolve().parents[2] / "cabinets" / _seller_id / "history" / "history_index.json"
+        if not _hist_path.is_file():
+            _hist_path = _Path(r"D:\WB\Бот ИИ менеджер\GitHub\cabinets") / _seller_id / "history" / "history_index.json"
+        if _hist_path.is_file():
+            try:
+                _hist = _json_mod.load(open(_hist_path, encoding="utf-8"))
+                _snaps = _hist.get("snapshots", []) if isinstance(_hist, dict) else []
+                _today_funnel = {}
+                _yesterday_funnel = {}
+                for _s in _snaps:
+                    if not isinstance(_s, dict):
+                        continue
+                    if _s.get("date") == _op_date:
+                        _today_funnel = _s.get("kpi", {}).get("funnel", {})
+                    _y_date = ""
+                    try:
+                        from datetime import datetime as _dt, timedelta as _td
+                        _y_date = (_dt.strptime(_op_date, "%Y-%m-%d") - _td(days=1)).strftime("%Y-%m-%d")
+                    except Exception:
+                        pass
+                    if _s.get("date") == _y_date:
+                        _yesterday_funnel = _s.get("kpi", {}).get("funnel", {})
+                _funnel_stage_map = {
+                    "Показы": "impressions", "Клики": "clicks", "Корзина": "cart",
+                    "Заказы": "orders", "Выкупы": "buyouts",
+                }
+                _fmt_funnel = lambda v: f"{int(v)} шт" if v and v == int(v) else f"{v} шт" if v else "н/д"
+                for _stage, _key in _funnel_stage_map.items():
+                    _t = _today_funnel.get(_key)
+                    _y = _yesterday_funnel.get(_key)
+                    _vs = None
+                    if _t is not None and _y is not None and _y != 0:
+                        _vs = round((_t - _y) / abs(_y) * 100, 1)
+                    _vs_str = f"{_vs:+.1f}%" if _vs is not None else "н/д"
+                    funnel_comparison[_stage] = {
+                        "today": _fmt_funnel(_t) if _t is not None else "н/д",
+                        "yesterday": _fmt_funnel(_y) if _y is not None else "н/д",
+                        "vs_yesterday": _vs_str,
+                    }
+                _conv_pairs = [
+                    ("Показы → Клики", "clicks", "impressions"),
+                    ("Клики → Корзина", "cart", "clicks"),
+                    ("Корзина → Заказ", "orders", "cart"),
+                    ("Заказ → Выкуп", "buyouts", "orders"),
+                ]
+                for _cstage, _num_key, _den_key in _conv_pairs:
+                    _tn = _today_funnel.get(_num_key)
+                    _td = _today_funnel.get(_den_key)
+                    _yn = _yesterday_funnel.get(_num_key)
+                    _yd = _yesterday_funnel.get(_den_key)
+                    _t_pct = round(_tn / _td * 100, 1) if _tn is not None and _td and _td > 0 else None
+                    _y_pct = round(_yn / _yd * 100, 1) if _yn is not None and _yd and _yd > 0 else None
+                    _cv = None
+                    if _t_pct is not None and _y_pct is not None and _y_pct != 0:
+                        _cv = round((_t_pct - _y_pct) / abs(_y_pct) * 100, 1)
+                    _cv_str = f"{_cv:+.1f}%" if _cv is not None else "н/д"
+                    funnel_comparison[_cstage] = {
+                        "today": f"{_t_pct:.1f}%" if _t_pct is not None else "нет данных",
+                        "yesterday": f"{_y_pct:.1f}%" if _y_pct is not None else "нет данных",
+                        "vs_yesterday": _cv_str,
+                    }
+            except Exception:
+                pass
     if isinstance(hero_rows, list) and hero_rows:
         story.append(Paragraph(_format_text(hero_section.get("title") or "Ежедневный отчёт WB"), styles["title"]))
         story.append(Paragraph(_format_text(hero_section.get("subtitle")), styles["meta"]))
@@ -798,7 +992,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                 story.append(boxes_row)
                 story.append(Spacer(1, 6))
 
-        story.append(_display_rows_table(hero_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+        story.append(_table_with_comparison(hero_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], key_map=sd_map))
         story.append(Spacer(1, 4))
 
         hero_actions = hero_section.get("actions", [])
@@ -819,8 +1013,8 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                 ])
             act_table = Table(act_table_rows, colWidths=[content_width * 0.05, content_width * 0.55, content_width * 0.40])
             act_table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#16A34A")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
                 ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F5")]),
                 ("TOPPADDING", (0, 0), (-1, -1), 3),
@@ -934,44 +1128,6 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         story.append(profit_table)
         story.append(Spacer(1, 6))
 
-    sales_dynamics = payload.get("sales_dynamics_section", {}) if isinstance(payload, dict) else {}
-    if not isinstance(sales_dynamics, dict):
-        sales_dynamics = {}
-    sd_rows = sales_dynamics.get("rows", [])
-    if isinstance(sd_rows, list) and sd_rows:
-        story.append(Paragraph(_format_text(sales_dynamics.get("title") or "Динамика продаж"), styles["section"]))
-        subtitle = sales_dynamics.get("subtitle", "")
-        if subtitle:
-            story.append(Paragraph(_format_text(subtitle), styles["meta"]))
-        header = [Paragraph(h, styles["hero_card"]) for h in ["Метрика", "Сегодня", "Вчера", "7 дн.", "Δ вчера", "Δ 7 дн."]]
-        table_rows = [header]
-        for row in sd_rows:
-            if not isinstance(row, dict):
-                continue
-            table_rows.append([
-                Paragraph(_format_text(row.get("label", "")), styles["hero_card"]),
-                Paragraph(_format_text(row.get("today", "")), styles["hero_card"]),
-                Paragraph(_format_text(row.get("yesterday", "")), styles["hero_card"]),
-                Paragraph(_format_text(row.get("week_ago", "")), styles["hero_card"]),
-                Paragraph(_format_text(row.get("vs_yesterday", "")), styles["hero_card"]),
-                Paragraph(_format_text(row.get("vs_week", "")), styles["hero_card"]),
-            ])
-        sd_table = Table(table_rows, colWidths=[content_width * 0.18, content_width * 0.18, content_width * 0.18, content_width * 0.18, content_width * 0.14, content_width * 0.14])
-        sd_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F5")]),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ]))
-        story.append(sd_table)
-        story.append(Spacer(1, 10))
-
     story.append(PageBreak())
 
     funnel_section = payload.get("funnel_section", {}) if isinstance(payload, dict) else {}
@@ -980,8 +1136,14 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     funnel_rows = funnel_section.get("rows", [])
     if not isinstance(funnel_rows, list):
         funnel_rows = []
+    funnel_sd: dict[str, dict[str, Any]] = {}
+    for fr in funnel_rows:
+        if isinstance(fr, dict):
+            stage = fr.get("stage", "")
+            if stage in sd_map:
+                funnel_sd[stage] = sd_map[stage]
     story.append(Paragraph(_format_text(funnel_section.get("title")), styles["section"]))
-    story.append(_funnel_rows_table(funnel_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+    story.append(_table_with_comparison(funnel_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], key_map=funnel_comparison, label_key="stage", value_key="value"))
     story.append(Spacer(1, 6))
 
     ads_section = payload.get("ads_section", {}) if isinstance(payload, dict) else {}
@@ -993,8 +1155,16 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     ads_rows = ads_efficiency_section.get("metric_rows") or ads_section.get("rows", [])
     if not isinstance(ads_rows, list):
         ads_rows = []
+    ads_sd: dict[str, dict[str, Any]] = {}
+    ads_label_map = {"Spend": "Реклама", "Расход": "Реклама"}
+    for ar in ads_rows:
+        if isinstance(ar, dict):
+            lbl = ar.get("label", "")
+            mapped = ads_label_map.get(lbl, lbl)
+            if mapped in sd_map:
+                ads_sd[lbl] = sd_map[mapped]
     story.append(Paragraph(_format_text(ads_efficiency_section.get("title") or ads_section.get("title")), styles["section"]))
-    story.append(_ads_rows_table(ads_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
+    story.append(_table_with_comparison(ads_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], key_map=ads_sd))
     story.append(Spacer(1, 6))
 
     search_section = payload.get("search_section", {})
@@ -1132,6 +1302,9 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     sku_detail = payload.get("sku_detail_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(sku_detail, dict):
         sku_detail = {}
+    abc_analysis = payload.get("abc_analysis_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(abc_analysis, dict):
+        abc_analysis = {}
 
     if isinstance(abc_summary_rows, list) and abc_summary_rows:
         story.append(Paragraph(_format_text(abc_section.get("title") or "Ассортимент / ABC"), styles["section"]))
@@ -1141,7 +1314,21 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         story.append(_display_rows_table(abc_summary_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"]))
         story.append(Spacer(1, 6))
 
-        all_abc_skus = abc_section.get("top_a_skus", []) + abc_section.get("critical_a_skus", []) + abc_section.get("c_skus_with_ads", []) + abc_section.get("low_margin_skus", [])
+        c_analysis_cats = abc_analysis.get("categories", {})
+        c_from_analysis_raw = c_analysis_cats.get("C", []) if isinstance(c_analysis_cats, dict) else []
+        c_from_analysis = []
+        for item in c_from_analysis_raw:
+            if isinstance(item, dict):
+                c_from_analysis.append({
+                    "sku": item.get("sku") or item.get("nm_id"),
+                    "nm_id": item.get("nm_id") or item.get("sku"),
+                    "abc_class": item.get("category") or item.get("abc_class"),
+                    "revenue": item.get("metric_value") or item.get("revenue") or 0,
+                    "profit": item.get("profit") or 0,
+                    "profit_margin": item.get("profit_margin"),
+                    "ad_spend": item.get("ad_spend"),
+                })
+        all_abc_skus = abc_section.get("top_a_skus", []) + abc_section.get("critical_a_skus", []) + abc_section.get("c_skus_with_ads", []) + abc_section.get("low_margin_skus", []) + c_from_analysis
         seen_skus = set()
         unique_abc_skus = []
         for s in all_abc_skus:
@@ -1156,7 +1343,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         if a_skus:
             story.append(Paragraph("Товары категории А — основные драйверы", styles["section"]))
             story.append(Spacer(1, 4))
-            top_skus_map = {str(s.get("nm_id") or ""): s for s in sku_detail.get("top_skus", []) if isinstance(s, dict)}
+            top_skus_map = {str(s.get("nm_id") or ""): s for s in (sku_detail.get("top_skus", []) + sku_detail.get("loss_skus", [])) if isinstance(s, dict)}
             for idx, s in enumerate(a_skus):
                 sku_id = s.get("sku") or s.get("nm_id") or ""
                 detail = top_skus_map.get(str(sku_id), {})
@@ -1213,6 +1400,38 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
             ]))
             story.append(neg_table)
+            story.append(Spacer(1, 6))
+
+        c_all_skus = [s for s in unique_abc_skus if (s.get("abc_class") or "").upper() == "C" and (s.get("profit") or 0) >= 0]
+        if c_all_skus:
+            story.append(Paragraph("Товары категории C", styles["section"]))
+            story.append(Spacer(1, 4))
+            c_header = [Paragraph(h, styles["hero_card"]) for h in ['SKU', 'Выручка', 'Прибыль', 'Маржа', 'Реклама']]
+            c_rows = [c_header]
+            for s in c_all_skus:
+                margin_val = s.get("profit_margin")
+                margin_str = f"{round(margin_val * 100, 1)}%" if margin_val is not None else "—"
+                c_rows.append([
+                    Paragraph(_format_text(s.get("sku") or s.get("nm_id") or ""), styles["hero_card"]),
+                    Paragraph(_format_query_money(s.get("revenue")), styles["hero_card"]),
+                    Paragraph(_format_query_money(s.get("profit")), styles["hero_card"]),
+                    Paragraph(margin_str, styles["hero_card"]),
+                    Paragraph(_format_query_money(s.get("ad_spend")), styles["hero_card"]),
+                ])
+            c_table = Table(c_rows, colWidths=[content_width * 0.18, content_width * 0.20, content_width * 0.20, content_width * 0.20, content_width * 0.22])
+            c_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#9CA3AF")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ]))
+            story.append(c_table)
             story.append(Spacer(1, 6))
 
     doc.build(story)
