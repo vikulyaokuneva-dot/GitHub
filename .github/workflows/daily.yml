@@ -2,7 +2,7 @@ name: WB Daily Report
 
 on:
   schedule:
-    - cron: "0 5 * * *"
+    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       seller_id:

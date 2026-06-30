@@ -864,6 +864,63 @@ def _funnel_daily_rate_row(stage: str, block: dict[str, Any], field_name: str, *
     )
 
 
+def _load_previous_funnel_from_history(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Load previous day's funnel data from history index."""
+    seller_id = _safe_str(snapshot.get("seller_id"))
+    operational_date = _safe_str(snapshot.get("operational_date") or snapshot.get("run_date"))
+    if not seller_id or not operational_date:
+        return {}
+
+    from datetime import datetime, timedelta
+
+    try:
+        today = datetime.strptime(operational_date, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return {}
+
+    yesterday = (today - timedelta(days=1)).isoformat()
+    week_ago = (today - timedelta(days=7)).isoformat()
+
+    root = Path(".")
+    history_index_path = root / "cabinets" / seller_id / "history" / "history_index.json"
+    if not history_index_path.is_file():
+        alt = Path("..") / "cabinets" / seller_id / "history" / "history_index.json"
+        if alt.is_file():
+            history_index_path = alt
+        else:
+            return {}
+
+    index = _read_json_dict(history_index_path)
+    snapshots_list = index.get("snapshots", []) if isinstance(index, dict) else []
+    if not isinstance(snapshots_list, list) or not snapshots_list:
+        return {}
+
+    date_kpi: dict[str, dict[str, Any]] = {}
+    for snap_meta in snapshots_list:
+        if isinstance(snap_meta, dict):
+            d = _safe_str(snap_meta.get("date"))
+            kpi = snap_meta.get("kpi") or {}
+            if d and isinstance(kpi, dict):
+                date_kpi[d] = kpi
+
+    return {
+        "yesterday": date_kpi.get(yesterday, {}).get("funnel", {}),
+        "week_ago": date_kpi.get(week_ago, {}).get("funnel", {}),
+    }
+
+
+def _funnel_delta_pct(current: Any, previous: Any) -> str:
+    c = _safe_float(current)
+    p = _safe_float(previous)
+    if c is None or p is None:
+        return "н/д"
+    if p == 0:
+        return "н/д"
+    pct = round((c - p) / abs(p) * 100, 1)
+    sign = "+" if pct > 0 else ""
+    return f"{sign}{pct}%"
+
+
 def build_funnel_section_v2(
     snapshot: dict[str, Any],
     cabinet_commerce: dict[str, Any],
@@ -927,6 +984,32 @@ def build_funnel_section_v2(
             _funnel_daily_rate_row("Корзина → Заказ", funnel_daily, "cart_to_order_rate", source=source),
             _funnel_daily_rate_row("Заказ → Выкуп", funnel_daily, "order_to_buyout_rate", source=source),
         ]
+
+        prev_funnel = _load_previous_funnel_from_history(safe_snapshot)
+        prev_y = _safe_dict(prev_funnel.get("yesterday"))
+        prev_w = _safe_dict(prev_funnel.get("week_ago"))
+        if prev_y or prev_w:
+            delta_metrics = [
+                ("Показы", impressions, "impressions"),
+                ("Клики", clicks, "clicks"),
+                ("Заказы", orders, "orders"),
+                ("Выкупы", buyouts, "buyouts"),
+            ]
+            for label, current_val, key in delta_metrics:
+                y_val = _safe_float(prev_y.get(key))
+                w_val = _safe_float(prev_w.get(key))
+                if y_val is not None or w_val is not None:
+                    y_text = _funnel_delta_pct(current_val, y_val) if y_val is not None else "н/д"
+                    w_text = _funnel_delta_pct(current_val, w_val) if w_val is not None else "н/д"
+                    rows.append(
+                        _funnel_row(
+                            f"{label} (Δ вчера / 7 дн.)",
+                            f"{y_text} / {w_text}",
+                            source="history",
+                            status="ok",
+                        )
+                    )
+
         return {
             "title": "Воронка продаж",
             "subtitle": "",
@@ -1034,6 +1117,29 @@ def build_funnel_section_v2(
     else:
         status = "unavailable"
         message = "Нет core-safe данных для заказов и выкупов."
+
+    prev_funnel = _load_previous_funnel_from_history(safe_snapshot)
+    prev_y = _safe_dict(prev_funnel.get("yesterday"))
+    prev_w = _safe_dict(prev_funnel.get("week_ago"))
+    if prev_y or prev_w:
+        delta_items = [
+            ("Заказы", orders_count, "orders"),
+            ("Выкупы", buyouts_count or sales_count, "buyouts"),
+        ]
+        for label, current_val, key in delta_items:
+            y_val = _safe_float(prev_y.get(key))
+            w_val = _safe_float(prev_w.get(key))
+            if y_val is not None or w_val is not None:
+                y_text = _funnel_delta_pct(current_val, y_val) if y_val is not None else "н/д"
+                w_text = _funnel_delta_pct(current_val, w_val) if w_val is not None else "н/д"
+                rows.append(
+                    _funnel_row(
+                        f"{label} (Δ вчера / 7 дн.)",
+                        f"{y_text} / {w_text}",
+                        source="history",
+                        status="ok",
+                    )
+                )
 
     return {
         "title": "Воронка продаж",
@@ -1502,7 +1608,7 @@ def build_ads_efficiency_section_v2(
 
     live_sales_amount = _safe_float(_safe_dict(_safe_dict(safe_snapshot.get("live_operational")).get("sales")).get("amount")) or 0
     cabinet_buyouts_amount = _safe_float(_safe_dict(safe_snapshot.get("cabinet_commerce_daily")).get("buyouts_amount")) or live_sales_amount
-    drr_cabinet = round(spend / cabinet_buyouts_amount * 100, 2) if cabinet_buyouts_amount > 0 and spend > 0 else None
+    drr_cabinet = round(spend / cabinet_buyouts_amount * 100, 2) if cabinet_buyouts_amount > 0 and (spend or 0) > 0 else None
     romi = _pick_numeric(
         (summary, ("portfolio_ROMI", "ROMI", "romi")),
         (advertising_efficiency, ("portfolio_ROMI", "ROMI", "romi")),
@@ -3762,13 +3868,13 @@ def _build_hero_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, An
     buyouts_amount = cabinet.get("buyouts_amount") or 0
     net_profit = None
     if finance.get("available"):
-        commission = abs(finance.get("wb_commission")) or 0
+        commission = abs(_safe_float(finance.get("wb_commission")) or 0)
         logistics_val = _safe_float(finance.get("logistics_amount")) or _safe_float(finance.get("logistics")) or 0
-        storage = abs(finance.get("storage")) or 0
-        acquiring = abs(finance.get("acquiring")) or 0
-        deductions = abs(finance.get("deductions")) or 0
-        penalties = abs(finance.get("penalties")) or 0
-        tax = abs(finance.get("tax")) or 0
+        storage = abs(_safe_float(finance.get("storage")) or 0)
+        acquiring = abs(_safe_float(finance.get("acquiring")) or 0)
+        deductions = abs(_safe_float(finance.get("deductions")) or 0)
+        penalties = abs(_safe_float(finance.get("penalties")) or 0)
+        tax = abs(_safe_float(finance.get("tax")) or 0)
         if not logistics_val:
             seller_payout_val = _safe_float(finance.get("seller_payout")) or 0
             finance_revenue = _safe_float(finance.get("realized_sales_revenue")) or buyouts_amount
