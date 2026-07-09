@@ -1,0 +1,174 @@
+{
+  "date": "2026-07-06",
+  "watchlists": {
+    "top_growth": [],
+    "top_risk": [
+      {
+        "sku": "333615320",
+        "attention_score": 19,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 0.0,
+          "buyouts": 2.0,
+          "revenue": 0.0,
+          "net_profit": -257.79,
+          "stock": 46.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      },
+      {
+        "sku": "898642228",
+        "attention_score": 19,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 0.0,
+          "buyouts": 3.0,
+          "revenue": 0.0,
+          "net_profit": -152.64,
+          "stock": 36.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      },
+      {
+        "sku": "453526507",
+        "attention_score": 18,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": 4.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      },
+      {
+        "sku": "547274690",
+        "attention_score": 18,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": 1.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      }
+    ],
+    "dead_stock": [
+      {
+        "sku": "453526507",
+        "attention_score": 18,
+        "reason": "Риск зависших остатков",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": 4.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      },
+      {
+        "sku": "547274690",
+        "attention_score": 18,
+        "reason": "Риск зависших остатков",
+        "metrics": {
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "net_profit": null,
+          "stock": 1.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      }
+    ],
+    "ad_inefficiency": [
+      {
+        "sku": "333615320",
+        "attention_score": 19,
+        "reason": "Риск неэффективной рекламы",
+        "metrics": {
+          "orders": 0.0,
+          "buyouts": 2.0,
+          "revenue": 0.0,
+          "net_profit": -257.79,
+          "stock": 46.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      },
+      {
+        "sku": "898642228",
+        "attention_score": 19,
+        "reason": "Риск неэффективной рекламы",
+        "metrics": {
+          "orders": 0.0,
+          "buyouts": 3.0,
+          "revenue": 0.0,
+          "net_profit": -152.64,
+          "stock": 36.0
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      }
+    ],
+    "conversion_drop": [],
+    "logistics_risk": []
+  }
+}

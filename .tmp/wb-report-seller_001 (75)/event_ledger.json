@@ -1,0 +1,30 @@
+{
+  "report_date": "2026-07-01",
+  "operational_date": "2026-07-01",
+  "events": [
+    {
+      "event_type": "orders_snapshot",
+      "event_date": "2026-07-01",
+      "source": "api.orders",
+      "confirmed": true,
+      "rows": 0,
+      "amount": null
+    },
+    {
+      "event_type": "buyouts_snapshot",
+      "event_date": "2026-07-01",
+      "source": "api.sales",
+      "confirmed": true,
+      "rows": 0,
+      "amount": null
+    },
+    {
+      "event_type": "financial_snapshot",
+      "event_date": "2026-07-01",
+      "source": "unknown",
+      "confirmed": false,
+      "rows": 0,
+      "amount": null
+    }
+  ]
+}

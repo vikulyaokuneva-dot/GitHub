@@ -1,0 +1,283 @@
+{
+  "seller_id": "seller_001",
+  "run_date": "2026-06-21",
+  "operational_date": "2026-06-21",
+  "timezone": "Europe/Moscow",
+  "source_mode": "wb_api_core_v2",
+  "source_rules": {
+    "cabinet_commerce_daily": "sales_funnel_api",
+    "funnel_daily": "sales_funnel_api",
+    "finance_final_daily": "finance_detailed_api",
+    "live_operational.orders": "orders_api",
+    "live_operational.sales": "sales_api",
+    "live_operational.stocks": "stocks_api"
+  },
+  "endpoints": {
+    "cabinet_commerce": {
+      "success": true,
+      "status_code": 200,
+      "attempts": 0,
+      "rows_loaded": 24,
+      "error_text": "",
+      "base_url": "https://seller-analytics-api.wildberries.ru",
+      "cache_hit": true,
+      "retry_count": 0,
+      "retry_delays": [],
+      "final_failure_reason": "",
+      "retry_after": "",
+      "x_ratelimit_retry": "",
+      "x_ratelimit_reset": "",
+      "x_ratelimit_remaining": "",
+      "rate_limit_delay_seconds": null,
+      "token_present": false,
+      "token_env_name_used": "",
+      "pages_loaded": 0,
+      "page_limit": 1000,
+      "cache_mode": "fresh_local_cache",
+      "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\cabinet_commerce_daily\\2026-06-21.json",
+      "cache_age_seconds": 30.16,
+      "cache_fallback_used": false
+    },
+    "finance_final": {
+      "success": false,
+      "status_code": 429,
+      "attempts": 1,
+      "rows_loaded": 0,
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"43c7d9e8977f44d8dc58557823451d89\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=1281, x_ratelimit_reset=1281",
+      "base_url": "https://finance-api.wildberries.ru",
+      "cache_hit": false,
+      "retry_count": 0,
+      "retry_delays": [],
+      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"43c7d9e8977f44d8dc58557823451d89\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=1281, x_ratelimit_reset=1281",
+      "retry_after": "",
+      "x_ratelimit_retry": "1281",
+      "x_ratelimit_reset": "1281",
+      "x_ratelimit_remaining": "",
+      "rate_limit_delay_seconds": null,
+      "token_present": true,
+      "token_env_name_used": "WB_API_TOKEN",
+      "finance_endpoint_used": "/api/finance/v1/sales-reports/detailed",
+      "finance_requested_fields_count": 0,
+      "finance_payload_incompatible": false
+    },
+    "orders": {
+      "success": false,
+      "status_code": 429,
+      "attempts": 1,
+      "rows_loaded": 0,
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"0d5b2bfd8f3dfe3c486fac256fcca4e8\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=4969, x_ratelimit_reset=4969",
+      "base_url": "https://statistics-api.wildberries.ru",
+      "cache_hit": false,
+      "retry_count": 0,
+      "retry_delays": [],
+      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"0d5b2bfd8f3dfe3c486fac256fcca4e8\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=4969, x_ratelimit_reset=4969",
+      "retry_after": "",
+      "x_ratelimit_retry": "4969",
+      "x_ratelimit_reset": "4969",
+      "x_ratelimit_remaining": "",
+      "rate_limit_delay_seconds": null,
+      "token_present": true,
+      "token_env_name_used": "WB_API_TOKEN"
+    },
+    "sales": {
+      "success": false,
+      "status_code": 429,
+      "attempts": 1,
+      "rows_loaded": 0,
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"27ff2b97808b88f14706c07c6cc61097\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=1364, x_ratelimit_reset=1364",
+      "base_url": "https://statistics-api.wildberries.ru",
+      "cache_hit": false,
+      "retry_count": 0,
+      "retry_delays": [],
+      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"27ff2b97808b88f14706c07c6cc61097\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=1364, x_ratelimit_reset=1364",
+      "retry_after": "",
+      "x_ratelimit_retry": "1364",
+      "x_ratelimit_reset": "1364",
+      "x_ratelimit_remaining": "",
+      "rate_limit_delay_seconds": null,
+      "token_present": true,
+      "token_env_name_used": "WB_API_TOKEN"
+    },
+    "stocks": {
+      "success": false,
+      "status_code": 429,
+      "attempts": 1,
+      "rows_loaded": 0,
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"173153ae164aceeaa4125751eddd45cc\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=4966, x_ratelimit_reset=4966",
+      "base_url": "https://statistics-api.wildberries.ru",
+      "cache_hit": false,
+      "retry_count": 0,
+      "retry_delays": [],
+      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"173153ae164aceeaa4125751eddd45cc\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=4966, x_ratelimit_reset=4966",
+      "retry_after": "",
+      "x_ratelimit_retry": "4966",
+      "x_ratelimit_reset": "4966",
+      "x_ratelimit_remaining": "",
+      "rate_limit_delay_seconds": null,
+      "token_present": true,
+      "token_env_name_used": "WB_API_TOKEN"
+    },
+    "ads": {
+      "success": false,
+      "status_code": 429,
+      "attempts": 1,
+      "rows_loaded": 0,
+      "error_text": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"893f0489d6cfcef81e2b216b3b1674ad\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=3570, x_ratelimit_reset=3570",
+      "base_url": "https://advert-api.wildberries.ru",
+      "cache_hit": false,
+      "retry_count": 0,
+      "retry_delays": [],
+      "final_failure_reason": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"893f0489d6cfcef81e2b216b3b1674ad\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=3570, x_ratelimit_reset=3570",
+      "retry_after": "",
+      "x_ratelimit_retry": "3570",
+      "x_ratelimit_reset": "3570",
+      "x_ratelimit_remaining": "",
+      "rate_limit_delay_seconds": null,
+      "token_present": true,
+      "token_env_name_used": "WB_API_TOKEN"
+    },
+    "search_report": {
+      "success": false,
+      "status_code": 429,
+      "attempts": 0,
+      "rows_loaded": 0,
+      "error_text": "",
+      "base_url": "",
+      "cache_hit": false,
+      "retry_count": 0,
+      "retry_delays": [],
+      "final_failure_reason": "",
+      "retry_after": "",
+      "x_ratelimit_retry": "",
+      "x_ratelimit_reset": "",
+      "x_ratelimit_remaining": "",
+      "rate_limit_delay_seconds": null,
+      "token_present": false,
+      "token_env_name_used": ""
+    }
+  },
+  "counts": {
+    "raw": {
+      "cabinet_commerce": 24,
+      "finance_final": 0,
+      "orders": 0,
+      "sales": 0,
+      "stocks": 0,
+      "ads": 0,
+      "search": 0
+    },
+    "normalized": {
+      "cabinet_commerce": 24,
+      "finance_final": 0,
+      "orders": 0,
+      "sales": 0,
+      "stocks": 0,
+      "ads": 0,
+      "search": 0
+    },
+    "reconciled": {
+      "cabinet_commerce": 24,
+      "finance_final": 0,
+      "orders": 0,
+      "sales": 0,
+      "stocks": 0,
+      "ads": 0
+    }
+  },
+  "reconcile": {
+    "target_date": "2026-06-21",
+    "finance_final_actual_date": "2026-06-21",
+    "finance_final_date_aligned": true,
+    "live_stocks_snapshot_date": "2026-06-22",
+    "selected_sources": {
+      "cabinet_commerce_daily": "sales_funnel_api",
+      "finance_final_daily": "finance_detailed_api",
+      "live_orders": "orders_api",
+      "live_sales": "sales_api",
+      "live_stocks": "stocks_api"
+    }
+  },
+  "orders_raw_inventory": {
+    "rows_loaded": 0,
+    "rows_matching_operational_date": 0,
+    "requested_fields_present": {
+      "quantity": 0,
+      "totalPrice": 0,
+      "priceWithDisc": 0,
+      "discountPercent": 0,
+      "warehouse": 0,
+      "status": 0,
+      "isCancel": 0,
+      "cancelDate": 0,
+      "date": 0,
+      "lastChangeDate": 0
+    },
+    "rows": []
+  },
+  "orders_semantics": {},
+  "finance_mapping": {
+    "parse_errors_count": 0,
+    "missing_required_fields": [],
+    "money_string_fields_parsed": []
+  },
+  "cache_fallback": {
+    "latest_successful_snapshot_used": true,
+    "fallback_endpoints": [
+      "orders",
+      "sales",
+      "stocks",
+      "ads"
+    ],
+    "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
+    "cache_age_seconds": 41921.25,
+    "source_actual_date": "2026-06-21"
+  },
+  "warnings": [
+    {
+      "code": "finance_final_api_unavailable",
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"43c7d9e8977f44d8dc58557823451d89\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=1281, x_ratelimit_reset=1281"
+    },
+    {
+      "code": "orders_api_unavailable",
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"0d5b2bfd8f3dfe3c486fac256fcca4e8\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=4969, x_ratelimit_reset=4969"
+    },
+    {
+      "code": "sales_api_unavailable",
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"27ff2b97808b88f14706c07c6cc61097\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=1364, x_ratelimit_reset=1364"
+    },
+    {
+      "code": "stocks_api_unavailable",
+      "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"173153ae164aceeaa4125751eddd45cc\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=4966, x_ratelimit_reset=4966"
+    },
+    {
+      "code": "orders_latest_successful_cache_fallback",
+      "message": "orders returned 429; live_operational.orders was filled from latest_successful snapshot and marked stale.",
+      "level": "warning",
+      "block": "live_operational"
+    },
+    {
+      "code": "sales_latest_successful_cache_fallback",
+      "message": "sales returned 429; live_operational.sales was filled from latest_successful snapshot and marked stale.",
+      "level": "warning",
+      "block": "live_operational"
+    },
+    {
+      "code": "stocks_latest_successful_cache_fallback",
+      "message": "stocks returned 429; live_operational.stocks was filled from latest_successful snapshot and marked stale.",
+      "level": "warning",
+      "block": "live_operational"
+    },
+    {
+      "code": "ads_latest_successful_cache_fallback",
+      "message": "ads returned 429; live_operational.ads was filled from latest_successful snapshot and marked stale.",
+      "level": "warning",
+      "block": "live_operational"
+    },
+    {
+      "code": "finance_final_latest_successful_cache_fallback",
+      "message": "finance_final_daily returned 429; filled from latest_successful snapshot.",
+      "level": "warning",
+      "block": "finance_final"
+    }
+  ]
+}

@@ -886,6 +886,26 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     _meta = payload.get("meta", {}) if isinstance(payload, dict) else {}
     _seller_id = _meta.get("seller_id", "")
     _op_date = _meta.get("operational_date", "")
+
+    # Try loading funnel_history.json for direct daily comparison
+    _funnel_history_data: list[dict[str, Any]] = []
+    if _seller_id and _op_date:
+        import json as _json_mod
+        from pathlib import Path as _Path
+        for _fh_candidate in [
+            _Path("cabinets") / _seller_id / "artifacts" / "funnel_history.json",
+            _Path(__file__).resolve().parents[2] / "cabinets" / _seller_id / "artifacts" / "funnel_history.json",
+            _Path(r"D:\WB\Бот ИИ менеджер\GitHub\cabinets") / _seller_id / "artifacts" / "funnel_history.json",
+        ]:
+            if _fh_candidate.is_file():
+                try:
+                    _funnel_history_data = _json_mod.load(open(_fh_candidate, encoding="utf-8"))
+                    if not isinstance(_funnel_history_data, list):
+                        _funnel_history_data = []
+                except Exception:
+                    _funnel_history_data = []
+                break
+
     if _seller_id and _op_date:
         import json as _json_mod
         from pathlib import Path as _Path
@@ -913,6 +933,42 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                         pass
                     if _s.get("date") == _y_date:
                         _yesterday_funnel = _s.get("kpi", {}).get("funnel", {})
+
+                # Fallback: use funnel_history.json data if history_index is stale
+                if not _today_funnel and _funnel_history_data:
+                    _today_funnel = {}
+                    for _fh_row in _funnel_history_data:
+                        if isinstance(_fh_row, dict) and _fh_row.get("date") == _op_date:
+                            _today_funnel = {
+                                "impressions": _fh_row.get("impressions"),
+                                "clicks": _fh_row.get("clicks"),
+                                "cart": _fh_row.get("cart"),
+                                "orders": _fh_row.get("orders"),
+                                "buyouts": _fh_row.get("buyouts"),
+                                "orders_amount": _fh_row.get("orders_amount"),
+                                "buyouts_amount": _fh_row.get("buyouts_amount"),
+                            }
+                            break
+                if not _yesterday_funnel and _funnel_history_data:
+                    _y_date = ""
+                    try:
+                        from datetime import datetime as _dt2, timedelta as _td2
+                        _y_date = (_dt2.strptime(_op_date, "%Y-%m-%d") - _td2(days=1)).strftime("%Y-%m-%d")
+                    except Exception:
+                        pass
+                    if _y_date:
+                        for _fh_row in _funnel_history_data:
+                            if isinstance(_fh_row, dict) and _fh_row.get("date") == _y_date:
+                                _yesterday_funnel = {
+                                    "impressions": _fh_row.get("impressions"),
+                                    "clicks": _fh_row.get("clicks"),
+                                    "cart": _fh_row.get("cart"),
+                                    "orders": _fh_row.get("orders"),
+                                    "buyouts": _fh_row.get("buyouts"),
+                                    "orders_amount": _fh_row.get("orders_amount"),
+                                    "buyouts_amount": _fh_row.get("buyouts_amount"),
+                                }
+                                break
                 _funnel_stage_map = {
                     "Показы": "impressions", "Клики": "clicks", "Корзина": "cart",
                     "Заказы": "orders", "Выкупы": "buyouts",

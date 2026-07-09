@@ -36,8 +36,17 @@ FIELD_ALIASES = {
     
     # Logistics
     "logistics": (
-        "deliveryRub", "delivery_rub", "logistics", "logistics_cost",
-        "delivery_cost", "shipping"
+        "deliveryService", "delivery_service",
+        "deliveryServiceAmount", "delivery_service_amount",
+        "deliveryServicesAmount", "delivery_services_amount",
+        "deliveryServiceRub", "delivery_service_rub",
+        "deliveryRub", "delivery_rub",
+        "deliveryCost", "delivery_cost",
+        "deliveryAmount",
+        "logistics", "logistics_cost", "logistics_amount",
+        "shipping",
+        "Услуги по доставке товара покупателю",
+        "Услуги доставки",
     ),
     
     # Storage

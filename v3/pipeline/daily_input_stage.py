@@ -250,9 +250,16 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
     stocks_rows: List[Dict[str, Any]] = []
     api_sales_rows: List[Dict[str, Any]] = []
     api_orders_rows: List[Dict[str, Any]] = []
+    api_sales_rows: List[Dict[str, Any]] = []
     api_realization_rows: List[Dict[str, Any]] = []
     api_ads_rows: List[Dict[str, Any]] = []
     api_stocks_rows: List[Dict[str, Any]] = []
+    stocks_products_rows: List[Dict[str, Any]] = []
+    stocks_offices_rows: List[Dict[str, Any]] = []
+    funnel_history_rows: List[Dict[str, Any]] = []
+    account_balance: Dict[str, Any] = {}
+    search_texts_rows: List[Dict[str, Any]] = []
+    search_orders_rows: List[Dict[str, Any]] = []
     local_financial_fallback_used = False
     local_input_debug: Dict[str, Any] = {}
     event_date_model: Dict[str, Any] = {}
@@ -447,6 +454,90 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         stocks_debug = stocks_bundle.get("api_debug", {})
         if isinstance(stocks_debug, dict):
             api_endpoint_debug.append(stocks_debug)
+
+        # Load enhanced stocks data (saleRate, lostOrders, regions)
+        stocks_products_rows: List[Dict[str, Any]] = []
+        stocks_offices_rows: List[Dict[str, Any]] = []
+        try:
+            from ..ingestion.api_stocks_analytics_loader import (
+                load_stocks_products,
+                load_stocks_offices,
+            )
+            _stocks_nm_ids = list({
+                int(row.get("nm_id") or row.get("nmId") or 0)
+                for row in api_stocks_rows
+                if isinstance(row, dict) and (row.get("nm_id") or row.get("nmId"))
+            })
+            _stocks_nm_ids = [n for n in _stocks_nm_ids if n > 0]
+
+            products_bundle = load_stocks_products(client, nm_ids=_stocks_nm_ids or None)
+            stocks_products_rows = list(products_bundle.get("rows", []))
+            products_debug = products_bundle.get("api_debug", {})
+            if isinstance(products_debug, dict):
+                api_endpoint_debug.append(products_debug)
+
+            offices_bundle = load_stocks_offices(client, nm_ids=_stocks_nm_ids or None)
+            stocks_offices_rows = list(offices_bundle.get("rows", []))
+            offices_debug = offices_bundle.get("api_debug", {})
+            if isinstance(offices_debug, dict):
+                api_endpoint_debug.append(offices_debug)
+        except Exception as exc:
+            print(f"[stocks_analytics] failed: {exc}")
+
+        # Load funnel history for yesterday/day-before comparison
+        try:
+            from ..ingestion.api_funnel_history_loader import load_funnel_history
+            _funnel_nm_ids = list({
+                int(row.get("nm_id") or row.get("nmId") or 0)
+                for row in api_orders_rows + api_sales_rows
+                if isinstance(row, dict) and (row.get("nm_id") or row.get("nmId"))
+            })
+            _funnel_nm_ids = [n for n in _funnel_nm_ids if n > 0]
+            if _funnel_nm_ids:
+                funnel_history_bundle = load_funnel_history(
+                    client,
+                    nm_ids=_funnel_nm_ids[:100],
+                    target_date=date_to,
+                    lookback_days=7,
+                )
+                funnel_history_rows = list(funnel_history_bundle.get("rows", []))
+                funnel_history_debug = funnel_history_bundle.get("api_debug", {})
+                if isinstance(funnel_history_debug, dict):
+                    api_endpoint_debug.append(funnel_history_debug)
+        except Exception as exc:
+            print(f"[funnel_history] failed: {exc}")
+
+        # Load account balance for cross-checking seller_payout
+        account_balance: Dict[str, Any] = {}
+        try:
+            from ..ingestion.api_account_balance_loader import load_account_balance
+            account_balance = load_account_balance(client)
+            ab_debug = account_balance.get("api_debug", {})
+            if isinstance(ab_debug, dict):
+                api_endpoint_debug.append(ab_debug)
+        except Exception as exc:
+            print(f"[account_balance] failed: {exc}")
+
+        # Load search queries and orders-by-query
+        search_texts_rows: List[Dict[str, Any]] = []
+        search_orders_rows: List[Dict[str, Any]] = []
+        try:
+            from ..ingestion.api_search_loader import load_search_all
+            _search_nm_ids = list({
+                int(row.get("nm_id") or row.get("nmId") or 0)
+                for row in api_orders_rows + api_sales_rows
+                if isinstance(row, dict) and (row.get("nm_id") or row.get("nmId"))
+            })
+            _search_nm_ids = [n for n in _search_nm_ids if n > 0]
+            if _search_nm_ids:
+                search_bundle = load_search_all(client, nm_ids=_search_nm_ids, target_date=date_to)
+                search_texts_rows = list(search_bundle.get("texts", []))
+                search_orders_rows = list(search_bundle.get("orders", []))
+                search_debug = search_bundle.get("api_debug", {})
+                if isinstance(search_debug, dict):
+                    api_endpoint_debug.append(search_debug)
+        except Exception as exc:
+            print(f"[search_all] failed: {exc}")
 
         try:
             legacy_ads_client = LegacyAdsClient(token)
@@ -845,4 +936,10 @@ def run_daily_input_stage(repo_root: str, seller_id: str, run_date: str) -> Dict
         "ads_rows_count": ads_rows_count,
         "ads_attribution_quality": ads_attribution_quality,
         "supplier_goods_daily": supplier_goods_daily,
+        "funnel_history_rows": funnel_history_rows,
+        "stocks_products_rows": stocks_products_rows,
+        "stocks_offices_rows": stocks_offices_rows,
+        "account_balance": account_balance,
+        "search_texts_rows": search_texts_rows,
+        "search_orders_rows": search_orders_rows,
     }

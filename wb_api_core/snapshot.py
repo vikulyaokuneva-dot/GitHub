@@ -83,6 +83,7 @@ def build_snapshot(
             "returns_qty": finance_final.get("returns_qty"),
             "logistics": finance_final.get("logistics"),
             "logistics_amount": finance_final.get("logistics_amount"),
+            "rebill_logistic_cost": finance_final.get("rebill_logistic_cost"),
             "storage": finance_final.get("storage"),
             "penalties": finance_final.get("penalties"),
             "deductions": finance_final.get("deductions"),

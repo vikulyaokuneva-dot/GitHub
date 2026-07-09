@@ -374,7 +374,9 @@ def _map_row_to_internal(
     )
     logistics_decimal, logistics_key = _pick_optional_decimal(
         row,
-        ("deliveryRub", "delivery_rub", "deliveryAmount", "deliveryCost", "logistics", "logistics_cost"),
+        ("deliveryService", "delivery_service", "deliveryServiceRub", "delivery_service_rub",
+         "deliveryRub", "delivery_rub", "deliveryAmount", "deliveryCost", "delivery_cost",
+         "logistics", "logistics_cost", "logistics_amount"),
         used_fields=used_fields,
         parse_errors=parse_errors,
         money_string_fields_parsed=money_string_fields_parsed,

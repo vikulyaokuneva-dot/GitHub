@@ -255,6 +255,7 @@ def reconcile_bundle(
     if finance_available:
         finance_effective_rows = [row for row in finance_rows if bool(row.get("include_in_totals", False))]
         logistics_amount = _safe_total_if_present(finance_rows, "logistics_amount", "include_logistics")
+        rebill_logistic_cost = _safe_total_if_present(finance_rows, "rebill_logistic_cost", "include_logistics")
         finance_final_daily = {
             "source": SOURCE_RULES["finance_final_daily"],
             "available": True,
@@ -276,6 +277,7 @@ def reconcile_bundle(
             "returns_qty": _safe_total_if_present(finance_rows, "returns_qty", "include_returns_qty"),
             "logistics": logistics_amount,
             "logistics_amount": logistics_amount,
+            "rebill_logistic_cost": rebill_logistic_cost,
             "storage": _safe_total_if(finance_rows, "storage", "include_storage"),
             "penalties": _safe_total_if(finance_rows, "penalties", "include_penalties"),
             "deductions": _safe_total_if(finance_rows, "deductions", "include_deductions"),
@@ -306,6 +308,7 @@ def reconcile_bundle(
             "returns_qty": None,
             "logistics": None,
             "logistics_amount": None,
+            "rebill_logistic_cost": None,
             "storage": None,
             "penalties": None,
             "deductions": None,

@@ -420,21 +420,32 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
         logistics_amount, _ = _parse_float_with_diag(
             row,
             (
-                "deliveryRub",
-                "delivery_rub",
-                "deliveryCost",
-                "delivery_cost",
+                "deliveryService",
+                "delivery_service",
                 "deliveryServiceAmount",
                 "delivery_service_amount",
                 "deliveryServicesAmount",
                 "delivery_services_amount",
                 "deliveryServiceRub",
                 "delivery_service_rub",
+                "deliveryRub",
+                "delivery_rub",
+                "deliveryCost",
+                "delivery_cost",
                 "logistics_amount",
                 "logistics",
                 "logistics_cost",
                 "Услуги по доставке товара покупателю",
                 "Услуги доставки",
+            ),
+            diag=diag,
+        )
+        rebill_logistic_cost, _ = _parse_float_with_diag(
+            row,
+            (
+                "rebillLogisticCost",
+                "rebill_logistic_cost",
+                "rebill_logistic",
             ),
             diag=diag,
         )
@@ -514,6 +525,7 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             float(seller_payout or 0.0),
             float(wb_commission or 0.0),
             float(logistics_amount or 0.0),
+            float(rebill_logistic_cost or 0.0),
             float(storage or 0.0),
             float(penalties or 0.0),
             float(deductions or 0.0),
@@ -566,6 +578,7 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
                 "returns_qty": round(float(returns_qty), 2) if returns_qty is not None else None,
                 "logistics": round(float(logistics_amount or 0.0), 2),
                 "logistics_amount": round(float(logistics_amount), 2) if logistics_amount is not None else None,
+                "rebill_logistic_cost": round(float(rebill_logistic_cost or 0.0), 2),
                 "storage": round(float(storage or 0.0), 2),
                 "penalties": round(float(penalties or 0.0), 2),
                 "deductions": round(float(deductions or 0.0), 2),
@@ -589,7 +602,10 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
                 "include_returns_qty": returns_qty is not None and abs(float(returns_qty)) > 1e-9,
                 "include_seller_payout": has_financial_effect and not is_zero_technical and abs(float(seller_payout or 0.0)) > 1e-9,
                 "include_wb_commission": has_financial_effect and not is_zero_technical and abs(float(wb_commission or 0.0)) > 1e-9,
-                "include_logistics": has_financial_effect and not is_zero_technical and logistics_amount is not None and abs(float(logistics_amount)) > 1e-9,
+                "include_logistics": has_financial_effect and not is_zero_technical and (
+                    (logistics_amount is not None and abs(float(logistics_amount)) > 1e-9)
+                    or (rebill_logistic_cost is not None and abs(float(rebill_logistic_cost)) > 1e-9)
+                ),
                 "include_storage": has_financial_effect and not is_zero_technical and abs(float(storage or 0.0)) > 1e-9,
                 "include_penalties": has_financial_effect and not is_zero_technical and abs(float(penalties or 0.0)) > 1e-9,
                 "include_deductions": has_financial_effect and not is_zero_technical and abs(float(deductions or 0.0)) > 1e-9,

@@ -3866,21 +3866,31 @@ def _build_hero_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, An
     orders_amount = cabinet.get("orders_amount") or 0
     buyouts_count = cabinet.get("buyouts_count") or 0
     buyouts_amount = cabinet.get("buyouts_amount") or 0
+
+    # Use finance revenue as primary source (consistent with profit section)
+    finance_revenue = (
+        _safe_float(finance.get("realized_sales_revenue"))
+        or _safe_float(finance.get("wb_realized_revenue"))
+        or _safe_float(finance.get("gross_revenue"))
+    )
+    revenue_for_profit = finance_revenue or buyouts_amount
+
     net_profit = None
     if finance.get("available"):
         commission = abs(_safe_float(finance.get("wb_commission")) or 0)
-        logistics_val = _safe_float(finance.get("logistics_amount")) or _safe_float(finance.get("logistics")) or 0
+        logistics_val = _safe_float(finance.get("logistics_amount")) or _safe_float(finance.get("logistics"))
         storage = abs(_safe_float(finance.get("storage")) or 0)
         acquiring = abs(_safe_float(finance.get("acquiring")) or 0)
         deductions = abs(_safe_float(finance.get("deductions")) or 0)
         penalties = abs(_safe_float(finance.get("penalties")) or 0)
         tax = abs(_safe_float(finance.get("tax")) or 0)
-        if not logistics_val:
+        if logistics_val is None:
             seller_payout_val = _safe_float(finance.get("seller_payout")) or 0
-            finance_revenue = _safe_float(finance.get("realized_sales_revenue")) or buyouts_amount
-            computed = finance_revenue - seller_payout_val - abs(commission) - abs(storage) - abs(acquiring) - abs(deductions) - abs(tax) - abs(penalties)
-            if computed > 0:
-                logistics_val = computed
+            if revenue_for_profit > 0 and seller_payout_val > 0:
+                computed = abs(commission) + revenue_for_profit - seller_payout_val - abs(storage) - abs(acquiring) - abs(deductions) - abs(tax) - abs(penalties)
+                logistics_val = max(computed, 0)
+            else:
+                logistics_val = 0
         cogs_map_local = {898642228: 600, 969315704: 600, 333615320: 210, 452102417: 210, 453526507: 210, 590614192: 180, 283212418: 450}
         live_sales_local = _safe_dict(_safe_dict(snapshot.get("live_operational")).get("sales"))
         sales_rows_local = live_sales_local.get("rows", []) if isinstance(live_sales_local.get("rows"), list) else []
@@ -3891,7 +3901,7 @@ def _build_hero_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, An
             if nm_int is not None and nm_int in cogs_map_local:
                 total_cogs_local += cogs_map_local[nm_int] * qty
         total_expenses = abs(commission) + abs(logistics_val) + abs(storage) + abs(acquiring) + abs(penalties) + abs(deductions) + abs(tax) + total_cogs_local
-        net_profit = buyouts_amount - total_expenses
+        net_profit = revenue_for_profit - total_expenses
     spend = ads.get("ads_spend_total") or 0
     stock_units = stocks.get("total_units") or 0
 
@@ -3902,8 +3912,8 @@ def _build_hero_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, An
         stock_days = round(stock_units / sales_count, 1)
 
     margin = None
-    if net_profit is not None and buyouts_amount and buyouts_amount > 0:
-        margin = round(net_profit / buyouts_amount * 100, 1)
+    if net_profit is not None and revenue_for_profit and revenue_for_profit > 0:
+        margin = round(net_profit / revenue_for_profit * 100, 1)
 
     rows = [
         {"label": "Заказы", "value": f"{int(orders_count)} шт", "status": "ok"},
@@ -4107,9 +4117,19 @@ def _build_profit_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, 
     if not finance.get("available"):
         return {"title": "Прибыль", "rows": [], "available": False}
 
-    revenue = _safe_float(cabinet.get("buyouts_amount")) or 0
+    # Use finance revenue as primary source (realized_sales_revenue / gross_revenue)
+    # to stay consistent with commission, acquiring, etc. from the same API
+    finance_revenue = (
+        _safe_float(finance.get("realized_sales_revenue"))
+        or _safe_float(finance.get("wb_realized_revenue"))
+        or _safe_float(finance.get("gross_revenue"))
+    )
+    cabinet_revenue = _safe_float(cabinet.get("buyouts_amount")) or 0
+    revenue = finance_revenue or cabinet_revenue
+
     commission = _safe_float(finance.get("wb_commission")) or 0
-    logistics = _safe_float(finance.get("logistics_amount")) or _safe_float(finance.get("logistics")) or 0
+    logistics = _safe_float(finance.get("logistics_amount")) or _safe_float(finance.get("logistics"))
+    rebill_logistic = _safe_float(finance.get("rebill_logistic_cost")) or 0
     storage = _safe_float(finance.get("storage")) or 0
     acquiring = _safe_float(finance.get("acquiring")) or 0
     penalties = _safe_float(finance.get("penalties")) or 0
@@ -4117,12 +4137,17 @@ def _build_profit_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, 
     tax = _safe_float(finance.get("tax")) or 0
     returns_qty = _safe_float(finance.get("returns_qty")) or 0
 
-    if not logistics:
+    # Derive logistics from the balance: revenue + |commission| - seller_payout - storage - acquiring - penalties - deductions - tax
+    if logistics is None:
         seller_payout_val = _safe_float(finance.get("seller_payout")) or 0
-        finance_revenue = _safe_float(finance.get("realized_sales_revenue")) or _safe_float(finance.get("wb_realized_revenue")) or revenue
-        computed = finance_revenue - seller_payout_val - abs(commission) - abs(storage) - abs(acquiring) - abs(deductions) - abs(tax) - abs(penalties)
-        if computed > 0:
-            logistics = round(computed, 2)
+        if revenue > 0 and seller_payout_val > 0:
+            computed = abs(commission) + revenue - seller_payout_val - abs(storage) - abs(acquiring) - abs(deductions) - abs(tax) - abs(penalties) - abs(rebill_logistic)
+            if computed > 0:
+                logistics = round(computed, 2)
+            else:
+                logistics = 0
+        else:
+            logistics = 0
 
     cogs_map = {
         898642228: 600, 969315704: 600, 333615320: 210,
@@ -4148,7 +4173,7 @@ def _build_profit_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, 
         if nm_id_int is not None and nm_id_int in cogs_map:
             total_cogs += cogs_map[nm_id_int] * qty
 
-    total_expenses = abs(commission) + abs(logistics) + abs(storage) + abs(acquiring) + abs(penalties) + abs(deductions) + abs(tax) + total_cogs
+    total_expenses = abs(commission) + abs(logistics) + abs(rebill_logistic) + abs(storage) + abs(acquiring) + abs(penalties) + abs(deductions) + abs(tax) + total_cogs
     net_profit = revenue - total_expenses
     margin = round(net_profit / revenue * 100, 1) if revenue > 0 else 0
 
@@ -4157,6 +4182,8 @@ def _build_profit_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, 
         {"label": "Комиссия WB", "value": _format_display_money(commission)},
     ]
     rows.append({"label": "Логистика", "value": _format_display_money(-logistics)})
+    if rebill_logistic:
+        rows.append({"label": "Ребиллинг логистики", "value": _format_display_money(-rebill_logistic)})
     rows.extend([
         {"label": "Хранение", "value": _format_display_money(-storage)},
         {"label": "Эквайринг", "value": _format_display_money(-acquiring)},

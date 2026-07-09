@@ -61,10 +61,18 @@ FINANCIAL_ROW_FIELD_ALIASES: Dict[str, tuple[str, ...]] = {
         "payment_services_compensation_amount",
     ),
     "logistics": (
+        "deliveryService",
+        "delivery_service",
+        "deliveryServiceRub",
+        "delivery_service_rub",
         "delivery_rub",
         "deliveryRub",
+        "deliveryCost",
+        "delivery_cost",
+        "deliveryAmount",
         "logistics",
         "logistics_cost",
+        "logistics_amount",
         "rebill_logistic_cost",
     ),
     "storage": (

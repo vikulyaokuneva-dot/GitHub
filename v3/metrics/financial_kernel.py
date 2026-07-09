@@ -268,10 +268,17 @@ def run_financial_kernel(payload: FinancialKernelInput) -> FinancialKernelOutput
         )
 
         row_logistics = _as_float(
-            row.get("delivery_rub")
+            row.get("deliveryService")
+            or row.get("delivery_service")
+            or row.get("deliveryServiceRub")
+            or row.get("delivery_service_rub")
+            or row.get("delivery_rub")
             or row.get("deliveryRub")
+            or row.get("deliveryCost")
+            or row.get("delivery_cost")
             or row.get("logistics")
             or row.get("logistics_cost")
+            or row.get("logistics_amount")
             or 0
         )
         row_storage = _as_float(row.get("storage_fee") or row.get("storageFee") or row.get("storage") or 0)

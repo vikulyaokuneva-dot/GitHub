@@ -1,0 +1,2278 @@
+{
+  "meta": {
+    "contract_version": "report_payload_v2",
+    "seller_id": "seller_001",
+    "report_date": "2026-07-01",
+    "operational_date": "2026-06-30",
+    "snapshot_source_mode": "wb_api_core_v2",
+    "debug_available": false
+  },
+  "hero": {
+    "title": "Ежедневный отчёт WB",
+    "subtitle": "Кабинет: seller_001 | Дата: 2026-06-30",
+    "cards": [
+      {
+        "label": "Заказы",
+        "value": "10 шт",
+        "subvalue": "11 310 ₽",
+        "status": "ok"
+      },
+      {
+        "label": "Остатки",
+        "value": "142 шт",
+        "subvalue": "",
+        "status": "ok"
+      },
+      {
+        "label": "Продажи",
+        "value": "18 шт",
+        "subvalue": "нет данных",
+        "status": "ok"
+      },
+      {
+        "label": "К перечислению",
+        "value": "29 042,31 ₽",
+        "subvalue": "",
+        "status": "ok"
+      }
+    ],
+    "data_status": "warning",
+    "data_status_message": "Данные получены, есть предупреждения по источникам."
+  },
+  "cabinet_commerce": {
+    "available": true,
+    "status": "ok",
+    "source": "sales_funnel_api",
+    "owner_block": "cabinet_commerce_daily",
+    "target_date": "2026-06-30",
+    "orders_count": 10,
+    "orders_amount": 11310.0,
+    "orders_source": "sales_funnel_api",
+    "orders_note": "Источник: cabinet_commerce_daily",
+    "orders_status": "ok",
+    "orders_fallback": false,
+    "buyouts_count": 18,
+    "buyouts_amount": 45070.0,
+    "buyouts_source": "sales_api",
+    "buyouts_note": "Подтвержденные выкупы из live_operational_sales.",
+    "buyouts_status": "ok",
+    "sales_count": 18,
+    "sales_amount": 45070.0,
+    "sales_source": "sales_api",
+    "sales_note": "Оперативные продажи из live_operational.sales.",
+    "sales_status": "ok",
+    "sales_fallback": false
+  },
+  "hero_section": {
+    "title": "Ежедневный отчёт WB",
+    "subtitle": "Кабинет: seller_001 | Дата: 2026-06-30",
+    "rows": [
+      {
+        "label": "Заказы",
+        "value": "10 шт",
+        "status": "ok"
+      },
+      {
+        "label": "Сумма заказов",
+        "value": "11 310 ₽",
+        "status": "ok"
+      },
+      {
+        "label": "Выкупы",
+        "value": "18 шт",
+        "status": "ok"
+      },
+      {
+        "label": "Сумма выкупов",
+        "value": "45 070 ₽",
+        "status": "ok"
+      },
+      {
+        "label": "Прибыль",
+        "value": "14 393,38 ₽",
+        "status": "ok",
+        "note": "Маржа: 52.5%"
+      },
+      {
+        "label": "Реклама",
+        "value": "-154,59 ₽",
+        "status": "ok"
+      },
+      {
+        "label": "Остатки",
+        "value": "142 шт (7 дн.)",
+        "status": "ok"
+      }
+    ],
+    "alerts": [],
+    "actions": [
+      {
+        "text": "Отключить убыточные запросы",
+        "priority": "warning",
+        "effect": "Экономия 154,59 ₽/день"
+      }
+    ],
+    "alert_boxes": [
+      {
+        "label": "РЕКЛАМА",
+        "value": "-154,59 ₽",
+        "detail": "155 руб. без заказов",
+        "status": "warning"
+      },
+      {
+        "label": "ВОЗВРАТЫ",
+        "value": "0 шт",
+        "detail": "норма",
+        "status": "ok"
+      },
+      {
+        "label": "ОСТАТКИ",
+        "value": "142 шт",
+        "detail": "(7 дн.)",
+        "status": "ok"
+      }
+    ]
+  },
+  "actions_section": {
+    "title": "Действия сегодня",
+    "actions": [
+      {
+        "text": "Рекламный расход: -154,59 ₽",
+        "priority": "info"
+      }
+    ]
+  },
+  "losses_of_the_day": {
+    "title": "Потери дня",
+    "items": [
+      {
+        "label": "Реклама",
+        "value": "-154,59 ₽",
+        "amount": 154.59
+      }
+    ],
+    "total": "-154,59 ₽",
+    "total_amount": 154.59
+  },
+  "commerce_section": {
+    "title": "Заказы и выкупы",
+    "subtitle": "",
+    "rows": [
+      {
+        "label": "Заказы",
+        "value": "10 шт",
+        "note": "Источник: cabinet_commerce_daily",
+        "status": "ok"
+      },
+      {
+        "label": "Сумма заказов",
+        "value": "11 310 ₽",
+        "note": "Источник: sales_funnel_api",
+        "status": "ok"
+      },
+      {
+        "label": "Выкупы",
+        "value": "18 шт",
+        "note": "Подтвержденные выкупы из live_operational_sales.",
+        "status": "ok"
+      },
+      {
+        "label": "Сумма выкупов",
+        "value": "45 070 ₽",
+        "note": "Источник: sales_api",
+        "status": "ok"
+      }
+    ],
+    "status": "ok"
+  },
+  "profit_section": {
+    "title": "Прибыль",
+    "rows": [
+      {
+        "label": "Выручка от продаж",
+        "value": "27 402 ₽"
+      },
+      {
+        "label": "Комиссия WB",
+        "value": "-2 246 ₽"
+      },
+      {
+        "label": "Логистика",
+        "value": "0 ₽"
+      },
+      {
+        "label": "Хранение",
+        "value": "-32,76 ₽"
+      },
+      {
+        "label": "Эквайринг",
+        "value": "-1 099,86 ₽"
+      },
+      {
+        "label": "Себестоимость товаров",
+        "value": "-9 630 ₽"
+      },
+      {
+        "label": "Итого затраты",
+        "value": "-13 008,62 ₽"
+      },
+      {
+        "label": "Чистая прибыль",
+        "value": "14 393,38 ₽"
+      },
+      {
+        "label": "Маржа",
+        "value": "52.5%"
+      }
+    ],
+    "available": true,
+    "net_profit": 14393.380000000001,
+    "margin": 52.5
+  },
+  "sales_dynamics_section": {
+    "title": "Динамика продаж",
+    "subtitle": "Сегодня: 2026-06-30 | Вчера: 2026-06-29 | 7 дн. назад: 2026-06-23",
+    "rows": [
+      {
+        "label": "Выручка",
+        "today": "27 402 ₽",
+        "yesterday": "нет данных",
+        "week_ago": "нет данных",
+        "vs_yesterday": "н/д",
+        "vs_week": "н/д"
+      },
+      {
+        "label": "Прибыль",
+        "today": "нет данных",
+        "yesterday": "нет данных",
+        "week_ago": "нет данных",
+        "vs_yesterday": "н/д",
+        "vs_week": "н/д"
+      },
+      {
+        "label": "Заказы",
+        "today": "нет данных",
+        "yesterday": "нет данных",
+        "week_ago": "нет данных",
+        "vs_yesterday": "н/д",
+        "vs_week": "н/д"
+      },
+      {
+        "label": "Сумма заказов",
+        "today": "нет данных",
+        "yesterday": "нет данных",
+        "week_ago": "нет данных",
+        "vs_yesterday": "н/д",
+        "vs_week": "н/д"
+      },
+      {
+        "label": "Выкупы",
+        "today": "18 шт",
+        "yesterday": "нет данных",
+        "week_ago": "нет данных",
+        "vs_yesterday": "н/д",
+        "vs_week": "н/д"
+      },
+      {
+        "label": "Реклама",
+        "today": "нет данных",
+        "yesterday": "нет данных",
+        "week_ago": "нет данных",
+        "vs_yesterday": "н/д",
+        "vs_week": "н/д"
+      }
+    ],
+    "available": true
+  },
+  "funnel_section": {
+    "title": "Воронка продаж",
+    "subtitle": "",
+    "rows": [
+      {
+        "stage": "Показы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": ""
+      },
+      {
+        "stage": "Клики",
+        "value": "362 шт",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Корзина",
+        "value": "57 шт",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Заказы",
+        "value": "10 шт",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Выкупы",
+        "value": "1 шт",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Показы → Клики",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": ""
+      },
+      {
+        "stage": "Клики → Корзина",
+        "value": "15.75%",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Корзина → Заказ",
+        "value": "17.54%",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Заказ → Выкуп",
+        "value": "10%",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      }
+    ],
+    "status": "ok",
+    "message": ""
+  },
+  "ads_efficiency_section": {
+    "title": "Реклама",
+    "subtitle": "Эффективность рекламы из advertising_efficiency artifacts.",
+    "status": "partial",
+    "source": "ads_rows",
+    "message": "Рекламная эффективность доступна частично; пропуски не заменялись нулями.",
+    "spend": 154.59,
+    "impressions": 368,
+    "clicks": 81,
+    "ctr": 22.0109,
+    "cpc": 1.9085185185185185,
+    "cpm": 420.0815,
+    "ad_orders": 1.0,
+    "ad_revenue": 0.0,
+    "ad_buyouts": 0.0,
+    "drr": null,
+    "drr_cabinet": 59.46,
+    "roas": 0.0,
+    "romi": -100.0,
+    "cpo": 154.59,
+    "profit_from_ads": -154.59,
+    "wasted_spend": null,
+    "inefficient_items_count": 0,
+    "top_profitable_queries": [],
+    "top_unprofitable_queries": [],
+    "high_potential_queries": [],
+    "warnings": [
+      {
+        "code": "advertising_efficiency_query_missing",
+        "message": "Query-level advertising rows are missing; query analysis is limited.",
+        "level": "warning",
+        "block": "advertising_efficiency"
+      }
+    ],
+    "loss_rows": [],
+    "opportunity_rows": [],
+    "recommendations": [
+      "Cut or rebuild loss-making traffic sources and tighten query filters.",
+      "Review targeting and bids; this SKU is ad-loss-making."
+    ],
+    "metric_rows": [
+      {
+        "label": "Расход на рекламу",
+        "value": "154,59 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_ad_spend / total_ad_spend"
+      },
+      {
+        "label": "Показы",
+        "value": "368 шт",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "Клики",
+        "value": "81 шт",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "CTR",
+        "value": "22,01%",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "clicks / impressions"
+      },
+      {
+        "label": "CPC",
+        "value": "1,91 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "spend / clicks"
+      },
+      {
+        "label": "CPM",
+        "value": "420,08 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "spend * 1000 / impressions"
+      },
+      {
+        "label": "Заказы из рекламы",
+        "value": "1",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_orders_from_ads"
+      },
+      {
+        "label": "Выручка из рекламы",
+        "value": "0 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_revenue_from_ads"
+      },
+      {
+        "label": "Выкупы из рекламы",
+        "value": "0",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_buyouts_from_ads"
+      },
+      {
+        "label": "ДРР рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "расход / выручка из рекламы"
+      },
+      {
+        "label": "ДРР по кабинету",
+        "value": "59,46%",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "расход / сумма выкупов"
+      },
+      {
+        "label": "ROAS",
+        "value": "0,00x",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "revenue / spend"
+      },
+      {
+        "label": "ROMI",
+        "value": "-100%",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_ROMI"
+      },
+      {
+        "label": "CPO",
+        "value": "154,59 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_CPO"
+      },
+      {
+        "label": "Прибыль от рекламы",
+        "value": "-154,59 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_profit_from_ads"
+      },
+      {
+        "label": "Потери рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "sum of loss query spend"
+      },
+      {
+        "label": "Неэффективных запросов",
+        "value": "0 шт",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "query_profitability summary"
+      }
+    ]
+  },
+  "ads_section": {
+    "title": "Реклама",
+    "subtitle": "Эффективность рекламы из advertising_efficiency artifacts.",
+    "rows": [
+      {
+        "label": "Расход на рекламу",
+        "value": "154,59 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_ad_spend / total_ad_spend"
+      },
+      {
+        "label": "Показы",
+        "value": "368 шт",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "Клики",
+        "value": "81 шт",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "CTR",
+        "value": "22,01%",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "clicks / impressions"
+      },
+      {
+        "label": "CPC",
+        "value": "1,91 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "spend / clicks"
+      },
+      {
+        "label": "CPM",
+        "value": "420,08 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "spend * 1000 / impressions"
+      },
+      {
+        "label": "Заказы из рекламы",
+        "value": "1",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_orders_from_ads"
+      },
+      {
+        "label": "Выручка из рекламы",
+        "value": "0 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_revenue_from_ads"
+      },
+      {
+        "label": "Выкупы из рекламы",
+        "value": "0",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_buyouts_from_ads"
+      },
+      {
+        "label": "ДРР рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "расход / выручка из рекламы"
+      },
+      {
+        "label": "ДРР по кабинету",
+        "value": "59,46%",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "расход / сумма выкупов"
+      },
+      {
+        "label": "ROAS",
+        "value": "0,00x",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "revenue / spend"
+      },
+      {
+        "label": "ROMI",
+        "value": "-100%",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_ROMI"
+      },
+      {
+        "label": "CPO",
+        "value": "154,59 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_CPO"
+      },
+      {
+        "label": "Прибыль от рекламы",
+        "value": "-154,59 ₽",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "portfolio_profit_from_ads"
+      },
+      {
+        "label": "Потери рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "sum of loss query spend"
+      },
+      {
+        "label": "Неэффективных запросов",
+        "value": "0 шт",
+        "source": "ads_rows",
+        "status": "ok",
+        "note": "query_profitability summary"
+      }
+    ],
+    "status": "partial",
+    "message": "Рекламная эффективность доступна частично; пропуски не заменялись нулями."
+  },
+  "query_profitability_section": {
+    "title": "Поисковые запросы",
+    "subtitle": "Прибыльность и качество поисковых запросов.",
+    "status": "insufficient_data",
+    "source": "query_profitability.json",
+    "message": "Поисковые запросы собраны из query_profitability.json.",
+    "top_loss_queries": [],
+    "weak_queries": [],
+    "top_performing_queries": [],
+    "growth_hypotheses": [],
+    "recommendations": []
+  },
+  "search_section": {
+    "title": "Поисковые запросы",
+    "sections": [],
+    "summary": [],
+    "available": false
+  },
+  "sku_health_section": {
+    "title": "Состояние товаров / SKU health",
+    "subtitle": "Списки SKU из health_score, sku_watchlists, sku_alerts и sku_daily_dynamics.",
+    "status": "ok",
+    "source": "health_score.json, sku_watchlists.json, sku_alerts.json, sku_daily_dynamics.json",
+    "message": "SKU health собран из health_score, watchlists и alerts artifacts.",
+    "summary": {
+      "total_skus": 7,
+      "healthy_count": 0,
+      "growth_count": 0,
+      "risk_count": 7,
+      "liquidation_count": 7,
+      "dead_stock_count": 3,
+      "ad_inefficiency_count": 1,
+      "conversion_drop_count": 0,
+      "logistics_risk_count": 0
+    },
+    "health_score": {
+      "value": 1.84,
+      "status": "ok",
+      "comment": "confidence=medium"
+    },
+    "watchlists": {
+      "top_growth": [],
+      "top_risk": [
+        {
+          "sku": "590614192",
+          "nm_id": null,
+          "article": null,
+          "name": null,
+          "score": 29.0,
+          "attention_score": 29.0,
+          "health_score": 2.06,
+          "reason": "Высокий attention_score по совокупности сигналов",
+          "metric_value": 29.0,
+          "recommended_action": "Снижение цены/распродажа остатков",
+          "status": "top_risk",
+          "source": "sku_watchlists.json:top_risk"
+        },
+        {
+          "sku": "898642228",
+          "nm_id": null,
+          "article": null,
+          "name": null,
+          "score": 19.0,
+          "attention_score": 19.0,
+          "health_score": 0.55,
+          "reason": "Высокий attention_score по совокупности сигналов",
+          "metric_value": 19.0,
+          "recommended_action": "Снижение цены/распродажа остатков",
+          "status": "top_risk",
+          "source": "sku_watchlists.json:top_risk"
+        },
+        {
+          "sku": "551253854",
+          "nm_id": null,
+          "article": null,
+          "name": null,
+          "score": 18.0,
+          "attention_score": 18.0,
+          "health_score": 2.06,
+          "reason": "Высокий attention_score по совокупности сигналов",
+          "metric_value": 18.0,
+          "recommended_action": "Снижение цены/распродажа остатков",
+          "status": "top_risk",
+          "source": "sku_watchlists.json:top_risk"
+        },
+        {
+          "sku": "969315704",
+          "nm_id": null,
+          "article": null,
+          "name": null,
+          "score": 18.0,
+          "attention_score": 18.0,
+          "health_score": 2.05,
+          "reason": "Высокий attention_score по совокупности сигналов",
+          "metric_value": 18.0,
+          "recommended_action": "Снижение цены/распродажа остатков",
+          "status": "top_risk",
+          "source": "sku_watchlists.json:top_risk"
+        }
+      ],
+      "dead_stock": [
+        {
+          "sku": "590614192",
+          "nm_id": null,
+          "article": null,
+          "name": null,
+          "score": 29.0,
+          "attention_score": 29.0,
+          "health_score": 2.06,
+          "reason": "Риск зависших остатков",
+          "metric_value": 29.0,
+          "recommended_action": "Снижение цены/распродажа остатков",
+          "status": "dead_stock",
+          "source": "sku_watchlists.json:dead_stock"
+        },
+        {
+          "sku": "551253854",
+          "nm_id": null,
+          "article": null,
+          "name": null,
+          "score": 18.0,
+          "attention_score": 18.0,
+          "health_score": 2.06,
+          "reason": "Риск зависших остатков",
+          "metric_value": 18.0,
+          "recommended_action": "Снижение цены/распродажа остатков",
+          "status": "dead_stock",
+          "source": "sku_watchlists.json:dead_stock"
+        },
+        {
+          "sku": "969315704",
+          "nm_id": null,
+          "article": null,
+          "name": null,
+          "score": 18.0,
+          "attention_score": 18.0,
+          "health_score": 2.05,
+          "reason": "Риск зависших остатков",
+          "metric_value": 18.0,
+          "recommended_action": "Снижение цены/распродажа остатков",
+          "status": "dead_stock",
+          "source": "sku_watchlists.json:dead_stock"
+        }
+      ],
+      "ad_inefficiency": [
+        {
+          "sku": "898642228",
+          "nm_id": null,
+          "article": null,
+          "name": null,
+          "score": 19.0,
+          "attention_score": 19.0,
+          "health_score": 0.55,
+          "reason": "Риск неэффективной рекламы",
+          "metric_value": 19.0,
+          "recommended_action": "Снижение цены/распродажа остатков",
+          "status": "ad_inefficiency",
+          "source": "sku_watchlists.json:ad_inefficiency"
+        }
+      ],
+      "conversion_drop": [],
+      "logistics_risk": []
+    },
+    "alerts": [
+      {
+        "sku": "590614192",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 29.0,
+        "attention_score": 29.0,
+        "health_score": 2.06,
+        "reason": "Есть остатки при нулевых заказах и выкупах.",
+        "metric_value": 29.0,
+        "recommended_action": "Есть остатки при нулевых заказах и выкупах.",
+        "status": "critical",
+        "source": "sku_alerts.json"
+      },
+      {
+        "sku": "898642228",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 19.0,
+        "attention_score": 19.0,
+        "health_score": 0.55,
+        "reason": "расходы на рекламу при отрицательной прибыли; расходы на рекламу при нулевой выручке; реклама без заказов",
+        "metric_value": 19.0,
+        "recommended_action": "расходы на рекламу при отрицательной прибыли; расходы на рекламу при нулевой выручке; реклама без заказов",
+        "status": "critical",
+        "source": "sku_alerts.json"
+      },
+      {
+        "sku": "551253854",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 18.0,
+        "attention_score": 18.0,
+        "health_score": 2.06,
+        "reason": "Есть остатки при нулевых заказах и выкупах.",
+        "metric_value": 18.0,
+        "recommended_action": "Есть остатки при нулевых заказах и выкупах.",
+        "status": "warning",
+        "source": "sku_alerts.json"
+      },
+      {
+        "sku": "969315704",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 18.0,
+        "attention_score": 18.0,
+        "health_score": 2.05,
+        "reason": "Есть остатки при нулевых заказах и выкупах.",
+        "metric_value": 18.0,
+        "recommended_action": "Есть остатки при нулевых заказах и выкупах.",
+        "status": "warning",
+        "source": "sku_alerts.json"
+      },
+      {
+        "sku": "333615320",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 0.0,
+        "attention_score": 0.0,
+        "health_score": 2.06,
+        "reason": "Нет достаточных данных по трафику (показы/клики).",
+        "metric_value": 0.0,
+        "recommended_action": "Нет достаточных данных по трафику (показы/клики).",
+        "status": "unknown",
+        "source": "sku_alerts.json"
+      },
+      {
+        "sku": "452102417",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 0.0,
+        "attention_score": 0.0,
+        "health_score": 2.06,
+        "reason": "Нет достаточных данных по трафику (показы/клики).",
+        "metric_value": 0.0,
+        "recommended_action": "Нет достаточных данных по трафику (показы/клики).",
+        "status": "unknown",
+        "source": "sku_alerts.json"
+      },
+      {
+        "sku": "453526507",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 0.0,
+        "attention_score": 0.0,
+        "health_score": 2.06,
+        "reason": "Нет достаточных данных по трафику (показы/клики).",
+        "metric_value": 0.0,
+        "recommended_action": "Нет достаточных данных по трафику (показы/клики).",
+        "status": "unknown",
+        "source": "sku_alerts.json"
+      }
+    ],
+    "daily_dynamics": {
+      "date": "2026-07-01",
+      "sku_count": 7,
+      "items_preview": [
+        {
+          "sku": "333615320",
+          "nm_id": "333615320",
+          "vendor_code": "Трёшка стандарт",
+          "name": null,
+          "brand": null,
+          "subject": null,
+          "impressions": null,
+          "clicks": null,
+          "ctr": null,
+          "cart_count": null,
+          "orders": 0,
+          "buyouts": 1,
+          "revenue": 0.0,
+          "gross_profit": 0.0,
+          "net_profit": 0.0,
+          "ads_spend": null,
+          "stock": 14,
+          "avg_check": 0.0,
+          "margin_pct": null,
+          "profitability_pct": null,
+          "vs_previous_day": {},
+          "vs_7d_avg": {},
+          "data_confidence": "medium",
+          "source_completeness": "partial",
+          "source_flags": {
+            "sales": "available",
+            "ads": "missing",
+            "stocks": "available",
+            "history_previous_day": "missing",
+            "history_7d": "missing"
+          },
+          "notes": [
+            "ads_data_missing"
+          ]
+        },
+        {
+          "sku": "452102417",
+          "nm_id": "452102417",
+          "vendor_code": "Маз Простор",
+          "name": null,
+          "brand": null,
+          "subject": null,
+          "impressions": null,
+          "clicks": null,
+          "ctr": null,
+          "cart_count": null,
+          "orders": 0,
+          "buyouts": 1,
+          "revenue": 0.0,
+          "gross_profit": 0.0,
+          "net_profit": 0.0,
+          "ads_spend": null,
+          "stock": 11,
+          "avg_check": 0.0,
+          "margin_pct": null,
+          "profitability_pct": null,
+          "vs_previous_day": {},
+          "vs_7d_avg": {},
+          "data_confidence": "medium",
+          "source_completeness": "partial",
+          "source_flags": {
+            "sales": "available",
+            "ads": "missing",
+            "stocks": "available",
+            "history_previous_day": "missing",
+            "history_7d": "missing"
+          },
+          "notes": [
+            "ads_data_missing"
+          ]
+        },
+        {
+          "sku": "453526507",
+          "nm_id": "453526507",
+          "vendor_code": "Shacman",
+          "name": null,
+          "brand": null,
+          "subject": null,
+          "impressions": null,
+          "clicks": null,
+          "ctr": null,
+          "cart_count": null,
+          "orders": 0,
+          "buyouts": 1,
+          "revenue": 0.0,
+          "gross_profit": 0.0,
+          "net_profit": 0.0,
+          "ads_spend": null,
+          "stock": 8,
+          "avg_check": 0.0,
+          "margin_pct": null,
+          "profitability_pct": null,
+          "vs_previous_day": {},
+          "vs_7d_avg": {},
+          "data_confidence": "medium",
+          "source_completeness": "partial",
+          "source_flags": {
+            "sales": "available",
+            "ads": "missing",
+            "stocks": "available",
+            "history_previous_day": "missing",
+            "history_7d": "missing"
+          },
+          "notes": [
+            "ads_data_missing"
+          ]
+        },
+        {
+          "sku": "551253854",
+          "nm_id": "551253854",
+          "vendor_code": "Лошадь Огненная",
+          "name": null,
+          "brand": null,
+          "subject": null,
+          "impressions": null,
+          "clicks": null,
+          "ctr": null,
+          "cart_count": null,
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "gross_profit": null,
+          "net_profit": null,
+          "ads_spend": null,
+          "stock": 2,
+          "avg_check": null,
+          "margin_pct": null,
+          "profitability_pct": null,
+          "vs_previous_day": {},
+          "vs_7d_avg": {},
+          "data_confidence": "low",
+          "source_completeness": "partial",
+          "source_flags": {
+            "sales": "missing",
+            "ads": "missing",
+            "stocks": "available",
+            "history_previous_day": "missing",
+            "history_7d": "missing"
+          },
+          "notes": [
+            "financial_base_missing",
+            "ads_data_missing"
+          ]
+        },
+        {
+          "sku": "590614192",
+          "nm_id": "590614192",
+          "vendor_code": "Sitrak красный 2х",
+          "name": null,
+          "brand": null,
+          "subject": null,
+          "impressions": null,
+          "clicks": null,
+          "ctr": null,
+          "cart_count": null,
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "gross_profit": null,
+          "net_profit": null,
+          "ads_spend": null,
+          "stock": 57,
+          "avg_check": null,
+          "margin_pct": null,
+          "profitability_pct": null,
+          "vs_previous_day": {},
+          "vs_7d_avg": {},
+          "data_confidence": "low",
+          "source_completeness": "partial",
+          "source_flags": {
+            "sales": "missing",
+            "ads": "missing",
+            "stocks": "available",
+            "history_previous_day": "missing",
+            "history_7d": "missing"
+          },
+          "notes": [
+            "financial_base_missing",
+            "ads_data_missing"
+          ]
+        },
+        {
+          "sku": "898642228",
+          "nm_id": "898642228",
+          "vendor_code": "Кросс блок 100/100",
+          "name": null,
+          "brand": null,
+          "subject": null,
+          "impressions": 368,
+          "clicks": 81,
+          "ctr": 22.01,
+          "cart_count": null,
+          "orders": 0,
+          "buyouts": 15,
+          "revenue": 0.0,
+          "gross_profit": 0.0,
+          "net_profit": -154.59,
+          "ads_spend": 154.59,
+          "stock": 46,
+          "avg_check": 0.0,
+          "margin_pct": null,
+          "profitability_pct": null,
+          "vs_previous_day": {},
+          "vs_7d_avg": {},
+          "data_confidence": "high",
+          "source_completeness": "full",
+          "source_flags": {
+            "sales": "available",
+            "ads": "available",
+            "stocks": "available",
+            "history_previous_day": "missing",
+            "history_7d": "missing"
+          },
+          "notes": []
+        },
+        {
+          "sku": "969315704",
+          "nm_id": "969315704",
+          "vendor_code": "Кросс блок 50 х 100мм",
+          "name": null,
+          "brand": null,
+          "subject": null,
+          "impressions": 0,
+          "clicks": 0,
+          "ctr": null,
+          "cart_count": null,
+          "orders": null,
+          "buyouts": null,
+          "revenue": null,
+          "gross_profit": null,
+          "net_profit": null,
+          "ads_spend": 0.0,
+          "stock": 4,
+          "avg_check": null,
+          "margin_pct": null,
+          "profitability_pct": null,
+          "vs_previous_day": {},
+          "vs_7d_avg": {},
+          "data_confidence": "medium",
+          "source_completeness": "partial",
+          "source_flags": {
+            "sales": "missing",
+            "ads": "available",
+            "stocks": "available",
+            "history_previous_day": "missing",
+            "history_7d": "missing"
+          },
+          "notes": [
+            "financial_base_missing"
+          ]
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "code": "sku_health_warning",
+        "message": "funnel_insufficient_data",
+        "level": "warning",
+        "block": "sku_health"
+      }
+    ],
+    "risk_rows": [
+      {
+        "sku": "590614192",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 29.0,
+        "attention_score": 29.0,
+        "health_score": 2.06,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metric_value": 29.0,
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "status": "top_risk",
+        "source": "sku_watchlists.json:top_risk"
+      },
+      {
+        "sku": "898642228",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 19.0,
+        "attention_score": 19.0,
+        "health_score": 0.55,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metric_value": 19.0,
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "status": "top_risk",
+        "source": "sku_watchlists.json:top_risk"
+      },
+      {
+        "sku": "551253854",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 18.0,
+        "attention_score": 18.0,
+        "health_score": 2.06,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metric_value": 18.0,
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "status": "top_risk",
+        "source": "sku_watchlists.json:top_risk"
+      },
+      {
+        "sku": "969315704",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 18.0,
+        "attention_score": 18.0,
+        "health_score": 2.05,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metric_value": 18.0,
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "status": "top_risk",
+        "source": "sku_watchlists.json:top_risk"
+      }
+    ],
+    "growth_rows": [],
+    "attention_rows": [
+      {
+        "sku": "590614192",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 29.0,
+        "attention_score": 29.0,
+        "health_score": 2.06,
+        "reason": "Риск зависших остатков",
+        "metric_value": 29.0,
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "status": "dead_stock",
+        "source": "sku_watchlists.json:dead_stock"
+      },
+      {
+        "sku": "898642228",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 19.0,
+        "attention_score": 19.0,
+        "health_score": 0.55,
+        "reason": "Риск неэффективной рекламы",
+        "metric_value": 19.0,
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "status": "ad_inefficiency",
+        "source": "sku_watchlists.json:ad_inefficiency"
+      },
+      {
+        "sku": "969315704",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 18.0,
+        "attention_score": 18.0,
+        "health_score": 2.05,
+        "reason": "Риск зависших остатков",
+        "metric_value": 18.0,
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "status": "dead_stock",
+        "source": "sku_watchlists.json:dead_stock"
+      },
+      {
+        "sku": "551253854",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 18.0,
+        "attention_score": 18.0,
+        "health_score": 2.06,
+        "reason": "Риск зависших остатков",
+        "metric_value": 18.0,
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "status": "dead_stock",
+        "source": "sku_watchlists.json:dead_stock"
+      },
+      {
+        "sku": "333615320",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 0.0,
+        "attention_score": 0.0,
+        "health_score": 2.06,
+        "reason": "Нет достаточных данных по трафику (показы/клики).",
+        "metric_value": 0.0,
+        "recommended_action": "Нет достаточных данных по трафику (показы/клики).",
+        "status": "unknown",
+        "source": "sku_alerts.json"
+      },
+      {
+        "sku": "452102417",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 0.0,
+        "attention_score": 0.0,
+        "health_score": 2.06,
+        "reason": "Нет достаточных данных по трафику (показы/клики).",
+        "metric_value": 0.0,
+        "recommended_action": "Нет достаточных данных по трафику (показы/клики).",
+        "status": "unknown",
+        "source": "sku_alerts.json"
+      },
+      {
+        "sku": "453526507",
+        "nm_id": null,
+        "article": null,
+        "name": null,
+        "score": 0.0,
+        "attention_score": 0.0,
+        "health_score": 2.06,
+        "reason": "Нет достаточных данных по трафику (показы/клики).",
+        "metric_value": 0.0,
+        "recommended_action": "Нет достаточных данных по трафику (показы/клики).",
+        "status": "unknown",
+        "source": "sku_alerts.json"
+      }
+    ],
+    "summary_rows": [
+      {
+        "label": "Всего SKU",
+        "value": "7 шт",
+        "note": "SKU health / watchlists",
+        "status": "ok"
+      },
+      {
+        "label": "Здоровые SKU",
+        "value": "0 шт",
+        "note": "SKU health / watchlists",
+        "status": "ok"
+      },
+      {
+        "label": "SKU в росте",
+        "value": "0 шт",
+        "note": "SKU health / watchlists",
+        "status": "ok"
+      },
+      {
+        "label": "SKU под риском",
+        "value": "7 шт",
+        "note": "SKU health / watchlists",
+        "status": "ok"
+      },
+      {
+        "label": "Ликвидация",
+        "value": "7 шт",
+        "note": "SKU health / watchlists",
+        "status": "ok"
+      },
+      {
+        "label": "Dead stock",
+        "value": "3 шт",
+        "note": "SKU health / watchlists",
+        "status": "ok"
+      },
+      {
+        "label": "Неэффективная реклама",
+        "value": "1 шт",
+        "note": "SKU health / watchlists",
+        "status": "ok"
+      },
+      {
+        "label": "Падение конверсии",
+        "value": "0 шт",
+        "note": "SKU health / watchlists",
+        "status": "ok"
+      },
+      {
+        "label": "Логистический риск",
+        "value": "0 шт",
+        "note": "SKU health / watchlists",
+        "status": "ok"
+      },
+      {
+        "label": "Средний health score",
+        "value": "1,84",
+        "note": "confidence=medium",
+        "status": "ok"
+      }
+    ]
+  },
+  "profit_contribution_section": {
+    "title": "Товары категории А",
+    "subtitle": "Вклад SKU в прибыль по artifact profit_contribution.json.",
+    "status": "ok",
+    "source": "profit_contribution.json",
+    "message": "Profit contribution собран из artifact profit_contribution.json.",
+    "summary": {
+      "total_profit": -154.59,
+      "total_revenue": 0.0,
+      "top_sku_share": null,
+      "loss_sku_count": 1
+    },
+    "top_profit_skus": [
+      {
+        "sku": "969315704",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "source": "profit_contribution.json"
+      },
+      {
+        "sku": "590614192",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "source": "profit_contribution.json"
+      },
+      {
+        "sku": "551253854",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "source": "profit_contribution.json"
+      },
+      {
+        "sku": "453526507",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "",
+        "source": "profit_contribution.json"
+      },
+      {
+        "sku": "452102417",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "",
+        "source": "profit_contribution.json"
+      }
+    ],
+    "loss_skus": [
+      {
+        "sku": "898642228",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": -154.59,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "source": "profit_contribution.json"
+      }
+    ],
+    "sku_pnl": [
+      {
+        "sku": "969315704",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "source": "profit_contribution.json"
+      },
+      {
+        "sku": "590614192",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "source": "profit_contribution.json"
+      },
+      {
+        "sku": "551253854",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "source": "profit_contribution.json"
+      },
+      {
+        "sku": "453526507",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "",
+        "source": "profit_contribution.json"
+      },
+      {
+        "sku": "452102417",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "",
+        "source": "profit_contribution.json"
+      },
+      {
+        "sku": "333615320",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "",
+        "source": "profit_contribution.json"
+      },
+      {
+        "sku": "898642228",
+        "nm_id": null,
+        "name": null,
+        "revenue": 0.0,
+        "profit": -154.59,
+        "profit_margin": null,
+        "contribution_share": null,
+        "status": "ok",
+        "recommended_action": "Снижение цены/распродажа остатков",
+        "source": "profit_contribution.json"
+      }
+    ],
+    "warnings": [
+      {
+        "code": "profit_contribution_warning",
+        "message": "total_profit_non_positive",
+        "level": "warning",
+        "block": "profit_contribution"
+      }
+    ],
+    "summary_rows": [
+      {
+        "label": "Общая прибыль",
+        "value": "-154,59 ₽",
+        "note": "profit_contribution.json",
+        "status": "ok"
+      },
+      {
+        "label": "Общая выручка",
+        "value": "0 ₽",
+        "note": "profit_contribution.json",
+        "status": "ok"
+      },
+      {
+        "label": "Доля топ SKU",
+        "value": "нет данных",
+        "note": "profit contribution share",
+        "status": "unavailable"
+      },
+      {
+        "label": "Убыточные SKU",
+        "value": "1 шт",
+        "note": "profit_contribution.json",
+        "status": "ok"
+      }
+    ]
+  },
+  "sku_detail_section": {
+    "title": "Unit-экономика по SKU",
+    "top_skus": [
+      {
+        "nm_id": "898642228",
+        "seller_article": "Кросс блок 100/100",
+        "title": "Фундаментный блок для теплицы под брус 100×100 мм",
+        "orders_count": 3,
+        "buyouts_count": 15,
+        "revenue": 42750.0,
+        "cogs": 9000,
+        "commission": 2062.5600000000004,
+        "logistics": 0,
+        "acquiring": 1040.9999999999998,
+        "storage_share": 51.11,
+        "deductions_share": 0.0,
+        "ads_spend": 0,
+        "profit": 30595.33,
+        "margin_pct": 71.6,
+        "share_pct": 156.0,
+        "funnel": {
+          "views": 147,
+          "cart": 42,
+          "orders": 3,
+          "buyouts": 0,
+          "ctr_pct": 28.6,
+          "cr_cart_pct": 7.1,
+          "cr_order_pct": 0.0
+        }
+      },
+      {
+        "nm_id": "453526507",
+        "seller_article": "Shacman",
+        "title": "Накладки на педали для грузовиков Shacman",
+        "orders_count": 3,
+        "buyouts_count": 1,
+        "revenue": 820.0,
+        "cogs": 210,
+        "commission": 71.97,
+        "logistics": 0,
+        "acquiring": 19.12,
+        "storage_share": 0.98,
+        "deductions_share": 0.0,
+        "ads_spend": 0,
+        "profit": 517.93,
+        "margin_pct": 63.2,
+        "share_pct": 3.0,
+        "funnel": {
+          "views": 23,
+          "cart": 4,
+          "orders": 3,
+          "buyouts": 0,
+          "ctr_pct": 17.4,
+          "cr_cart_pct": 75.0,
+          "cr_order_pct": 0.0
+        }
+      },
+      {
+        "nm_id": "452102417",
+        "seller_article": "Маз Простор",
+        "title": "Накладки на педали для грузовика",
+        "orders_count": 1,
+        "buyouts_count": 1,
+        "revenue": 780.0,
+        "cogs": 210,
+        "commission": 56.72,
+        "logistics": 0,
+        "acquiring": 18.76,
+        "storage_share": 0.93,
+        "deductions_share": 0.0,
+        "ads_spend": 0,
+        "profit": 493.59,
+        "margin_pct": 63.3,
+        "share_pct": 2.8,
+        "funnel": {
+          "views": 21,
+          "cart": 2,
+          "orders": 1,
+          "buyouts": 0,
+          "ctr_pct": 9.5,
+          "cr_cart_pct": 50.0,
+          "cr_order_pct": 0.0
+        }
+      }
+    ],
+    "loss_skus": [],
+    "total_revenue": 27402.0,
+    "total_profit": 29042.31,
+    "total_ads": 154.59
+  },
+  "abc_section": {
+    "title": "Ассортимент / ABC",
+    "subtitle": "Вклад SKU, критичные A-SKU и рекламная активность C-SKU.",
+    "status": "ok",
+    "source": "abc_analysis.json",
+    "message": "ABC-анализ собран из artifact abc_analysis.json.",
+    "summary": {
+      "total_skus": 4,
+      "category_A_count": 0,
+      "category_B_count": 0,
+      "category_C_count": 4,
+      "category_A_share": null,
+      "category_B_share": null,
+      "category_C_share": 1.0,
+      "critical_a_skus_count": 0,
+      "c_skus_with_ads_count": 1,
+      "low_margin_skus_count": 0
+    },
+    "top_a_skus": [],
+    "critical_a_skus": [],
+    "c_skus_with_ads": [
+      {
+        "sku": "898642228",
+        "nm_id": null,
+        "name": null,
+        "abc_class": "C",
+        "revenue": 42750.0,
+        "profit": 28651.93,
+        "profit_margin": 0.670221,
+        "ad_spend": 309.18,
+        "reason": "C-SKU с рекламной активностью",
+        "recommended_action": "проверить окупаемость рекламы",
+        "source": "abc_analysis.json"
+      }
+    ],
+    "low_margin_skus": [],
+    "recommendations": [
+      "Снизить или остановить рекламу C-SKU без достаточного вклада."
+    ],
+    "warnings": [],
+    "summary_rows": [
+      {
+        "label": "Всего SKU",
+        "value": "4 шт",
+        "note": "abc_analysis.json",
+        "status": "ok"
+      },
+      {
+        "label": "Категория A",
+        "value": "0 шт / нет данных",
+        "note": "ABC share",
+        "status": "ok"
+      },
+      {
+        "label": "Категория B",
+        "value": "0 шт / нет данных",
+        "note": "ABC share",
+        "status": "ok"
+      },
+      {
+        "label": "Категория C",
+        "value": "4 шт / 100%",
+        "note": "ABC share",
+        "status": "ok"
+      },
+      {
+        "label": "Критичные A-SKU",
+        "value": "0 шт",
+        "note": "A-SKU с риском маржи или прибыли",
+        "status": "ok"
+      },
+      {
+        "label": "C-SKU с рекламой",
+        "value": "1 шт",
+        "note": "C-категория с рекламным расходом",
+        "status": "ok"
+      },
+      {
+        "label": "Низкая маржинальность",
+        "value": "0 шт",
+        "note": "SKU с низкой или отрицательной маржой",
+        "status": "ok"
+      }
+    ]
+  },
+  "abc_analysis_section": {
+    "title": "ABC-анализ",
+    "subtitle": "ABC-категории SKU по artifact abc_analysis.json.",
+    "status": "ok",
+    "source": "abc_analysis.json",
+    "message": "ABC-анализ собран из artifact abc_analysis.json.",
+    "summary": {
+      "total_skus": 7,
+      "category_A_count": 0,
+      "category_B_count": 3,
+      "category_C_count": 4,
+      "category_A_share": null,
+      "category_B_share": 0.944445,
+      "category_C_share": 0.055556
+    },
+    "categories": {
+      "A": [],
+      "B": [
+        {
+          "sku": "898642228",
+          "nm_id": null,
+          "name": null,
+          "category": "B",
+          "metric_value": -154.59,
+          "cumulative_share": 0.833333,
+          "status": "ok"
+        },
+        {
+          "sku": "452102417",
+          "nm_id": null,
+          "name": null,
+          "category": "B",
+          "metric_value": 0.0,
+          "cumulative_share": 0.888889,
+          "status": "ok"
+        },
+        {
+          "sku": "333615320",
+          "nm_id": null,
+          "name": null,
+          "category": "B",
+          "metric_value": 0.0,
+          "cumulative_share": 0.944444,
+          "status": "ok"
+        }
+      ],
+      "C": [
+        {
+          "sku": "453526507",
+          "nm_id": null,
+          "name": null,
+          "category": "C",
+          "metric_value": 0.0,
+          "cumulative_share": 1.0,
+          "status": "ok"
+        },
+        {
+          "sku": "969315704",
+          "nm_id": null,
+          "name": null,
+          "category": "C",
+          "metric_value": 0.0,
+          "cumulative_share": 1.0,
+          "status": "ok"
+        },
+        {
+          "sku": "590614192",
+          "nm_id": null,
+          "name": null,
+          "category": "C",
+          "metric_value": 0.0,
+          "cumulative_share": 1.0,
+          "status": "ok"
+        },
+        {
+          "sku": "551253854",
+          "nm_id": null,
+          "name": null,
+          "category": "C",
+          "metric_value": 0.0,
+          "cumulative_share": 1.0,
+          "status": "ok"
+        }
+      ]
+    },
+    "warnings": [],
+    "summary_rows": [
+      {
+        "label": "Всего SKU",
+        "value": "7 шт",
+        "note": "abc_analysis.json",
+        "status": "ok"
+      },
+      {
+        "label": "Категория A",
+        "value": "0 шт / нет данных",
+        "note": "ABC share",
+        "status": "ok"
+      },
+      {
+        "label": "Категория B",
+        "value": "3 шт / 94,44%",
+        "note": "ABC share",
+        "status": "ok"
+      },
+      {
+        "label": "Категория C",
+        "value": "4 шт / 5,56%",
+        "note": "ABC share",
+        "status": "ok"
+      }
+    ]
+  },
+  "finance_final": {
+    "available": true,
+    "source": "finance_detailed_api",
+    "owner_block": "finance_final_daily",
+    "status": "ok",
+    "target_date": "2026-06-30",
+    "actual_date": "2026-06-30",
+    "date_aligned": true,
+    "gross_revenue": 27402.0,
+    "realized_sales_qty": 18.0,
+    "realized_sales_revenue": 27402.0,
+    "seller_payout": 29042.31,
+    "wb_commission": -2246.0,
+    "deliveries_qty": 18.0,
+    "returns_qty": null,
+    "logistics": null,
+    "logistics_amount": null,
+    "storage": 32.76,
+    "acquiring": 1099.86,
+    "penalties": 0.0,
+    "deductions": 0.0,
+    "tax": 0.0
+  },
+  "finance_section": {
+    "title": "Финансы",
+    "subtitle": "Финансы считаются по реализации и операциям финансового отчёта WB.",
+    "rows": [
+      {
+        "label": "Статус",
+        "value": "ok",
+        "note": "Операционный день: 2026-06-30; финансы: 2026-06-30; реализация и операции WB",
+        "status": "ok"
+      },
+      {
+        "label": "Продажи/реализация",
+        "value": "18 шт",
+        "note": "27 402 ₽; источник: finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "Валовая выручка",
+        "value": "27 402 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "К перечислению продавцу",
+        "value": "29 042,31 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "Возвраты",
+        "value": "нет данных",
+        "note": "Источник: finance_detailed_api",
+        "status": "unavailable"
+      },
+      {
+        "label": "Доставки",
+        "value": "18 шт",
+        "note": "Количество доставок не используется как денежная логистика.",
+        "status": "ok"
+      },
+      {
+        "label": "Комиссия WB",
+        "value": "-2 246 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "Логистика",
+        "value": "нет данных",
+        "note": "Денежное поле услуг доставки; источник: finance_detailed_api",
+        "status": "unavailable"
+      },
+      {
+        "label": "Хранение",
+        "value": "32,76 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "label": "Эквайринг",
+        "value": "1 099,86 ₽",
+        "note": "Источник: finance_detailed_api",
+        "status": "ok"
+      }
+    ],
+    "status": "ok"
+  },
+  "finance_alignment_notice": {
+    "state": "ok",
+    "title": "",
+    "lines": [],
+    "source": "finance_detailed_api",
+    "target_date": "2026-06-30",
+    "actual_date": "2026-06-30"
+  },
+  "live_operational": {
+    "status": "ok",
+    "orders": {
+      "available": true,
+      "source": "orders_api",
+      "target_date": "2026-06-30",
+      "count": 9,
+      "amount": 10569.2,
+      "total_units": null,
+      "snapshot_date": null,
+      "snapshot_kind": null,
+      "operational_date_reference": null,
+      "stale": false,
+      "stale_reason": null,
+      "source_actual_date": null,
+      "cache_age_seconds": null,
+      "cache_path": null,
+      "cache_fallback_used": false
+    },
+    "sales": {
+      "available": true,
+      "source": "sales_api",
+      "target_date": "2026-06-30",
+      "count": 18,
+      "amount": 45070.0,
+      "total_units": null,
+      "snapshot_date": null,
+      "snapshot_kind": null,
+      "operational_date_reference": null,
+      "stale": false,
+      "stale_reason": null,
+      "source_actual_date": null,
+      "cache_age_seconds": null,
+      "cache_path": null,
+      "cache_fallback_used": false
+    },
+    "stocks": {
+      "available": true,
+      "source": "stocks_api",
+      "target_date": null,
+      "count": null,
+      "amount": null,
+      "total_units": 142,
+      "snapshot_date": "2026-06-30",
+      "snapshot_kind": "live_snapshot",
+      "operational_date_reference": "2026-06-30",
+      "stale": false,
+      "stale_reason": null,
+      "source_actual_date": null,
+      "cache_age_seconds": null,
+      "cache_path": null,
+      "cache_fallback_used": false
+    }
+  },
+  "live_section": {
+    "title": "Оперативный срез",
+    "subtitle": "Оперативные заказы, продажи и live-остатки stocks_api без сравнения с товарным отчётом WB.",
+    "rows": [
+      {
+        "label": "Оперативные заказы",
+        "value": "9 шт",
+        "note": "10 569,20 ₽; источник: orders_api",
+        "status": "ok"
+      },
+      {
+        "label": "Оперативные продажи",
+        "value": "18 шт",
+        "note": "45 070 ₽; источник: sales_api",
+        "status": "ok"
+      },
+      {
+        "label": "Оперативные остатки",
+        "value": "142 шт",
+        "note": "live snapshot stocks_api, дата среза 2026-06-30; источник: stocks_api; Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день.",
+        "status": "ok"
+      },
+      {
+        "label": "Дата среза оперативных остатков",
+        "value": "2026-06-30",
+        "note": "Тип среза: live_snapshot; source: stocks_api live snapshot",
+        "status": "ok"
+      }
+    ],
+    "status": "ok"
+  },
+  "stock_section": {
+    "title": "Товарные остатки",
+    "subtitle": "Отдельный контур для остатков WB/МП и стоимости запасов; не смешивается с live stocks_api.",
+    "available": false,
+    "status": "no_data",
+    "source": "missing",
+    "message": "Нет отдельного источника stock_wb_qty/stock_mp_qty/stock_value; live stocks_api не подставляется.",
+    "stock_wb_qty": null,
+    "stock_mp_qty": null,
+    "stock_total_qty": null,
+    "stock_value": null,
+    "sku_rows_count": null,
+    "rows": [
+      {
+        "label": "Остатки WB",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Остатки МП",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Всего остатков",
+        "value": "нет данных",
+        "note": "Не заполняется из live stocks_api без отдельного товарного источника.",
+        "status": "unavailable"
+      },
+      {
+        "label": "Сумма остатков",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "SKU-строк",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      }
+    ],
+    "warnings": [
+      {
+        "code": "stock_goods_source_missing",
+        "message": "Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.",
+        "level": "info",
+        "block": "stock_section"
+      }
+    ]
+  },
+  "warnings": [
+    {
+      "code": "stock_goods_source_missing",
+      "message": "Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.",
+      "level": "info",
+      "block": "stock_section"
+    },
+    {
+      "code": "operational_stock_differs_from_goods_stock",
+      "message": "Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день.",
+      "level": "info",
+      "block": "live_operational.stocks"
+    },
+    {
+      "code": "advertising_efficiency_query_missing",
+      "message": "Query-level advertising rows are missing; query analysis is limited.",
+      "level": "warning",
+      "block": "advertising_efficiency"
+    },
+    {
+      "code": "sku_health_warning",
+      "message": "funnel_insufficient_data",
+      "level": "warning",
+      "block": "sku_health"
+    },
+    {
+      "code": "profit_contribution_warning",
+      "message": "total_profit_non_positive",
+      "level": "warning",
+      "block": "profit_contribution"
+    }
+  ],
+  "source_flags": {
+    "snapshot_present": true,
+    "debug_present": false,
+    "snapshot_source_mode": "wb_api_core_v2",
+    "buyouts_owner": "live_operational_sales",
+    "buyouts_source": "sales_api",
+    "warnings_count": 5
+  },
+  "diagnostics": {
+    "warnings": [
+      {
+        "code": "stock_goods_source_missing",
+        "level": "info",
+        "block": "stock_section",
+        "message": "Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток."
+      },
+      {
+        "code": "operational_stock_differs_from_goods_stock",
+        "level": "info",
+        "block": "live_operational.stocks",
+        "message": "Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день."
+      },
+      {
+        "code": "advertising_efficiency_query_missing",
+        "level": "warning",
+        "block": "advertising_efficiency",
+        "message": "Query-level advertising rows are missing; query analysis is limited."
+      },
+      {
+        "code": "sku_health_warning",
+        "level": "warning",
+        "block": "sku_health",
+        "message": "funnel_insufficient_data"
+      },
+      {
+        "code": "profit_contribution_warning",
+        "level": "warning",
+        "block": "profit_contribution",
+        "message": "total_profit_non_positive"
+      }
+    ],
+    "source_flags": [
+      {
+        "name": "cabinet_commerce.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "cabinet_commerce.status",
+        "value": "ok",
+        "status": "ok"
+      },
+      {
+        "name": "cabinet_commerce.source",
+        "value": "sales_funnel_api",
+        "status": "ok"
+      },
+      {
+        "name": "finance_final.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "finance_final.status",
+        "value": "ok",
+        "status": "ok"
+      },
+      {
+        "name": "finance_final.source",
+        "value": "finance_detailed_api",
+        "status": "ok"
+      },
+      {
+        "name": "finance_final.date_aligned",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.orders.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.orders.stale",
+        "value": "false",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.sales.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.sales.stale",
+        "value": "false",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.stocks.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.stocks.stale",
+        "value": "false",
+        "status": "ok"
+      },
+      {
+        "name": "debug_present",
+        "value": "false",
+        "status": "missing"
+      }
+    ],
+    "warnings_count": 5
+  }
+}

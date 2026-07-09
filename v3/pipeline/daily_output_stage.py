@@ -75,6 +75,62 @@ def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
     if not out_dir:
         raise ValueError("report_v2_mode_requires_out_dir")
 
+    # Save funnel_history_rows as artifact for report builder
+    funnel_history_rows = payload.get("funnel_history_rows", [])
+    if isinstance(funnel_history_rows, list) and funnel_history_rows:
+        import json as _json
+        _fh_path = os.path.join(out_dir, "funnel_history.json")
+        try:
+            with open(_fh_path, "w", encoding="utf-8") as _f:
+                _json.dump(funnel_history_rows, _f, ensure_ascii=False, indent=2)
+            print(f"[funnel_history] saved {len(funnel_history_rows)} rows to {_fh_path}")
+        except Exception as exc:
+            print(f"[funnel_history] save failed: {exc}")
+
+    # Save stocks analytics as artifacts
+    stocks_products_rows = payload.get("stocks_products_rows", [])
+    stocks_offices_rows = payload.get("stocks_offices_rows", [])
+    if isinstance(stocks_products_rows, list) and stocks_products_rows:
+        import json as _json
+        _sp_path = os.path.join(out_dir, "stocks_products.json")
+        try:
+            with open(_sp_path, "w", encoding="utf-8") as _f:
+                _json.dump(stocks_products_rows, _f, ensure_ascii=False, indent=2)
+            print(f"[stocks_products] saved {len(stocks_products_rows)} rows")
+        except Exception as exc:
+            print(f"[stocks_products] save failed: {exc}")
+    if isinstance(stocks_offices_rows, list) and stocks_offices_rows:
+        import json as _json
+        _so_path = os.path.join(out_dir, "stocks_offices.json")
+        try:
+            with open(_so_path, "w", encoding="utf-8") as _f:
+                _json.dump(stocks_offices_rows, _f, ensure_ascii=False, indent=2)
+            print(f"[stocks_offices] saved {len(stocks_offices_rows)} rows")
+        except Exception as exc:
+            print(f"[stocks_offices] save failed: {exc}")
+
+    # Save search data as artifacts
+    search_texts_rows = payload.get("search_texts_rows", [])
+    search_orders_rows = payload.get("search_orders_rows", [])
+    if isinstance(search_texts_rows, list) and search_texts_rows:
+        import json as _json
+        _st_path = os.path.join(out_dir, "search_texts.json")
+        try:
+            with open(_st_path, "w", encoding="utf-8") as _f:
+                _json.dump(search_texts_rows, _f, ensure_ascii=False, indent=2)
+            print(f"[search_texts] saved {len(search_texts_rows)} rows")
+        except Exception as exc:
+            print(f"[search_texts] save failed: {exc}")
+    if isinstance(search_orders_rows, list) and search_orders_rows:
+        import json as _json
+        _so_path = os.path.join(out_dir, "search_orders.json")
+        try:
+            with open(_so_path, "w", encoding="utf-8") as _f:
+                _json.dump(search_orders_rows, _f, ensure_ascii=False, indent=2)
+            print(f"[search_orders] saved {len(search_orders_rows)} rows")
+        except Exception as exc:
+            print(f"[search_orders] save failed: {exc}")
+
     snapshot_paths = resolve_core_snapshot_paths(repo_root=repo_root, seller_id=seller_id, run_date=run_date)
     print(
         "[daily_output_stage] v2 output stage start "

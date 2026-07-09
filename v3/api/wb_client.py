@@ -8,7 +8,7 @@ import requests
 
 from wb_api_core.token_resolver import resolve_wb_api_token
 
-from .endpoints import BASE_ADVERT, BASE_STATISTICS, WBEndpoint
+from .endpoints import BASE_ADVERT, BASE_ANALYTICS, BASE_STATISTICS, WBEndpoint
 
 
 class WBApiClient:
@@ -22,6 +22,7 @@ class WBApiClient:
 
         self.statistics_url = os.getenv("WB_STATISTICS_BASE_URL", "https://statistics-api.wildberries.ru").rstrip("/")
         self.advert_url = os.getenv("WB_ADVERT_BASE_URL", "https://advert-api.wildberries.ru").rstrip("/")
+        self.analytics_url = os.getenv("WB_ANALYTICS_BASE_URL", "https://seller-analytics-api.wildberries.ru").rstrip("/")
 
     @staticmethod
     def _extract_rows(payload: Any, keys: Iterable[str]) -> List[Dict[str, Any]]:
@@ -54,6 +55,8 @@ class WBApiClient:
     def _base_url(self, base_name: str) -> str:
         if base_name == BASE_ADVERT:
             return self.advert_url
+        if base_name == BASE_ANALYTICS:
+            return self.analytics_url
         return self.statistics_url
 
     def request_json(

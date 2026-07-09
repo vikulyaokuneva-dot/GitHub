@@ -494,6 +494,12 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
     api_sales_rows = list(ctx.get("api_sales_rows", []))
     api_realization_rows = list(ctx.get("api_realization_rows", []))
     api_stocks_rows = list(ctx.get("api_stocks_rows", []))
+    funnel_history_rows = list(ctx.get("funnel_history_rows", []))
+    stocks_products_rows = list(ctx.get("stocks_products_rows", []))
+    stocks_offices_rows = list(ctx.get("stocks_offices_rows", []))
+    account_balance = ctx.get("account_balance", {})
+    search_texts_rows = list(ctx.get("search_texts_rows", []))
+    search_orders_rows = list(ctx.get("search_orders_rows", []))
     local_financial_fallback_used = bool(ctx.get("local_financial_fallback_used", False))
     supplier_goods_daily = ctx.get("supplier_goods_daily", {})
     if not isinstance(supplier_goods_daily, dict):
@@ -1124,6 +1130,19 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
         ads_diagnostics=ads_diagnostics_summary if isinstance(ads_diagnostics_summary, dict) else {},
     )
     metrics["sales_funnel"] = cabinet_funnel if isinstance(cabinet_funnel, dict) else {}
+    # Populate funnel_daily so history_store saves it to history_index.json
+    if isinstance(cabinet_funnel, dict):
+        _fd_funnel = cabinet_funnel.get("funnel", {})
+        if isinstance(_fd_funnel, dict) and _fd_funnel:
+            metrics["funnel_daily"] = {
+                "impressions": _fd_funnel.get("views") or _fd_funnel.get("impressions"),
+                "open_count": _fd_funnel.get("clicks") or _fd_funnel.get("open_count"),
+                "cart_count": _fd_funnel.get("cart") or _fd_funnel.get("cart_count"),
+                "orders_count": _fd_funnel.get("orders") or _fd_funnel.get("orders_count"),
+                "buyouts_count": _fd_funnel.get("buyouts") or _fd_funnel.get("buyouts_count"),
+                "orders_amount": _fd_funnel.get("orders_amount"),
+                "buyouts_amount": _fd_funnel.get("buyouts_amount"),
+            }
     sales_funnel_diagnostics = build_sales_funnel_metrics(
         metrics=metrics if isinstance(metrics, dict) else {},
         run_date=run_date,

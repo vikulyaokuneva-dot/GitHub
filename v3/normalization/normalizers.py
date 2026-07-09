@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List
 
@@ -90,7 +90,7 @@ def _normalize_sales_rows(rows: List[Dict[str, Any]]) -> List[NormalizedSalesRow
                 orders=orders_value,
                 cost_price=_safe_float(_first_non_empty(row, ("cost_price", "cogs", "cost"))),
                 wb_commission=_safe_float(_first_non_empty(row, ("wb_commission", "commission", "retail_commission"))),
-                logistics=_safe_float(_first_non_empty(row, ("logistics", "deliveryRub", "delivery_cost"))),
+                logistics=_safe_float(_first_non_empty(row, ("deliveryService", "delivery_service", "deliveryServiceRub", "delivery_service_rub", "logistics", "deliveryRub", "delivery_rub", "delivery_cost", "logistics_cost", "logistics_amount"))),
                 storage=_safe_float(_first_non_empty(row, ("storage", "storage_cost"))),
                 penalties=_safe_float(_first_non_empty(row, ("penalties", "penalty", "fine"))),
                 deductions=_safe_float(_first_non_empty(row, ("deductions", "deduction"))),

@@ -253,10 +253,18 @@ class WBClient:
         logistics = cls._pick_first_float(
             row,
             (
+                "deliveryService",
+                "delivery_service",
+                "deliveryServiceRub",
+                "delivery_service_rub",
                 "logistics",
                 "delivery_rub",
+                "deliveryRub",
                 "deliveryAmount",
                 "deliveryCost",
+                "delivery_cost",
+                "logistics_cost",
+                "logistics_amount",
             ),
             default=0.0,
         )
@@ -388,10 +396,18 @@ class WBClient:
         logistics = cls._pick_first_float(
             row,
             (
+                "deliveryService",
+                "delivery_service",
+                "deliveryServiceRub",
+                "delivery_service_rub",
                 "logistics",
                 "delivery_rub",
+                "deliveryRub",
                 "deliveryAmount",
                 "deliveryCost",
+                "delivery_cost",
+                "logistics_cost",
+                "logistics_amount",
             ),
             default=0.0,
         )

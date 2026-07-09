@@ -5,6 +5,7 @@ from typing import Dict
 
 BASE_STATISTICS = "statistics"
 BASE_ADVERT = "advert"
+BASE_ANALYTICS = "analytics"
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,48 @@ FINANCE_SALES_REPORTS_LIST = WBEndpoint(
     path="/api/finance/v1/sales-reports/list",
 )
 
+SALES_FUNNEL_HISTORY = WBEndpoint(
+    name="sales_funnel_history",
+    base=BASE_ANALYTICS,
+    path="/api/analytics/v3/sales-funnel/products/history",
+)
+
+STOCKS_WB_WAREHOUSES = WBEndpoint(
+    name="stocks_wb_warehouses",
+    base=BASE_ANALYTICS,
+    path="/api/analytics/v1/stocks-report/wb-warehouses",
+)
+
+STOCKS_PRODUCTS = WBEndpoint(
+    name="stocks_products",
+    base=BASE_STATISTICS,
+    path="/api/v2/stocks-report/products/products",
+)
+
+STOCKS_OFFICES = WBEndpoint(
+    name="stocks_offices",
+    base=BASE_STATISTICS,
+    path="/api/v2/stocks-report/offices",
+)
+
+ACCOUNT_BALANCE = WBEndpoint(
+    name="account_balance",
+    base=BASE_STATISTICS,
+    path="/api/v1/account/balance",
+)
+
+SEARCH_PRODUCT_TEXTS = WBEndpoint(
+    name="search_product_texts",
+    base=BASE_ANALYTICS,
+    path="/api/v2/search-report/product/search-texts",
+)
+
+SEARCH_PRODUCT_ORDERS = WBEndpoint(
+    name="search_product_orders",
+    base=BASE_ANALYTICS,
+    path="/api/v2/search-report/product/orders",
+)
+
 ALL_ENDPOINTS: Dict[str, WBEndpoint] = {
     ORDERS.name: ORDERS,
     SALES.name: SALES,
@@ -38,4 +81,11 @@ ALL_ENDPOINTS: Dict[str, WBEndpoint] = {
     ADS.name: ADS,
     FINANCE_SALES_REPORTS_DETAILED.name: FINANCE_SALES_REPORTS_DETAILED,
     FINANCE_SALES_REPORTS_LIST.name: FINANCE_SALES_REPORTS_LIST,
+    SALES_FUNNEL_HISTORY.name: SALES_FUNNEL_HISTORY,
+    STOCKS_WB_WAREHOUSES.name: STOCKS_WB_WAREHOUSES,
+    STOCKS_PRODUCTS.name: STOCKS_PRODUCTS,
+    STOCKS_OFFICES.name: STOCKS_OFFICES,
+    ACCOUNT_BALANCE.name: ACCOUNT_BALANCE,
+    SEARCH_PRODUCT_TEXTS.name: SEARCH_PRODUCT_TEXTS,
+    SEARCH_PRODUCT_ORDERS.name: SEARCH_PRODUCT_ORDERS,
 }
