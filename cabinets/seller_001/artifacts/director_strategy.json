@@ -3,17 +3,9 @@
     "scale": [],
     "fix": [],
     "watch": [],
-    "liquidate": [
-      "898642228"
-    ]
+    "liquidate": []
   },
-  "tasks": [
-    {
-      "sku": "898642228",
-      "task": "discount_or_remove",
-      "priority": "P4"
-    }
-  ],
+  "tasks": [],
   "signals": [],
   "territorial_analysis_enabled": false,
   "territorial_actionable_enabled": false,

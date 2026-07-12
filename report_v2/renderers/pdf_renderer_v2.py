@@ -762,21 +762,18 @@ def _sku_detail_table(sku: dict[str, Any], *, width: float, font_name: str, styl
 
 
 def _sku_funnel_table(funnel: dict[str, Any], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
-    impressions = funnel.get("impressions", 0)
-    views = funnel.get("views", 0)
+    card_opens = funnel.get("card_opens", 0) or funnel.get("views", 0)
     cart = funnel.get("cart", 0)
     orders = funnel.get("orders", 0)
     buyouts = funnel.get("buyouts", 0)
-    ctr = funnel.get("ctr_pct", 0)
-    cr_cart = funnel.get("cr_cart_pct", 0)
-    cr_order = funnel.get("cr_order_pct", 0)
-    imp_to_click = round(views / impressions * 100, 1) if impressions else 0
+    cr_cart_to_order = funnel.get("cr_cart_to_order_pct", 0) or funnel.get("cr_cart_pct", 0)
+    cr_order_to_buyout = funnel.get("cr_order_to_buyout_pct", 0) or funnel.get("cr_order_pct", 0)
+    open_to_cart = round(cart / card_opens * 100, 1) if card_opens else 0
     rows_data = [
-        ("Показы", str(impressions) if impressions else "—", f"{imp_to_click}%" if impressions else "—"),
-        ("Клики", str(views), "—"),
-        ("Корзина", str(cart), f"{ctr}% CTR" if views else "—"),
-        ("Заказы", str(orders), f"{cr_cart}%" if cart else "—"),
-        ("Выкупы", str(buyouts), f"{cr_order}%" if orders else "—"),
+        ("Переходы в карточку", str(card_opens) if card_opens else "—", "—"),
+        ("Корзина", str(cart), f"{open_to_cart}%" if card_opens else "—"),
+        ("Заказы", str(orders), f"{cr_cart_to_order}%" if cart else "—"),
+        ("Выкупы", str(buyouts), f"{cr_order_to_buyout}%" if orders else "—"),
     ]
     table_rows = [[Paragraph("Этап", style), Paragraph("Значение", style), Paragraph("Конверсия", style)]]
     for label, value, conv in rows_data:
@@ -970,7 +967,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                                 }
                                 break
                 _funnel_stage_map = {
-                    "Показы": "impressions", "Клики": "clicks", "Корзина": "cart",
+                    "Переходы в карточку": "open_count", "Корзина": "cart",
                     "Заказы": "orders", "Выкупы": "buyouts",
                 }
                 _fmt_funnel = lambda v: f"{int(v)} шт" if v and v == int(v) else f"{v} шт" if v else "н/д"
@@ -987,8 +984,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                         "vs_yesterday": _vs_str,
                     }
                 _conv_pairs = [
-                    ("Показы → Клики", "clicks", "impressions"),
-                    ("Клики → Корзина", "cart", "clicks"),
+                    ("Карточка → Корзина", "cart", "open_count"),
                     ("Корзина → Заказ", "orders", "cart"),
                     ("Заказ → Выкуп", "buyouts", "orders"),
                 ]

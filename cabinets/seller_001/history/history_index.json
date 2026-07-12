@@ -95,20 +95,21 @@
         "revenue": 7138.0,
         "profit": 5716.58,
         "buyouts": 5,
-        "ads_spend": 178.16,
+        "ads_spend": 128.93,
+        "funnel": {
+          "impressions": 308.0,
+          "clicks": 49.0,
+          "cart": 0.0,
+          "orders": 3.0,
+          "buyouts": 5.0,
+          "orders_amount": 0.0,
+          "buyouts_amount": 0.0
+        },
+        "orders": 3,
+        "orders_amount": 0.0,
         "sku_count": 7,
         "valid_sku_count": 7,
-        "invalid_sku_rows": 0,
-        "funnel": {
-          "clicks": 500,
-          "cart": 55,
-          "orders": 10,
-          "buyouts": 5,
-          "orders_amount": 7138.0,
-          "buyouts_amount": 7138.0
-        },
-        "orders": 10,
-        "orders_amount": 7138.0
+        "invalid_sku_rows": 0
       },
       "seller_id": "seller_001"
     },

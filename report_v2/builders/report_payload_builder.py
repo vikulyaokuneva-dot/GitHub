@@ -957,30 +957,17 @@ def build_funnel_section_v2(
             funnel_daily["buyouts_amount"] = live_sales_amount
             funnel_daily["order_to_buyout_rate"] = round(live_sales_count / funnel_daily.get("orders_count", 1) * 100, 2) if funnel_daily.get("orders_count") else 0
 
-        impressions = _safe_int(funnel_daily.get("impressions") or funnel_daily.get("views") or funnel_daily.get("show_count"))
-        clicks = _safe_int(funnel_daily.get("open_count"))
+        card_opens = _safe_int(funnel_daily.get("open_count") or funnel_daily.get("card_opens"))
         cart = _safe_int(funnel_daily.get("cart_count"))
         orders = _safe_int(funnel_daily.get("orders_count"))
         buyouts = _safe_int(funnel_daily.get("buyouts_count"))
 
         rows: list[FunnelStageRowV2] = [
-            _funnel_row(
-                "Показы",
-                _format_display_int(impressions, "шт") if impressions is not None else "нет данных",
-                source=source if impressions is not None else "нет данных",
-                status="ok" if impressions is not None else "unavailable",
-            ),
-            _funnel_daily_count_row("Клики", funnel_daily, "open_count", source=source),
+            _funnel_daily_count_row("Переходы в карточку", funnel_daily, "open_count", source=source),
             _funnel_daily_count_row("Корзина", funnel_daily, "cart_count", source=source),
             _funnel_daily_count_row("Заказы", funnel_daily, "orders_count", source=source),
             _funnel_daily_count_row("Выкупы", funnel_daily, "buyouts_count", source=source),
-            _funnel_row(
-                "Показы → Клики",
-                _format_snapshot_percent(_safe_divide(clicks, impressions) * 100.0 if impressions and impressions > 0 and clicks is not None else None),
-                source=source,
-                status="ok" if impressions and impressions > 0 and clicks is not None else "unavailable",
-            ) if impressions is not None else _funnel_row("Показы → Клики", "нет данных", source="нет данных", status="unavailable"),
-            _funnel_daily_rate_row("Клики → Корзина", funnel_daily, "open_to_cart_rate", source=source),
+            _funnel_daily_rate_row("Карточка → Корзина", funnel_daily, "open_to_cart_rate", source=source),
             _funnel_daily_rate_row("Корзина → Заказ", funnel_daily, "cart_to_order_rate", source=source),
             _funnel_daily_rate_row("Заказ → Выкуп", funnel_daily, "order_to_buyout_rate", source=source),
         ]
@@ -990,10 +977,10 @@ def build_funnel_section_v2(
         prev_w = _safe_dict(prev_funnel.get("week_ago"))
         if prev_y or prev_w:
             delta_metrics = [
-                ("Показы", impressions, "impressions"),
-                ("Клики", clicks, "clicks"),
-                ("Заказы", orders, "orders"),
-                ("Выкупы", buyouts, "buyouts"),
+                ("Переходы в карточку", card_opens, "open_count"),
+                ("Корзина", cart, "cart_count"),
+                ("Заказы", orders, "orders_count"),
+                ("Выкупы", buyouts, "buyouts_count"),
             ]
             for label, current_val, key in delta_metrics:
                 y_val = _safe_float(prev_y.get(key))
@@ -1047,8 +1034,7 @@ def build_funnel_section_v2(
     upper = _clean_core_upper_funnel(snapshot)
 
     rows: list[FunnelStageRowV2] = [
-        _upper_funnel_stage_row("Показы", upper, ("views", "impressions", "shows")),
-        _upper_funnel_stage_row("Клики", upper, ("clicks", "click_count")),
+        _upper_funnel_stage_row("Переходы в карточку", upper, ("open_count", "card_opens", "views")),
         _upper_funnel_stage_row("Корзина", upper, ("add_to_cart", "cart_count", "basket_count")),
         _funnel_row(
             "Заказы",
@@ -4349,7 +4335,7 @@ def _build_sku_detail_section(snapshot: dict[str, Any]) -> dict[str, Any]:
             continue
         key = str(nm_id)
         if key not in sku_data:
-            sku_data[key] = {"nm_id": nm_id, "seller_sku": "", "title": "", "revenue": 0, "buyouts": 0, "orders": 0, "cogs": 0, "commission": 0, "logistics": 0, "acquiring": 0, "storage_share": 0, "deductions_share": 0, "ads_spend": 0, "views": 0}
+            sku_data[key] = {"nm_id": nm_id, "seller_sku": "", "title": "", "revenue": 0, "buyouts": 0, "orders": 0, "cogs": 0, "commission": 0, "logistics": 0, "acquiring": 0, "storage_share": 0, "deductions_share": 0, "ads_spend": 0, "card_opens": 0}
         qty = _safe_float(row.get("quantity")) or 1
         amount = _safe_float(row.get("amount")) or 0
         sku_data[key]["revenue"] += amount
@@ -4367,7 +4353,7 @@ def _build_sku_detail_section(snapshot: dict[str, Any]) -> dict[str, Any]:
             continue
         key = str(nm_id)
         if key not in sku_data:
-            sku_data[key] = {"nm_id": nm_id, "seller_sku": "", "title": "", "revenue": 0, "buyouts": 0, "orders": 0, "cogs": 0, "commission": 0, "logistics": 0, "acquiring": 0, "storage_share": 0, "deductions_share": 0, "ads_spend": 0, "views": 0}
+            sku_data[key] = {"nm_id": nm_id, "seller_sku": "", "title": "", "revenue": 0, "buyouts": 0, "orders": 0, "cogs": 0, "commission": 0, "logistics": 0, "acquiring": 0, "storage_share": 0, "deductions_share": 0, "ads_spend": 0, "card_opens": 0}
         sku_data[key]["orders"] += 1
         seller_sku = row.get("seller_sku") or ""
         if seller_sku and not sku_data[key]["seller_sku"]:
@@ -4398,12 +4384,12 @@ def _build_sku_detail_section(snapshot: dict[str, Any]) -> dict[str, Any]:
             continue
         key = str(nm_id)
         if key not in sku_data:
-            sku_data[key] = {"nm_id": nm_id, "seller_sku": "", "title": "", "revenue": 0, "buyouts": 0, "orders": 0, "cogs": 0, "commission": 0, "logistics": 0, "acquiring": 0, "storage_share": 0, "deductions_share": 0, "ads_spend": 0, "views": 0}
+            sku_data[key] = {"nm_id": nm_id, "seller_sku": "", "title": "", "revenue": 0, "buyouts": 0, "orders": 0, "cogs": 0, "commission": 0, "logistics": 0, "acquiring": 0, "storage_share": 0, "deductions_share": 0, "ads_spend": 0, "card_opens": 0}
         if not sku_data[key]["seller_sku"]:
             sku_data[key]["seller_sku"] = fr.get("seller_sku") or ""
         if not sku_data[key]["title"]:
             sku_data[key]["title"] = fr.get("title") or ""
-        sku_data[key]["views"] = int(fr.get("views", 0))
+        sku_data[key]["card_opens"] = int(fr.get("card_opens", 0) or fr.get("views", 0))
         sku_data[key]["orders"] = max(sku_data[key]["orders"], int(fr.get("orders", 0)))
         sku_data[key]["buyouts"] = max(sku_data[key]["buyouts"], int(fr.get("buyouts", 0)))
 
@@ -4447,7 +4433,7 @@ def _build_sku_detail_section(snapshot: dict[str, Any]) -> dict[str, Any]:
         if nm_id:
             funnel_map[str(nm_id)] = fr
 
-    sku_list = sorted(sku_data.values(), key=lambda x: (x["revenue"], x["orders"], x.get("views", 0)), reverse=True)
+    sku_list = sorted(sku_data.values(), key=lambda x: (x["revenue"], x["orders"], x.get("card_opens", 0)), reverse=True)
     active_skus = [s for s in sku_list if s["revenue"] > 0 or s["orders"] > 0 or s["buyouts"] > 0]
     top_skus = [s for s in active_skus if s["profit"] >= 0][:3]
     loss_skus = [s for s in active_skus if s["profit"] < 0]
@@ -4456,14 +4442,12 @@ def _build_sku_detail_section(snapshot: dict[str, Any]) -> dict[str, Any]:
 
     def _fmt_sku(sku: dict[str, Any]) -> dict[str, Any]:
         fr = funnel_map.get(str(sku["nm_id"]), {})
-        views = int(fr.get("views", 0))
-        clicks = int(fr.get("cart", 0))
+        card_opens = int(fr.get("card_opens", 0) or fr.get("views", 0))
         cart = int(fr.get("cart", 0))
         orders_funnel = int(fr.get("orders", 0))
         buyouts_funnel = int(fr.get("buyouts", 0))
-        ctr = round(cart / views * 100, 1) if views > 0 else 0
-        cr_cart = round(orders_funnel / cart * 100, 1) if cart > 0 else 0
-        cr_order = round(buyouts_funnel / orders_funnel * 100, 1) if orders_funnel > 0 else 0
+        cr_cart_to_order = round(orders_funnel / cart * 100, 1) if cart > 0 else 0
+        cr_order_to_buyout = round(buyouts_funnel / orders_funnel * 100, 1) if orders_funnel > 0 else 0
         return {
             "nm_id": sku["nm_id"],
             "seller_article": sku["seller_sku"],
@@ -4482,13 +4466,12 @@ def _build_sku_detail_section(snapshot: dict[str, Any]) -> dict[str, Any]:
             "margin_pct": sku["margin_pct"],
             "share_pct": sku["share_pct"],
             "funnel": {
-                "views": views,
+                "card_opens": card_opens,
                 "cart": cart,
                 "orders": orders_funnel,
                 "buyouts": buyouts_funnel,
-                "ctr_pct": ctr,
-                "cr_cart_pct": cr_cart,
-                "cr_order_pct": cr_order,
+                "cr_cart_to_order_pct": cr_cart_to_order,
+                "cr_order_to_buyout_pct": cr_order_to_buyout,
             },
         }
 

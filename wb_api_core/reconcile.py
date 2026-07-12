@@ -240,7 +240,7 @@ def reconcile_bundle(
                 "nm_id": r.get("nm_id"),
                 "seller_sku": r.get("seller_sku"),
                 "title": r.get("title"),
-                "views": r.get("open_count", 0),
+                "card_opens": r.get("open_count", 0),
                 "cart": r.get("cart_count", 0),
                 "orders": r.get("order_count", 0),
                 "order_sum": r.get("order_sum", 0),

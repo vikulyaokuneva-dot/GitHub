@@ -10,9 +10,9 @@ Commerce:
 Сумма выкупов: 3 857,20 ₽ (ok; Источник: sales_api)
 
 Advertising:
-Spend: 178.16
-DRR: 0,53%
-ROAS: 188,59x
+Spend: 128.93
+DRR: 0,38%
+ROAS: 260,61x
 ROMI: -100,00%
 Wasted spend: 764.04
 Action: Cut or rebuild loss-making traffic sources and tighten query filters.
@@ -30,7 +30,7 @@ Dead stock: 3
 Прибыль и ассортимент:
 Топ прибыльных SKU: 5 SKU; доля прибыли недоступна
 Убыточные SKU: 1
-A-категория: 0 SKU
+A-категория: 3 SKU
 
 Finance:
 Realized sales: 7 / 7 138.00
@@ -53,32 +53,32 @@ Warnings:
     "title": "too many requests",
     "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
     "code": "461a0b83d6bd 2950e93b5fda",
-    "requestId": "374d2f6a0f92383a9dc745d58ebf272f",
-    "origin": "s2s-fin; rate_limit_headers: x_ratelimit_retry=38708, x_ratelimit_reset=38708
+    "requestId": "c8a5a9d2257e3e761954a256b31ee025",
+    "origin": "s2s-fin; rate_limit_headers: x_ratelimit_retry=38433, x_ratelimit_reset=38433
 - [meta] 429: {
     "title": "too many requests",
     "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
     "code": "461a0b83d6bd 2950e93b5fda",
-    "requestId": "515715aa81f4847839b591d618b1c29d",
-    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=6304, x_ratelimit_reset=6304
+    "requestId": "bb36407a03badbe2a7b372a028b004cc",
+    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=5039, x_ratelimit_reset=5039
 - [meta] 429: {
     "title": "too many requests",
     "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
     "code": "461a0b83d6bd 2950e93b5fda",
-    "requestId": "6b2e7f5004b669b788d8628d21d21c47",
-    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=6367, x_ratelimit_reset=6367
+    "requestId": "e1efa7b9abf4ceeae8c6e39e63086aeb",
+    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=1433, x_ratelimit_reset=1433
 - [meta] 429: {
     "title": "too many requests",
-    "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
+    "detail": "This method is deprecated. Link: https://dev.wildberries.ru/release-notes?id=494",
     "code": "461a0b83d6bd 2950e93b5fda",
-    "requestId": "efb0d682828caef2999798c63b1cc0eb",
-    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=9993, x_ratelimit_reset=9993
+    "requestId": "849e905788d93c13e95826e7486937e9",
+    "origin": "s2s-api-auth-stat",
+    "status": 429,
+    "statusText": ; rate_limit_headers: x_ratelimit_retry=253440, x_ratelimit_reset=253440
 - [live_operational] orders returned 429; live_operational.orders was filled from latest_successful snapshot and marked stale.
 - [live_operational] sales returned 429; live_operational.sales was filled from latest_successful snapshot and marked stale.
 - [live_operational] stocks returned 429; live_operational.stocks was filled from latest_successful snapshot and marked stale.
-- [live_operational] ads returned 429; live_operational.ads was filled from latest_successful snapshot and marked stale.
 - [finance_final] finance_final_daily filled from latest_finance.json cache.
-- [live_operational] Cabinet commerce reported 0 buyouts but sales API confirmed actual sales. Using sales API data.
 - [stock_section] Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.
 - [live_operational.stocks] Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день.
 - [advertising_efficiency] Query-level advertising rows are missing; query analysis is limited.

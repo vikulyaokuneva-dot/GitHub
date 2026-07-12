@@ -3,8 +3,8 @@
   "mode": "daily",
   "run_date": "2026-06-27",
   "status": "success",
-  "started_at": "2026-06-27T22:21:59Z",
-  "finished_at": "2026-06-27T22:22:01Z",
+  "started_at": "2026-07-11T22:01:17Z",
+  "finished_at": "2026-07-11T22:01:21Z",
   "error": null,
   "artifacts_dir": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts",
   "source_mode": "wb_api_core_v2",
@@ -48,25 +48,25 @@
     "warnings": [
       {
         "code": "finance_final_api_unavailable",
-        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"374d2f6a0f92383a9dc745d58ebf272f\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=38708, x_ratelimit_reset=38708",
+        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"c8a5a9d2257e3e761954a256b31ee025\",\n    \"origin\": \"s2s-fin; rate_limit_headers: x_ratelimit_retry=38433, x_ratelimit_reset=38433",
         "level": "warning",
         "block": "meta"
       },
       {
         "code": "orders_api_unavailable",
-        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"515715aa81f4847839b591d618b1c29d\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=6304, x_ratelimit_reset=6304",
+        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"bb36407a03badbe2a7b372a028b004cc\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=5039, x_ratelimit_reset=5039",
         "level": "warning",
         "block": "meta"
       },
       {
         "code": "sales_api_unavailable",
-        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"6b2e7f5004b669b788d8628d21d21c47\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=6367, x_ratelimit_reset=6367",
+        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"e1efa7b9abf4ceeae8c6e39e63086aeb\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=1433, x_ratelimit_reset=1433",
         "level": "warning",
         "block": "meta"
       },
       {
         "code": "stocks_api_unavailable",
-        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"efb0d682828caef2999798c63b1cc0eb\",\n    \"origin\": \"s2s-api; rate_limit_headers: x_ratelimit_retry=9993, x_ratelimit_reset=9993",
+        "message": "429: {\n    \"title\": \"too many requests\",\n    \"detail\": \"This method is deprecated. Link: https://dev.wildberries.ru/release-notes?id=494\",\n    \"code\": \"461a0b83d6bd 2950e93b5fda\",\n    \"requestId\": \"849e905788d93c13e95826e7486937e9\",\n    \"origin\": \"s2s-api-auth-stat\",\n    \"status\": 429,\n    \"statusText\": ; rate_limit_headers: x_ratelimit_retry=253440, x_ratelimit_reset=253440",
         "level": "warning",
         "block": "meta"
       },
@@ -89,22 +89,10 @@
         "block": "live_operational"
       },
       {
-        "code": "ads_latest_successful_cache_fallback",
-        "message": "ads returned 429; live_operational.ads was filled from latest_successful snapshot and marked stale.",
-        "level": "warning",
-        "block": "live_operational"
-      },
-      {
         "code": "finance_final_finance_cache_fallback",
         "message": "finance_final_daily filled from latest_finance.json cache.",
         "level": "warning",
         "block": "finance_final"
-      },
-      {
-        "code": "buyouts_override_from_sales_api",
-        "message": "Cabinet commerce reported 0 buyouts but sales API confirmed actual sales. Using sales API data.",
-        "level": "warning",
-        "block": "live_operational"
       },
       {
         "code": "stock_goods_source_missing",
@@ -137,7 +125,7 @@
         "block": "profit_contribution"
       }
     ],
-    "warnings_count": 15
+    "warnings_count": 13
   },
   "payload_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_payload_v2.json",
   "pdf_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\report_v2.pdf",

@@ -2,7 +2,7 @@
   "seller_id": "seller_001",
   "target_date": "2026-06-27",
   "source_family": "cabinet_commerce_daily",
-  "cached_at_epoch": 1782596517.089,
+  "cached_at_epoch": 1783806359.268,
   "rows_raw": [
     {
       "product": {
@@ -17,8 +17,8 @@
         "feedbackRating": 0,
         "stocks": {
           "wb": 0,
-          "mp": 149,
-          "balanceSum": 409750
+          "mp": 91,
+          "balanceSum": 263900
         }
       },
       "statistic": {
@@ -31,8 +31,8 @@
           "cartCount": 20,
           "orderCount": 22,
           "orderSum": 60500,
-          "buyoutCount": 0,
-          "buyoutSum": 0,
+          "buyoutCount": 22,
+          "buyoutSum": 60500,
           "cancelCount": 0,
           "cancelSum": 0,
           "avgPrice": 2750,
@@ -40,8 +40,8 @@
           "shareOrderPercent": 95.1,
           "addToWishlist": 3,
           "timeToReady": {
-            "days": 0,
-            "hours": 0,
+            "days": 3,
+            "hours": 17,
             "mins": 0
           },
           "localizationPercent": 18,
@@ -59,7 +59,7 @@
           "conversions": {
             "addToCartPercent": 19,
             "cartToOrderPercent": 110,
-            "buyoutPercent": 0
+            "buyoutPercent": 100
           }
         },
         "past": {
@@ -71,8 +71,8 @@
           "cartCount": 48,
           "orderCount": 11,
           "orderSum": 30250,
-          "buyoutCount": 0,
-          "buyoutSum": 0,
+          "buyoutCount": 10,
+          "buyoutSum": 27500,
           "cancelCount": 0,
           "cancelSum": 0,
           "avgPrice": 2750,
@@ -80,8 +80,8 @@
           "shareOrderPercent": 73.7,
           "addToWishlist": 5,
           "timeToReady": {
-            "days": 0,
-            "hours": 0,
+            "days": 6,
+            "hours": 10,
             "mins": 0
           },
           "localizationPercent": 0,
@@ -99,7 +99,7 @@
           "conversions": {
             "addToCartPercent": 41,
             "cartToOrderPercent": 23,
-            "buyoutPercent": 0
+            "buyoutPercent": 100
           }
         },
         "comparison": {
@@ -107,8 +107,8 @@
           "cartCountDynamic": -58,
           "orderCountDynamic": 100,
           "orderSumDynamic": 100,
-          "buyoutCountDynamic": 0,
-          "buyoutSumDynamic": 0,
+          "buyoutCountDynamic": 120,
+          "buyoutSumDynamic": 120,
           "cancelCountDynamic": 0,
           "cancelSumDynamic": 0,
           "avgOrdersCountPerDayDynamic": 100,
@@ -116,8 +116,8 @@
           "shareOrderPercentDynamic": 29,
           "addToWishlistDynamic": -40,
           "timeToReadyDynamic": {
-            "days": 0,
-            "hours": 0,
+            "days": -2,
+            "hours": -17,
             "mins": 0
           },
           "localizationPercentDynamic": 100,
@@ -154,7 +154,7 @@
         "stocks": {
           "wb": 1,
           "mp": 0,
-          "balanceSum": 2650
+          "balanceSum": 2900
         }
       },
       "statistic": {
@@ -207,8 +207,8 @@
           "cartCount": 10,
           "orderCount": 4,
           "orderSum": 10800,
-          "buyoutCount": 0,
-          "buyoutSum": 0,
+          "buyoutCount": 4,
+          "buyoutSum": 10800,
           "cancelCount": 0,
           "cancelSum": 0,
           "avgPrice": 2700,
@@ -216,8 +216,8 @@
           "shareOrderPercent": 26.3,
           "addToWishlist": 1,
           "timeToReady": {
-            "days": 0,
-            "hours": 0,
+            "days": 2,
+            "hours": 21,
             "mins": 0
           },
           "localizationPercent": 0,
@@ -235,7 +235,7 @@
           "conversions": {
             "addToCartPercent": 22,
             "cartToOrderPercent": 40,
-            "buyoutPercent": 0
+            "buyoutPercent": 100
           }
         },
         "comparison": {
@@ -243,8 +243,8 @@
           "cartCountDynamic": -60,
           "orderCountDynamic": -100,
           "orderSumDynamic": -100,
-          "buyoutCountDynamic": 0,
-          "buyoutSumDynamic": 0,
+          "buyoutCountDynamic": -100,
+          "buyoutSumDynamic": -100,
           "cancelCountDynamic": 0,
           "cancelSumDynamic": 0,
           "avgOrdersCountPerDayDynamic": -100,
@@ -252,8 +252,8 @@
           "shareOrderPercentDynamic": -100,
           "addToWishlistDynamic": 100,
           "timeToReadyDynamic": {
-            "days": 0,
-            "hours": 0,
+            "days": -2,
+            "hours": -21,
             "mins": 0
           },
           "localizationPercentDynamic": 0,
@@ -271,7 +271,7 @@
           "conversions": {
             "addToCartPercent": -55,
             "cartToOrderPercent": -100,
-            "buyoutPercent": 0
+            "buyoutPercent": -100
           }
         }
       }
@@ -288,9 +288,9 @@
         "productRating": 8,
         "feedbackRating": 4.7,
         "stocks": {
-          "wb": 7,
-          "mp": 0,
-          "balanceSum": 5740
+          "wb": 0,
+          "mp": 28,
+          "balanceSum": 19040
         }
       },
       "statistic": {
@@ -303,8 +303,8 @@
           "cartCount": 5,
           "orderCount": 2,
           "orderSum": 1640,
-          "buyoutCount": 0,
-          "buyoutSum": 0,
+          "buyoutCount": 2,
+          "buyoutSum": 1640,
           "cancelCount": 0,
           "cancelSum": 0,
           "avgPrice": 820,
@@ -312,8 +312,8 @@
           "shareOrderPercent": 2.6,
           "addToWishlist": 0,
           "timeToReady": {
-            "days": 0,
-            "hours": 0,
+            "days": 1,
+            "hours": 13,
             "mins": 0
           },
           "localizationPercent": 0,
@@ -331,7 +331,7 @@
           "conversions": {
             "addToCartPercent": 17,
             "cartToOrderPercent": 40,
-            "buyoutPercent": 0
+            "buyoutPercent": 100
           }
         },
         "past": {
@@ -379,8 +379,8 @@
           "cartCountDynamic": 400,
           "orderCountDynamic": 100,
           "orderSumDynamic": 100,
-          "buyoutCountDynamic": 0,
-          "buyoutSumDynamic": 0,
+          "buyoutCountDynamic": 100,
+          "buyoutSumDynamic": 100,
           "cancelCountDynamic": 0,
           "cancelSumDynamic": 0,
           "avgOrdersCountPerDayDynamic": 100,
@@ -388,8 +388,8 @@
           "shareOrderPercentDynamic": 100,
           "addToWishlistDynamic": 0,
           "timeToReadyDynamic": {
-            "days": 0,
-            "hours": 0,
+            "days": 1,
+            "hours": 13,
             "mins": 0
           },
           "localizationPercentDynamic": 0,
@@ -407,7 +407,7 @@
           "conversions": {
             "addToCartPercent": 183,
             "cartToOrderPercent": 100,
-            "buyoutPercent": 0
+            "buyoutPercent": 100
           }
         }
       }
@@ -424,9 +424,9 @@
         "productRating": 10,
         "feedbackRating": 5,
         "stocks": {
-          "wb": 8,
-          "mp": 0,
-          "balanceSum": 6240
+          "wb": 0,
+          "mp": 27,
+          "balanceSum": 17280
         }
       },
       "statistic": {
@@ -439,8 +439,8 @@
           "cartCount": 2,
           "orderCount": 1,
           "orderSum": 780,
-          "buyoutCount": 0,
-          "buyoutSum": 0,
+          "buyoutCount": 1,
+          "buyoutSum": 780,
           "cancelCount": 0,
           "cancelSum": 0,
           "avgPrice": 780,
@@ -448,8 +448,8 @@
           "shareOrderPercent": 1.2,
           "addToWishlist": 1,
           "timeToReady": {
-            "days": 0,
-            "hours": 0,
+            "days": 1,
+            "hours": 14,
             "mins": 0
           },
           "localizationPercent": 0,
@@ -467,7 +467,7 @@
           "conversions": {
             "addToCartPercent": 7,
             "cartToOrderPercent": 50,
-            "buyoutPercent": 0
+            "buyoutPercent": 100
           }
         },
         "past": {
@@ -515,8 +515,8 @@
           "cartCountDynamic": 0,
           "orderCountDynamic": 100,
           "orderSumDynamic": 100,
-          "buyoutCountDynamic": 0,
-          "buyoutSumDynamic": 0,
+          "buyoutCountDynamic": 100,
+          "buyoutSumDynamic": 100,
           "cancelCountDynamic": 0,
           "cancelSumDynamic": 0,
           "avgOrdersCountPerDayDynamic": 100,
@@ -524,8 +524,8 @@
           "shareOrderPercentDynamic": 100,
           "addToWishlistDynamic": 100,
           "timeToReadyDynamic": {
-            "days": 0,
-            "hours": 0,
+            "days": 1,
+            "hours": 14,
             "mins": 0
           },
           "localizationPercentDynamic": 0,
@@ -543,7 +543,7 @@
           "conversions": {
             "addToCartPercent": -22,
             "cartToOrderPercent": 100,
-            "buyoutPercent": 0
+            "buyoutPercent": 100
           }
         }
       }
@@ -560,9 +560,9 @@
         "productRating": 10,
         "feedbackRating": 4.7,
         "stocks": {
-          "wb": 122,
+          "wb": 102,
           "mp": 0,
-          "balanceSum": 87840
+          "balanceSum": 91800
         }
       },
       "statistic": {
@@ -575,8 +575,8 @@
           "cartCount": 2,
           "orderCount": 1,
           "orderSum": 720,
-          "buyoutCount": 0,
-          "buyoutSum": 0,
+          "buyoutCount": 1,
+          "buyoutSum": 720,
           "cancelCount": 0,
           "cancelSum": 0,
           "avgPrice": 720,
@@ -584,8 +584,8 @@
           "shareOrderPercent": 1.1,
           "addToWishlist": 1,
           "timeToReady": {
-            "days": 0,
-            "hours": 0,
+            "days": 1,
+            "hours": 12,
             "mins": 0
           },
           "localizationPercent": 0,
@@ -603,7 +603,7 @@
           "conversions": {
             "addToCartPercent": 14,
             "cartToOrderPercent": 50,
-            "buyoutPercent": 0
+            "buyoutPercent": 100
           }
         },
         "past": {
@@ -651,8 +651,8 @@
           "cartCountDynamic": 100,
           "orderCountDynamic": 100,
           "orderSumDynamic": 100,
-          "buyoutCountDynamic": 0,
-          "buyoutSumDynamic": 0,
+          "buyoutCountDynamic": 100,
+          "buyoutSumDynamic": 100,
           "cancelCountDynamic": 0,
           "cancelSumDynamic": 0,
           "avgOrdersCountPerDayDynamic": 100,
@@ -660,8 +660,8 @@
           "shareOrderPercentDynamic": 100,
           "addToWishlistDynamic": 0,
           "timeToReadyDynamic": {
-            "days": 0,
-            "hours": 0,
+            "days": 1,
+            "hours": 12,
             "mins": 0
           },
           "localizationPercentDynamic": 0,
@@ -679,7 +679,7 @@
           "conversions": {
             "addToCartPercent": 100,
             "cartToOrderPercent": 100,
-            "buyoutPercent": 0
+            "buyoutPercent": 100
           }
         }
       }
@@ -696,9 +696,9 @@
         "productRating": 10,
         "feedbackRating": 5,
         "stocks": {
-          "wb": 67,
+          "wb": 66,
           "mp": 0,
-          "balanceSum": 48240
+          "balanceSum": 39600
         }
       },
       "statistic": {
@@ -833,8 +833,8 @@
         "feedbackRating": 0,
         "stocks": {
           "wb": 3,
-          "mp": 0,
-          "balanceSum": 2520
+          "mp": 5,
+          "balanceSum": 4800
         }
       },
       "statistic": {
@@ -969,8 +969,8 @@
         "feedbackRating": 5,
         "stocks": {
           "wb": 0,
-          "mp": 7,
-          "balanceSum": 3913
+          "mp": 6,
+          "balanceSum": 3900
         }
       },
       "statistic": {
@@ -1106,7 +1106,7 @@
         "stocks": {
           "wb": 0,
           "mp": 1,
-          "balanceSum": 750
+          "balanceSum": 525
         }
       },
       "statistic": {
@@ -1242,7 +1242,7 @@
         "stocks": {
           "wb": 11,
           "mp": 0,
-          "balanceSum": 5940
+          "balanceSum": 4400
         }
       },
       "statistic": {
@@ -1376,9 +1376,9 @@
         "productRating": 10,
         "feedbackRating": 5,
         "stocks": {
-          "wb": 4,
-          "mp": 1,
-          "balanceSum": 1800
+          "wb": 0,
+          "mp": 10,
+          "balanceSum": 6000
         }
       },
       "statistic": {
@@ -1513,8 +1513,8 @@
         "feedbackRating": 5,
         "stocks": {
           "wb": 0,
-          "mp": 1,
-          "balanceSum": 360
+          "mp": 10,
+          "balanceSum": 7600
         }
       },
       "statistic": {
@@ -1649,8 +1649,8 @@
         "feedbackRating": 0,
         "stocks": {
           "wb": 0,
-          "mp": 24,
-          "balanceSum": 15600
+          "mp": 22,
+          "balanceSum": 11000
         }
       },
       "statistic": {
@@ -1786,7 +1786,7 @@
         "stocks": {
           "wb": 0,
           "mp": 29,
-          "balanceSum": 21750
+          "balanceSum": 17400
         }
       },
       "statistic": {
@@ -1921,8 +1921,8 @@
         "feedbackRating": 0,
         "stocks": {
           "wb": 0,
-          "mp": 8,
-          "balanceSum": 5096
+          "mp": 6,
+          "balanceSum": 3900
         }
       },
       "statistic": {
@@ -2465,8 +2465,8 @@
         "feedbackRating": 5,
         "stocks": {
           "wb": 0,
-          "mp": 0,
-          "balanceSum": 0
+          "mp": 20,
+          "balanceSum": 20000
         }
       },
       "statistic": {
@@ -3009,8 +3009,8 @@
         "feedbackRating": 5,
         "stocks": {
           "wb": 0,
-          "mp": 0,
-          "balanceSum": 0
+          "mp": 20,
+          "balanceSum": 16800
         }
       },
       "statistic": {
@@ -3145,8 +3145,8 @@
         "feedbackRating": 5,
         "stocks": {
           "wb": 0,
-          "mp": 0,
-          "balanceSum": 0
+          "mp": 19,
+          "balanceSum": 12160
         }
       },
       "statistic": {

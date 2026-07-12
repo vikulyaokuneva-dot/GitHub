@@ -10,8 +10,8 @@
     "target_date": "2026-06-27",
     "orders_count": 26.0,
     "orders_amount": 63640.0,
-    "buyouts_count": 0.0,
-    "buyouts_amount": 0.0
+    "buyouts_count": 26.0,
+    "buyouts_amount": 63640.0
   },
   "funnel_daily": {
     "source": "sales_funnel_api",
@@ -22,11 +22,11 @@
     "cart_count": 34.0,
     "orders_count": 26.0,
     "orders_amount": 63640.0,
-    "buyouts_count": 0.0,
-    "buyouts_amount": 0.0,
+    "buyouts_count": 26.0,
+    "buyouts_amount": 63640.0,
     "open_to_cart_rate": 11.11,
     "cart_to_order_rate": 76.47,
-    "order_to_buyout_rate": 0.0,
+    "order_to_buyout_rate": 100.0,
     "upper_funnel_status": "ok",
     "lower_funnel_status": "ok",
     "status": "ok",
@@ -39,8 +39,8 @@
         "cart": 20.0,
         "orders": 22.0,
         "order_sum": 60500.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
+        "buyouts": 22.0,
+        "buyout_sum": 60500.0
       },
       {
         "nm_id": "969315704",
@@ -61,8 +61,8 @@
         "cart": 5.0,
         "orders": 2.0,
         "order_sum": 1640.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
+        "buyouts": 2.0,
+        "buyout_sum": 1640.0
       },
       {
         "nm_id": "452102417",
@@ -72,8 +72,8 @@
         "cart": 2.0,
         "orders": 1.0,
         "order_sum": 780.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
+        "buyouts": 1.0,
+        "buyout_sum": 780.0
       },
       {
         "nm_id": "333615320",
@@ -83,8 +83,8 @@
         "cart": 2.0,
         "orders": 1.0,
         "order_sum": 720.0,
-        "buyouts": 0.0,
-        "buyout_sum": 0.0
+        "buyouts": 1.0,
+        "buyout_sum": 720.0
       },
       {
         "nm_id": "590614192",
@@ -314,6 +314,7 @@
     "returns_qty": 2.0,
     "logistics": null,
     "logistics_amount": null,
+    "rebill_logistic_cost": null,
     "storage": 40.42,
     "penalties": 0.0,
     "deductions": 0.0,
@@ -2691,7 +2692,7 @@
       "stale": true,
       "stale_reason": "rate_limited",
       "source_actual_date": "2026-06-24",
-      "cache_age_seconds": 182234.05,
+      "cache_age_seconds": 1391363.93,
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
       "cache_fallback_used": true
     },
@@ -2761,7 +2762,7 @@
       "stale": true,
       "stale_reason": "rate_limited",
       "source_actual_date": "2026-06-24",
-      "cache_age_seconds": 182234.05,
+      "cache_age_seconds": 1391363.93,
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
       "cache_fallback_used": true
     },
@@ -3047,33 +3048,33 @@
       "stale": true,
       "stale_reason": "rate_limited",
       "source_actual_date": "2026-06-24",
-      "cache_age_seconds": 182234.05,
+      "cache_age_seconds": 1391363.93,
       "cache_path": "D:\\WB\\Бот ИИ менеджер\\GitHub\\cabinets\\seller_001\\artifacts\\wb_api_core\\cache\\snapshots\\latest_successful.json",
       "cache_fallback_used": true
     },
     "ads": {
       "source": "ads_api",
       "available": true,
-      "target_date": "2026-06-24",
+      "target_date": "2026-06-27",
       "count": 2,
-      "ads_spend_total": 178.16,
+      "ads_spend_total": 128.93,
       "rows": [
         {
-          "date": "2026-06-24",
+          "date": "2026-06-27",
           "sku": "898642228",
           "nm_id": "898642228",
-          "ads_spend": 178.16,
-          "impressions": 426.0,
-          "clicks": 67.0,
-          "add_to_cart": 24.0,
-          "orders": 0.0,
-          "ctr": 15.73,
-          "cpo": null,
+          "ads_spend": 128.93,
+          "impressions": 308.0,
+          "clicks": 49.0,
+          "add_to_cart": 17.0,
+          "orders": 4.0,
+          "ctr": 15.91,
+          "cpo": 32.23,
           "source": "ads_api",
           "_raw_row_index": 0
         },
         {
-          "date": "2026-06-24",
+          "date": "2026-06-27",
           "sku": "969315704",
           "nm_id": "969315704",
           "ads_spend": 0.0,

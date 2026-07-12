@@ -20,6 +20,7 @@ from ..analytics.sales_funnel import build_sales_funnel_metrics
 from ..metrics import FinancialKernelInput, build_sku_fact_table, run_financial_kernel
 from ..metrics.cabinet_funnel_builder import build_cabinet_funnel_core
 from ..metrics.sku_daily_dynamics_builder import build_sku_daily_dynamics
+from ..metrics.search_sales_correlation import build_search_sales_correlation
 from .daily_stage_support import sync_from_entry
 
 
@@ -1194,6 +1195,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
 
     if isinstance(advertising_efficiency, dict):
         warnings_collector.extend_warnings(advertising_efficiency.get("warnings", []))
+
     sku_daily_dynamics = build_sku_daily_dynamics(
         run_date=run_date,
         metrics=metrics if isinstance(metrics, dict) else {},
@@ -1331,6 +1333,17 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
                 and str(row.get("sku") or "").strip() in set(mock_sku_excluded)
             )
         ]
+
+    # Search-to-sales correlation
+    search_correlation = build_search_sales_correlation(
+        search_texts_rows=search_texts_rows,
+        search_orders_rows=search_orders_rows,
+        ads_rows=ads_rows if isinstance(ads_rows, list) else [],
+        sku_metrics=sku_metrics if isinstance(sku_metrics, list) else [],
+    )
+    metrics["search_sales_correlation"] = search_correlation if isinstance(search_correlation, dict) else {}
+    analytics["search_sales_correlation"] = search_correlation if isinstance(search_correlation, dict) else {}
+
     abc_rows = compute_abc(sku_metrics)
     abc_summary = {"A": 0, "B": 0, "C": 0}
     for row in abc_rows:
@@ -1712,6 +1725,7 @@ def run_daily_metrics_stage(context: Dict[str, Any]) -> Dict[str, Any]:
             "advertising_efficiency": advertising_efficiency if isinstance(advertising_efficiency, dict) else {},
             "query_profitability": (advertising_efficiency.get("query_profitability", {}) if isinstance(advertising_efficiency, dict) else {}),
             "portfolio_ads_summary": (advertising_efficiency.get("portfolio_ads_summary", {}) if isinstance(advertising_efficiency, dict) else {}),
+            "search_sales_correlation": search_correlation if isinstance(search_correlation, dict) else {},
             "p1_rows": p1_rows,
             "p2_rows": p2_rows,
             "p3_rows": p3_rows,
