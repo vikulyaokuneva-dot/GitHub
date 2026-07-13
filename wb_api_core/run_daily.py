@@ -86,20 +86,14 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
             finance_block=finance_daily,
         )
     elif isinstance(finance_daily, dict) and not finance_daily.get("available"):
-        finance_cache = read_latest_finance_cache(
-            repo_root=resolved_repo_root,
-            seller_id=seller_id,
-        )
-        if finance_cache and isinstance(finance_cache.get("data"), dict) and finance_cache["data"].get("available"):
-            reconcile_result["finance_final_daily"] = dict(finance_cache["data"])
-            warnings = list(reconcile_result.get("warnings", []) or [])
-            warnings.append({
-                "code": "finance_final_finance_cache_fallback",
-                "message": "finance_final_daily filled from latest_finance.json cache.",
-                "level": "warning",
-                "block": "finance_final",
-            })
-            reconcile_result["warnings"] = warnings
+        warnings = list(reconcile_result.get("warnings", []) or [])
+        warnings.append({
+            "code": "finance_final_unavailable_for_date",
+            "message": f"Finance data not available for {resolved_run_date}. No fallback applied.",
+            "level": "warning",
+            "block": "finance_final",
+        })
+        reconcile_result["warnings"] = warnings
 
     snapshot = build_snapshot(
         seller_id=seller_id,

@@ -221,20 +221,6 @@ def apply_latest_successful_live_fallback(
             "source_actual_date": source_actual_date,
         }
 
-    finance_daily = result.get("finance_final_daily", {})
-    if isinstance(finance_daily, dict) and not finance_daily.get("available"):
-        cached_finance = cached_snapshot.get("finance_final_daily", {})
-        if isinstance(cached_finance, dict) and cached_finance.get("available"):
-            result["finance_final_daily"] = dict(cached_finance)
-            warnings = list(result.get("warnings", []) or [])
-            warnings.append({
-                "code": "finance_final_latest_successful_cache_fallback",
-                "message": "finance_final_daily returned 429; filled from latest_successful snapshot.",
-                "level": "warning",
-                "block": "finance_final",
-            })
-            result["warnings"] = warnings
-
     return result
 
 
