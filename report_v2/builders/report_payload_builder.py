@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,15 @@ def _safe_float(value: Any) -> float | None:
         return None
 
 
+def _safe_decimal(value: Any) -> Decimal | None:
+    try:
+        if value is None or value == "":
+            return None
+        return Decimal(str(value).replace(",", "."))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
 def _safe_int(value: Any) -> int | None:
     numeric = _safe_float(value)
     if numeric is None:
@@ -65,10 +75,11 @@ def _format_display_int(value: Any, unit: str) -> str:
 
 
 def _format_display_money(value: Any) -> str:
-    numeric = _safe_float(value)
+    numeric = _safe_decimal(value)
     if numeric is None:
         return "нет данных"
-    if numeric.is_integer():
+    numeric = numeric.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if numeric == numeric.to_integral_value():
         formatted = f"{int(numeric):,}".replace(",", " ")
     else:
         formatted = f"{numeric:,.2f}".replace(",", " ").replace(".", ",")
@@ -3841,7 +3852,145 @@ def build_stock_section_v2(snapshot: dict[str, Any]) -> StockSectionV2:
     }
 
 
-def _build_hero_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, Any] | None = None) -> dict[str, Any]:
+_LEGACY_COGS_BY_NM_ID = {
+    898642228: Decimal("600"),
+    969315704: Decimal("600"),
+    333615320: Decimal("210"),
+    452102417: Decimal("210"),
+    453526507: Decimal("210"),
+    590614192: Decimal("180"),
+    283212418: Decimal("450"),
+}
+
+
+def _load_cogs_by_nm_id(artifact_dir: str | Path | None) -> dict[int, Decimal]:
+    cogs_by_nm_id = dict(_LEGACY_COGS_BY_NM_ID)
+    for directory in _artifact_dirs(artifact_dir):
+        payload = _read_json_dict(directory / "config" / "cogs.json")
+        values = _safe_dict(payload.get("values"))
+        if not values:
+            continue
+        for nm_id, value in values.items():
+            nm_id_int = _safe_int(nm_id)
+            amount = _safe_decimal(value)
+            if nm_id_int is not None and amount is not None:
+                cogs_by_nm_id[nm_id_int] = amount
+        break
+    return cogs_by_nm_id
+
+
+def _profit_calculation(
+    snapshot: dict[str, Any],
+    cabinet: dict[str, Any],
+    *,
+    artifact_dir: str | Path | None = None,
+) -> dict[str, Any] | None:
+    finance = _safe_dict(snapshot.get("finance_final_daily"))
+    revenue = _safe_decimal(cabinet.get("buyouts_amount"))
+    if not finance.get("available") or revenue is None:
+        return None
+
+    def expense(name: str) -> Decimal:
+        return abs(_safe_decimal(finance.get(name)) or Decimal("0"))
+
+    commission = expense("wb_commission")
+    logistics_value = _safe_decimal(finance.get("logistics_amount"))
+    if logistics_value is None:
+        logistics_value = _safe_decimal(finance.get("logistics"))
+    rebill_logistic = expense("rebill_logistic_cost")
+    storage = expense("storage")
+    acquiring = expense("acquiring")
+    penalties = expense("penalties")
+    deductions = expense("deductions")
+    tax = expense("tax")
+
+    if logistics_value is None:
+        seller_payout = _safe_decimal(finance.get("seller_payout")) or Decimal("0")
+        logistics_value = max(
+            commission
+            + revenue
+            - seller_payout
+            - storage
+            - acquiring
+            - deductions
+            - tax
+            - penalties
+            - rebill_logistic,
+            Decimal("0"),
+        )
+    logistics = abs(logistics_value)
+
+    live = _safe_dict(snapshot.get("live_operational"))
+    sales = _safe_dict(live.get("sales"))
+    sales_rows = sales.get("rows", []) if isinstance(sales.get("rows"), list) else []
+    cogs_by_nm_id = _load_cogs_by_nm_id(artifact_dir)
+    total_cogs = Decimal("0")
+    cogs_skus: set[int] = set()
+    missing_cogs_skus: set[int] = set()
+    for raw_row in sales_rows:
+        row = _safe_dict(raw_row)
+        nm_id = _safe_int(row.get("nm_id") or row.get("nmId"))
+        quantity = _safe_decimal(row.get("quantity"))
+        if quantity is None:
+            quantity = Decimal("1")
+        if nm_id is None or quantity <= 0:
+            continue
+        unit_cogs = cogs_by_nm_id.get(nm_id)
+        if unit_cogs is None:
+            missing_cogs_skus.add(nm_id)
+            continue
+        total_cogs += unit_cogs * quantity
+        cogs_skus.add(nm_id)
+
+    ads = _safe_dict(live.get("ads"))
+    ads_spend = abs(_safe_decimal(ads.get("ads_spend_total")) or Decimal("0"))
+    total_expenses = sum(
+        (
+            commission,
+            logistics,
+            rebill_logistic,
+            storage,
+            acquiring,
+            penalties,
+            deductions,
+            tax,
+            total_cogs,
+            ads_spend,
+        ),
+        Decimal("0"),
+    )
+    net_profit = revenue - total_expenses
+    margin = None
+    if revenue > 0:
+        margin = (net_profit / revenue * Decimal("100")).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+
+    return {
+        "revenue": revenue,
+        "commission": commission,
+        "logistics": logistics,
+        "rebill_logistic": rebill_logistic,
+        "storage": storage,
+        "acquiring": acquiring,
+        "penalties": penalties,
+        "deductions": deductions,
+        "tax": tax,
+        "returns_qty": _safe_decimal(finance.get("returns_qty")) or Decimal("0"),
+        "total_cogs": total_cogs,
+        "ads_spend": ads_spend,
+        "total_expenses": total_expenses,
+        "net_profit": net_profit,
+        "margin": margin,
+        "cogs_skus": sorted(cogs_skus),
+        "missing_cogs_skus": sorted(missing_cogs_skus),
+    }
+
+
+def _build_hero_section(
+    snapshot: dict[str, Any],
+    cabinet_commerce: dict[str, Any] | None = None,
+    *,
+    artifact_dir: str | Path | None = None,
+) -> dict[str, Any]:
     cabinet = cabinet_commerce or _safe_dict(snapshot.get("cabinet_commerce_daily"))
     finance = _safe_dict(snapshot.get("finance_final_daily"))
     live = _safe_dict(snapshot.get("live_operational"))
@@ -3853,41 +4002,8 @@ def _build_hero_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, An
     buyouts_count = cabinet.get("buyouts_count") or 0
     buyouts_amount = cabinet.get("buyouts_amount") or 0
 
-    # Use finance revenue as primary source (consistent with profit section)
-    finance_revenue = (
-        _safe_float(finance.get("realized_sales_revenue"))
-        or _safe_float(finance.get("wb_realized_revenue"))
-        or _safe_float(finance.get("gross_revenue"))
-    )
-    revenue_for_profit = finance_revenue or buyouts_amount
-
-    net_profit = None
-    if finance.get("available"):
-        commission = abs(_safe_float(finance.get("wb_commission")) or 0)
-        logistics_val = _safe_float(finance.get("logistics_amount")) or _safe_float(finance.get("logistics"))
-        storage = abs(_safe_float(finance.get("storage")) or 0)
-        acquiring = abs(_safe_float(finance.get("acquiring")) or 0)
-        deductions = abs(_safe_float(finance.get("deductions")) or 0)
-        penalties = abs(_safe_float(finance.get("penalties")) or 0)
-        tax = abs(_safe_float(finance.get("tax")) or 0)
-        if logistics_val is None:
-            seller_payout_val = _safe_float(finance.get("seller_payout")) or 0
-            if revenue_for_profit > 0 and seller_payout_val > 0:
-                computed = abs(commission) + revenue_for_profit - seller_payout_val - abs(storage) - abs(acquiring) - abs(deductions) - abs(tax) - abs(penalties)
-                logistics_val = max(computed, 0)
-            else:
-                logistics_val = 0
-        cogs_map_local = {898642228: 600, 969315704: 600, 333615320: 210, 452102417: 210, 453526507: 210, 590614192: 180, 283212418: 450}
-        live_sales_local = _safe_dict(_safe_dict(snapshot.get("live_operational")).get("sales"))
-        sales_rows_local = live_sales_local.get("rows", []) if isinstance(live_sales_local.get("rows"), list) else []
-        total_cogs_local = 0
-        for row in sales_rows_local:
-            nm_int = _safe_int(row.get("nm_id") or row.get("nmId"))
-            qty = _safe_float(row.get("quantity")) or 1
-            if nm_int is not None and nm_int in cogs_map_local:
-                total_cogs_local += cogs_map_local[nm_int] * qty
-        total_expenses = abs(commission) + abs(logistics_val) + abs(storage) + abs(acquiring) + abs(penalties) + abs(deductions) + abs(tax) + total_cogs_local
-        net_profit = revenue_for_profit - total_expenses
+    calculation = _profit_calculation(snapshot, cabinet, artifact_dir=artifact_dir)
+    net_profit = calculation.get("net_profit") if calculation else None
     spend = ads.get("ads_spend_total") or 0
     stock_units = stocks.get("total_units") or 0
 
@@ -3898,8 +4014,8 @@ def _build_hero_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, An
         stock_days = round(stock_units / sales_count, 1)
 
     margin = None
-    if net_profit is not None and revenue_for_profit and revenue_for_profit > 0:
-        margin = round(net_profit / revenue_for_profit * 100, 1)
+    if calculation:
+        margin = calculation.get("margin")
 
     rows = [
         {"label": "Заказы", "value": f"{int(orders_count)} шт", "status": "ok"},
@@ -4097,75 +4213,44 @@ def _build_unit_economics_section(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_profit_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, Any] | None = None) -> dict[str, Any]:
+def _build_profit_section(
+    snapshot: dict[str, Any],
+    cabinet_commerce: dict[str, Any] | None = None,
+    *,
+    artifact_dir: str | Path | None = None,
+) -> dict[str, Any]:
     cabinet = cabinet_commerce or _safe_dict(snapshot.get("cabinet_commerce_daily"))
     finance = _safe_dict(snapshot.get("finance_final_daily"))
     if not finance.get("available"):
         return {"title": "Прибыль", "rows": [], "available": False}
+    calculation = _profit_calculation(snapshot, cabinet, artifact_dir=artifact_dir)
+    if calculation is None:
+        return {
+            "title": "Прибыль",
+            "rows": [],
+            "available": False,
+            "message": "Нет суммы выкупов — прибыль не рассчитана.",
+        }
 
-    # Use finance revenue as primary source (realized_sales_revenue / gross_revenue)
-    # to stay consistent with commission, acquiring, etc. from the same API
-    finance_revenue = (
-        _safe_float(finance.get("realized_sales_revenue"))
-        or _safe_float(finance.get("wb_realized_revenue"))
-        or _safe_float(finance.get("gross_revenue"))
-    )
-    cabinet_revenue = _safe_float(cabinet.get("buyouts_amount")) or 0
-    revenue = finance_revenue or cabinet_revenue
-
-    commission = _safe_float(finance.get("wb_commission")) or 0
-    logistics = _safe_float(finance.get("logistics_amount")) or _safe_float(finance.get("logistics"))
-    rebill_logistic = _safe_float(finance.get("rebill_logistic_cost")) or 0
-    storage = _safe_float(finance.get("storage")) or 0
-    acquiring = _safe_float(finance.get("acquiring")) or 0
-    penalties = _safe_float(finance.get("penalties")) or 0
-    deductions = _safe_float(finance.get("deductions")) or 0
-    tax = _safe_float(finance.get("tax")) or 0
-    returns_qty = _safe_float(finance.get("returns_qty")) or 0
-
-    # Derive logistics from the balance: revenue + |commission| - seller_payout - storage - acquiring - penalties - deductions - tax
-    if logistics is None:
-        seller_payout_val = _safe_float(finance.get("seller_payout")) or 0
-        if revenue > 0 and seller_payout_val > 0:
-            computed = abs(commission) + revenue - seller_payout_val - abs(storage) - abs(acquiring) - abs(deductions) - abs(tax) - abs(penalties) - abs(rebill_logistic)
-            if computed > 0:
-                logistics = round(computed, 2)
-            else:
-                logistics = 0
-        else:
-            logistics = 0
-
-    cogs_map = {
-        898642228: 600, 969315704: 600, 333615320: 210,
-        452102417: 210, 453526507: 210, 590614192: 180, 283212418: 450,
-    }
-    live_daily = _safe_dict(snapshot.get("live_operational"))
-    live_sales = _safe_dict(live_daily.get("sales"))
-    sales_rows = live_sales.get("rows", []) if isinstance(live_sales.get("rows"), list) else []
-    if not sales_rows:
-        sales_rows = [
-            {"nm_id": 333615320, "quantity": 1},
-            {"nm_id": 898642228, "quantity": 1},
-            {"nm_id": 898642228, "quantity": 1},
-            {"nm_id": 898642228, "quantity": 1},
-            {"nm_id": 898642228, "quantity": 1},
-            {"nm_id": 453526507, "quantity": 1},
-        ]
-    total_cogs = 0
-    for row in sales_rows:
-        nm_id_raw = row.get("nm_id") or row.get("nmId")
-        qty = _safe_float(row.get("quantity")) or 1
-        nm_id_int = _safe_int(nm_id_raw)
-        if nm_id_int is not None and nm_id_int in cogs_map:
-            total_cogs += cogs_map[nm_id_int] * qty
-
-    total_expenses = abs(commission) + abs(logistics) + abs(rebill_logistic) + abs(storage) + abs(acquiring) + abs(penalties) + abs(deductions) + abs(tax) + total_cogs
-    net_profit = revenue - total_expenses
-    margin = round(net_profit / revenue * 100, 1) if revenue > 0 else 0
+    revenue = calculation["revenue"]
+    commission = calculation["commission"]
+    logistics = calculation["logistics"]
+    rebill_logistic = calculation["rebill_logistic"]
+    storage = calculation["storage"]
+    acquiring = calculation["acquiring"]
+    penalties = calculation["penalties"]
+    deductions = calculation["deductions"]
+    tax = calculation["tax"]
+    returns_qty = calculation["returns_qty"]
+    total_cogs = calculation["total_cogs"]
+    ads_spend = calculation["ads_spend"]
+    total_expenses = calculation["total_expenses"]
+    net_profit = calculation["net_profit"]
+    margin = calculation["margin"]
 
     rows = [
-        {"label": "Выручка от продаж", "value": _format_display_money(revenue)},
-        {"label": "Комиссия WB", "value": _format_display_money(commission)},
+        {"label": "Выручка от выкупов", "value": _format_display_money(revenue)},
+        {"label": "Комиссия WB", "value": _format_display_money(-commission)},
     ]
     rows.append({"label": "Логистика", "value": _format_display_money(-logistics)})
     if rebill_logistic:
@@ -4183,16 +4268,20 @@ def _build_profit_section(snapshot: dict[str, Any], cabinet_commerce: dict[str, 
     if returns_qty:
         rows.append({"label": "Возвраты (шт)", "value": f"{int(returns_qty)} шт"})
     rows.append({"label": "Себестоимость товаров", "value": _format_display_money(-total_cogs)})
+    if ads_spend:
+        rows.append({"label": "Реклама", "value": _format_display_money(-ads_spend)})
     rows.append({"label": "Итого затраты", "value": _format_display_money(-total_expenses)})
     rows.append({"label": "Чистая прибыль", "value": _format_display_money(net_profit)})
-    rows.append({"label": "Маржа", "value": f"{margin}%"})
+    rows.append({"label": "Маржа", "value": f"{margin}%" if margin is not None else "нет данных"})
 
     return {
         "title": "Прибыль",
         "rows": rows,
         "available": True,
-        "net_profit": net_profit,
-        "margin": margin,
+        "revenue_basis": "buyouts_amount",
+        "net_profit": str(net_profit),
+        "margin": str(margin) if margin is not None else None,
+        "missing_cogs_skus": calculation["missing_cogs_skus"],
     }
 
 
@@ -4823,11 +4912,19 @@ def build_report_payload_v2(
             warnings=warnings,
         ),
         "cabinet_commerce": cabinet_block,
-        "hero_section": _build_hero_section(snapshot, cabinet_commerce=cabinet_block),
+        "hero_section": _build_hero_section(
+            snapshot,
+            cabinet_commerce=cabinet_block,
+            artifact_dir=artifact_dir,
+        ),
         "actions_section": _build_actions_section(snapshot),
         "losses_of_the_day": _build_losses_of_the_day(snapshot),
         "commerce_section": build_commerce_section_v2(cabinet_block),
-        "profit_section": _build_profit_section(snapshot, cabinet_commerce=cabinet_block),
+        "profit_section": _build_profit_section(
+            snapshot,
+            cabinet_commerce=cabinet_block,
+            artifact_dir=artifact_dir,
+        ),
         "sales_dynamics_section": build_sales_dynamics_section_v2(snapshot, repo_root=Path(artifact_dir).parent.parent.parent if artifact_dir else None),
         "funnel_section": build_funnel_section_v2(snapshot, cabinet_block, debug),
         "ads_efficiency_section": ads_efficiency_section,

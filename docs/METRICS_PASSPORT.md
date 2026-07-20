@@ -359,12 +359,12 @@ WB API (7 источников)          Локальные файлы (Excel)
 | **Название** | Чистая прибыль |
 | **Где отображается** | Ежедневный отчёт (Finance KPI), PDF (стр. 1-2), Email, Dashboard |
 | **Первичный источник** | Вычисляется из нескольких источников |
-| **Источник внутри проекта** | `v3/metrics/financial_kpi_assembler.py` → строки 201-203; `v3/metrics/financial_kernel.py` → строка 498 |
+| **Источник внутри проекта** | `report_v2/builders/report_payload_builder.py` → `_profit_calculation()`; финансовые компоненты поступают из `finance_final_daily` |
 | **Метод получения** | Рассчитывается формулой |
-| **Формула** | `net_profit = revenue - cost_price - wb_commission - logistics - storage - penalties - deductions - tax - ads_spend` |
+| **Формула** | `revenue = buyouts_amount`; `net_profit = revenue - cost_price - wb_commission - logistics - rebill_logistic_cost - storage - acquiring - penalties - deductions - tax - ads_spend` |
 | **Возможность восстановления** | YES — пересчитывается при наличии хотя бы revenue и cost_price |
 | **Надёжность** | C — вычисляется формулой; зависит от точности каждой компоненты |
-| **Проверка корректности** | Сверка: `net_profit ≈ seller_payout - cost_price - ads_spend`; проверка `net_profit_reliable` флага (требует все 17 компонентов, status=final, completeness≥95%) |
+| **Проверка корректности** | Выручка в таблице прибыли обязана совпадать с `buyouts_amount` в Commerce KPI; `total_expenses` равен сумме показанных расходов; `net_profit = buyouts_amount - total_expenses` |
 | **ИИ при анализе** | YES — центральная метрика для Decision Engine, Health Score (вес 2.5), Growth Simulator, Opportunity Engine, AI Director |
 
 ### 3.13. Валовая прибыль (gross_profit)
@@ -389,9 +389,9 @@ WB API (7 источников)          Локальные файлы (Excel)
 | **Название** | Рентабельность (маржа) |
 | **Где отображается** | Ежедневный отчёт, PDF (стр. 1), Email, Dashboard |
 | **Первичный источник** | Вычисляется |
-| **Источник внутри проекта** | `v3/metrics/financial_kpi_assembler.py` → строка 208 |
+| **Источник внутри проекта** | `report_v2/builders/report_payload_builder.py` → `_profit_calculation()` |
 | **Метод получения** | Рассчитывается формулой |
-| **Формула** | `margin_pct = net_profit / revenue × 100` |
+| **Формула** | `margin_pct = net_profit / buyouts_amount × 100`; если `buyouts_amount` отсутствует или равен 0, маржа не рассчитывается |
 | **Возможность восстановления** | YES |
 | **Надёжность** | C — вычисляется формулой |
 | **Проверка корректности** | Диапазон: обычно 5-40%; проверка что revenue > 0 |

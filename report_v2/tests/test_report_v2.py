@@ -486,6 +486,94 @@ def test_finance_section_v2_contains_display_rows() -> None:
     assert rows["Эквайринг"]["value"] == "186,08 ₽"
 
 
+def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -> None:
+    snapshot = _sample_snapshot()
+    snapshot["cabinet_commerce_daily"].update(
+        {
+            "buyouts_count": 4.0,
+            "buyouts_amount": 4500.77,
+        }
+    )
+    snapshot["finance_final_daily"].update(
+        {
+            "realized_sales_revenue": 2714.24,
+            "gross_revenue": 2714.24,
+            "wb_commission": -353.48,
+            "logistics": 1809.0,
+            "logistics_amount": 1809.0,
+            "rebill_logistic_cost": 219.40,
+            "storage": 24.55,
+            "acquiring": 108.57,
+            "deductions": 3005.0,
+            "penalties": 0.0,
+            "tax": 0.0,
+            "returns_qty": 3.0,
+        }
+    )
+    snapshot["live_operational"]["sales"].update(
+        {
+            "count": 4.0,
+            "amount": 4500.77,
+            "rows": [
+                {"nm_id": "333615320", "quantity": 1.0, "amount": 1500.77},
+                {"nm_id": "898642228", "quantity": 1.0, "amount": 2300.0},
+                {"nm_id": "453526507", "quantity": 2.0, "amount": 700.0},
+            ],
+        }
+    )
+    snapshot["live_operational"]["ads"] = {
+        "available": True,
+        "ads_spend_total": 298.77,
+    }
+
+    artifact_dir = tmp_path / "cabinets" / "seller_001" / "artifacts" / "wb_api_core" / "2026-07-12"
+    config_dir = tmp_path / "cabinets" / "seller_001" / "config"
+    artifact_dir.mkdir(parents=True)
+    config_dir.mkdir(parents=True)
+    (config_dir / "cogs.json").write_text(
+        json.dumps(
+            {
+                "values": {
+                    "333615320": "210",
+                    "898642228": "600",
+                    "453526507": "210",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (artifact_dir / "abc_analysis.json").write_text(
+        json.dumps(
+            [
+                {"sku": "333615320", "revenue": 1500.77, "profit": 400.0, "abc_class": "A"},
+                {"sku": "898642228", "revenue": 2300.0, "profit": 300.0, "abc_class": "B"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug(), artifact_dir=artifact_dir)
+    profit_rows = {row["label"]: row["value"] for row in payload["profit_section"]["rows"]}
+    hero_rows = {row["label"]: row["value"] for row in payload["hero_section"]["rows"]}
+
+    assert profit_rows["Выручка от выкупов"] == "4 500,77 ₽"
+    assert profit_rows["Комиссия WB"] == "-353,48 ₽"
+    assert profit_rows["Логистика"] == "-1 809 ₽"
+    assert profit_rows["Ребиллинг логистики"] == "-219,40 ₽"
+    assert profit_rows["Хранение"] == "-24,55 ₽"
+    assert profit_rows["Эквайринг"] == "-108,57 ₽"
+    assert profit_rows["Удержания"] == "-3 005 ₽"
+    assert profit_rows["Возвраты (шт)"] == "3 шт"
+    assert profit_rows["Себестоимость товаров"] == "-1 230 ₽"
+    assert profit_rows["Реклама"] == "-298,77 ₽"
+    assert profit_rows["Итого затраты"] == "-7 048,77 ₽"
+    assert profit_rows["Чистая прибыль"] == "-2 548 ₽"
+    assert profit_rows["Маржа"] == "-56.6%"
+    assert hero_rows["Сумма выкупов"] == "4 500,77 ₽"
+    assert hero_rows["Прибыль"] == "-2 548 ₽"
+    assert payload["profit_section"]["revenue_basis"] == "buyouts_amount"
+
+
 def test_wb_reference_kpis_split_funnel_orders_from_finance_realization() -> None:
     raw_bundle = {
         "cabinet_commerce": {
