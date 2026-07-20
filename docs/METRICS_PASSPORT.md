@@ -362,6 +362,7 @@ WB API (7 источников)          Локальные файлы (Excel)
 | **Источник внутри проекта** | `report_v2/builders/report_payload_builder.py` → `_profit_calculation()`; финансовые компоненты поступают из `finance_final_daily` |
 | **Метод получения** | Рассчитывается формулой |
 | **Формула** | `revenue = buyouts_amount`; `net_profit = revenue - cost_price - wb_commission - logistics - rebill_logistic_cost - storage - acquiring - penalties - deductions - tax - ads_spend` |
+| **Детализация возвратов** | `return_logistics = SUM(logistics_amount WHERE returns_qty > 0)`; сумма показывается как часть общей логистики и повторно из прибыли не вычитается |
 | **Возможность восстановления** | YES — пересчитывается при наличии хотя бы revenue и cost_price |
 | **Надёжность** | C — вычисляется формулой; зависит от точности каждой компоненты |
 | **Проверка корректности** | Выручка в таблице прибыли обязана совпадать с `buyouts_amount` в Commerce KPI; `total_expenses` равен сумме показанных расходов; `net_profit = buyouts_amount - total_expenses` |

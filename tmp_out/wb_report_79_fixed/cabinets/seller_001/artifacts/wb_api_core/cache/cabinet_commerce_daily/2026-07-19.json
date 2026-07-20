@@ -1,0 +1,3441 @@
+{
+  "seller_id": "seller_001",
+  "target_date": "2026-07-19",
+  "source_family": "cabinet_commerce_daily",
+  "cached_at_epoch": 1784579831.617,
+  "rows_raw": [
+    {
+      "product": {
+        "nmId": 898642228,
+        "title": "Фундаментный блок для теплицы под брус 100×100 мм",
+        "vendorCode": "Кросс блок 100/100",
+        "brandName": "",
+        "subjectId": 7419,
+        "subjectName": "Блоки строительные",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 1,
+          "mp": 75,
+          "balanceSum": 220400
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 150,
+          "cartCount": 14,
+          "orderCount": 2,
+          "orderSum": 5800,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 2900,
+          "avgOrdersCountPerDay": 2,
+          "shareOrderPercent": 47.5,
+          "addToWishlist": 6,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 9,
+            "cartToOrderPercent": 14,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 124,
+          "cartCount": 20,
+          "orderCount": 1,
+          "orderSum": 2900,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 2900,
+          "avgOrdersCountPerDay": 1,
+          "shareOrderPercent": 61.7,
+          "addToWishlist": 6,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 16,
+            "cartToOrderPercent": 5,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": 21,
+          "cartCountDynamic": -30,
+          "orderCountDynamic": 100,
+          "orderSumDynamic": 100,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 100,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": -23,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": -44,
+            "cartToOrderPercent": 180,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 969315704,
+        "title": "Фундаментный блок для теплицы под брус 100×50 мм",
+        "vendorCode": "Кросс блок 50 х 100мм",
+        "brandName": "",
+        "subjectId": 7419,
+        "subjectName": "Блоки строительные",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 1,
+          "mp": 0,
+          "balanceSum": 2900
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 51,
+          "cartCount": 2,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 3,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 4,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 42,
+          "cartCount": 3,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 1,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 7,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": 21,
+          "cartCountDynamic": -33,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 200,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": -43,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 333615320,
+        "title": "Накладки на педали Sitrak, Mercedes для грузовика",
+        "vendorCode": "Трёшка стандарт",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 4.7,
+        "stocks": {
+          "wb": 69,
+          "mp": 0,
+          "balanceSum": 62100
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 26,
+          "cartCount": 4,
+          "orderCount": 4,
+          "orderSum": 3600,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 1,
+          "cancelSum": 900,
+          "avgPrice": 900,
+          "avgOrdersCountPerDay": 4,
+          "shareOrderPercent": 29.5,
+          "addToWishlist": 1,
+          "timeToReady": {
+            "days": 1,
+            "hours": 13,
+            "mins": 0
+          },
+          "localizationPercent": 100,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 15,
+            "cartToOrderPercent": 100,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 18,
+          "cartCount": 1,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 1,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 6,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": 44,
+          "cartCountDynamic": 300,
+          "orderCountDynamic": 100,
+          "orderSumDynamic": 100,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 100,
+          "cancelSumDynamic": 100,
+          "avgOrdersCountPerDayDynamic": 100,
+          "avgPriceDynamic": 100,
+          "shareOrderPercentDynamic": 100,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 1,
+            "hours": 13,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 100,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 150,
+            "cartToOrderPercent": 100,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 453526507,
+        "title": "Накладки на педали для грузовиков Shacman",
+        "vendorCode": "Shacman",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 8,
+        "feedbackRating": 4.7,
+        "stocks": {
+          "wb": 2,
+          "mp": 23,
+          "balanceSum": 22500
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 16,
+          "cartCount": 1,
+          "orderCount": 1,
+          "orderSum": 900,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 900,
+          "avgOrdersCountPerDay": 1,
+          "shareOrderPercent": 7.4,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 6,
+            "cartToOrderPercent": 100,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 14,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": 14,
+          "cartCountDynamic": 100,
+          "orderCountDynamic": 100,
+          "orderSumDynamic": 100,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 100,
+          "avgPriceDynamic": 100,
+          "shareOrderPercentDynamic": 100,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 100,
+            "cartToOrderPercent": 100,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 452102417,
+        "title": "Накладки на педали для грузовика",
+        "vendorCode": "Маз Простор",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 25,
+          "balanceSum": 22500
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 13,
+          "cartCount": 5,
+          "orderCount": 1,
+          "orderSum": 900,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 900,
+          "avgOrdersCountPerDay": 1,
+          "shareOrderPercent": 7.4,
+          "addToWishlist": 2,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 38,
+            "cartToOrderPercent": 20,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 21,
+          "cartCount": 2,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 10,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -38,
+          "cartCountDynamic": 150,
+          "orderCountDynamic": 100,
+          "orderSumDynamic": 100,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 100,
+          "avgPriceDynamic": 100,
+          "shareOrderPercentDynamic": 100,
+          "addToWishlistDynamic": 100,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 280,
+            "cartToOrderPercent": 100,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 739377515,
+        "title": "Накладки на педали для грузовика Маз Простор",
+        "vendorCode": "Простор синий",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 8,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 15,
+          "balanceSum": 15000
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 13,
+          "cartCount": 1,
+          "orderCount": 1,
+          "orderSum": 1000,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 1000,
+          "avgOrdersCountPerDay": 1,
+          "shareOrderPercent": 8.2,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 8,
+            "cartToOrderPercent": 100,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 11,
+          "cartCount": 1,
+          "orderCount": 1,
+          "orderSum": 1000,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 1000,
+          "avgOrdersCountPerDay": 1,
+          "shareOrderPercent": 21.3,
+          "addToWishlist": 1,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 9,
+            "cartToOrderPercent": 100,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": 18,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": -62,
+          "addToWishlistDynamic": -100,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": -11,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 590614192,
+        "title": "Накладки на педали грузового авто Sitrak",
+        "vendorCode": "Sitrak красный 2х",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 54,
+          "mp": 0,
+          "balanceSum": 43200
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 11,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 22,
+          "cartCount": 7,
+          "orderCount": 1,
+          "orderSum": 800,
+          "buyoutCount": 1,
+          "buyoutSum": 800,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 800,
+          "avgOrdersCountPerDay": 1,
+          "shareOrderPercent": 17,
+          "addToWishlist": 1,
+          "timeToReady": {
+            "days": 1,
+            "hours": 3,
+            "mins": 0
+          },
+          "localizationPercent": 100,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 32,
+            "cartToOrderPercent": 14,
+            "buyoutPercent": 100
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -50,
+          "cartCountDynamic": -100,
+          "orderCountDynamic": -100,
+          "orderSumDynamic": -100,
+          "buyoutCountDynamic": -100,
+          "buyoutSumDynamic": -100,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": -100,
+          "avgPriceDynamic": -100,
+          "shareOrderPercentDynamic": -100,
+          "addToWishlistDynamic": -100,
+          "timeToReadyDynamic": {
+            "days": -1,
+            "hours": -3,
+            "mins": 0
+          },
+          "localizationPercentDynamic": -100,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": -100,
+            "cartToOrderPercent": -100,
+            "buyoutPercent": -100
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 739384273,
+        "title": "Накладки на педали для грузовиков Shacman",
+        "vendorCode": "Shacman синий",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 8,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 19,
+          "balanceSum": 15960
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 7,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 9,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -22,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 875337018,
+        "title": "Накладки на педали Shacman для грузовиков",
+        "vendorCode": "Shacman бежевый",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 8,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 19,
+          "balanceSum": 15200
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 6,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 6,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": 0,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 414589567,
+        "title": "Накладки на педали для грузовика",
+        "vendorCode": "Маз автомат",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 8,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 1,
+          "balanceSum": 525
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 5,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 9,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -44,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 291361554,
+        "title": "Корзина для хранения вязаная с крышкой красная",
+        "vendorCode": "wb5j0f7z1w",
+        "brandName": "",
+        "subjectId": 2215,
+        "subjectName": "Корзинки",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 0,
+        "stocks": {
+          "wb": 0,
+          "mp": 5,
+          "balanceSum": 3250
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 3,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 4,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -25,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 875412618,
+        "title": "Накладки на педали Маз Простор для грузовика",
+        "vendorCode": "Маз Простор Бежевый",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 8,
+        "feedbackRating": 0,
+        "stocks": {
+          "wb": 0,
+          "mp": 5,
+          "balanceSum": 4500
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 3,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 5,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -40,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 411974544,
+        "title": "Накладки на педали грузового автомобиля Газон Next",
+        "vendorCode": "Газон Next",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 4.7,
+        "stocks": {
+          "wb": 0,
+          "mp": 0,
+          "balanceSum": 0
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 2,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 3,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -33,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 430679462,
+        "title": "Накладки на педали грузового авто Sitrak",
+        "vendorCode": "Sitrak",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 0,
+          "balanceSum": 0
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 2,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 2,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": 0,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 295325676,
+        "title": "Корзина для хранения вязаная белая",
+        "vendorCode": "wb2fp7wxeg",
+        "brandName": "",
+        "subjectId": 2215,
+        "subjectName": "Корзинки",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 6,
+          "balanceSum": 3900
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 1,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 1,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": 0,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 453436372,
+        "title": "Накладки на педали универсальные для грузовиков",
+        "vendorCode": "Scania",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 8,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 0,
+          "balanceSum": 0
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 1,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 2,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -50,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 547274690,
+        "title": "Новогодние подушки декоративные 35 см на 35 см",
+        "vendorCode": "Подушка белки",
+        "brandName": "",
+        "subjectId": 570,
+        "subjectName": "Подушки декоративные",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 0,
+        "stocks": {
+          "wb": 0,
+          "mp": 21,
+          "balanceSum": 10500
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 1,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 2,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -50,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 583633646,
+        "title": "Накладки на педали универсальные для грузовиков",
+        "vendorCode": "Трешка Синяя",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 0,
+          "balanceSum": 0
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 1,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 1,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": 0,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 584904841,
+        "title": "Накладки на педали универсальные для грузовиков",
+        "vendorCode": "Трешка бежевая",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 0,
+          "balanceSum": 0
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 1,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 2,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -50,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 550928555,
+        "title": "Новогодние подушки декоративные 35 см на 35 см",
+        "vendorCode": "Подушка Олени",
+        "brandName": "",
+        "subjectId": 570,
+        "subjectName": "Подушки декоративные",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 0,
+        "stocks": {
+          "wb": 0,
+          "mp": 29,
+          "balanceSum": 17400
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 0,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 2,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -100,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 551251065,
+        "title": "Новогодние подушки декоративные 35 см на 35 см",
+        "vendorCode": "Лошадь Фигурная",
+        "brandName": "",
+        "subjectId": 570,
+        "subjectName": "Подушки декоративные",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 10,
+          "balanceSum": 7000
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 0,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 2,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -100,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 551253854,
+        "title": "Новогодние подушки декоративные 35 см на 35 см",
+        "vendorCode": "Лошадь Огненная",
+        "brandName": "",
+        "subjectId": 570,
+        "subjectName": "Подушки декоративные",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 10,
+          "balanceSum": 6000
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 0,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 3,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -100,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 583470321,
+        "title": "Накладки на педали грузового авто Sitrak",
+        "vendorCode": "Педали Sitrak красные",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 4.7,
+        "stocks": {
+          "wb": 0,
+          "mp": 0,
+          "balanceSum": 0
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 0,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 1,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -100,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 584925420,
+        "title": "Накладки на педали грузового авто Sitrak",
+        "vendorCode": "Sitrak бежевый",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 5,
+        "stocks": {
+          "wb": 0,
+          "mp": 0,
+          "balanceSum": 0
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 0,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 1,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -100,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    },
+    {
+      "product": {
+        "nmId": 875380656,
+        "title": "Накладки на педали Iveco грузового авто",
+        "vendorCode": "Накладки Iveco",
+        "brandName": "",
+        "subjectId": 4653,
+        "subjectName": "Накладки на педали",
+        "tags": [],
+        "productRating": 10,
+        "feedbackRating": 0,
+        "stocks": {
+          "wb": 0,
+          "mp": 0,
+          "balanceSum": 0
+        }
+      },
+      "statistic": {
+        "selected": {
+          "period": {
+            "start": "2026-07-19",
+            "end": "2026-07-19"
+          },
+          "openCount": 0,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "past": {
+          "period": {
+            "start": "2026-07-18",
+            "end": "2026-07-18"
+          },
+          "openCount": 3,
+          "cartCount": 0,
+          "orderCount": 0,
+          "orderSum": 0,
+          "buyoutCount": 0,
+          "buyoutSum": 0,
+          "cancelCount": 0,
+          "cancelSum": 0,
+          "avgPrice": 0,
+          "avgOrdersCountPerDay": 0,
+          "shareOrderPercent": 0,
+          "addToWishlist": 0,
+          "timeToReady": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercent": 0,
+          "wbClub": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        },
+        "comparison": {
+          "openCountDynamic": -100,
+          "cartCountDynamic": 0,
+          "orderCountDynamic": 0,
+          "orderSumDynamic": 0,
+          "buyoutCountDynamic": 0,
+          "buyoutSumDynamic": 0,
+          "cancelCountDynamic": 0,
+          "cancelSumDynamic": 0,
+          "avgOrdersCountPerDayDynamic": 0,
+          "avgPriceDynamic": 0,
+          "shareOrderPercentDynamic": 0,
+          "addToWishlistDynamic": 0,
+          "timeToReadyDynamic": {
+            "days": 0,
+            "hours": 0,
+            "mins": 0
+          },
+          "localizationPercentDynamic": 0,
+          "wbClubDynamic": {
+            "orderCount": 0,
+            "orderSum": 0,
+            "buyoutSum": 0,
+            "buyoutCount": 0,
+            "cancelSum": 0,
+            "cancelCount": 0,
+            "avgPrice": 0,
+            "buyoutPercent": 0,
+            "avgOrderCountPerDay": 0
+          },
+          "conversions": {
+            "addToCartPercent": 0,
+            "cartToOrderPercent": 0,
+            "buyoutPercent": 0
+          }
+        }
+      }
+    }
+  ],
+  "debug": {
+    "endpoint": "cabinet_commerce",
+    "path": "/api/analytics/v3/sales-funnel/products",
+    "method": "POST",
+    "base_url": "https://seller-analytics-api.wildberries.ru",
+    "success": true,
+    "status_code": 200,
+    "attempts": 1,
+    "rows_loaded": 25,
+    "error_text": "",
+    "date_from": "2026-07-19",
+    "date_to": "2026-07-19",
+    "cache_hit": false,
+    "cache_mode": "miss",
+    "cache_fallback_used": false,
+    "cache_path": "",
+    "cache_age_seconds": null,
+    "retry_count": 0,
+    "retry_delays": [],
+    "final_failure_reason": "",
+    "retry_after": "",
+    "x_ratelimit_retry": "",
+    "x_ratelimit_reset": "",
+    "x_ratelimit_remaining": "0",
+    "rate_limit_delay_seconds": null,
+    "token_present": true,
+    "token_env_name_used": "WB_API_TOKEN",
+    "source_family": "cabinet_commerce_daily",
+    "page_limit": 1000,
+    "pages_loaded": 1,
+    "last_offset": 0,
+    "pagination_complete": true
+  }
+}

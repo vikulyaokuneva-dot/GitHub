@@ -1,0 +1,401 @@
+{
+  "status": "ok",
+  "warnings": [
+    "total_profit_non_positive"
+  ],
+  "summary": {
+    "sku_count": 5,
+    "profit_sku_count": 0,
+    "loss_sku_count": 1,
+    "total_profit": -203.21,
+    "total_revenue": 0.0,
+    "top_profit_sku": [
+      {
+        "sku": "739377515",
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_share": null,
+        "profit_rank": 1,
+        "profit_group": "P3",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": null,
+        "class": "P3"
+      },
+      {
+        "sku": "590614192",
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_share": null,
+        "profit_rank": 2,
+        "profit_group": "P3",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": null,
+        "class": "P3"
+      },
+      {
+        "sku": "452102417",
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_share": null,
+        "profit_rank": 3,
+        "profit_group": "P3",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": null,
+        "class": "P3"
+      },
+      {
+        "sku": "333615320",
+        "revenue": 0.0,
+        "profit": 0.0,
+        "profit_share": null,
+        "profit_rank": 4,
+        "profit_group": "P3",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": null,
+        "class": "P3"
+      },
+      {
+        "sku": "898642228",
+        "revenue": 0.0,
+        "profit": -203.21,
+        "profit_share": null,
+        "profit_rank": 5,
+        "profit_group": "P4",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": null,
+        "class": "P4"
+      }
+    ],
+    "top_loss_sku": [
+      {
+        "sku": "898642228",
+        "revenue": 0.0,
+        "profit": -203.21,
+        "profit_share": null,
+        "profit_rank": 5,
+        "profit_group": "P4",
+        "status": "ok",
+        "warnings": [
+          "total_profit_non_positive"
+        ],
+        "cumulative_profit_share": null,
+        "class": "P4"
+      }
+    ],
+    "profit_concentration": "insufficient_data",
+    "top_20_profit_share": null,
+    "status": "ok"
+  },
+  "items": [
+    {
+      "sku": "739377515",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 1,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "590614192",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 2,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "452102417",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 3,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "333615320",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 4,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "898642228",
+      "revenue": 0.0,
+      "profit": -203.21,
+      "profit_share": null,
+      "profit_rank": 5,
+      "profit_group": "P4",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P4"
+    }
+  ],
+  "sku_pnl": [
+    {
+      "sku": "739377515",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 1,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "590614192",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 2,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "452102417",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 3,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "333615320",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 4,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "898642228",
+      "revenue": 0.0,
+      "profit": -203.21,
+      "profit_share": null,
+      "profit_rank": 5,
+      "profit_group": "P4",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P4"
+    }
+  ],
+  "p1": [],
+  "p2": [],
+  "p3": [
+    {
+      "sku": "739377515",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 1,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "590614192",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 2,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "452102417",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 3,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "333615320",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 4,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    }
+  ],
+  "p4": [
+    {
+      "sku": "898642228",
+      "revenue": 0.0,
+      "profit": -203.21,
+      "profit_share": null,
+      "profit_rank": 5,
+      "profit_group": "P4",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P4"
+    }
+  ],
+  "top_profit_skus": [
+    {
+      "sku": "739377515",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 1,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "590614192",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 2,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "452102417",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 3,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "333615320",
+      "revenue": 0.0,
+      "profit": 0.0,
+      "profit_share": null,
+      "profit_rank": 4,
+      "profit_group": "P3",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P3"
+    },
+    {
+      "sku": "898642228",
+      "revenue": 0.0,
+      "profit": -203.21,
+      "profit_share": null,
+      "profit_rank": 5,
+      "profit_group": "P4",
+      "status": "ok",
+      "warnings": [
+        "total_profit_non_positive"
+      ],
+      "cumulative_profit_share": null,
+      "class": "P4"
+    }
+  ],
+  "meta": {
+    "total_profit": -203.21,
+    "total_revenue": 0.0,
+    "sku_count": 5
+  }
+}

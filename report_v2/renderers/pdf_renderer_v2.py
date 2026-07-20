@@ -103,6 +103,33 @@ def _format_text(value: Any) -> str:
     return text or "нет данных"
 
 
+def _profit_row_tone(row: dict[str, Any]) -> str:
+    status = str(row.get("status") or "").strip().lower()
+    if status == "critical":
+        return "critical"
+    if status == "positive":
+        return "positive"
+
+    label = _format_text(row.get("label", ""))
+    value = _format_text(row.get("value", ""))
+    numeric_text = (
+        value.replace("₽", "")
+        .replace("%", "")
+        .replace(" ", "")
+        .replace(",", ".")
+        .strip()
+    )
+    try:
+        numeric = float(numeric_text)
+    except (ValueError, TypeError):
+        numeric = 0
+    if numeric < 0:
+        return "critical"
+    if "чистая прибыль" in label.lower() and numeric > 0:
+        return "positive"
+    return "neutral"
+
+
 def _status_label(value: Any) -> str:
     status = str(value or "").strip().lower()
     labels = {
@@ -1013,8 +1040,18 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
 
         alert_boxes = hero_section.get("alert_boxes", [])
         if isinstance(alert_boxes, list) and alert_boxes and len(alert_boxes) >= 3:
-            box_colors = {"critical": colors.HexColor("#DC2626"), "warning": colors.HexColor("#D97706"), "ok": colors.HexColor("#16A34A")}
-            box_bg = {"critical": colors.HexColor("#FEF2F2"), "warning": colors.HexColor("#FFFBEB"), "ok": colors.HexColor("#F0FDF4")}
+            box_colors = {
+                "critical": colors.HexColor("#DC2626"),
+                "warning": colors.HexColor("#D97706"),
+                "ok": colors.HexColor("#16A34A"),
+                "unavailable": colors.HexColor("#6B7280"),
+            }
+            box_bg = {
+                "critical": colors.HexColor("#FEF2F2"),
+                "warning": colors.HexColor("#FFFBEB"),
+                "ok": colors.HexColor("#F0FDF4"),
+                "unavailable": colors.HexColor("#F3F4F6"),
+            }
             box_style = ParagraphStyle("BoxText", parent=styles["hero_card"], fontSize=8, leading=10, alignment=1)
             box_label_style = ParagraphStyle("BoxLabel", parent=styles["hero_card"], fontSize=7, leading=9, alignment=1, textColor=colors.HexColor("#6B7280"))
             box_cells = []
@@ -1130,21 +1167,12 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                 continue
             label = _format_text(row.get("label", ""))
             value = _format_text(row.get("value", ""))
-            val_str = value.replace("₽", "").replace(" ", "").replace(",", ".").strip()
-            try:
-                val_num = float(val_str)
-            except (ValueError, TypeError):
-                val_num = 0
-            is_negative = "-" in value and val_num < 0
-            is_positive_profit = "прибыль" in label.lower() and val_num > 0
-            if is_negative:
-                row_bg = colors.HexColor("#FEF2F2")
+            tone = _profit_row_tone(row)
+            if tone == "critical":
                 val_color = colors.HexColor("#DC2626")
-            elif is_positive_profit:
-                row_bg = colors.HexColor("#F0FDF4")
+            elif tone == "positive":
                 val_color = colors.HexColor("#16A34A")
             else:
-                row_bg = colors.white
                 val_color = colors.black
             val_style = ParagraphStyle("ValColor", parent=styles["hero_card"], textColor=val_color)
             p_table_rows.append([
@@ -1165,18 +1193,10 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         for idx, row in enumerate(profit_rows):
             if not isinstance(row, dict):
                 continue
-            label = _format_text(row.get("label", ""))
-            value = _format_text(row.get("value", ""))
-            val_str = value.replace("₽", "").replace(" ", "").replace(",", ".").strip()
-            try:
-                val_num = float(val_str)
-            except (ValueError, TypeError):
-                val_num = 0
-            is_negative = "-" in value and val_num < 0
-            is_positive_profit = "прибыль" in label.lower() and val_num > 0
-            if is_negative:
+            tone = _profit_row_tone(row)
+            if tone == "critical":
                 profit_style_list.append(("BACKGROUND", (0, idx + 1), (-1, idx + 1), colors.HexColor("#FEF2F2")))
-            elif is_positive_profit:
+            elif tone == "positive":
                 profit_style_list.append(("BACKGROUND", (0, idx + 1), (-1, idx + 1), colors.HexColor("#F0FDF4")))
         profit_table.setStyle(TableStyle(profit_style_list))
         story.append(profit_table)

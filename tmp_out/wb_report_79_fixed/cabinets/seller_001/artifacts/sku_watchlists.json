@@ -1,0 +1,53 @@
+{
+  "date": "2026-07-20",
+  "watchlists": {
+    "top_growth": [],
+    "top_risk": [
+      {
+        "sku": "898642228",
+        "attention_score": 19,
+        "reason": "Высокий attention_score по совокупности сигналов",
+        "metrics": {
+          "orders": 0.0,
+          "buyouts": 7.0,
+          "revenue": 0.0,
+          "net_profit": -203.21,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      }
+    ],
+    "dead_stock": [],
+    "ad_inefficiency": [
+      {
+        "sku": "898642228",
+        "attention_score": 19,
+        "reason": "Риск неэффективной рекламы",
+        "metrics": {
+          "orders": 0.0,
+          "buyouts": 7.0,
+          "revenue": 0.0,
+          "net_profit": -203.21,
+          "stock": null
+        },
+        "deltas": {
+          "orders_vs_prev_pct": null,
+          "orders_vs_7d_pct": null,
+          "buyouts_vs_prev_pct": null,
+          "buyouts_vs_7d_pct": null,
+          "revenue_vs_7d_pct": null,
+          "net_profit_vs_7d_pct": null
+        }
+      }
+    ],
+    "conversion_drop": [],
+    "logistics_risk": []
+  }
+}

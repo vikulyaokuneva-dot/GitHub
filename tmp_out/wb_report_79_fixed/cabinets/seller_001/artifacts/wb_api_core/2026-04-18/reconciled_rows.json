@@ -1,0 +1,338 @@
+{
+  "seller_id": "seller_001",
+  "run_date": "2026-04-18",
+  "operational_date": "2026-04-18",
+  "orders_rows": [
+    {
+      "date": "2026-04-18",
+      "sku": "430679462",
+      "nm_id": "430679462",
+      "seller_sku": "Sitrak",
+      "order_id": "6069560906351041258.0.0",
+      "quantity": 1.0,
+      "amount": 2000.0,
+      "source": "orders_api",
+      "_raw_row_index": 0
+    }
+  ],
+  "sales_rows": [
+    {
+      "date": "2026-04-18",
+      "sku": "333615320",
+      "nm_id": "333615320",
+      "seller_sku": "Трёшка стандарт",
+      "sale_id": "ev.4ed5c37c86964100a501e0e4f4f0cf08.2.0",
+      "quantity": 1.0,
+      "amount": 471.9,
+      "source": "sales_api",
+      "_raw_row_index": 0
+    },
+    {
+      "date": "2026-04-18",
+      "sku": "453526507",
+      "nm_id": "453526507",
+      "seller_sku": "Shacman",
+      "sale_id": "eca.r37437d3fa72b4b74bed26f2ee902a102.0.0",
+      "quantity": 1.0,
+      "amount": 620.22,
+      "source": "sales_api",
+      "_raw_row_index": 1
+    },
+    {
+      "date": "2026-04-18",
+      "sku": "453526507",
+      "nm_id": "453526507",
+      "seller_sku": "Shacman",
+      "sale_id": "7606423761860802671.0.0",
+      "quantity": 1.0,
+      "amount": 639.4,
+      "source": "sales_api",
+      "_raw_row_index": 2
+    },
+    {
+      "date": "2026-04-18",
+      "sku": "333615320",
+      "nm_id": "333615320",
+      "seller_sku": "Трёшка стандарт",
+      "sale_id": "eT.raf99a9748fe54b9a9e1ce74462cf3a08.0.0",
+      "quantity": 1.0,
+      "amount": 458.42,
+      "source": "sales_api",
+      "_raw_row_index": 3
+    },
+    {
+      "date": "2026-04-18",
+      "sku": "452102417",
+      "nm_id": "452102417",
+      "seller_sku": "Маз Простор",
+      "sale_id": "7030621941178470860.0.0",
+      "quantity": 1.0,
+      "amount": 611.6,
+      "source": "sales_api",
+      "_raw_row_index": 4
+    }
+  ],
+  "realization_rows": [],
+  "stocks_rows": [
+    {
+      "date": "2026-04-18",
+      "sku": "584904841",
+      "nm_id": "584904841",
+      "seller_sku": "Трешка бежевая",
+      "stock": 10.0,
+      "warehouse": "Тула",
+      "source": "stocks_api",
+      "_raw_row_index": 0
+    },
+    {
+      "date": "2026-04-18",
+      "sku": "739384273",
+      "nm_id": "739384273",
+      "seller_sku": "Shacman синий",
+      "stock": 0.0,
+      "warehouse": "СЦ Иркутск",
+      "source": "stocks_api",
+      "_raw_row_index": 1
+    },
+    {
+      "date": "2026-04-18",
+      "sku": "739384273",
+      "nm_id": "739384273",
+      "seller_sku": "Shacman синий",
+      "stock": 1.0,
+      "warehouse": "Остальные склады",
+      "source": "stocks_api",
+      "_raw_row_index": 2
+    },
+    {
+      "date": "2026-04-19",
+      "sku": "584904841",
+      "nm_id": "584904841",
+      "seller_sku": "Трешка бежевая",
+      "stock": 0.0,
+      "warehouse": "Атакент",
+      "source": "stocks_api",
+      "_raw_row_index": 3
+    },
+    {
+      "date": "2026-04-19",
+      "sku": "898642228",
+      "nm_id": "898642228",
+      "seller_sku": "Кросс блок 100/100",
+      "stock": 0.0,
+      "warehouse": "СЦ Брянск 2",
+      "source": "stocks_api",
+      "_raw_row_index": 4
+    },
+    {
+      "date": "2026-04-19",
+      "sku": "333615320",
+      "nm_id": "333615320",
+      "seller_sku": "Трёшка стандарт",
+      "stock": 0.0,
+      "warehouse": "СЦ Ижевск",
+      "source": "stocks_api",
+      "_raw_row_index": 5
+    },
+    {
+      "date": "2026-04-19",
+      "sku": "333615320",
+      "nm_id": "333615320",
+      "seller_sku": "Трёшка стандарт",
+      "stock": 1.0,
+      "warehouse": "Сарапул",
+      "source": "stocks_api",
+      "_raw_row_index": 6
+    },
+    {
+      "date": "2026-04-19",
+      "sku": "333615320",
+      "nm_id": "333615320",
+      "seller_sku": "Трёшка стандарт",
+      "stock": 4.0,
+      "warehouse": "Самара (Новосемейкино)",
+      "source": "stocks_api",
+      "_raw_row_index": 7
+    },
+    {
+      "date": "2026-04-19",
+      "sku": "430679462",
+      "nm_id": "430679462",
+      "seller_sku": "Sitrak",
+      "stock": 0.0,
+      "warehouse": "Атакент",
+      "source": "stocks_api",
+      "_raw_row_index": 8
+    },
+    {
+      "date": "2026-04-19",
+      "sku": "452102417",
+      "nm_id": "452102417",
+      "seller_sku": "Маз Простор",
+      "stock": 0.0,
+      "warehouse": "Тула",
+      "source": "stocks_api",
+      "_raw_row_index": 9
+    },
+    {
+      "date": "2026-04-20",
+      "sku": "333615320",
+      "nm_id": "333615320",
+      "seller_sku": "Трёшка стандарт",
+      "stock": 3.0,
+      "warehouse": "Екатеринбург - Перспективная 14",
+      "source": "stocks_api",
+      "_raw_row_index": 10
+    },
+    {
+      "date": "2026-04-20",
+      "sku": "590614192",
+      "nm_id": "590614192",
+      "seller_sku": "Sitrak красный 2х",
+      "stock": 2.0,
+      "warehouse": "Остальные склады",
+      "source": "stocks_api",
+      "_raw_row_index": 11
+    },
+    {
+      "date": "2026-04-20",
+      "sku": "584904841",
+      "nm_id": "584904841",
+      "seller_sku": "Трешка бежевая",
+      "stock": 0.0,
+      "warehouse": "Остальные склады",
+      "source": "stocks_api",
+      "_raw_row_index": 12
+    },
+    {
+      "date": "2026-04-20",
+      "sku": "584904841",
+      "nm_id": "584904841",
+      "seller_sku": "Трешка бежевая",
+      "stock": 1.0,
+      "warehouse": "Краснодар",
+      "source": "stocks_api",
+      "_raw_row_index": 13
+    },
+    {
+      "date": "2026-04-20",
+      "sku": "452102417",
+      "nm_id": "452102417",
+      "seller_sku": "Маз Простор",
+      "stock": 0.0,
+      "warehouse": "СЦ Брест",
+      "source": "stocks_api",
+      "_raw_row_index": 14
+    },
+    {
+      "date": "2026-04-20",
+      "sku": "452102417",
+      "nm_id": "452102417",
+      "seller_sku": "Маз Простор",
+      "stock": 4.0,
+      "warehouse": "Остальные склады",
+      "source": "stocks_api",
+      "_raw_row_index": 15
+    },
+    {
+      "date": "2026-04-20",
+      "sku": "333615320",
+      "nm_id": "333615320",
+      "seller_sku": "Трёшка стандарт",
+      "stock": 0.0,
+      "warehouse": "СЦ Иркутск",
+      "source": "stocks_api",
+      "_raw_row_index": 16
+    },
+    {
+      "date": "2026-04-20",
+      "sku": "898642228",
+      "nm_id": "898642228",
+      "seller_sku": "Кросс блок 100/100",
+      "stock": 0.0,
+      "warehouse": "СЦ Софьино",
+      "source": "stocks_api",
+      "_raw_row_index": 17
+    },
+    {
+      "date": "2026-04-20",
+      "sku": "453526507",
+      "nm_id": "453526507",
+      "seller_sku": "Shacman",
+      "stock": 53.0,
+      "warehouse": "Электросталь",
+      "source": "stocks_api",
+      "_raw_row_index": 18
+    },
+    {
+      "date": "2026-04-20",
+      "sku": "453526507",
+      "nm_id": "453526507",
+      "seller_sku": "Shacman",
+      "stock": 3.0,
+      "warehouse": "Остальные склады",
+      "source": "stocks_api",
+      "_raw_row_index": 19
+    },
+    {
+      "date": "2026-04-21",
+      "sku": "430679462",
+      "nm_id": "430679462",
+      "seller_sku": "Sitrak",
+      "stock": 26.0,
+      "warehouse": "Электросталь",
+      "source": "stocks_api",
+      "_raw_row_index": 20
+    },
+    {
+      "date": "2026-04-21",
+      "sku": "430679462",
+      "nm_id": "430679462",
+      "seller_sku": "Sitrak",
+      "stock": 2.0,
+      "warehouse": "Остальные склады",
+      "source": "stocks_api",
+      "_raw_row_index": 21
+    },
+    {
+      "date": "2026-04-21",
+      "sku": "333615320",
+      "nm_id": "333615320",
+      "seller_sku": "Трёшка стандарт",
+      "stock": 5.0,
+      "warehouse": "Остальные склады",
+      "source": "stocks_api",
+      "_raw_row_index": 22
+    },
+    {
+      "date": "2026-04-21",
+      "sku": "898642228",
+      "nm_id": "898642228",
+      "seller_sku": "Кросс блок 100/100",
+      "stock": 2.0,
+      "warehouse": "Остальные склады",
+      "source": "stocks_api",
+      "_raw_row_index": 23
+    },
+    {
+      "date": "2026-04-21",
+      "sku": "453526507",
+      "nm_id": "453526507",
+      "seller_sku": "Shacman",
+      "stock": 10.0,
+      "warehouse": "Тула",
+      "source": "stocks_api",
+      "_raw_row_index": 24
+    },
+    {
+      "date": "2026-04-21",
+      "sku": "590614192",
+      "nm_id": "590614192",
+      "seller_sku": "Sitrak красный 2х",
+      "stock": 65.0,
+      "warehouse": "Тула",
+      "source": "stocks_api",
+      "_raw_row_index": 25
+    }
+  ]
+}

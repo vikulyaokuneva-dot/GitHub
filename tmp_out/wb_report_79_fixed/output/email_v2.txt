@@ -1,0 +1,64 @@
+WB Core Report v2
+seller_001
+Date: 2026-07-20
+Operational date: 2026-07-19
+
+Commerce:
+Заказы: 9 шт (ok; Источник: cabinet_commerce_daily)
+Сумма заказов: 12 200 ₽ (ok; Источник: sales_funnel_api)
+Выкупы: 12 шт (ok; Подтвержденные выкупы из live_operational_sales.)
+Сумма выкупов: 21 993,80 ₽ (ok; Источник: sales_api)
+
+Advertising:
+Spend: 203.21
+DRR: unavailable
+ROAS: 0,00x
+ROMI: -100,00%
+Wasted spend: unavailable
+Action: Cut or rebuild loss-making traffic sources and tighten query filters.
+
+Поисковые запросы:
+Статус: нет данных
+
+Товары:
+SKU в росте: 0
+SKU под риском: 5
+Требуют внимания: 5
+Dead stock: 0
+Действие: Снижение цены/распродажа остатков
+
+Прибыль и ассортимент:
+Топ прибыльных SKU: 5 SKU; доля прибыли недоступна
+Убыточные SKU: 1
+A-категория: 2 SKU
+
+Finance:
+Realized sales: 12 / 13 022.00
+Gross revenue: 13 022.00
+Seller payout: 13 928.53
+Returns: 3
+Deliveries: 15
+WB commission: -1 226.34
+Logistics: 6 335.07
+Storage: 20.48
+Acquiring: 589.61
+
+Live:
+Live orders: 8 / 11 200.00
+Live sales: 12 / 21 993.80
+Live stocks: unavailable
+
+Warnings:
+- [meta] 404: {
+    "title": "disabled, PLUG-404-20260720",
+    "detail": "This method is deprecated. Link: https://dev.wildberries.ru/release-notes?id=494",
+    "code": "461a0b83d6bd 7a89cd0c8d54",
+    "requestId": "866fca1a269b3401bf14e05adf30b674",
+    "origin": "s2s-api-auth-stat",
+    "status": 404,
+    "sta
+- [live_operational] Cabinet commerce reported 0 buyouts but sales API confirmed actual sales. Using sales API data.
+- [stock_section] Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.
+- [advertising_efficiency] Query-level advertising rows are missing; query analysis is limited.
+- [sku_health] funnel_insufficient_data
+- [profit_contribution] total_profit_non_positive

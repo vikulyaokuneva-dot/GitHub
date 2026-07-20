@@ -1,0 +1,61 @@
+{
+  "seller_id": "seller_001",
+  "report_date": "2026-07-20",
+  "operational_day": "2026-07-19",
+  "source_mode": "wb_api_core_v2",
+  "status": "success",
+  "report_version": "v2",
+  "renderer": "report_v2",
+  "source_of_truth": "snapshot.json",
+  "artifacts": {
+    "pdf": "report_v2.pdf",
+    "payload": "report_payload_v2.json",
+    "email_html": "email_v2.html",
+    "email_txt": "email_v2.txt"
+  },
+  "snapshot_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/wb_api_core/2026-07-20/snapshot.json",
+  "debug_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/wb_api_core/2026-07-20/debug.json",
+  "report_payload_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/report_payload_v2.json",
+  "pdf_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/report_v2.pdf",
+  "email_html_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/email_v2.html",
+  "email_txt_path": "/home/runner/work/GitHub/GitHub/cabinets/seller_001/artifacts/email_v2.txt",
+  "warnings": [
+    {
+      "code": "stocks_api_unavailable",
+      "message": "404: {\n    \"title\": \"disabled, PLUG-404-20260720\",\n    \"detail\": \"This method is deprecated. Link: https://dev.wildberries.ru/release-notes?id=494\",\n    \"code\": \"461a0b83d6bd 7a89cd0c8d54\",\n    \"requestId\": \"866fca1a269b3401bf14e05adf30b674\",\n    \"origin\": \"s2s-api-auth-stat\",\n    \"status\": 404,\n    \"sta",
+      "level": "warning",
+      "block": "meta"
+    },
+    {
+      "code": "buyouts_override_from_sales_api",
+      "message": "Cabinet commerce reported 0 buyouts but sales API confirmed actual sales. Using sales API data.",
+      "level": "warning",
+      "block": "live_operational"
+    },
+    {
+      "code": "stock_goods_source_missing",
+      "message": "Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.",
+      "level": "info",
+      "block": "stock_section"
+    },
+    {
+      "code": "advertising_efficiency_query_missing",
+      "message": "Query-level advertising rows are missing; query analysis is limited.",
+      "level": "warning",
+      "block": "advertising_efficiency"
+    },
+    {
+      "code": "sku_health_warning",
+      "message": "funnel_insufficient_data",
+      "level": "warning",
+      "block": "sku_health"
+    },
+    {
+      "code": "profit_contribution_warning",
+      "message": "total_profit_non_positive",
+      "level": "warning",
+      "block": "profit_contribution"
+    }
+  ],
+  "warnings_count": 6
+}

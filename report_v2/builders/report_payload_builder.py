@@ -3904,6 +3904,31 @@ def _profit_calculation(
     deductions = expense("deductions")
     tax = expense("tax")
 
+    finance_rows = finance.get("rows", []) if isinstance(finance.get("rows"), list) else []
+    return_logistics = Decimal("0")
+    for raw_row in finance_rows:
+        row = _safe_dict(raw_row)
+        row_returns_qty = _safe_decimal(row.get("returns_qty")) or Decimal("0")
+        if row_returns_qty <= 0:
+            continue
+        return_logistics += abs(
+            _safe_decimal(row.get("logistics_amount"))
+            or _safe_decimal(row.get("logistics"))
+            or Decimal("0")
+        )
+
+    commission_basis = (
+        _safe_decimal(finance.get("realized_sales_revenue"))
+        or _safe_decimal(finance.get("wb_realized_revenue"))
+        or _safe_decimal(finance.get("gross_revenue"))
+    )
+    commission_rate = None
+    if commission_basis is not None and commission_basis > 0:
+        commission_rate = (commission / commission_basis * Decimal("100")).quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
+        )
+
     if logistics_value is None:
         seller_payout = _safe_decimal(finance.get("seller_payout")) or Decimal("0")
         logistics_value = max(
@@ -3975,6 +4000,9 @@ def _profit_calculation(
         "deductions": deductions,
         "tax": tax,
         "returns_qty": _safe_decimal(finance.get("returns_qty")) or Decimal("0"),
+        "return_logistics": return_logistics,
+        "commission_basis": commission_basis,
+        "commission_rate": commission_rate,
         "total_cogs": total_cogs,
         "ads_spend": ads_spend,
         "total_expenses": total_expenses,
@@ -4005,12 +4033,12 @@ def _build_hero_section(
     calculation = _profit_calculation(snapshot, cabinet, artifact_dir=artifact_dir)
     net_profit = calculation.get("net_profit") if calculation else None
     spend = ads.get("ads_spend_total") or 0
-    stock_units = stocks.get("total_units") or 0
+    stock_units = _safe_int(stocks.get("total_units")) if stocks.get("available") else None
 
     stock_days = None
     sales = _safe_dict(live.get("sales"))
     sales_count = sales.get("count") or 0
-    if sales_count and sales_count > 0:
+    if stock_units is not None and sales_count and sales_count > 0:
         stock_days = round(stock_units / sales_count, 1)
 
     margin = None
@@ -4026,29 +4054,34 @@ def _build_hero_section(
     if net_profit is not None:
         profit_status = "ok"
         if margin is not None:
-            if margin < 20:
+            if margin > Decimal("15"):
+                profit_status = "ok"
+            elif margin < Decimal("15"):
                 profit_status = "critical"
-            elif margin < 30:
+            else:
                 profit_status = "warning"
         rows.append({"label": "Прибыль", "value": _format_display_money(net_profit), "status": profit_status, "note": f"Маржа: {margin}%" if margin else ""})
     rows.append({"label": "Реклама", "value": _format_display_money(-spend) if spend else "0 ₽", "status": "ok"})
-    stock_value = f"{int(stock_units)} шт"
-    if stock_days is not None:
-        stock_value += f" ({int(stock_days)} дн.)"
-    stock_status = "ok"
-    if stock_days is not None and stock_days < 3:
-        stock_status = "critical"
-    elif stock_days is not None and stock_days > 60:
-        stock_status = "warning"
+    stock_value = "нет данных"
+    stock_status = "unavailable"
+    if stock_units is not None:
+        stock_value = f"{stock_units} шт"
+        stock_status = "ok"
+        if stock_days is not None:
+            stock_value += f" ({int(stock_days)} дн.)"
+            if stock_days < 3:
+                stock_status = "critical"
+            elif stock_days > 60:
+                stock_status = "warning"
     rows.append({"label": "Остатки", "value": stock_value, "status": stock_status})
 
     alerts: list[dict[str, str]] = []
     returns_qty = finance.get("returns_qty") or 0
     if returns_qty and returns_qty > 0:
         alerts.append({"text": f"Возвраты: {int(returns_qty)} шт — проверьте причину", "priority": "warning", "icon": "returns"})
-    if margin is not None and margin < 30:
+    if margin is not None and margin < Decimal("15"):
         alerts.append({"text": f"Маржа: {margin}% — ниже нормы", "priority": "warning", "icon": "margin"})
-    if stock_days is not None and stock_days < 3:
+    if stock_units is not None and stock_days is not None and stock_days < 3:
         alerts.append({"text": f"Остатки: {int(stock_units)} шт ({int(stock_days)} дн.) — риск дефицита", "priority": "critical", "icon": "stock_low"})
 
     actions: list[dict[str, str]] = []
@@ -4058,7 +4091,7 @@ def _build_hero_section(
         actions.append({"text": f"Разобрать {int(returns_qty)} возвратов", "priority": "warning", "effect": "Защита рейтинга и экономия на логистике"})
     if stock_days is not None and stock_days < 3:
         actions.append({"text": "Пополнить остатки ключевых SKU", "priority": "critical", "effect": "Предотвратить дефицит"})
-    if margin is not None and margin < 30:
+    if margin is not None and margin < Decimal("15"):
         actions.append({"text": "Пересмотреть цены или себестоимость", "priority": "warning", "effect": f"Маржа {margin}% — ниже нормы"})
 
     return {
@@ -4069,8 +4102,13 @@ def _build_hero_section(
         "actions": actions[:5],
         "alert_boxes": [
             {"label": "РЕКЛАМА", "value": _format_display_money(-spend) if spend else "0 ₽", "detail": f"{spend:.0f} руб. без заказов" if spend > 0 else "нет расходов", "status": "warning" if spend > 0 else "ok"},
-            {"label": "ВОЗВРАТЫ", "value": f"{int(returns_qty)} шт", "detail": "норма: 0" if returns_qty > 0 else "норма", "status": "warning" if returns_qty > 0 else "ok"},
-            {"label": "ОСТАТКИ", "value": f"{int(stock_units)} шт", "detail": f"({int(stock_days)} дн.)" if stock_days else "", "status": "critical" if stock_days and stock_days < 3 else ("warning" if stock_days and stock_days > 60 else "ok")},
+            {"label": "ВОЗВРАТЫ", "value": f"{int(returns_qty)} шт", "detail": "норма: 0" if returns_qty > 0 else "норма", "status": "critical" if returns_qty > 0 else "ok"},
+            {
+                "label": "ОСТАТКИ",
+                "value": f"{stock_units} шт" if stock_units is not None else "нет данных",
+                "detail": f"({int(stock_days)} дн.)" if stock_days is not None else "API WB недоступен",
+                "status": stock_status,
+            },
         ],
     }
 
@@ -4242,6 +4280,9 @@ def _build_profit_section(
     deductions = calculation["deductions"]
     tax = calculation["tax"]
     returns_qty = calculation["returns_qty"]
+    return_logistics = calculation["return_logistics"]
+    commission_basis = calculation["commission_basis"]
+    commission_rate = calculation["commission_rate"]
     total_cogs = calculation["total_cogs"]
     ads_spend = calculation["ads_spend"]
     total_expenses = calculation["total_expenses"]
@@ -4252,9 +4293,22 @@ def _build_profit_section(
         {"label": "Выручка от выкупов", "value": _format_display_money(revenue)},
         {"label": "Комиссия WB", "value": _format_display_money(-commission)},
     ]
+    if commission_rate is not None and commission_basis is not None:
+        rows.append(
+            {
+                "label": "Комиссия WB, доля",
+                "value": f"{str(commission_rate).replace('.', ',')}% от {_format_display_money(commission_basis)}",
+                "status": "info",
+            }
+        )
     rows.append({"label": "Логистика", "value": _format_display_money(-logistics)})
     if rebill_logistic:
-        rows.append({"label": "Ребиллинг логистики", "value": _format_display_money(-rebill_logistic)})
+        rows.append(
+            {
+                "label": "Доп. списания за перевозку и складские операции",
+                "value": _format_display_money(-rebill_logistic),
+            }
+        )
     rows.extend([
         {"label": "Хранение", "value": _format_display_money(-storage)},
         {"label": "Эквайринг", "value": _format_display_money(-acquiring)},
@@ -4265,14 +4319,41 @@ def _build_profit_section(
         rows.append({"label": "Удержания", "value": _format_display_money(-deductions)})
     if tax:
         rows.append({"label": "Налог", "value": _format_display_money(-tax)})
-    if returns_qty:
-        rows.append({"label": "Возвраты (шт)", "value": f"{int(returns_qty)} шт"})
+    return_status = "critical" if returns_qty > 0 else "positive"
+    rows.append(
+        {
+            "label": "Возвраты (шт)",
+            "value": f"{int(returns_qty)} шт",
+            "status": return_status,
+        }
+    )
+    rows.append(
+        {
+            "label": "Затраты на возвраты (в составе логистики)",
+            "value": _format_display_money(-return_logistics) if return_logistics else _format_display_money(0),
+            "status": "critical" if return_logistics > 0 else "positive",
+        }
+    )
     rows.append({"label": "Себестоимость товаров", "value": _format_display_money(-total_cogs)})
     if ads_spend:
         rows.append({"label": "Реклама", "value": _format_display_money(-ads_spend)})
     rows.append({"label": "Итого затраты", "value": _format_display_money(-total_expenses)})
     rows.append({"label": "Чистая прибыль", "value": _format_display_money(net_profit)})
-    rows.append({"label": "Маржа", "value": f"{margin}%" if margin is not None else "нет данных"})
+    margin_status = "unavailable"
+    if margin is not None:
+        if margin > Decimal("15"):
+            margin_status = "positive"
+        elif margin < Decimal("15"):
+            margin_status = "critical"
+        else:
+            margin_status = "info"
+    rows.append(
+        {
+            "label": "Маржа",
+            "value": f"{margin}%" if margin is not None else "нет данных",
+            "status": margin_status,
+        }
+    )
 
     return {
         "title": "Прибыль",

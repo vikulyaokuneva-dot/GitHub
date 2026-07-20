@@ -1,0 +1,40 @@
+{
+  "seller_id": "seller_001",
+  "run_date": "2026-04-18",
+  "operational_date": "2026-04-18",
+  "timezone": "Europe/Moscow",
+  "source_mode": "wb_api_core_v1",
+  "daily": {
+    "orders_count": 1.0,
+    "orders_amount": 2000.0,
+    "orders_source": "orders_api",
+    "orders_available": true,
+    "buyouts_count": 5.0,
+    "buyouts_amount": 2801.54,
+    "buyouts_source": "sales_api",
+    "buyouts_available": true
+  },
+  "financial": {
+    "source": "finance_api",
+    "available": false,
+    "target_date": "2026-04-18",
+    "actual_date": null,
+    "date_aligned": null,
+    "gross_revenue": null,
+    "seller_payout": null,
+    "wb_commission": null,
+    "logistics": null,
+    "storage": null,
+    "penalties": null,
+    "deductions": null,
+    "tax": null,
+    "net_profit": null,
+    "margin_pct": null,
+    "finality": "missing"
+  },
+  "stock": {
+    "total_units": 192.0,
+    "source": "stocks_api",
+    "available": true
+  }
+}

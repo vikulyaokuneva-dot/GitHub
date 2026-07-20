@@ -1,0 +1,833 @@
+{
+  "status": "insufficient_data",
+  "warnings": [
+    {
+      "code": "territorial_distribution_stock_rows_missing",
+      "message": "Stock rows are missing for robust localization estimation."
+    },
+    {
+      "code": "territorial_distribution_demand_geo_partial",
+      "message": "Demand geography is missing for 5 SKU rows."
+    },
+    {
+      "code": "territorial_distribution_stock_geo_partial",
+      "message": "Stock geography is missing for 5 SKU rows."
+    },
+    {
+      "code": "territorial_distribution_suppressed_due_to_data_quality",
+      "message": "Portfolio-level territorial conclusions downgraded due to low evidence coverage."
+    }
+  ],
+  "items": [
+    {
+      "sku": "333615320",
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
+      "average_retail_price": null,
+      "irp_penalty_per_order": null,
+      "estimated_irp_penalty_total": 0.0,
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
+      "effective_date_applied": true,
+      "confidence": "low",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
+      "diagnostics": {
+        "price_source": "missing",
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": null,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
+        "stock_by_warehouse": {},
+        "demand_share_by_warehouse": {},
+        "stock_share_by_warehouse": {},
+        "demand_by_region": {},
+        "stock_by_region": {},
+        "demand_share_by_region": {},
+        "stock_share_by_region": {},
+        "top_demand_regions": [],
+        "top_supply_regions": [],
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
+        "blocked_reasons": [
+          "missing_order_count",
+          "missing_demand_geography",
+          "missing_stock_geography",
+          "localization_not_computable"
+        ],
+        "blocked_reason_details": {
+          "valid_sku_attribution": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
+          "stock_geography_available": false,
+          "minimum_sample_met": false,
+          "minimum_orders_required": 5,
+          "total_orders": 0.0,
+          "localization_known": false
+        },
+        "dominant_demand_warehouses": [],
+        "dominant_stock_warehouses": [],
+        "reverse_logistics_modeling": "deferred_until_volume_fields_available",
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": false,
+        "minimum_sample_met": false,
+        "evidence_sources": {
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
+          "stock_geography": "missing",
+          "demand_regions": "missing",
+          "stock_regions": "missing",
+          "sku_attribution": "metrics_data_quality"
+        },
+        "known_facts": {
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
+          "stock_warehouses_count": 0,
+          "demand_regions_count": 0,
+          "stock_regions_count": 0
+        },
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "stock_geography",
+          "localization_share"
+        ],
+        "suppressed_recommendations": [
+          "rebalance_stock",
+          "relocate_inventory"
+        ]
+      },
+      "notes": [
+        "average_retail_price_missing",
+        "localization_share_unknown"
+      ],
+      "status": "no_demand_data",
+      "distribution_gap": null,
+      "demand_by_warehouse": {},
+      "stock_by_warehouse": {},
+      "demand_share_by_warehouse": {},
+      "stock_share_by_warehouse": {},
+      "demand_by_region": {},
+      "stock_by_region": {},
+      "demand_share_by_region": {},
+      "stock_share_by_region": {},
+      "top_demand_regions": [],
+      "top_supply_regions": [],
+      "dominant_demand_warehouses": [],
+      "dominant_stock_warehouses": [],
+      "locality_score": 0.0,
+      "total_buys": 0,
+      "total_stock": 0,
+      "low_sample_warning": true,
+      "relocation_hint": null,
+      "valid_sku_attribution": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
+      "stock_geography_available": false,
+      "minimum_sample_met": false,
+      "analysis_status": "blocked_by_data",
+      "blocked_reasons": [
+        "missing_order_count",
+        "missing_demand_geography",
+        "missing_stock_geography",
+        "localization_not_computable"
+      ],
+      "blocked_reason_details": {
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": false,
+        "minimum_sample_met": false,
+        "minimum_orders_required": 5,
+        "total_orders": 0.0,
+        "localization_known": false
+      },
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
+      "recommendation_ready": false,
+      "recommendation_notes": [],
+      "evidence_sources": {
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
+        "stock_geography": "missing",
+        "demand_regions": "missing",
+        "stock_regions": "missing",
+        "sku_attribution": "metrics_data_quality"
+      },
+      "known_facts": {
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
+        "stock_warehouses_count": 0,
+        "demand_regions_count": 0,
+        "stock_regions_count": 0
+      },
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "stock_geography",
+        "localization_share"
+      ],
+      "suppressed_recommendations": [
+        "rebalance_stock",
+        "relocate_inventory"
+      ]
+    },
+    {
+      "sku": "452102417",
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
+      "average_retail_price": null,
+      "irp_penalty_per_order": null,
+      "estimated_irp_penalty_total": 0.0,
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
+      "effective_date_applied": true,
+      "confidence": "low",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
+      "diagnostics": {
+        "price_source": "missing",
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": null,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
+        "stock_by_warehouse": {},
+        "demand_share_by_warehouse": {},
+        "stock_share_by_warehouse": {},
+        "demand_by_region": {},
+        "stock_by_region": {},
+        "demand_share_by_region": {},
+        "stock_share_by_region": {},
+        "top_demand_regions": [],
+        "top_supply_regions": [],
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
+        "blocked_reasons": [
+          "missing_order_count",
+          "missing_demand_geography",
+          "missing_stock_geography",
+          "localization_not_computable"
+        ],
+        "blocked_reason_details": {
+          "valid_sku_attribution": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
+          "stock_geography_available": false,
+          "minimum_sample_met": false,
+          "minimum_orders_required": 5,
+          "total_orders": 0.0,
+          "localization_known": false
+        },
+        "dominant_demand_warehouses": [],
+        "dominant_stock_warehouses": [],
+        "reverse_logistics_modeling": "deferred_until_volume_fields_available",
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": false,
+        "minimum_sample_met": false,
+        "evidence_sources": {
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
+          "stock_geography": "missing",
+          "demand_regions": "missing",
+          "stock_regions": "missing",
+          "sku_attribution": "metrics_data_quality"
+        },
+        "known_facts": {
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
+          "stock_warehouses_count": 0,
+          "demand_regions_count": 0,
+          "stock_regions_count": 0
+        },
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "stock_geography",
+          "localization_share"
+        ],
+        "suppressed_recommendations": [
+          "rebalance_stock",
+          "relocate_inventory"
+        ]
+      },
+      "notes": [
+        "average_retail_price_missing",
+        "localization_share_unknown"
+      ],
+      "status": "no_demand_data",
+      "distribution_gap": null,
+      "demand_by_warehouse": {},
+      "stock_by_warehouse": {},
+      "demand_share_by_warehouse": {},
+      "stock_share_by_warehouse": {},
+      "demand_by_region": {},
+      "stock_by_region": {},
+      "demand_share_by_region": {},
+      "stock_share_by_region": {},
+      "top_demand_regions": [],
+      "top_supply_regions": [],
+      "dominant_demand_warehouses": [],
+      "dominant_stock_warehouses": [],
+      "locality_score": 0.0,
+      "total_buys": 0,
+      "total_stock": 0,
+      "low_sample_warning": true,
+      "relocation_hint": null,
+      "valid_sku_attribution": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
+      "stock_geography_available": false,
+      "minimum_sample_met": false,
+      "analysis_status": "blocked_by_data",
+      "blocked_reasons": [
+        "missing_order_count",
+        "missing_demand_geography",
+        "missing_stock_geography",
+        "localization_not_computable"
+      ],
+      "blocked_reason_details": {
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": false,
+        "minimum_sample_met": false,
+        "minimum_orders_required": 5,
+        "total_orders": 0.0,
+        "localization_known": false
+      },
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
+      "recommendation_ready": false,
+      "recommendation_notes": [],
+      "evidence_sources": {
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
+        "stock_geography": "missing",
+        "demand_regions": "missing",
+        "stock_regions": "missing",
+        "sku_attribution": "metrics_data_quality"
+      },
+      "known_facts": {
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
+        "stock_warehouses_count": 0,
+        "demand_regions_count": 0,
+        "stock_regions_count": 0
+      },
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "stock_geography",
+        "localization_share"
+      ],
+      "suppressed_recommendations": [
+        "rebalance_stock",
+        "relocate_inventory"
+      ]
+    },
+    {
+      "sku": "590614192",
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
+      "average_retail_price": null,
+      "irp_penalty_per_order": null,
+      "estimated_irp_penalty_total": 0.0,
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
+      "effective_date_applied": true,
+      "confidence": "low",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
+      "diagnostics": {
+        "price_source": "missing",
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": null,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
+        "stock_by_warehouse": {},
+        "demand_share_by_warehouse": {},
+        "stock_share_by_warehouse": {},
+        "demand_by_region": {},
+        "stock_by_region": {},
+        "demand_share_by_region": {},
+        "stock_share_by_region": {},
+        "top_demand_regions": [],
+        "top_supply_regions": [],
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
+        "blocked_reasons": [
+          "missing_order_count",
+          "missing_demand_geography",
+          "missing_stock_geography",
+          "localization_not_computable"
+        ],
+        "blocked_reason_details": {
+          "valid_sku_attribution": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
+          "stock_geography_available": false,
+          "minimum_sample_met": false,
+          "minimum_orders_required": 5,
+          "total_orders": 0.0,
+          "localization_known": false
+        },
+        "dominant_demand_warehouses": [],
+        "dominant_stock_warehouses": [],
+        "reverse_logistics_modeling": "deferred_until_volume_fields_available",
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": false,
+        "minimum_sample_met": false,
+        "evidence_sources": {
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
+          "stock_geography": "missing",
+          "demand_regions": "missing",
+          "stock_regions": "missing",
+          "sku_attribution": "metrics_data_quality"
+        },
+        "known_facts": {
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
+          "stock_warehouses_count": 0,
+          "demand_regions_count": 0,
+          "stock_regions_count": 0
+        },
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "stock_geography",
+          "localization_share"
+        ],
+        "suppressed_recommendations": [
+          "rebalance_stock",
+          "relocate_inventory"
+        ]
+      },
+      "notes": [
+        "average_retail_price_missing",
+        "localization_share_unknown"
+      ],
+      "status": "no_demand_data",
+      "distribution_gap": null,
+      "demand_by_warehouse": {},
+      "stock_by_warehouse": {},
+      "demand_share_by_warehouse": {},
+      "stock_share_by_warehouse": {},
+      "demand_by_region": {},
+      "stock_by_region": {},
+      "demand_share_by_region": {},
+      "stock_share_by_region": {},
+      "top_demand_regions": [],
+      "top_supply_regions": [],
+      "dominant_demand_warehouses": [],
+      "dominant_stock_warehouses": [],
+      "locality_score": 0.0,
+      "total_buys": 0,
+      "total_stock": 0,
+      "low_sample_warning": true,
+      "relocation_hint": null,
+      "valid_sku_attribution": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
+      "stock_geography_available": false,
+      "minimum_sample_met": false,
+      "analysis_status": "blocked_by_data",
+      "blocked_reasons": [
+        "missing_order_count",
+        "missing_demand_geography",
+        "missing_stock_geography",
+        "localization_not_computable"
+      ],
+      "blocked_reason_details": {
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": false,
+        "minimum_sample_met": false,
+        "minimum_orders_required": 5,
+        "total_orders": 0.0,
+        "localization_known": false
+      },
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
+      "recommendation_ready": false,
+      "recommendation_notes": [],
+      "evidence_sources": {
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
+        "stock_geography": "missing",
+        "demand_regions": "missing",
+        "stock_regions": "missing",
+        "sku_attribution": "metrics_data_quality"
+      },
+      "known_facts": {
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
+        "stock_warehouses_count": 0,
+        "demand_regions_count": 0,
+        "stock_regions_count": 0
+      },
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "stock_geography",
+        "localization_share"
+      ],
+      "suppressed_recommendations": [
+        "rebalance_stock",
+        "relocate_inventory"
+      ]
+    },
+    {
+      "sku": "739377515",
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
+      "average_retail_price": null,
+      "irp_penalty_per_order": null,
+      "estimated_irp_penalty_total": 0.0,
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
+      "effective_date_applied": true,
+      "confidence": "low",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
+      "diagnostics": {
+        "price_source": "missing",
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": null,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
+        "stock_by_warehouse": {},
+        "demand_share_by_warehouse": {},
+        "stock_share_by_warehouse": {},
+        "demand_by_region": {},
+        "stock_by_region": {},
+        "demand_share_by_region": {},
+        "stock_share_by_region": {},
+        "top_demand_regions": [],
+        "top_supply_regions": [],
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
+        "blocked_reasons": [
+          "missing_order_count",
+          "missing_demand_geography",
+          "missing_stock_geography",
+          "localization_not_computable"
+        ],
+        "blocked_reason_details": {
+          "valid_sku_attribution": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
+          "stock_geography_available": false,
+          "minimum_sample_met": false,
+          "minimum_orders_required": 5,
+          "total_orders": 0.0,
+          "localization_known": false
+        },
+        "dominant_demand_warehouses": [],
+        "dominant_stock_warehouses": [],
+        "reverse_logistics_modeling": "deferred_until_volume_fields_available",
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": false,
+        "minimum_sample_met": false,
+        "evidence_sources": {
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
+          "stock_geography": "missing",
+          "demand_regions": "missing",
+          "stock_regions": "missing",
+          "sku_attribution": "metrics_data_quality"
+        },
+        "known_facts": {
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
+          "stock_warehouses_count": 0,
+          "demand_regions_count": 0,
+          "stock_regions_count": 0
+        },
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "stock_geography",
+          "localization_share"
+        ],
+        "suppressed_recommendations": [
+          "rebalance_stock",
+          "relocate_inventory"
+        ]
+      },
+      "notes": [
+        "average_retail_price_missing",
+        "localization_share_unknown"
+      ],
+      "status": "no_demand_data",
+      "distribution_gap": null,
+      "demand_by_warehouse": {},
+      "stock_by_warehouse": {},
+      "demand_share_by_warehouse": {},
+      "stock_share_by_warehouse": {},
+      "demand_by_region": {},
+      "stock_by_region": {},
+      "demand_share_by_region": {},
+      "stock_share_by_region": {},
+      "top_demand_regions": [],
+      "top_supply_regions": [],
+      "dominant_demand_warehouses": [],
+      "dominant_stock_warehouses": [],
+      "locality_score": 0.0,
+      "total_buys": 0,
+      "total_stock": 0,
+      "low_sample_warning": true,
+      "relocation_hint": null,
+      "valid_sku_attribution": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
+      "stock_geography_available": false,
+      "minimum_sample_met": false,
+      "analysis_status": "blocked_by_data",
+      "blocked_reasons": [
+        "missing_order_count",
+        "missing_demand_geography",
+        "missing_stock_geography",
+        "localization_not_computable"
+      ],
+      "blocked_reason_details": {
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": false,
+        "minimum_sample_met": false,
+        "minimum_orders_required": 5,
+        "total_orders": 0.0,
+        "localization_known": false
+      },
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
+      "recommendation_ready": false,
+      "recommendation_notes": [],
+      "evidence_sources": {
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
+        "stock_geography": "missing",
+        "demand_regions": "missing",
+        "stock_regions": "missing",
+        "sku_attribution": "metrics_data_quality"
+      },
+      "known_facts": {
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
+        "stock_warehouses_count": 0,
+        "demand_regions_count": 0,
+        "stock_regions_count": 0
+      },
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "stock_geography",
+        "localization_share"
+      ],
+      "suppressed_recommendations": [
+        "rebalance_stock",
+        "relocate_inventory"
+      ]
+    },
+    {
+      "sku": "898642228",
+      "total_orders": 0.0,
+      "local_orders": 0.0,
+      "localization_share": null,
+      "ktr": null,
+      "krp": null,
+      "average_retail_price": null,
+      "irp_penalty_per_order": null,
+      "estimated_irp_penalty_total": 0.0,
+      "distribution_state": "no_orders",
+      "distribution_state_label_ru": "нет заказов",
+      "effective_date_applied": true,
+      "confidence": "low",
+      "analysis_mode": "disabled",
+      "data_quality_status": "insufficient_data",
+      "recommendation_status": "blocked_by_data",
+      "diagnostics": {
+        "price_source": "missing",
+        "local_orders_source": "not_applicable_no_orders",
+        "distribution_gap": null,
+        "locality_score": 0.0,
+        "demand_by_warehouse": {},
+        "stock_by_warehouse": {},
+        "demand_share_by_warehouse": {},
+        "stock_share_by_warehouse": {},
+        "demand_by_region": {},
+        "stock_by_region": {},
+        "demand_share_by_region": {},
+        "stock_share_by_region": {},
+        "top_demand_regions": [],
+        "top_supply_regions": [],
+        "non_local_orders_estimate": null,
+        "non_local_share_pct": null,
+        "analysis_status": "blocked_by_data",
+        "blocked_reasons": [
+          "missing_order_count",
+          "missing_demand_geography",
+          "missing_stock_geography",
+          "localization_not_computable"
+        ],
+        "blocked_reason_details": {
+          "valid_sku_attribution": true,
+          "order_count_available": false,
+          "demand_geography_available": false,
+          "stock_geography_available": false,
+          "minimum_sample_met": false,
+          "minimum_orders_required": 5,
+          "total_orders": 0.0,
+          "localization_known": false
+        },
+        "dominant_demand_warehouses": [],
+        "dominant_stock_warehouses": [],
+        "reverse_logistics_modeling": "deferred_until_volume_fields_available",
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": false,
+        "minimum_sample_met": false,
+        "evidence_sources": {
+          "local_orders": "not_applicable_no_orders",
+          "demand_geography": "missing",
+          "stock_geography": "missing",
+          "demand_regions": "missing",
+          "stock_regions": "missing",
+          "sku_attribution": "metrics_data_quality"
+        },
+        "known_facts": {
+          "total_orders": 0.0,
+          "demand_warehouses_count": 0,
+          "stock_warehouses_count": 0,
+          "demand_regions_count": 0,
+          "stock_regions_count": 0
+        },
+        "estimated_metrics": {},
+        "unavailable_metrics": [
+          "demand_geography",
+          "stock_geography",
+          "localization_share"
+        ],
+        "suppressed_recommendations": [
+          "rebalance_stock",
+          "relocate_inventory"
+        ]
+      },
+      "notes": [
+        "average_retail_price_missing",
+        "localization_share_unknown"
+      ],
+      "status": "no_demand_data",
+      "distribution_gap": null,
+      "demand_by_warehouse": {},
+      "stock_by_warehouse": {},
+      "demand_share_by_warehouse": {},
+      "stock_share_by_warehouse": {},
+      "demand_by_region": {},
+      "stock_by_region": {},
+      "demand_share_by_region": {},
+      "stock_share_by_region": {},
+      "top_demand_regions": [],
+      "top_supply_regions": [],
+      "dominant_demand_warehouses": [],
+      "dominant_stock_warehouses": [],
+      "locality_score": 0.0,
+      "total_buys": 0,
+      "total_stock": 0,
+      "low_sample_warning": true,
+      "relocation_hint": null,
+      "valid_sku_attribution": true,
+      "order_count_available": false,
+      "demand_geography_available": false,
+      "stock_geography_available": false,
+      "minimum_sample_met": false,
+      "analysis_status": "blocked_by_data",
+      "blocked_reasons": [
+        "missing_order_count",
+        "missing_demand_geography",
+        "missing_stock_geography",
+        "localization_not_computable"
+      ],
+      "blocked_reason_details": {
+        "valid_sku_attribution": true,
+        "order_count_available": false,
+        "demand_geography_available": false,
+        "stock_geography_available": false,
+        "minimum_sample_met": false,
+        "minimum_orders_required": 5,
+        "total_orders": 0.0,
+        "localization_known": false
+      },
+      "non_local_orders_estimate": null,
+      "non_local_share_pct": null,
+      "recommendation_candidates": [],
+      "recommended_destination": "",
+      "recommendation_ready": false,
+      "recommendation_notes": [],
+      "evidence_sources": {
+        "local_orders": "not_applicable_no_orders",
+        "demand_geography": "missing",
+        "stock_geography": "missing",
+        "demand_regions": "missing",
+        "stock_regions": "missing",
+        "sku_attribution": "metrics_data_quality"
+      },
+      "known_facts": {
+        "total_orders": 0.0,
+        "demand_warehouses_count": 0,
+        "stock_warehouses_count": 0,
+        "demand_regions_count": 0,
+        "stock_regions_count": 0
+      },
+      "estimated_metrics": {},
+      "unavailable_metrics": [
+        "demand_geography",
+        "stock_geography",
+        "localization_share"
+      ],
+      "suppressed_recommendations": [
+        "rebalance_stock",
+        "relocate_inventory"
+      ]
+    }
+  ]
+}

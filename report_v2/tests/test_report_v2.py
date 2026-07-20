@@ -18,7 +18,7 @@ from report_v2.builders.report_payload_builder import (
     build_report_payload_v2,
     build_sku_health_section_v2,
 )
-from report_v2.renderers.pdf_renderer_v2 import write_report_pdf_v2
+from report_v2.renderers.pdf_renderer_v2 import _profit_row_tone, write_report_pdf_v2
 from report_v2.run_report_v2 import build_report_v2_from_files
 from wb_api_core.normalize import normalize_bundle
 from wb_api_core.reconcile import reconcile_bundle
@@ -508,6 +508,10 @@ def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -
             "penalties": 0.0,
             "tax": 0.0,
             "returns_qty": 3.0,
+            "rows": [
+                {"returns_qty": 1.0, "logistics_amount": 284.0},
+                {"returns_qty": 0.0, "logistics_amount": 639.0},
+            ],
         }
     )
     snapshot["live_operational"]["sales"].update(
@@ -553,25 +557,55 @@ def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -
     )
 
     payload = build_report_payload_v2(snapshot, debug=_sample_debug(), artifact_dir=artifact_dir)
-    profit_rows = {row["label"]: row["value"] for row in payload["profit_section"]["rows"]}
+    profit_rows = {row["label"]: row for row in payload["profit_section"]["rows"]}
     hero_rows = {row["label"]: row["value"] for row in payload["hero_section"]["rows"]}
 
-    assert profit_rows["Выручка от выкупов"] == "4 500,77 ₽"
-    assert profit_rows["Комиссия WB"] == "-353,48 ₽"
-    assert profit_rows["Логистика"] == "-1 809 ₽"
-    assert profit_rows["Ребиллинг логистики"] == "-219,40 ₽"
-    assert profit_rows["Хранение"] == "-24,55 ₽"
-    assert profit_rows["Эквайринг"] == "-108,57 ₽"
-    assert profit_rows["Удержания"] == "-3 005 ₽"
-    assert profit_rows["Возвраты (шт)"] == "3 шт"
-    assert profit_rows["Себестоимость товаров"] == "-1 230 ₽"
-    assert profit_rows["Реклама"] == "-298,77 ₽"
-    assert profit_rows["Итого затраты"] == "-7 048,77 ₽"
-    assert profit_rows["Чистая прибыль"] == "-2 548 ₽"
-    assert profit_rows["Маржа"] == "-56.6%"
+    assert profit_rows["Выручка от выкупов"]["value"] == "4 500,77 ₽"
+    assert profit_rows["Комиссия WB"]["value"] == "-353,48 ₽"
+    assert profit_rows["Комиссия WB, доля"]["value"] == "13,02% от 2 714,24 ₽"
+    assert profit_rows["Логистика"]["value"] == "-1 809 ₽"
+    assert profit_rows["Доп. списания за перевозку и складские операции"]["value"] == "-219,40 ₽"
+    assert profit_rows["Хранение"]["value"] == "-24,55 ₽"
+    assert profit_rows["Эквайринг"]["value"] == "-108,57 ₽"
+    assert profit_rows["Удержания"]["value"] == "-3 005 ₽"
+    assert profit_rows["Возвраты (шт)"]["value"] == "3 шт"
+    assert profit_rows["Возвраты (шт)"]["status"] == "critical"
+    assert profit_rows["Затраты на возвраты (в составе логистики)"]["value"] == "-284 ₽"
+    assert profit_rows["Затраты на возвраты (в составе логистики)"]["status"] == "critical"
+    assert profit_rows["Себестоимость товаров"]["value"] == "-1 230 ₽"
+    assert profit_rows["Реклама"]["value"] == "-298,77 ₽"
+    assert profit_rows["Итого затраты"]["value"] == "-7 048,77 ₽"
+    assert profit_rows["Чистая прибыль"]["value"] == "-2 548 ₽"
+    assert profit_rows["Маржа"]["value"] == "-56.6%"
+    assert profit_rows["Маржа"]["status"] == "critical"
     assert hero_rows["Сумма выкупов"] == "4 500,77 ₽"
     assert hero_rows["Прибыль"] == "-2 548 ₽"
     assert payload["profit_section"]["revenue_basis"] == "buyouts_amount"
+
+
+def test_profit_colors_returns_and_margin_by_threshold() -> None:
+    assert _profit_row_tone({"label": "Возвраты (шт)", "value": "0 шт", "status": "positive"}) == "positive"
+    assert _profit_row_tone({"label": "Возвраты (шт)", "value": "1 шт", "status": "critical"}) == "critical"
+    assert _profit_row_tone({"label": "Маржа", "value": "15%", "status": "info"}) == "neutral"
+    assert _profit_row_tone({"label": "Маржа", "value": "15.1%", "status": "positive"}) == "positive"
+
+
+def test_hero_does_not_render_missing_stocks_as_zero() -> None:
+    snapshot = _sample_snapshot()
+    snapshot["live_operational"]["stocks"] = {
+        "source": "stocks_api",
+        "available": False,
+        "total_units": None,
+    }
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+    hero_rows = {row["label"]: row for row in payload["hero_section"]["rows"]}
+    stock_box = next(box for box in payload["hero_section"]["alert_boxes"] if box["label"] == "ОСТАТКИ")
+
+    assert hero_rows["Остатки"]["value"] == "нет данных"
+    assert hero_rows["Остатки"]["status"] == "unavailable"
+    assert stock_box["value"] == "нет данных"
+    assert stock_box["status"] == "unavailable"
 
 
 def test_wb_reference_kpis_split_funnel_orders_from_finance_realization() -> None:
