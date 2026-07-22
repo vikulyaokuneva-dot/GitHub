@@ -206,6 +206,33 @@ class TestReportVersionMode(unittest.TestCase):
             self.assertEqual(os.path.basename(str(job.get("pdf_path") or "")), "report_v2.pdf")
             self.assertNotIn("report.pdf", json.dumps(job, ensure_ascii=False))
 
+    def test_daily_output_stage_saves_history_for_operational_day(self) -> None:
+        with tempfile.TemporaryDirectory() as repo_root:
+            out_dir = os.path.join(repo_root, "cabinets", "seller_001", "artifacts")
+            core_dir = os.path.join(out_dir, "wb_api_core", "2026-04-22")
+            snapshot = _snapshot_payload()
+            snapshot["run_date"] = "2026-04-22"
+            snapshot["operational_date"] = "2026-04-21"
+            _write_json(os.path.join(core_dir, "snapshot.json"), snapshot)
+            _write_json(os.path.join(core_dir, "debug.json"), _debug_payload())
+
+            with patch.dict(os.environ, {"REPORT_VERSION": "v2"}, clear=False), patch(
+                "v3.pipeline.daily_output_stage.run_daily_history_stage",
+                return_value={},
+            ) as history_stage:
+                run_daily_output_stage(
+                    {
+                        "repo_root": repo_root,
+                        "seller_id": "seller_001",
+                        "run_date": "2026-04-22",
+                        "out_dir": out_dir,
+                        "started_at": "2026-04-22T10:00:00Z",
+                    }
+                )
+
+            history_payload = history_stage.call_args.args[0]
+            self.assertEqual(history_payload.get("run_date"), "2026-04-21")
+
     def test_daily_output_stage_v2_env_overrides_legacy_context_mode(self) -> None:
         with tempfile.TemporaryDirectory() as repo_root:
             out_dir = os.path.join(repo_root, "cabinets", "seller_001", "artifacts")

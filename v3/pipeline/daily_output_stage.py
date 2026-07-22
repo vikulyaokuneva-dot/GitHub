@@ -219,7 +219,7 @@ def _run_daily_output_stage_v2(context: Dict[str, Any]) -> Dict[str, Any]:
     try:
         history_payload = {
             "seller_id": normalized_seller_id,
-            "run_date": report_date,
+            "run_date": operational_day,
             "out_dir": out_dir,
             "facts": report_payload.get("facts", {}) if isinstance(report_payload, dict) else {},
             "warnings_collector": None,
