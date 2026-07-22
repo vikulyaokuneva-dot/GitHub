@@ -120,6 +120,7 @@ class FunnelSectionV2(TypedDict, total=False):
     title: str
     subtitle: str
     rows: list[FunnelStageRowV2]
+    history_comparison: dict[str, dict[str, str]]
     status: str
     message: str
 

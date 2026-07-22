@@ -281,7 +281,7 @@ def _table_with_comparison(
     width: float,
     font_name: str,
     style: ParagraphStyle,
-    key_map: dict[str, str] | None = None,
+    key_map: dict[str, dict[str, Any]] | None = None,
     headers: list[str] | None = None,
     label_key: str = "label",
     value_key: str = "value",
@@ -299,6 +299,8 @@ def _table_with_comparison(
         match = sd_map.get(label, {})
         today_val = _format_text(match.get("today", "")) if match else ""
         prev_val = _format_text(match.get("yesterday", "н/д")) if match else "н/д"
+        if match and value in {"нет данных", "н/д", "unavailable"} and today_val not in {"нет данных", "н/д"}:
+            value = today_val
         delta_pct = _calc_delta_from_values(today_val, prev_val)
         if delta_pct is not None and delta_pct > 0:
             delta_cell = Paragraph(f'<font color="#166534">+{abs(delta_pct):.1f}%</font>', style)
@@ -800,7 +802,7 @@ def _sku_funnel_table(funnel: dict[str, Any], *, width: float, font_name: str, s
         ("Переходы в карточку", str(card_opens) if card_opens else "—", "—"),
         ("Корзина", str(cart), f"{open_to_cart}%" if card_opens else "—"),
         ("Заказы", str(orders), f"{cr_cart_to_order}%" if cart else "—"),
-        ("Выкупы", str(buyouts), f"{cr_order_to_buyout}%" if orders else "—"),
+        ("Выкупы по воронке", str(buyouts), f"{cr_order_to_buyout}%" if orders else "—"),
     ]
     table_rows = [[Paragraph("Этап", style), Paragraph("Значение", style), Paragraph("Конверсия", style)]]
     for label, value, conv in rows_data:
@@ -906,14 +908,20 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             _hv = _hr.get("value", "")
             if _hl in sd_map and sd_map[_hl].get("today") in ("нет данных", "", None):
                 sd_map[_hl]["today"] = _hv
-    funnel_comparison: dict[str, dict[str, Any]] = {}
+    _payload_funnel_section = payload.get("funnel_section", {}) if isinstance(payload, dict) else {}
+    funnel_comparison = (
+        dict(_payload_funnel_section.get("history_comparison", {}))
+        if isinstance(_payload_funnel_section, dict)
+        and isinstance(_payload_funnel_section.get("history_comparison"), dict)
+        else {}
+    )
     _meta = payload.get("meta", {}) if isinstance(payload, dict) else {}
     _seller_id = _meta.get("seller_id", "")
     _op_date = _meta.get("operational_date", "")
 
     # Try loading funnel_history.json for direct daily comparison
     _funnel_history_data: list[dict[str, Any]] = []
-    if _seller_id and _op_date:
+    if _seller_id and _op_date and not funnel_comparison:
         import json as _json_mod
         from pathlib import Path as _Path
         for _fh_candidate in [
@@ -930,7 +938,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                     _funnel_history_data = []
                 break
 
-    if _seller_id and _op_date:
+    if _seller_id and _op_date and not funnel_comparison:
         import json as _json_mod
         from pathlib import Path as _Path
         _hist_path = _Path("cabinets") / _seller_id / "history" / "history_index.json"
@@ -994,13 +1002,26 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                                 }
                                 break
                 _funnel_stage_map = {
-                    "Переходы в карточку": "open_count", "Корзина": "cart",
-                    "Заказы": "orders", "Выкупы": "buyouts",
+                    "Переходы в карточку": ("open_count", "clicks"),
+                    "Корзина": ("cart_count", "cart"),
+                    "Заказы": ("orders_count", "orders"),
+                    "Выкупы": ("buyouts_count", "buyouts"),
                 }
-                _fmt_funnel = lambda v: f"{int(v)} шт" if v and v == int(v) else f"{v} шт" if v else "н/д"
-                for _stage, _key in _funnel_stage_map.items():
-                    _t = _today_funnel.get(_key)
-                    _y = _yesterday_funnel.get(_key)
+                def _history_funnel_value(block: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+                    for key in keys:
+                        value = block.get(key)
+                        if value is None:
+                            continue
+                        try:
+                            return float(value)
+                        except (TypeError, ValueError):
+                            continue
+                    return None
+
+                _fmt_funnel = lambda v: "н/д" if v is None else f"{int(v)} шт" if v == int(v) else f"{v} шт"
+                for _stage, _keys in _funnel_stage_map.items():
+                    _t = _history_funnel_value(_today_funnel, _keys)
+                    _y = _history_funnel_value(_yesterday_funnel, _keys)
                     _vs = None
                     if _t is not None and _y is not None and _y != 0:
                         _vs = round((_t - _y) / abs(_y) * 100, 1)
@@ -1011,17 +1032,29 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                         "vs_yesterday": _vs_str,
                     }
                 _conv_pairs = [
-                    ("Карточка → Корзина", "cart", "open_count"),
-                    ("Корзина → Заказ", "orders", "cart"),
-                    ("Заказ → Выкуп", "buyouts", "orders"),
+                    ("Карточка → Корзина", ("cart_count", "cart"), ("open_count", "clicks")),
+                    ("Корзина → Заказ", ("orders_count", "orders"), ("cart_count", "cart")),
+                    ("Заказ → Выкуп", ("buyouts_count", "buyouts"), ("orders_count", "orders")),
                 ]
-                for _cstage, _num_key, _den_key in _conv_pairs:
-                    _tn = _today_funnel.get(_num_key)
-                    _td = _today_funnel.get(_den_key)
-                    _yn = _yesterday_funnel.get(_num_key)
-                    _yd = _yesterday_funnel.get(_den_key)
-                    _t_pct = round(_tn / _td * 100, 1) if _tn is not None and _td and _td > 0 else None
-                    _y_pct = round(_yn / _yd * 100, 1) if _yn is not None and _yd and _yd > 0 else None
+                for _cstage, _num_keys, _den_keys in _conv_pairs:
+                    _today_numerator = _history_funnel_value(_today_funnel, _num_keys)
+                    _today_denominator = _history_funnel_value(_today_funnel, _den_keys)
+                    _yesterday_numerator = _history_funnel_value(_yesterday_funnel, _num_keys)
+                    _yesterday_denominator = _history_funnel_value(_yesterday_funnel, _den_keys)
+                    _t_pct = (
+                        round(_today_numerator / _today_denominator * 100, 1)
+                        if _today_numerator is not None
+                        and _today_denominator is not None
+                        and _today_denominator > 0
+                        else None
+                    )
+                    _y_pct = (
+                        round(_yesterday_numerator / _yesterday_denominator * 100, 1)
+                        if _yesterday_numerator is not None
+                        and _yesterday_denominator is not None
+                        and _yesterday_denominator > 0
+                        else None
+                    )
                     _cv = None
                     if _t_pct is not None and _y_pct is not None and _y_pct != 0:
                         _cv = round((_t_pct - _y_pct) / abs(_y_pct) * 100, 1)
@@ -1184,8 +1217,8 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
             ("LEFTPADDING", (0, 0), (-1, -1), 5),
             ("RIGHTPADDING", (0, 0), (-1, -1), 5),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -1194,6 +1227,12 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             if not isinstance(row, dict):
                 continue
             tone = _profit_row_tone(row)
+            if _format_text(row.get("label")) in {
+                "Прямая логистика возвратов",
+                "Обратная логистика возвратов",
+                "Всего затрат на возвраты (в составе логистики)",
+            }:
+                profit_style_list.append(("LEFTPADDING", (0, idx + 1), (0, idx + 1), 14))
             if tone == "critical":
                 profit_style_list.append(("BACKGROUND", (0, idx + 1), (-1, idx + 1), colors.HexColor("#FEF2F2")))
             elif tone == "positive":
@@ -1243,14 +1282,27 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
 
     _ads_history = {}
     _orders_history = {}
+    _sales_dynamics = payload.get("sales_dynamics_section", {}) if isinstance(payload, dict) else {}
+    _chart_rows = _sales_dynamics.get("chart_rows", []) if isinstance(_sales_dynamics, dict) else []
+    if isinstance(_chart_rows, list):
+        for _chart_row in _chart_rows:
+            if not isinstance(_chart_row, dict):
+                continue
+            _chart_date = str(_chart_row.get("date") or "")
+            if not _chart_date:
+                continue
+            if _chart_row.get("ads_spend") is not None:
+                _ads_history[_chart_date] = float(_chart_row["ads_spend"])
+            if _chart_row.get("orders_amount") is not None:
+                _orders_history[_chart_date] = float(_chart_row["orders_amount"])
     _meta_ads = payload.get("meta", {}) if isinstance(payload, dict) else {}
     _sid_ads = _meta_ads.get("seller_id", "")
     _opd_ads = _meta_ads.get("operational_date", "")
     _hi = {}
-    if _sid_ads and _opd_ads:
+    from datetime import datetime as _dta, timedelta as _tda
+    if not _ads_history and _sid_ads and _opd_ads:
         import json as _ja
         from pathlib import Path as _Pa
-        from datetime import datetime as _dta, timedelta as _tda
         _hp = _Pa(r"D:\WB\Бот ИИ менеджер\GitHub\cabinets") / _sid_ads / "history" / "history_index.json"
         if not _hp.is_file():
             _hp = _Pa("cabinets") / _sid_ads / "history" / "history_index.json"
@@ -1280,18 +1332,18 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         except Exception:
             pass
         if _dates:
-            _spend_vals = [_ads_history.get(d, 0) for d in _dates]
-            _orders_vals = [_orders_history.get(d, 0) for d in _dates]
+            _spend_vals = [_ads_history.get(d) for d in _dates]
+            _orders_vals = [_orders_history.get(d) for d in _dates]
             _labels = [d[-5:] for d in _dates]
             _drawing = Drawing(content_width, 160)
-            _drawing.add(String(content_width / 2, 145, "Расходы на рекламу и сумма заказов за 7 дней (₽)", fontName=font_info["font_name"], fontSize=9, textAnchor="middle", fillColor=colors.HexColor("#374151")))
+            _drawing.add(String(content_width / 2, 145, "Расходы на рекламу и сумма всех заказов за 7 дней (₽)", fontName=font_info["font_name"], fontSize=9, textAnchor="middle", fillColor=colors.HexColor("#374151")))
             _chart_left = 50
             _chart_right = content_width - 30
             _chart_top = 125
             _chart_bottom = 30
             _chart_w = _chart_right - _chart_left
             _chart_h = _chart_top - _chart_bottom
-            _all_vals = _spend_vals + _orders_vals
+            _all_vals = [value for value in _spend_vals + _orders_vals if value is not None]
             _max_val = max(_all_vals) if _all_vals and max(_all_vals) > 0 else 1
             _n = len(_spend_vals)
             _step = _chart_w / max(_n - 1, 1)
@@ -1299,19 +1351,27 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             _pts_orders = []
             for _i in range(_n):
                 _x = _chart_left + _i * _step
-                _ys = _chart_bottom + (_spend_vals[_i] / _max_val) * _chart_h if _max_val > 0 else _chart_bottom
-                _yo = _chart_bottom + (_orders_vals[_i] / _max_val) * _chart_h if _max_val > 0 else _chart_bottom
-                _pts_spend.append((_x, _ys, _spend_vals[_i]))
-                _pts_orders.append((_x, _yo, _orders_vals[_i]))
+                _spend_value = _spend_vals[_i]
+                _orders_value = _orders_vals[_i]
+                _ys = _chart_bottom + (_spend_value / _max_val) * _chart_h if _spend_value is not None else None
+                _yo = _chart_bottom + (_orders_value / _max_val) * _chart_h if _orders_value is not None else None
+                _pts_spend.append((_x, _ys, _spend_value))
+                _pts_orders.append((_x, _yo, _orders_value))
             for _j in range(len(_pts_spend) - 1):
-                _drawing.add(Line(_pts_spend[_j][0], _pts_spend[_j][1], _pts_spend[_j + 1][0], _pts_spend[_j + 1][1], strokeColor=colors.HexColor("#DC2626"), strokeWidth=2))
-                _drawing.add(Line(_pts_orders[_j][0], _pts_orders[_j][1], _pts_orders[_j + 1][0], _pts_orders[_j + 1][1], strokeColor=colors.HexColor("#2563EB"), strokeWidth=2))
+                if _pts_spend[_j][1] is not None and _pts_spend[_j + 1][1] is not None:
+                    _drawing.add(Line(_pts_spend[_j][0], _pts_spend[_j][1], _pts_spend[_j + 1][0], _pts_spend[_j + 1][1], strokeColor=colors.HexColor("#DC2626"), strokeWidth=2))
+                if _pts_orders[_j][1] is not None and _pts_orders[_j + 1][1] is not None:
+                    _drawing.add(Line(_pts_orders[_j][0], _pts_orders[_j][1], _pts_orders[_j + 1][0], _pts_orders[_j + 1][1], strokeColor=colors.HexColor("#2563EB"), strokeWidth=2))
             for _x, _y, _v in _pts_spend:
+                if _y is None or _v is None:
+                    continue
                 _drawing.add(Circle(_x, _y, 3, fillColor=colors.HexColor("#DC2626"), strokeColor=colors.white, strokeWidth=1))
                 _vt = f"{_v:.0f}" if _v == int(_v) else f"{_v:.1f}"
                 if _v > 0:
                     _drawing.add(String(_x, _y + 8, _vt, fontName=font_info["font_name"], fontSize=7, textAnchor="middle", fillColor=colors.HexColor("#DC2626")))
             for _x, _y, _v in _pts_orders:
+                if _y is None or _v is None:
+                    continue
                 _drawing.add(Circle(_x, _y, 3, fillColor=colors.HexColor("#2563EB"), strokeColor=colors.white, strokeWidth=1))
                 if _v > 0:
                     _drawing.add(String(_x, _y - 12, f"{_v:.0f}", fontName=font_info["font_name"], fontSize=7, textAnchor="middle", fillColor=colors.HexColor("#2563EB")))
@@ -1322,7 +1382,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             _drawing.add(Line(_chart_left, _legend_y, _chart_left + 15, _legend_y, strokeColor=colors.HexColor("#DC2626"), strokeWidth=2))
             _drawing.add(String(_chart_left + 18, _legend_y - 3, "Расходы на рекламу", fontName=font_info["font_name"], fontSize=7, fillColor=colors.HexColor("#374151")))
             _drawing.add(Line(_chart_left + 130, _legend_y, _chart_left + 145, _legend_y, strokeColor=colors.HexColor("#2563EB"), strokeWidth=2))
-            _drawing.add(String(_chart_left + 148, _legend_y - 3, "Сумма заказов", fontName=font_info["font_name"], fontSize=7, fillColor=colors.HexColor("#374151")))
+            _drawing.add(String(_chart_left + 148, _legend_y - 3, "Сумма всех заказов", fontName=font_info["font_name"], fontSize=7, fillColor=colors.HexColor("#374151")))
             story.append(_drawing)
             story.append(Spacer(1, 6))
 

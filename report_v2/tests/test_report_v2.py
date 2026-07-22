@@ -509,8 +509,22 @@ def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -
             "tax": 0.0,
             "returns_qty": 3.0,
             "rows": [
-                {"returns_qty": 1.0, "logistics_amount": 284.0},
-                {"returns_qty": 0.0, "logistics_amount": 639.0},
+                {
+                    "nm_id": "898642228",
+                    "order_date": "2026-07-15",
+                    "warehouse": "Екатеринбург - Перспективная 14",
+                    "returns_qty": 1.0,
+                    "deliveries_qty": 0.0,
+                    "logistics_amount": 284.0,
+                },
+                {
+                    "nm_id": "898642228",
+                    "order_date": "2026-07-15",
+                    "warehouse": "Екатеринбург - Перспективная 14",
+                    "returns_qty": 0.0,
+                    "deliveries_qty": 1.0,
+                    "logistics_amount": 639.0,
+                },
             ],
         }
     )
@@ -570,8 +584,10 @@ def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -
     assert profit_rows["Удержания"]["value"] == "-3 005 ₽"
     assert profit_rows["Возвраты (шт)"]["value"] == "3 шт"
     assert profit_rows["Возвраты (шт)"]["status"] == "critical"
-    assert profit_rows["Затраты на возвраты (в составе логистики)"]["value"] == "-284 ₽"
-    assert profit_rows["Затраты на возвраты (в составе логистики)"]["status"] == "critical"
+    assert profit_rows["Прямая логистика возвратов"]["value"] == "-639 ₽"
+    assert profit_rows["Обратная логистика возвратов"]["value"] == "-284 ₽"
+    assert profit_rows["Всего затрат на возвраты (в составе логистики)"]["value"] == "-923 ₽"
+    assert profit_rows["Всего затрат на возвраты (в составе логистики)"]["status"] == "critical"
     assert profit_rows["Себестоимость товаров"]["value"] == "-1 230 ₽"
     assert profit_rows["Реклама"]["value"] == "-298,77 ₽"
     assert profit_rows["Итого затраты"]["value"] == "-7 048,77 ₽"
@@ -588,6 +604,158 @@ def test_profit_colors_returns_and_margin_by_threshold() -> None:
     assert _profit_row_tone({"label": "Возвраты (шт)", "value": "1 шт", "status": "critical"}) == "critical"
     assert _profit_row_tone({"label": "Маржа", "value": "15%", "status": "info"}) == "neutral"
     assert _profit_row_tone({"label": "Маржа", "value": "15.1%", "status": "positive"}) == "positive"
+
+
+def test_return_cost_contains_direct_and_reverse_logistics_for_all_returns() -> None:
+    snapshot = _sample_snapshot()
+    snapshot["finance_final_daily"].update(
+        {
+            "returns_qty": 3.0,
+            "rows": [
+                {"nm_id": "898642228", "order_date": "2026-07-15", "warehouse": "Екатеринбург", "deliveries_qty": 5.0, "returns_qty": 0.0, "logistics_amount": 3195.0},
+                {"nm_id": "898642228", "order_date": "2026-07-15", "warehouse": "Екатеринбург", "deliveries_qty": 0.0, "returns_qty": 2.0, "logistics_amount": 568.0},
+                {"nm_id": "547274690", "order_date": "2026-07-14", "warehouse": "ЦФО МП", "deliveries_qty": 1.0, "returns_qty": 0.0, "logistics_amount": 312.98},
+                {"nm_id": "547274690", "order_date": "2026-07-14", "warehouse": "ЦФО МП", "deliveries_qty": 0.0, "returns_qty": 1.0, "logistics_amount": 189.69},
+            ],
+        }
+    )
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+    rows = {row["label"]: row for row in payload["profit_section"]["rows"]}
+
+    assert rows["Прямая логистика возвратов"]["value"] == "-1 590,98 ₽"
+    assert rows["Обратная логистика возвратов"]["value"] == "-757,69 ₽"
+    assert rows["Всего затрат на возвраты (в составе логистики)"]["value"] == "-2 348,67 ₽"
+
+
+def test_default_cogs_for_cross_block_is_100_rubles() -> None:
+    snapshot = _sample_snapshot()
+    snapshot["live_operational"]["sales"]["rows"] = [
+        {"nm_id": "898642228", "quantity": 1.0, "amount": 1700.0}
+    ]
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug())
+    rows = {row["label"]: row for row in payload["profit_section"]["rows"]}
+
+    assert rows["Себестоимость товаров"]["value"] == "-100 ₽"
+    assert payload["sku_detail_section"]["top_skus"][0]["cogs"] == 100.0
+
+
+def test_sales_history_is_updated_idempotently_and_feeds_chart(tmp_path: Path) -> None:
+    artifact_dir = tmp_path / "cabinets" / "seller_001" / "artifacts" / "wb_api_core" / "2026-04-21"
+    history_path = tmp_path / "cabinets" / "seller_001" / "history" / "history_index.json"
+    artifact_dir.mkdir(parents=True)
+    history_path.parent.mkdir(parents=True)
+    history_path.write_text(
+        json.dumps(
+            {
+                "seller_id": "seller_001",
+                "snapshots": [
+                    {
+                        "date": "2026-04-20",
+                        "kpi": {
+                            "revenue": "1500",
+                            "profit": "300",
+                            "orders": 4,
+                            "orders_amount": "3200",
+                            "buyouts": 2,
+                            "ads_spend": "120",
+                            "funnel": {
+                                "clicks": 300,
+                                "cart": 30,
+                                "orders": 4,
+                                "buyouts": 2,
+                            },
+                        },
+                    },
+                    {
+                        "date": "2026-04-21",
+                        "path": "daily/2026-04-21",
+                        "files": ["metrics.json"],
+                        "kpi": {"preserved_marker": "keep"},
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    snapshot = _sample_snapshot()
+    snapshot["live_operational"]["ads"] = {"available": True, "ads_spend_total": 203.21}
+    snapshot["funnel_daily"] = {
+        "available": True,
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "open_count": 423,
+        "cart_count": 42,
+        "orders_count": 5,
+        "buyouts_count": 2,
+        "orders_amount": 4260,
+        "buyouts_amount": 1700,
+    }
+
+    first = build_report_payload_v2(snapshot, debug=_sample_debug(), artifact_dir=artifact_dir)
+    second = build_report_payload_v2(snapshot, debug=_sample_debug(), artifact_dir=artifact_dir)
+    rows = {row["label"]: row for row in first["sales_dynamics_section"]["rows"]}
+    history = json.loads(history_path.read_text(encoding="utf-8"))
+
+    assert rows["Выручка"]["yesterday"] == "1 500 ₽"
+    assert rows["Сумма заказов"]["yesterday"] == "3 200 ₽"
+    assert first["sales_dynamics_section"]["chart_available"] is True
+    assert first["sales_dynamics_section"]["chart_rows"][-1]["ads_spend"] == 203.21
+    assert sum(item.get("date") == "2026-04-21" for item in history["snapshots"]) == 1
+    current_history = next(item for item in history["snapshots"] if item.get("date") == "2026-04-21")
+    assert current_history["kpi"]["funnel"]["open_count"] == 423
+    assert current_history["kpi"]["preserved_marker"] == "keep"
+    assert current_history["files"] == ["metrics.json"]
+    assert first["funnel_section"]["history_comparison"]["Переходы в карточку"]["yesterday"] == "300 шт"
+    assert second["sales_dynamics_section"]["rows"] == first["sales_dynamics_section"]["rows"]
+
+    next_artifact_dir = tmp_path / "cabinets" / "seller_001" / "artifacts" / "wb_api_core" / "2026-04-22"
+    next_artifact_dir.mkdir(parents=True)
+    next_snapshot = _sample_snapshot()
+    next_snapshot["run_date"] = "2026-04-22"
+    next_snapshot["operational_date"] = "2026-04-22"
+    next_snapshot["cabinet_commerce_daily"].update(
+        {
+            "target_date": "2026-04-22",
+            "orders_count": 6,
+            "orders_amount": 5000,
+            "buyouts_count": 3,
+            "buyouts_amount": 2100,
+        }
+    )
+    next_snapshot["funnel_daily"] = {
+        "available": True,
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "open_count": 500,
+        "cart_count": 50,
+        "orders_count": 6,
+        "buyouts_count": 3,
+    }
+
+    next_payload = build_report_payload_v2(
+        next_snapshot,
+        debug=_sample_debug(),
+        artifact_dir=next_artifact_dir,
+    )
+    next_rows = {row["label"]: row for row in next_payload["sales_dynamics_section"]["rows"]}
+
+    assert next_rows["Выручка"]["yesterday"] == rows["Выручка"]["today"]
+    assert next_rows["Прибыль"]["yesterday"] == rows["Прибыль"]["today"]
+    assert next_payload["funnel_section"]["history_comparison"]["Переходы в карточку"]["yesterday"] == "423 шт"
+    assert next_payload["funnel_section"]["history_comparison"]["Корзина"]["yesterday"] == "42 шт"
+
+    pdf_path = tmp_path / "history_comparison.pdf"
+    write_report_pdf_v2(pdf_path, next_payload)
+    assert pdf_path.is_file()
+    assert pdf_path.stat().st_size > 0
+
+
+def test_non_cabinet_artifact_dir_does_not_create_history(tmp_path: Path) -> None:
+    build_report_payload_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
+
+    assert not (tmp_path / "cabinets").exists()
 
 
 def test_hero_does_not_render_missing_stocks_as_zero() -> None:
@@ -1612,6 +1780,21 @@ def test_abc_analysis_section_is_ok_when_artifact_exists(tmp_path: Path) -> None
     assert section["summary"]["category_C_count"] == 1
     assert section["summary"]["category_A_share"] == 0.70
     assert section["categories"]["A"][0]["sku"] == "SKU-GROW"
+
+
+def test_abc_section_explains_buyout_basis(tmp_path: Path) -> None:
+    artifact = _sample_abc_analysis_artifact()
+    for row in artifact:
+        row["basis"] = "buys"
+    (tmp_path / "abc_analysis.json").write_text(
+        json.dumps(artifact, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
+
+    assert "по количеству выкупов" in payload["abc_section"]["subtitle"]
+    assert "C означает низкий вклад" in payload["abc_section"]["subtitle"]
 
 
 def test_profit_and_abc_missing_values_are_not_converted_to_zero(tmp_path: Path) -> None:

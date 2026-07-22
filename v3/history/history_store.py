@@ -15,6 +15,15 @@ def _safe_float(value: Any) -> float:
         return 0.0
 
 
+def _optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _safe_int(value: Any) -> int:
     try:
         if value is None:
@@ -142,6 +151,11 @@ def save_daily_history_snapshot(seller_id: str, run_date: str, artifacts_dir: Pa
     if not isinstance(funnel_daily, dict):
         funnel_daily = {}
 
+    funnel_open_count = _optional_float(funnel_daily.get("open_count"))
+    funnel_cart_count = _optional_float(funnel_daily.get("cart_count"))
+    funnel_orders_count = _optional_float(funnel_daily.get("orders_count"))
+    funnel_buyouts_count = _optional_float(funnel_daily.get("buyouts_count"))
+
     snapshot_meta = {
         "date": run_date,
         "path": f"daily/{run_date}",
@@ -166,13 +180,18 @@ def save_daily_history_snapshot(seller_id: str, run_date: str, artifacts_dir: Pa
                 4,
             ),
             "funnel": {
-                "impressions": _safe_float(funnel_daily.get("impressions")),
-                "clicks": _safe_float(funnel_daily.get("open_count")),
-                "cart": _safe_float(funnel_daily.get("cart_count")),
-                "orders": _safe_float(funnel_daily.get("orders_count")),
-                "buyouts": _safe_float(funnel_daily.get("buyouts_count")),
-                "orders_amount": _safe_float(funnel_daily.get("orders_amount")),
-                "buyouts_amount": _safe_float(funnel_daily.get("buyouts_amount")),
+                "impressions": _optional_float(funnel_daily.get("impressions")),
+                "open_count": funnel_open_count,
+                "cart_count": funnel_cart_count,
+                "orders_count": funnel_orders_count,
+                "buyouts_count": funnel_buyouts_count,
+                # Legacy aliases remain readable by older history consumers.
+                "clicks": funnel_open_count,
+                "cart": funnel_cart_count,
+                "orders": funnel_orders_count,
+                "buyouts": funnel_buyouts_count,
+                "orders_amount": _optional_float(funnel_daily.get("orders_amount")),
+                "buyouts_amount": _optional_float(funnel_daily.get("buyouts_amount")),
             },
             "orders": _safe_int(funnel_daily.get("orders_count")),
             "orders_amount": round(

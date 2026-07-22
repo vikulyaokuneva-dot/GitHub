@@ -875,7 +875,11 @@ def _funnel_daily_rate_row(stage: str, block: dict[str, Any], field_name: str, *
     )
 
 
-def _load_previous_funnel_from_history(snapshot: dict[str, Any]) -> dict[str, Any]:
+def _load_previous_funnel_from_history(
+    snapshot: dict[str, Any],
+    *,
+    repo_root: str | Path | None = None,
+) -> dict[str, Any]:
     """Load previous day's funnel data from history index."""
     seller_id = _safe_str(snapshot.get("seller_id"))
     operational_date = _safe_str(snapshot.get("operational_date") or snapshot.get("run_date"))
@@ -892,9 +896,9 @@ def _load_previous_funnel_from_history(snapshot: dict[str, Any]) -> dict[str, An
     yesterday = (today - timedelta(days=1)).isoformat()
     week_ago = (today - timedelta(days=7)).isoformat()
 
-    root = Path(".")
+    root = Path(repo_root) if repo_root is not None else Path(".")
     history_index_path = root / "cabinets" / seller_id / "history" / "history_index.json"
-    if not history_index_path.is_file():
+    if not history_index_path.is_file() and repo_root is None:
         alt = Path("..") / "cabinets" / seller_id / "history" / "history_index.json"
         if alt.is_file():
             history_index_path = alt
@@ -932,10 +936,78 @@ def _funnel_delta_pct(current: Any, previous: Any) -> str:
     return f"{sign}{pct}%"
 
 
+def _history_funnel_numeric(block: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        value = _safe_float(block.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _funnel_history_comparison(
+    current: dict[str, Any],
+    previous: dict[str, Any],
+) -> dict[str, dict[str, str]]:
+    aliases = {
+        "open_count": ("open_count", "clicks"),
+        "cart_count": ("cart_count", "cart"),
+        "orders_count": ("orders_count", "orders"),
+        "buyouts_count": ("buyouts_count", "buyouts"),
+    }
+
+    def value(block: dict[str, Any], key: str) -> float | None:
+        return _history_funnel_numeric(block, *aliases[key])
+
+    def rate(numerator: float | None, denominator: float | None) -> float | None:
+        if numerator is None or denominator is None or denominator == 0:
+            return None
+        return numerator / denominator * 100
+
+    def count_text(number: float | None) -> str:
+        if number is None:
+            return "н/д"
+        return f"{int(number)} шт" if number == int(number) else f"{number} шт"
+
+    comparison: dict[str, dict[str, str]] = {}
+    for label, key in (
+        ("Переходы в карточку", "open_count"),
+        ("Корзина", "cart_count"),
+        ("Заказы", "orders_count"),
+        ("Выкупы", "buyouts_count"),
+    ):
+        current_value = value(current, key)
+        previous_value = value(previous, key)
+        comparison[label] = {
+            "today": count_text(current_value),
+            "yesterday": count_text(previous_value),
+            "vs_yesterday": _funnel_delta_pct(current_value, previous_value),
+        }
+
+    for label, numerator_key, denominator_key in (
+        ("Карточка → Корзина", "cart_count", "open_count"),
+        ("Корзина → Заказ", "orders_count", "cart_count"),
+        ("Заказ → Выкуп", "buyouts_count", "orders_count"),
+    ):
+        current_numerator = value(current, numerator_key)
+        current_denominator = value(current, denominator_key)
+        previous_numerator = value(previous, numerator_key)
+        previous_denominator = value(previous, denominator_key)
+        current_rate = rate(current_numerator, current_denominator)
+        previous_rate = rate(previous_numerator, previous_denominator)
+        comparison[label] = {
+            "today": f"{current_rate:.1f}%" if current_rate is not None else "нет данных",
+            "yesterday": f"{previous_rate:.1f}%" if previous_rate is not None else "нет данных",
+            "vs_yesterday": _funnel_delta_pct(current_rate, previous_rate),
+        }
+    return comparison
+
+
 def build_funnel_section_v2(
     snapshot: dict[str, Any],
     cabinet_commerce: dict[str, Any],
     debug: dict[str, Any] | None,
+    *,
+    repo_root: str | Path | None = None,
 ) -> FunnelSectionV2:
     _ = debug
     safe_snapshot = _safe_dict(snapshot)
@@ -983,7 +1055,7 @@ def build_funnel_section_v2(
             _funnel_daily_rate_row("Заказ → Выкуп", funnel_daily, "order_to_buyout_rate", source=source),
         ]
 
-        prev_funnel = _load_previous_funnel_from_history(safe_snapshot)
+        prev_funnel = _load_previous_funnel_from_history(safe_snapshot, repo_root=repo_root)
         prev_y = _safe_dict(prev_funnel.get("yesterday"))
         prev_w = _safe_dict(prev_funnel.get("week_ago"))
         if prev_y or prev_w:
@@ -1012,6 +1084,7 @@ def build_funnel_section_v2(
             "title": "Воронка продаж",
             "subtitle": "",
             "rows": rows,
+            "history_comparison": _funnel_history_comparison(funnel_daily, prev_y),
             "status": status,
             "message": "",
         }
@@ -1115,7 +1188,7 @@ def build_funnel_section_v2(
         status = "unavailable"
         message = "Нет core-safe данных для заказов и выкупов."
 
-    prev_funnel = _load_previous_funnel_from_history(safe_snapshot)
+    prev_funnel = _load_previous_funnel_from_history(safe_snapshot, repo_root=repo_root)
     prev_y = _safe_dict(prev_funnel.get("yesterday"))
     prev_w = _safe_dict(prev_funnel.get("week_ago"))
     if prev_y or prev_w:
@@ -1142,6 +1215,15 @@ def build_funnel_section_v2(
         "title": "Воронка продаж",
         "subtitle": "События карточки и заказа; финансовая реализация считается отдельно.",
         "rows": rows,
+        "history_comparison": _funnel_history_comparison(
+            {
+                "open_count": _history_funnel_numeric(upper, "open_count", "card_opens", "views"),
+                "cart_count": _history_funnel_numeric(upper, "cart_count", "add_to_cart", "basket_count"),
+                "orders_count": orders_count,
+                "buyouts_count": buyouts_count if buyouts_count is not None else sales_count,
+            },
+            prev_y,
+        ),
         "status": status,
         "message": message,
     }
@@ -1226,6 +1308,18 @@ def _artifact_dirs(artifact_dir: str | Path | None) -> list[Path]:
         seen.add(key)
         unique.append(item)
     return unique
+
+
+def _repo_root_from_artifact_dir(artifact_dir: str | Path | None) -> Path:
+    if artifact_dir is None:
+        return Path(".")
+    start = Path(artifact_dir)
+    if start.is_file():
+        start = start.parent
+    for candidate in (start, *start.parents):
+        if candidate.name.lower() == "cabinets":
+            return candidate.parent
+    return start
 
 
 def _ads_artifact_dirs(artifact_dir: str | Path | None) -> list[Path]:
@@ -3278,6 +3372,13 @@ def build_abc_section_v2(
 ) -> AbcSectionV2:
     _ = debug
     payload = _load_abc_analysis_artifact(artifact_dir)
+    abc_basis = _first_text(*[row.get("basis") for row in _abc_raw_rows(payload)])
+    abc_basis_label = {
+        "buys": "по количеству выкупов",
+        "buyouts": "по количеству выкупов",
+        "revenue": "по выручке",
+        "profit": "по прибыли",
+    }.get(abc_basis.lower(), abc_basis)
 
     has_valid_data = False
     if isinstance(payload, list):
@@ -3298,8 +3399,8 @@ def build_abc_section_v2(
         finance_rows = finance.get("rows", []) if isinstance(finance.get("rows"), list) else []
 
         cogs_map_local = {
-            898642228: 600, 969315704: 600, 333615320: 210,
-            452102417: 210, 453526507: 210, 590614192: 180, 283212418: 450,
+            nm_id: float(amount)
+            for nm_id, amount in _load_cogs_by_nm_id(artifact_dir).items()
         }
         sku_rev_profit: dict[str, dict[str, float]] = {}
 
@@ -3366,7 +3467,7 @@ def build_abc_section_v2(
                 sku_rev_profit[key] = {"revenue": fin["revenue"], "profit": fin["revenue"] - total_exp}
 
         if not sku_rev_profit:
-            detail = _build_sku_detail_section(snapshot)
+            detail = _build_sku_detail_section(snapshot, artifact_dir=artifact_dir)
             for s in detail.get("top_skus", []) + detail.get("loss_skus", []):
                 nm = str(s.get("nm_id", ""))
                 if nm:
@@ -3595,7 +3696,11 @@ def build_abc_section_v2(
 
     section: AbcSectionV2 = {
         "title": "Ассортимент / ABC",
-        "subtitle": "Вклад SKU, критичные A-SKU и рекламная активность C-SKU.",
+        "subtitle": (
+            f"ABC-категории рассчитаны {abc_basis_label}; C означает низкий вклад, а не отсутствие продаж."
+            if abc_basis_label
+            else "Вклад SKU, критичные A-SKU и рекламная активность C-SKU."
+        ),
         "status": status,
         "source": "abc_analysis.json",
         "message": message,
@@ -3853,7 +3958,7 @@ def build_stock_section_v2(snapshot: dict[str, Any]) -> StockSectionV2:
 
 
 _LEGACY_COGS_BY_NM_ID = {
-    898642228: Decimal("600"),
+    898642228: Decimal("100"),
     969315704: Decimal("600"),
     333615320: Decimal("210"),
     452102417: Decimal("210"),
@@ -3905,17 +4010,48 @@ def _profit_calculation(
     tax = expense("tax")
 
     finance_rows = finance.get("rows", []) if isinstance(finance.get("rows"), list) else []
-    return_logistics = Decimal("0")
+    return_groups: dict[tuple[str, str, str], dict[str, Decimal]] = {}
     for raw_row in finance_rows:
         row = _safe_dict(raw_row)
+        group_key = (
+            _safe_str(row.get("nm_id") or row.get("sku")),
+            _safe_str(row.get("order_date")),
+            _safe_str(row.get("warehouse")),
+        )
+        group = return_groups.setdefault(
+            group_key,
+            {
+                "returns_qty": Decimal("0"),
+                "reverse_logistics": Decimal("0"),
+                "deliveries_qty": Decimal("0"),
+                "direct_logistics": Decimal("0"),
+            },
+        )
         row_returns_qty = _safe_decimal(row.get("returns_qty")) or Decimal("0")
-        if row_returns_qty <= 0:
-            continue
-        return_logistics += abs(
+        row_deliveries_qty = _safe_decimal(row.get("deliveries_qty")) or Decimal("0")
+        row_logistics = abs(
             _safe_decimal(row.get("logistics_amount"))
             or _safe_decimal(row.get("logistics"))
             or Decimal("0")
         )
+        if row_returns_qty > 0:
+            group["returns_qty"] += row_returns_qty
+            group["reverse_logistics"] += row_logistics
+        elif row_deliveries_qty > 0:
+            group["deliveries_qty"] += row_deliveries_qty
+            group["direct_logistics"] += row_logistics
+
+    return_direct_logistics = Decimal("0")
+    return_reverse_logistics = Decimal("0")
+    for group in return_groups.values():
+        group_returns = group["returns_qty"]
+        if group_returns <= 0:
+            continue
+        return_reverse_logistics += group["reverse_logistics"]
+        if group["deliveries_qty"] > 0:
+            direct_unit_cost = group["direct_logistics"] / group["deliveries_qty"]
+            return_direct_logistics += direct_unit_cost * group_returns
+    return_logistics = return_direct_logistics + return_reverse_logistics
 
     commission_basis = (
         _safe_decimal(finance.get("realized_sales_revenue"))
@@ -4000,6 +4136,8 @@ def _profit_calculation(
         "deductions": deductions,
         "tax": tax,
         "returns_qty": _safe_decimal(finance.get("returns_qty")) or Decimal("0"),
+        "return_direct_logistics": return_direct_logistics,
+        "return_reverse_logistics": return_reverse_logistics,
         "return_logistics": return_logistics,
         "commission_basis": commission_basis,
         "commission_rate": commission_rate,
@@ -4170,7 +4308,11 @@ def _build_losses_of_the_day(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_unit_economics_section(snapshot: dict[str, Any]) -> dict[str, Any]:
+def _build_unit_economics_section(
+    snapshot: dict[str, Any],
+    *,
+    artifact_dir: str | Path | None = None,
+) -> dict[str, Any]:
     cabinet = _safe_dict(snapshot.get("cabinet_commerce_daily"))
     finance = _safe_dict(snapshot.get("finance_final_daily"))
     live = _safe_dict(snapshot.get("live_operational"))
@@ -4181,8 +4323,8 @@ def _build_unit_economics_section(snapshot: dict[str, Any]) -> dict[str, Any]:
         return {"title": "Unit-экономика по SKU", "rows": [], "available": False}
 
     cogs_map = {
-        898642228: 600, 969315704: 600, 333615320: 210,
-        452102417: 210, 453526507: 210, 590614192: 180, 283212418: 450,
+        nm_id: float(amount)
+        for nm_id, amount in _load_cogs_by_nm_id(artifact_dir).items()
     }
 
     sales_rows = sales.get("rows", []) if isinstance(sales.get("rows"), list) else []
@@ -4280,6 +4422,8 @@ def _build_profit_section(
     deductions = calculation["deductions"]
     tax = calculation["tax"]
     returns_qty = calculation["returns_qty"]
+    return_direct_logistics = calculation["return_direct_logistics"]
+    return_reverse_logistics = calculation["return_reverse_logistics"]
     return_logistics = calculation["return_logistics"]
     commission_basis = calculation["commission_basis"]
     commission_rate = calculation["commission_rate"]
@@ -4329,7 +4473,21 @@ def _build_profit_section(
     )
     rows.append(
         {
-            "label": "Затраты на возвраты (в составе логистики)",
+            "label": "Прямая логистика возвратов",
+            "value": _format_display_money(-return_direct_logistics) if return_direct_logistics else _format_display_money(0),
+            "status": "critical" if return_direct_logistics > 0 else "positive",
+        }
+    )
+    rows.append(
+        {
+            "label": "Обратная логистика возвратов",
+            "value": _format_display_money(-return_reverse_logistics) if return_reverse_logistics else _format_display_money(0),
+            "status": "critical" if return_reverse_logistics > 0 else "positive",
+        }
+    )
+    rows.append(
+        {
+            "label": "Всего затрат на возвраты (в составе логистики)",
             "value": _format_display_money(-return_logistics) if return_logistics else _format_display_money(0),
             "status": "critical" if return_logistics > 0 else "positive",
         }
@@ -4471,7 +4629,11 @@ def _build_search_section(snapshot: dict[str, Any], *, artifact_dir: str | Path 
     }
 
 
-def _build_sku_detail_section(snapshot: dict[str, Any]) -> dict[str, Any]:
+def _build_sku_detail_section(
+    snapshot: dict[str, Any],
+    *,
+    artifact_dir: str | Path | None = None,
+) -> dict[str, Any]:
     live = _safe_dict(snapshot.get("live_operational"))
     sales_block = _safe_dict(live.get("sales"))
     orders_block = _safe_dict(live.get("orders"))
@@ -4486,8 +4648,8 @@ def _build_sku_detail_section(snapshot: dict[str, Any]) -> dict[str, Any]:
     funnel_sku_rows = funnel.get("sku_rows", []) if isinstance(funnel.get("sku_rows"), list) else []
 
     cogs_map = {
-        898642228: 600, 969315704: 600, 333615320: 210,
-        452102417: 210, 453526507: 210, 590614192: 180, 283212418: 450,
+        nm_id: float(amount)
+        for nm_id, amount in _load_cogs_by_nm_id(artifact_dir).items()
     }
 
     total_revenue = _safe_float(finance.get("realized_sales_revenue")) or 0
@@ -4658,7 +4820,9 @@ def _build_sku_detail_section(snapshot: dict[str, Any]) -> dict[str, Any]:
 def build_sales_dynamics_section_v2(
     snapshot: dict[str, Any],
     *,
+    cabinet_commerce: dict[str, Any] | None = None,
     repo_root: str | Path | None = None,
+    artifact_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     seller_id = _safe_str(snapshot.get("seller_id"))
     operational_date = _safe_str(snapshot.get("operational_date") or snapshot.get("run_date"))
@@ -4667,14 +4831,14 @@ def build_sales_dynamics_section_v2(
 
     root = Path(repo_root) if repo_root else Path(".")
     history_index_path = root / "cabinets" / seller_id / "history" / "history_index.json"
-    if not history_index_path.is_file():
+    if not history_index_path.is_file() and repo_root is None:
         alt_path = Path(".") / "cabinets" / seller_id / "history" / "history_index.json"
         if alt_path.is_file():
             history_index_path = alt_path
     index = _read_json_dict(history_index_path)
     snapshots_list = index.get("snapshots", []) if isinstance(index, dict) else []
-    if not isinstance(snapshots_list, list) or not snapshots_list:
-        return {"title": "Динамика продаж", "rows": [], "available": False}
+    if not isinstance(snapshots_list, list):
+        snapshots_list = []
 
     date_kpi: dict[str, dict[str, Any]] = {}
     for snap_meta in snapshots_list:
@@ -4697,20 +4861,103 @@ def build_sales_dynamics_section_v2(
     yesterday = (today - timedelta(days=1)).isoformat()
     week_ago = (today - timedelta(days=7)).isoformat()
 
+    cabinet = cabinet_commerce or _safe_dict(snapshot.get("cabinet_commerce_daily"))
+    live = _safe_dict(snapshot.get("live_operational"))
+    ads = _safe_dict(live.get("ads"))
+    funnel_daily = _safe_dict(snapshot.get("funnel_daily"))
+    upper_funnel = _clean_core_upper_funnel(snapshot)
+    calculation = _profit_calculation(snapshot, cabinet, artifact_dir=artifact_dir)
+    current_funnel_raw: dict[str, Any] = {
+        "open_count": _safe_int(
+            funnel_daily.get("open_count")
+            if funnel_daily.get("open_count") is not None
+            else _first_numeric(upper_funnel, ("open_count", "card_opens", "views"))
+        ),
+        "cart_count": _safe_int(
+            funnel_daily.get("cart_count")
+            if funnel_daily.get("cart_count") is not None
+            else _first_numeric(upper_funnel, ("cart_count", "add_to_cart", "basket_count"))
+        ),
+        "orders_count": _safe_int(
+            funnel_daily.get("orders_count")
+            if funnel_daily.get("orders_count") is not None
+            else cabinet.get("orders_count")
+        ),
+        "buyouts_count": _safe_int(
+            funnel_daily.get("buyouts_count")
+            if funnel_daily.get("buyouts_count") is not None
+            else cabinet.get("buyouts_count")
+        ),
+        "orders_amount": _safe_decimal(
+            funnel_daily.get("orders_amount")
+            if funnel_daily.get("orders_amount") is not None
+            else cabinet.get("orders_amount")
+        ),
+        "buyouts_amount": _safe_decimal(
+            funnel_daily.get("buyouts_amount")
+            if funnel_daily.get("buyouts_amount") is not None
+            else cabinet.get("buyouts_amount")
+        ),
+    }
+    current_funnel: dict[str, Any] = {
+        key: str(value) if isinstance(value, Decimal) else value
+        for key, value in current_funnel_raw.items()
+        if value is not None
+    }
+    current_kpi = {
+        "revenue": str(_safe_decimal(cabinet.get("buyouts_amount"))) if _safe_decimal(cabinet.get("buyouts_amount")) is not None else None,
+        "profit": str(calculation["net_profit"]) if calculation else None,
+        "orders": _safe_int(cabinet.get("orders_count")),
+        "orders_amount": str(_safe_decimal(cabinet.get("orders_amount"))) if _safe_decimal(cabinet.get("orders_amount")) is not None else None,
+        "buyouts": _safe_int(cabinet.get("buyouts_count")),
+        "ads_spend": str(_safe_decimal(ads.get("ads_spend_total"))) if _safe_decimal(ads.get("ads_spend_total")) is not None else None,
+        "funnel": current_funnel,
+    }
+    existing_current = date_kpi.get(operational_date, {})
+    existing_funnel = _safe_dict(existing_current.get("funnel"))
+    current_kpi["funnel"] = {**existing_funnel, **current_funnel}
+    date_kpi[operational_date] = {
+        **existing_current,
+        **{key: value for key, value in current_kpi.items() if value is not None},
+    }
+
+    artifact_path = Path(artifact_dir) if artifact_dir is not None else None
+    artifact_is_cabinet_path = artifact_path is not None and any(
+        candidate.name.lower() == "cabinets"
+        for candidate in (artifact_path, *artifact_path.parents)
+    )
+    if artifact_is_cabinet_path:
+        existing_current_meta = next(
+            (
+                item
+                for item in snapshots_list
+                if isinstance(item, dict) and _safe_str(item.get("date")) == operational_date
+            ),
+            {},
+        )
+        current_meta = {
+            **existing_current_meta,
+            "date": operational_date,
+            "path": _safe_str(existing_current_meta.get("path")) or f"daily/{operational_date}",
+            "kpi": date_kpi[operational_date],
+            "seller_id": seller_id,
+        }
+        updated_snapshots = [
+            item
+            for item in snapshots_list
+            if not isinstance(item, dict) or _safe_str(item.get("date")) != operational_date
+        ]
+        updated_snapshots.append(current_meta)
+        updated_snapshots.sort(key=lambda item: _safe_str(item.get("date")) if isinstance(item, dict) else "")
+        history_index_path.parent.mkdir(parents=True, exist_ok=True)
+        history_index_path.write_text(
+            json.dumps({"seller_id": seller_id, "snapshots": updated_snapshots}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
     today_kpi = _kpi_for(operational_date)
     yesterday_kpi = _kpi_for(yesterday)
     week_kpi = _kpi_for(week_ago)
-
-    # Fallback: if today's KPI is missing from history, use current snapshot data
-    if not today_kpi.get("revenue") and not today_kpi.get("profit"):
-        finance_daily = snapshot.get("finance_final_daily") or {}
-        live_sales = (snapshot.get("live_operational") or {}).get("sales") or {}
-        today_kpi = {
-            "revenue": finance_daily.get("realized_sales_revenue") or live_sales.get("amount"),
-            "profit": None,
-            "buyouts": live_sales.get("count"),
-            "ads_spend": today_kpi.get("ads_spend"),
-        }
 
     metrics = [
         ("Выручка", "revenue", "money"),
@@ -4764,10 +5011,27 @@ def build_sales_dynamics_section_v2(
         for _ in [1]
     ))
 
+    chart_rows = []
+    for offset in range(6, -1, -1):
+        date_str = (today - timedelta(days=offset)).isoformat()
+        kpi = _kpi_for(date_str)
+        chart_rows.append(
+            {
+                "date": date_str,
+                "ads_spend": _safe_float(kpi.get("ads_spend")),
+                "orders_amount": _safe_float(kpi.get("orders_amount")),
+            }
+        )
+
     return {
         "title": "Динамика продаж",
         "subtitle": f"Сегодня: {operational_date} | Вчера: {yesterday} | 7 дн. назад: {week_ago}",
         "rows": rows,
+        "chart_rows": chart_rows,
+        "chart_available": any(
+            row["ads_spend"] is not None or row["orders_amount"] is not None
+            for row in chart_rows
+        ),
         "available": available,
     }
 
@@ -5006,8 +5270,18 @@ def build_report_payload_v2(
             cabinet_commerce=cabinet_block,
             artifact_dir=artifact_dir,
         ),
-        "sales_dynamics_section": build_sales_dynamics_section_v2(snapshot, repo_root=Path(artifact_dir).parent.parent.parent if artifact_dir else None),
-        "funnel_section": build_funnel_section_v2(snapshot, cabinet_block, debug),
+        "sales_dynamics_section": build_sales_dynamics_section_v2(
+            snapshot,
+            cabinet_commerce=cabinet_block,
+            repo_root=_repo_root_from_artifact_dir(artifact_dir),
+            artifact_dir=artifact_dir,
+        ),
+        "funnel_section": build_funnel_section_v2(
+            snapshot,
+            cabinet_block,
+            debug,
+            repo_root=_repo_root_from_artifact_dir(artifact_dir),
+        ),
         "ads_efficiency_section": ads_efficiency_section,
         "ads_section": build_ads_section_v2(
             snapshot,
@@ -5019,7 +5293,7 @@ def build_report_payload_v2(
         "search_section": _build_search_section(snapshot, artifact_dir=artifact_dir),
         "sku_health_section": sku_health_section,
         "profit_contribution_section": profit_contribution_section,
-        "sku_detail_section": _build_sku_detail_section(snapshot),
+        "sku_detail_section": _build_sku_detail_section(snapshot, artifact_dir=artifact_dir),
         "abc_section": abc_section,
         "abc_analysis_section": abc_analysis_section,
         "finance_final": finance_block,
