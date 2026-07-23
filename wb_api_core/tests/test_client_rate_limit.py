@@ -123,7 +123,7 @@ def test_failed_429_response_contains_rate_limit_debug_fields() -> None:
     with patch("wb_api_core.client.requests.request", return_value=_response(429, headers=headers)):
         response = client.request_json(
             endpoint_name="stocks",
-            path="/api/v1/supplier/stocks",
+            path="/api/analytics/v1/stocks-report/wb-warehouses",
             retry_policy=_retry_policy(max_attempts=1),
         )
 

@@ -1240,7 +1240,7 @@ def test_live_section_v2_contains_display_rows() -> None:
     assert rows["Оперативные заказы"]["value"] == "3 шт"
     assert rows["Оперативные продажи"]["value"] == "3 шт"
     assert rows["Оперативные остатки"]["value"] == "322 шт"
-    assert "live snapshot stocks_api" in rows["Оперативные остатки"]["note"]
+    assert "live snapshot stocks_wb_warehouses_api" in rows["Оперативные остатки"]["note"]
     assert "товарного отчёта WB" in rows["Оперативные остатки"]["note"]
     assert rows["Дата среза оперативных остатков"]["value"] == "2026-04-22"
 
@@ -1795,6 +1795,184 @@ def test_abc_section_explains_buyout_basis(tmp_path: Path) -> None:
 
     assert "по количеству выкупов" in payload["abc_section"]["subtitle"]
     assert "C означает низкий вклад" in payload["abc_section"]["subtitle"]
+
+
+def test_abc_section_preserves_revenue_for_all_c_skus(tmp_path: Path) -> None:
+    artifact = [
+        {
+            "sku": "739377515",
+            "revenue": 1000.0,
+            "profit": 790.0,
+            "share": 0.5952,
+            "cumulative_share": 0.5952,
+            "abc_class": "A",
+            "basis": "buys",
+        },
+        {
+            "sku": "453526507",
+            "revenue": 400.0,
+            "profit": 120.0,
+            "share": 0.2381,
+            "cumulative_share": 0.8333,
+            "abc_class": "C",
+            "basis": "buys",
+        },
+        {
+            "sku": "969315704",
+            "revenue": 280.0,
+            "profit": 80.0,
+            "share": 0.1667,
+            "cumulative_share": 1.0,
+            "abc_class": "C",
+            "basis": "buys",
+        },
+    ]
+    (tmp_path / "abc_analysis.json").write_text(
+        json.dumps(artifact, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
+    c_skus = {
+        row["sku"]: row
+        for row in payload["abc_section"]["all_skus"]
+        if row.get("abc_class") == "C"
+    }
+
+    assert c_skus["453526507"]["revenue"] == 400.0
+    assert c_skus["453526507"]["profit"] == 120.0
+    assert c_skus["969315704"]["revenue"] == 280.0
+    assert c_skus["969315704"]["profit"] == 80.0
+
+    pdf_path = tmp_path / "abc_c_skus.pdf"
+    write_report_pdf_v2(pdf_path, payload)
+    pdf_text = _extract_pdf_text(pdf_path)
+
+    assert "453526507" in pdf_text
+    assert "400 ₽" in pdf_text
+    assert "969315704" in pdf_text
+    assert "280 ₽" in pdf_text
+
+
+def test_sku_finance_columns_are_standard_and_tax_is_attributed(tmp_path: Path) -> None:
+    snapshot = _sample_snapshot()
+    snapshot["live_operational"]["sales"]["rows"] = [
+        {"nm_id": "739377515", "quantity": 1, "amount": 1000.0}
+    ]
+    snapshot["live_operational"]["orders"]["rows"] = [
+        {"nm_id": "739377515", "seller_sku": "Простор синий"}
+    ]
+    snapshot["finance_final_daily"]["rows"] = [
+        {
+            "nm_id": "739377515",
+            "wb_commission": 100.0,
+            "logistics_amount": 50.0,
+            "acquiring": 20.0,
+            "tax": 30.0,
+        }
+    ]
+    snapshot["finance_final_daily"]["storage"] = 0.0
+    snapshot["finance_final_daily"]["deductions"] = 0.0
+    snapshot["finance_final_daily"]["tax"] = 30.0
+    (tmp_path / "abc_analysis.json").write_text(
+        json.dumps(
+            [
+                {
+                    "sku": "739377515",
+                    "revenue": 1000.0,
+                    "profit": 800.0,
+                    "share": 1.0,
+                    "cumulative_share": 1.0,
+                    "abc_class": "A",
+                },
+                {
+                    "sku": "453526507",
+                    "revenue": 1.0,
+                    "profit": 1.0,
+                    "share": 0.0,
+                    "cumulative_share": 1.0,
+                    "abc_class": "C",
+                },
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug(), artifact_dir=tmp_path)
+    detail = payload["sku_detail_section"]["top_skus"][0]
+
+    assert detail["nm_id"] == "739377515"
+    assert detail["commission"] == 100.0
+    assert detail["logistics"] == 50.0
+    assert detail["acquiring"] == 20.0
+    assert detail["tax"] == 30.0
+    assert detail["finance_attribution"] == "direct"
+
+    pdf_path = tmp_path / "sku_standard_finance_columns.pdf"
+    write_report_pdf_v2(pdf_path, payload)
+    pdf_text = _extract_pdf_text(pdf_path)
+
+    for label in ("Комиссия WB", "Логистика", "Эквайринг", "Налог"):
+        assert label in pdf_text
+
+
+def test_sku_finance_columns_show_no_data_instead_of_disappearing(tmp_path: Path) -> None:
+    snapshot = _sample_snapshot()
+    snapshot["finance_final_daily"]["date_aligned"] = False
+    snapshot["finance_final_daily"]["actual_date"] = "2026-04-20"
+    snapshot["live_operational"]["sales"]["rows"] = [
+        {"nm_id": "739377515", "quantity": 1, "amount": 1000.0}
+    ]
+    snapshot["finance_final_daily"]["rows"] = [
+        {
+            "nm_id": "739377515",
+            "wb_commission": 100.0,
+            "logistics_amount": 50.0,
+            "acquiring": 20.0,
+            "tax": 30.0,
+        }
+    ]
+    (tmp_path / "abc_analysis.json").write_text(
+        json.dumps(
+            [
+                {
+                    "sku": "739377515",
+                    "revenue": 1000.0,
+                    "profit": 800.0,
+                    "share": 1.0,
+                    "cumulative_share": 1.0,
+                    "abc_class": "A",
+                },
+                {
+                    "sku": "453526507",
+                    "revenue": 1.0,
+                    "profit": 1.0,
+                    "share": 0.0,
+                    "cumulative_share": 1.0,
+                    "abc_class": "C",
+                },
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    payload = build_report_payload_v2(snapshot, debug=_sample_debug(), artifact_dir=tmp_path)
+    detail = payload["sku_detail_section"]["top_skus"][0]
+
+    assert detail["commission"] is None
+    assert detail["logistics"] is None
+    assert detail["acquiring"] is None
+    assert detail["tax"] is None
+
+    pdf_path = tmp_path / "sku_missing_finance_columns.pdf"
+    write_report_pdf_v2(pdf_path, payload)
+    pdf_text = _extract_pdf_text(pdf_path)
+
+    for label in ("Комиссия WB", "Логистика", "Эквайринг", "Налог"):
+        assert label in pdf_text
+    assert pdf_text.count("нет данных") >= 4
 
 
 def test_profit_and_abc_missing_values_are_not_converted_to_zero(tmp_path: Path) -> None:

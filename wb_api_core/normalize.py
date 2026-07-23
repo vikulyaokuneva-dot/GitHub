@@ -332,9 +332,7 @@ def _normalize_stocks(rows_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         seller_sku = _pick_text(row, ("supplierArticle", "supplier_article", "vendorCode", "sellerSku"))
         quantity_full = _safe_float(row.get("quantityFull") or row.get("quantity_full"), default=0.0)
         quantity = _safe_float(row.get("quantity") or row.get("qty"), default=0.0)
-        in_way_to_client = _safe_float(row.get("inWayToClient"), default=0.0)
-        in_way_from_client = _safe_float(row.get("inWayFromClient"), default=0.0)
-        stock = max(quantity_full, quantity, quantity + in_way_to_client + in_way_from_client, 0.0)
+        stock = max(quantity_full, quantity, 0.0)
         rows.append(
             {
                 "date": _row_date_iso(row),
@@ -343,7 +341,7 @@ def _normalize_stocks(rows_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "seller_sku": seller_sku,
                 "stock": round(stock, 2),
                 "warehouse": _pick_text(row, ("warehouseName", "warehouse", "officeName")),
-                "source": "stocks_api",
+                "source": "stocks_wb_warehouses_api",
                 "_raw_row_index": index,
             }
         )

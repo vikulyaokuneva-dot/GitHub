@@ -3396,7 +3396,13 @@ def build_abc_section_v2(
         finance = _safe_dict(snapshot.get("finance_final_daily"))
         sales_rows = sales_block.get("rows", []) if isinstance(sales_block.get("rows"), list) else []
         orders_rows = orders_block.get("rows", []) if isinstance(orders_block.get("rows"), list) else []
-        finance_rows = finance.get("rows", []) if isinstance(finance.get("rows"), list) else []
+        finance_rows = (
+            finance.get("rows", [])
+            if bool(finance.get("available", False))
+            and finance.get("date_aligned") is not False
+            and isinstance(finance.get("rows"), list)
+            else []
+        )
 
         cogs_map_local = {
             nm_id: float(amount)
@@ -3416,14 +3422,24 @@ def build_abc_section_v2(
             stor = abs(_safe_float(row.get("storage")) or 0)
             acqu = abs(_safe_float(row.get("acquiring")) or 0)
             ded = abs(_safe_float(row.get("deductions")) or 0)
+            tax = abs(_safe_float(row.get("tax")) or 0)
             if key not in finance_by_sku:
-                finance_by_sku[key] = {"revenue": 0.0, "commission": 0.0, "logistics": 0.0, "storage": 0.0, "acquiring": 0.0, "deductions": 0.0}
+                finance_by_sku[key] = {
+                    "revenue": 0.0,
+                    "commission": 0.0,
+                    "logistics": 0.0,
+                    "storage": 0.0,
+                    "acquiring": 0.0,
+                    "deductions": 0.0,
+                    "tax": 0.0,
+                }
             finance_by_sku[key]["revenue"] += rev
             finance_by_sku[key]["commission"] += comm
             finance_by_sku[key]["logistics"] += logist
             finance_by_sku[key]["storage"] += stor
             finance_by_sku[key]["acquiring"] += acqu
             finance_by_sku[key]["deductions"] += ded
+            finance_by_sku[key]["tax"] += tax
 
         for row in sales_rows:
             nm_id = row.get("nm_id") or row.get("nmId")
@@ -3443,13 +3459,28 @@ def build_abc_section_v2(
                 rev = amount
                 if fin and fin["revenue"] > 0:
                     scale = rev / fin["revenue"] if fin["revenue"] > 0 else 1.0
-                    total_exp = (fin["commission"] + fin["logistics"] + fin["storage"] + fin["acquiring"] + fin["deductions"]) * scale + cogs_val
+                    total_exp = (
+                        fin["commission"]
+                        + fin["logistics"]
+                        + fin["storage"]
+                        + fin["acquiring"]
+                        + fin["deductions"]
+                        + fin["tax"]
+                    ) * scale + cogs_val
                 else:
                     total_exp = cogs_val
                 profit = rev - total_exp
             elif fin and fin["revenue"] > 0:
                 rev = fin["revenue"]
-                total_exp = fin["commission"] + fin["logistics"] + fin["storage"] + fin["acquiring"] + fin["deductions"] + cogs_val
+                total_exp = (
+                    fin["commission"]
+                    + fin["logistics"]
+                    + fin["storage"]
+                    + fin["acquiring"]
+                    + fin["deductions"]
+                    + fin["tax"]
+                    + cogs_val
+                )
                 profit = rev - total_exp
             else:
                 rev = 0
@@ -3463,7 +3494,14 @@ def build_abc_section_v2(
 
         for key, fin in finance_by_sku.items():
             if key not in sku_rev_profit and fin["revenue"] > 0:
-                total_exp = fin["commission"] + fin["logistics"] + fin["storage"] + fin["acquiring"] + fin["deductions"]
+                total_exp = (
+                    fin["commission"]
+                    + fin["logistics"]
+                    + fin["storage"]
+                    + fin["acquiring"]
+                    + fin["deductions"]
+                    + fin["tax"]
+                )
                 sku_rev_profit[key] = {"revenue": fin["revenue"], "profit": fin["revenue"] - total_exp}
 
         if not sku_rev_profit:
@@ -3566,6 +3604,7 @@ def build_abc_section_v2(
             "critical_a_skus": [],
             "c_skus_with_ads": [],
             "low_margin_skus": [],
+            "all_skus": [],
             "recommendations": [],
             "warnings": [],
         }
@@ -3709,6 +3748,7 @@ def build_abc_section_v2(
         "critical_a_skus": critical_a_skus[:10],
         "c_skus_with_ads": c_skus_with_ads[:10],
         "low_margin_skus": low_margin_skus[:10],
+        "all_skus": all_rows,
         "recommendations": _abc_section_recommendations(
             payload,
             critical_a_skus=critical_a_skus,
@@ -3840,8 +3880,8 @@ def build_live_section_v2(live_operational: dict[str, Any]) -> SectionV2:
             "Оперативные остатки",
             _format_display_int(stocks.get("total_units"), "шт"),
             note=_join_notes(
-                f"live snapshot stocks_api, дата среза {_format_display_text(stocks.get('snapshot_date'))}; источник: {_format_display_text(stocks.get('source'))}",
-                "Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день.",
+                f"live snapshot stocks_wb_warehouses_api, дата среза {_format_display_text(stocks.get('snapshot_date'))}; источник: {_format_display_text(stocks.get('source'))}",
+                "Оперативные остатки из stocks_wb_warehouses_api могут отличаться от остатков товарного отчёта WB за операционный день.",
                 _live_stale_note(stocks),
             ),
             status=_live_metric_status(stocks, stocks.get("total_units")),
@@ -3850,7 +3890,7 @@ def build_live_section_v2(live_operational: dict[str, Any]) -> SectionV2:
             "Дата среза оперативных остатков",
             _format_display_text(stocks.get("snapshot_date")),
             note=_join_notes(
-                f"Тип среза: {_format_display_text(stocks.get('snapshot_kind'))}; source: stocks_api live snapshot",
+                f"Тип среза: {_format_display_text(stocks.get('snapshot_kind'))}; source: stocks_wb_warehouses_api live snapshot",
                 _live_stale_note(stocks),
             ),
             status=_live_metric_status(stocks, stocks.get("snapshot_date")),
@@ -3858,14 +3898,14 @@ def build_live_section_v2(live_operational: dict[str, Any]) -> SectionV2:
     ]
     return {
         "title": "Оперативный срез",
-        "subtitle": "Оперативные заказы, продажи и live-остатки stocks_api без сравнения с товарным отчётом WB.",
+        "subtitle": "Оперативные заказы, продажи и live-остатки stocks_wb_warehouses_api без сравнения с товарным отчётом WB.",
         "rows": rows,
         "status": section_status,
     }
 
 
 _STOCK_GOODS_EXPLANATION = (
-    "Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день."
+    "Оперативные остатки из stocks_wb_warehouses_api могут отличаться от остатков товарного отчёта WB за операционный день."
 )
 
 
@@ -3908,7 +3948,7 @@ def build_stock_section_v2(snapshot: dict[str, Any]) -> StockSectionV2:
         _display_row(
             "Всего остатков",
             _format_display_int(stock_total_qty, "шт"),
-            note="Не заполняется из live stocks_api без отдельного товарного источника.",
+            note="Не заполняется из live stocks_wb_warehouses_api без отдельного товарного источника.",
             status=_display_status(available, stock_total_qty),
         ),
         _display_row(
@@ -3930,7 +3970,7 @@ def build_stock_section_v2(snapshot: dict[str, Any]) -> StockSectionV2:
         warnings.append(
             _warning(
                 "stock_goods_source_missing",
-                "Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.",
+                "Отдельный источник товарных остатков WB/МП не подключён; live stocks_wb_warehouses_api не используется как полный складской остаток.",
                 block="stock_section",
                 level="info",
             )
@@ -3938,14 +3978,14 @@ def build_stock_section_v2(snapshot: dict[str, Any]) -> StockSectionV2:
 
     return {
         "title": "Товарные остатки",
-        "subtitle": "Отдельный контур для остатков WB/МП и стоимости запасов; не смешивается с live stocks_api.",
+        "subtitle": "Отдельный контур для остатков WB/МП и стоимости запасов; не смешивается с live stocks_wb_warehouses_api.",
         "available": available,
         "status": "ok" if available else "no_data",
         "source": source if available else "missing",
         "message": (
             "Остатки собраны из отдельного товарного источника."
             if available
-            else "Нет отдельного источника stock_wb_qty/stock_mp_qty/stock_value; live stocks_api не подставляется."
+            else "Нет отдельного источника stock_wb_qty/stock_mp_qty/stock_value; live stocks_wb_warehouses_api не подставляется."
         ),
         "stock_wb_qty": stock_wb_qty,
         "stock_mp_qty": stock_mp_qty,
@@ -4643,7 +4683,12 @@ def _build_sku_detail_section(
 
     sales_rows = sales_block.get("rows", []) if isinstance(sales_block.get("rows"), list) else []
     orders_rows = orders_block.get("rows", []) if isinstance(orders_block.get("rows"), list) else []
-    finance_rows = finance.get("rows", []) if isinstance(finance.get("rows"), list) else []
+    finance_aligned = bool(finance.get("available", False)) and finance.get("date_aligned") is not False
+    finance_rows = (
+        finance.get("rows", [])
+        if finance_aligned and isinstance(finance.get("rows"), list)
+        else []
+    )
     ads_rows = ads_block.get("rows", []) if isinstance(ads_block.get("rows"), list) else []
     funnel_sku_rows = funnel.get("sku_rows", []) if isinstance(funnel.get("sku_rows"), list) else []
 
@@ -4652,14 +4697,36 @@ def _build_sku_detail_section(
         for nm_id, amount in _load_cogs_by_nm_id(artifact_dir).items()
     }
 
-    total_revenue = _safe_float(finance.get("realized_sales_revenue")) or 0
-    total_commission = abs(_safe_float(finance.get("wb_commission")) or 0)
-    total_storage = abs(_safe_float(finance.get("storage")) or 0)
-    total_acquiring = abs(_safe_float(finance.get("acquiring")) or 0)
-    total_deductions = abs(_safe_float(finance.get("deductions")) or 0)
+    total_revenue = (_safe_float(finance.get("realized_sales_revenue")) or 0) if finance_aligned else 0
+    total_commission = abs(_safe_float(finance.get("wb_commission")) or 0) if finance_aligned else 0
+    total_storage = abs(_safe_float(finance.get("storage")) or 0) if finance_aligned else 0
+    total_acquiring = abs(_safe_float(finance.get("acquiring")) or 0) if finance_aligned else 0
+    total_deductions = abs(_safe_float(finance.get("deductions")) or 0) if finance_aligned else 0
+    total_tax = abs(_safe_float(finance.get("tax")) or 0) if finance_aligned else 0
     total_ads = ads_block.get("ads_spend_total") or 0
 
     sku_data: dict[str, dict[str, Any]] = {}
+
+    def _empty_sku(nm_id: Any) -> dict[str, Any]:
+        return {
+            "nm_id": nm_id,
+            "seller_sku": "",
+            "title": "",
+            "revenue": 0,
+            "buyouts": 0,
+            "orders": 0,
+            "cogs": 0,
+            "commission": 0,
+            "logistics": 0,
+            "acquiring": 0,
+            "tax": 0,
+            "storage_share": 0,
+            "deductions_share": 0,
+            "ads_spend": 0,
+            "card_opens": 0,
+            "finance_row_matched": False,
+            "finance_attribution": "missing",
+        }
 
     for row in sales_rows:
         nm_id = row.get("nm_id") or row.get("nmId")
@@ -4667,7 +4734,7 @@ def _build_sku_detail_section(
             continue
         key = str(nm_id)
         if key not in sku_data:
-            sku_data[key] = {"nm_id": nm_id, "seller_sku": "", "title": "", "revenue": 0, "buyouts": 0, "orders": 0, "cogs": 0, "commission": 0, "logistics": 0, "acquiring": 0, "storage_share": 0, "deductions_share": 0, "ads_spend": 0, "card_opens": 0}
+            sku_data[key] = _empty_sku(nm_id)
         qty = _safe_float(row.get("quantity")) or 1
         amount = _safe_float(row.get("amount")) or 0
         sku_data[key]["revenue"] += amount
@@ -4685,7 +4752,7 @@ def _build_sku_detail_section(
             continue
         key = str(nm_id)
         if key not in sku_data:
-            sku_data[key] = {"nm_id": nm_id, "seller_sku": "", "title": "", "revenue": 0, "buyouts": 0, "orders": 0, "cogs": 0, "commission": 0, "logistics": 0, "acquiring": 0, "storage_share": 0, "deductions_share": 0, "ads_spend": 0, "card_opens": 0}
+            sku_data[key] = _empty_sku(nm_id)
         sku_data[key]["orders"] += 1
         seller_sku = row.get("seller_sku") or ""
         if seller_sku and not sku_data[key]["seller_sku"]:
@@ -4697,10 +4764,13 @@ def _build_sku_detail_section(
             continue
         key = str(nm_id)
         if key not in sku_data:
-            continue
+            sku_data[key] = _empty_sku(nm_id)
+        sku_data[key]["finance_row_matched"] = True
+        sku_data[key]["finance_attribution"] = "direct"
         sku_data[key]["commission"] += abs(_safe_float(row.get("wb_commission")) or 0)
         sku_data[key]["logistics"] += abs(_safe_float(row.get("logistics_amount")) or 0)
         sku_data[key]["acquiring"] += abs(_safe_float(row.get("acquiring")) or 0)
+        sku_data[key]["tax"] += abs(_safe_float(row.get("tax")) or 0)
 
     for row in ads_rows:
         nm_id = row.get("nm_id") or row.get("nmId")
@@ -4716,7 +4786,7 @@ def _build_sku_detail_section(
             continue
         key = str(nm_id)
         if key not in sku_data:
-            sku_data[key] = {"nm_id": nm_id, "seller_sku": "", "title": "", "revenue": 0, "buyouts": 0, "orders": 0, "cogs": 0, "commission": 0, "logistics": 0, "acquiring": 0, "storage_share": 0, "deductions_share": 0, "ads_spend": 0, "card_opens": 0}
+            sku_data[key] = _empty_sku(nm_id)
         if not sku_data[key]["seller_sku"]:
             sku_data[key]["seller_sku"] = fr.get("seller_sku") or ""
         if not sku_data[key]["title"]:
@@ -4735,15 +4805,18 @@ def _build_sku_detail_section(
                     nm_id_int = _safe_int(data["nm_id"])
                     if nm_id_int is not None and nm_id_int in cogs_map:
                         data["cogs"] = cogs_map[nm_id_int] * data["orders"]
-                    data["commission"] = round(total_commission * order_share, 2)
-                    data["acquiring"] = round(total_acquiring * order_share, 2)
+                    if finance_aligned:
+                        data["commission"] = round(total_commission * order_share, 2)
+                        data["acquiring"] = round(total_acquiring * order_share, 2)
+                        data["tax"] = round(total_tax * order_share, 2)
+                        data["finance_row_matched"] = True
+                        data["finance_attribution"] = "allocated"
 
     has_per_sku_logistics = any(d["logistics"] > 0 for d in sku_data.values())
     total_logistics_from_summary: float | None = None
     if not has_per_sku_logistics:
-        seller_payout_val = _safe_float(finance.get("seller_payout")) or 0
-        total_tax = abs(_safe_float(finance.get("tax")) or 0)
-        total_penalties = abs(_safe_float(finance.get("penalties")) or 0)
+        seller_payout_val = (_safe_float(finance.get("seller_payout")) or 0) if finance_aligned else 0
+        total_penalties = abs(_safe_float(finance.get("penalties")) or 0) if finance_aligned else 0
         computed_logistics = total_revenue - seller_payout_val - total_commission - total_storage - total_acquiring - total_deductions - total_tax - total_penalties
         if computed_logistics > 0:
             total_logistics_from_summary = round(computed_logistics, 2)
@@ -4754,7 +4827,20 @@ def _build_sku_detail_section(
         data["deductions_share"] = round(total_deductions * share, 2)
         if not has_per_sku_logistics and total_logistics_from_summary is not None and data["revenue"] > 0:
             data["logistics"] = round(total_logistics_from_summary * share, 2)
-        total_expenses = data["cogs"] + data["commission"] + data["logistics"] + data["acquiring"] + data["storage_share"] + data["deductions_share"] + data["ads_spend"]
+            if finance_aligned:
+                data["finance_row_matched"] = True
+                if data["finance_attribution"] == "missing":
+                    data["finance_attribution"] = "allocated"
+        total_expenses = (
+            data["cogs"]
+            + data["commission"]
+            + data["logistics"]
+            + data["acquiring"]
+            + data["tax"]
+            + data["storage_share"]
+            + data["deductions_share"]
+            + data["ads_spend"]
+        )
         data["profit"] = round(data["revenue"] - total_expenses, 2)
         data["margin_pct"] = round(data["profit"] / data["revenue"] * 100, 1) if data["revenue"] > 0 else 0
         data["share_pct"] = round(share * 100, 1)
@@ -4780,6 +4866,7 @@ def _build_sku_detail_section(
         buyouts_funnel = int(fr.get("buyouts", 0))
         cr_cart_to_order = round(orders_funnel / cart * 100, 1) if cart > 0 else 0
         cr_order_to_buyout = round(buyouts_funnel / orders_funnel * 100, 1) if orders_funnel > 0 else 0
+        finance_row_matched = bool(sku.get("finance_row_matched", False))
         return {
             "nm_id": sku["nm_id"],
             "seller_article": sku["seller_sku"],
@@ -4788,11 +4875,15 @@ def _build_sku_detail_section(
             "buyouts_count": sku["buyouts"],
             "revenue": sku["revenue"],
             "cogs": sku["cogs"],
-            "commission": sku["commission"],
-            "logistics": sku["logistics"],
-            "acquiring": sku["acquiring"],
-            "storage_share": sku["storage_share"],
-            "deductions_share": sku["deductions_share"],
+            "commission": sku["commission"] if finance_row_matched else None,
+            "logistics": sku["logistics"] if finance_row_matched else None,
+            "acquiring": sku["acquiring"] if finance_row_matched else None,
+            "tax": sku["tax"] if finance_row_matched else None,
+            "storage_share": sku["storage_share"] if finance_row_matched else None,
+            "deductions_share": sku["deductions_share"] if finance_row_matched else None,
+            "finance_attribution": sku.get("finance_attribution", "missing"),
+            "finance_actual_date": finance.get("actual_date"),
+            "finance_target_date": finance.get("target_date"),
             "ads_spend": sku["ads_spend"],
             "profit": sku["profit"],
             "margin_pct": sku["margin_pct"],

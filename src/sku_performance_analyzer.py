@@ -159,9 +159,7 @@ def _agg_stock_per_sku(stocks_raw: Any) -> Dict[int, int]:
             continue
         q_full = _to_int(it.get("quantityFull"))
         q = _to_int(it.get("quantity"))
-        q_client = _to_int(it.get("inWayToClient"))
-        q_from = _to_int(it.get("inWayFromClient"))
-        qty = max(q_full, q, q + q_client + q_from)
+        qty = max(q_full, q)
         per_sku[sku] = per_sku.get(sku, 0) + qty
     return per_sku
 

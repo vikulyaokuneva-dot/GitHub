@@ -37,12 +37,23 @@ def _pick_text(row: Dict[str, Any], keys: Iterable[str]) -> str:
 def load_stocks_from_api(client: WBApiClient, date_from: str, date_to: str) -> Dict[str, Any]:
     response = client.request_json(
         endpoint=STOCKS,
-        params={"dateFrom": date_from},
+        method="POST",
+        json_body={
+            "nmIds": [],
+            "chrtIds": [],
+            "limit": 250000,
+            "offset": 0,
+        },
         allow_204=True,
         empty_on_204=[],
     )
     payload = response.get("payload", [])
-    rows_raw = client.extract_rows(payload, ("data", "items", "rows"))
+    data = payload.get("data") if isinstance(payload, dict) else None
+    rows_raw = (
+        client.extract_rows(data, ("items", "rows"))
+        if isinstance(data, dict)
+        else client.extract_rows(payload, ("data", "items", "rows"))
+    )
 
     rows: List[Dict[str, Any]] = []
     for index, row in enumerate(rows_raw):
@@ -60,9 +71,7 @@ def load_stocks_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
         region = _pick_text(row, ("regionName", "region", "oblastOkrugName"))
         quantity_full = _as_float(row.get("quantityFull") or row.get("quantity_full"), default=0.0)
         quantity = _as_float(row.get("quantity") or row.get("qty"), default=0.0)
-        in_way_to_client = _as_float(row.get("inWayToClient"), default=0.0)
-        in_way_from_client = _as_float(row.get("inWayFromClient"), default=0.0)
-        stock = max(quantity_full, quantity, quantity + in_way_to_client + in_way_from_client, 0.0)
+        stock = max(quantity_full, quantity, 0.0)
 
         item: Dict[str, Any] = {
             "sku": sku,
@@ -74,7 +83,7 @@ def load_stocks_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
             "_sku_source_field": "nm_id" if sku and sku == _as_sku(nm_id) else "supplierArticle",
             "stock": round(stock, 2),
             "_raw_row_index": index,
-            "_source_dataset": "stocks_api",
+            "_source_dataset": "stocks_wb_warehouses_api",
         }
         rows.append(item)
 
@@ -85,6 +94,7 @@ def load_stocks_from_api(client: WBApiClient, date_from: str, date_to: str) -> D
         "rows_loaded": len(rows),
         "date_from": date_from,
         "date_to": date_to,
+        "snapshot_kind": "current",
         "error_text": str(response.get("error") or ""),
         "status_code": response.get("status_code"),
         "attempts": int(response.get("attempts", 0) or 0),

@@ -754,25 +754,31 @@ def _source_flags_table(rows: list[tuple[str, str, str]], *, width: float, font_
 
 
 def _sku_detail_table(sku: dict[str, Any], *, width: float, font_name: str, style: ParagraphStyle) -> Table:
+    def _money_or_no_data(value: Any, *, expense: bool = False) -> str:
+        if value is None:
+            return "нет данных"
+        raw_numeric = float(value)
+        numeric = 0.0 if abs(raw_numeric) < 0.005 else (-raw_numeric if expense else raw_numeric)
+        return _format_money(numeric)
+
     rows_data = [
         ("Заказы", f"{sku.get('orders_count', 0)} шт"),
         ("Выкупы", f"{sku.get('buyouts_count', 0)} шт"),
-        ("Выручка", _format_money(sku.get("revenue"))),
-        ("Себестоимость", _format_money(-sku.get("cogs", 0)) if sku.get("cogs") else None),
-        ("Комиссия WB", _format_money(-sku.get("commission", 0)) if sku.get("commission") else None),
-        ("Логистика", _format_money(-sku.get("logistics", 0))),
-        ("Эквайринг", _format_money(-sku.get("acquiring", 0)) if sku.get("acquiring") else None),
-        ("Хранение", _format_money(-sku.get("storage_share", 0)) if sku.get("storage_share") else None),
-        ("Удержания", _format_money(-sku.get("deductions_share", 0)) if sku.get("deductions_share") else None),
-        ("Реклама", _format_money(-sku.get("ads_spend", 0)) if sku.get("ads_spend") else None),
-        ("Чистая прибыль", _format_money(sku.get("profit"))),
+        ("Выручка", _money_or_no_data(sku.get("revenue"))),
+        ("Себестоимость", _money_or_no_data(sku.get("cogs"), expense=True)),
+        ("Комиссия WB", _money_or_no_data(sku.get("commission"), expense=True)),
+        ("Логистика", _money_or_no_data(sku.get("logistics"), expense=True)),
+        ("Эквайринг", _money_or_no_data(sku.get("acquiring"), expense=True)),
+        ("Хранение", _money_or_no_data(sku.get("storage_share"), expense=True)),
+        ("Удержания", _money_or_no_data(sku.get("deductions_share"), expense=True)),
+        ("Налог", _money_or_no_data(sku.get("tax"), expense=True)),
+        ("Реклама", _money_or_no_data(sku.get("ads_spend"), expense=True)),
+        ("Чистая прибыль", _money_or_no_data(sku.get("profit"))),
         ("Маржа", f"{sku.get('margin_pct', 0)}%"),
         ("Доля выручки", f"{sku.get('share_pct', 0)}%"),
     ]
     table_rows = [[Paragraph("Метрика", style), Paragraph("Значение", style)]]
     for label, value in rows_data:
-        if value is None:
-            continue
         table_rows.append([Paragraph(label, style), Paragraph(str(value), style)])
     table = Table(table_rows, colWidths=[width * 0.5, width * 0.5])
     table.setStyle(TableStyle([
@@ -891,9 +897,9 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         "Сумма выкупов": "Выручка",
         "Сумма заказов": "Заказы",
     }
-    for alias, target in sd_label_aliases.items():
-        if target in sd_map and alias not in sd_map:
-            sd_map[alias] = sd_map[target]
+    for alias, target_label in sd_label_aliases.items():
+        if target_label in sd_map and alias not in sd_map:
+            sd_map[alias] = sd_map[target_label]
     for _key in ("Реклама",):
         if _key in sd_map:
             for _fld in ("today", "yesterday", "week_ago"):
@@ -1547,7 +1553,14 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                     "profit_margin": item.get("profit_margin"),
                     "ad_spend": item.get("ad_spend"),
                 })
-        all_abc_skus = abc_section.get("top_a_skus", []) + abc_section.get("critical_a_skus", []) + abc_section.get("c_skus_with_ads", []) + abc_section.get("low_margin_skus", []) + c_from_analysis
+        all_abc_skus = (
+            abc_section.get("all_skus", [])
+            + abc_section.get("top_a_skus", [])
+            + abc_section.get("critical_a_skus", [])
+            + abc_section.get("c_skus_with_ads", [])
+            + abc_section.get("low_margin_skus", [])
+            + c_from_analysis
+        )
         seen_skus = set()
         unique_abc_skus = []
         for s in all_abc_skus:
@@ -1558,11 +1571,15 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
 
         a_skus = [s for s in unique_abc_skus if (s.get("abc_class") or "").upper() == "A"]
         c_negative_skus = [s for s in unique_abc_skus if (s.get("abc_class") or "").upper() == "C" and (s.get("profit") or 0) < 0]
+        top_skus_map = {
+            str(s.get("nm_id") or ""): s
+            for s in (sku_detail.get("top_skus", []) + sku_detail.get("loss_skus", []))
+            if isinstance(s, dict)
+        }
 
         if a_skus:
             story.append(Paragraph("Товары категории А — основные драйверы", styles["section"]))
             story.append(Spacer(1, 4))
-            top_skus_map = {str(s.get("nm_id") or ""): s for s in (sku_detail.get("top_skus", []) + sku_detail.get("loss_skus", [])) if isinstance(s, dict)}
             for idx, s in enumerate(a_skus):
                 sku_id = s.get("sku") or s.get("nm_id") or ""
                 detail = top_skus_map.get(str(sku_id), {})
@@ -1625,19 +1642,53 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         if c_all_skus:
             story.append(Paragraph("Товары категории C", styles["section"]))
             story.append(Spacer(1, 4))
-            c_header = [Paragraph(h, styles["hero_card"]) for h in ['SKU', 'Выручка', 'Прибыль', 'Маржа', 'Реклама']]
+            c_header = [
+                Paragraph(h, styles["hero_card"])
+                for h in [
+                    "SKU",
+                    "Выручка",
+                    "Комиссия",
+                    "Логистика",
+                    "Эквайринг",
+                    "Налог",
+                    "Прибыль / маржа",
+                    "Реклама",
+                ]
+            ]
             c_rows = [c_header]
-            for s in c_all_skus:
+            for s in c_all_skus[:10]:
+                sku_id = str(s.get("sku") or s.get("nm_id") or "")
+                detail = top_skus_map.get(sku_id, {})
                 margin_val = s.get("profit_margin")
                 margin_str = f"{round(margin_val * 100, 1)}%" if margin_val is not None else "—"
+                profit_value = detail.get("profit") if detail else s.get("profit")
+                profit_margin = detail.get("margin_pct") if detail else None
+                if profit_margin is not None:
+                    margin_str = f"{profit_margin}%"
+                profit_margin_text = f"{_format_query_money(profit_value)} / {margin_str}"
                 c_rows.append([
-                    Paragraph(_format_text(s.get("sku") or s.get("nm_id") or ""), styles["hero_card"]),
-                    Paragraph(_format_query_money(s.get("revenue")), styles["hero_card"]),
-                    Paragraph(_format_query_money(s.get("profit")), styles["hero_card"]),
-                    Paragraph(margin_str, styles["hero_card"]),
+                    Paragraph(_format_text(sku_id), styles["hero_card"]),
+                    Paragraph(_format_query_money(detail.get("revenue") if detail else s.get("revenue")), styles["hero_card"]),
+                    Paragraph(_format_query_money(-detail["commission"]) if detail.get("commission") is not None else "нет данных", styles["hero_card"]),
+                    Paragraph(_format_query_money(-detail["logistics"]) if detail.get("logistics") is not None else "нет данных", styles["hero_card"]),
+                    Paragraph(_format_query_money(-detail["acquiring"]) if detail.get("acquiring") is not None else "нет данных", styles["hero_card"]),
+                    Paragraph(_format_query_money(-detail["tax"]) if detail.get("tax") is not None else "нет данных", styles["hero_card"]),
+                    Paragraph(profit_margin_text, styles["hero_card"]),
                     Paragraph(_format_query_money(s.get("ad_spend")), styles["hero_card"]),
                 ])
-            c_table = Table(c_rows, colWidths=[content_width * 0.18, content_width * 0.20, content_width * 0.20, content_width * 0.20, content_width * 0.22])
+            c_table = Table(
+                c_rows,
+                colWidths=[
+                    content_width * 0.14,
+                    content_width * 0.12,
+                    content_width * 0.12,
+                    content_width * 0.12,
+                    content_width * 0.12,
+                    content_width * 0.09,
+                    content_width * 0.17,
+                    content_width * 0.12,
+                ],
+            )
             c_table.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#9CA3AF")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),

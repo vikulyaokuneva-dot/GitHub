@@ -17,7 +17,7 @@ ADVERT_BASE_URL = "https://advert-api.wildberries.ru"
 
 ORDERS_PATH = "/api/v1/supplier/orders"
 SALES_PATH = "/api/v1/supplier/sales"
-STOCKS_PATH = "/api/v1/supplier/stocks"
+STOCKS_WB_WAREHOUSES_PATH = "/api/analytics/v1/stocks-report/wb-warehouses"
 FINANCE_DETAILED_PATH = "/api/finance/v1/sales-reports/detailed"
 SALES_FUNNEL_PRODUCTS_PATH = "/api/analytics/v3/sales-funnel/products"
 ADVERTS_PATH = "/api/advert/v2/adverts"

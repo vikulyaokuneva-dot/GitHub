@@ -228,11 +228,8 @@ def calc_stock_forecast(
 
         q_full = to_int(it.get("quantityFull"))
         q = to_int(it.get("quantity"))
-        q_client = to_int(it.get("inWayToClient"))
-        q_from = to_int(it.get("inWayFromClient"))
-
-        # Если quantityFull отсутствует/0, берем максимально “полную” оценку
-        qty = max(q_full, q, q + q_client + q_from)
+        # Транзитные поля не входят в складской остаток.
+        qty = max(q_full, q)
 
         per_sku[sku] = per_sku.get(sku, 0) + qty
 

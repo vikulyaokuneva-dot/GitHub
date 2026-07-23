@@ -181,11 +181,8 @@ def build_facts_json() -> Dict[str, Any]:
 
             q_full = f(r.get("quantityFull"))
             q = f(r.get("quantity"))
-            q_client = f(r.get("inWayToClient"))
-            q_from = f(r.get("inWayFromClient"))
-
-            # максимально “полная” оценка по строке склада
-            qty_row = max(q_full, q, q + q_client + q_from)
+            # Транзитные поля не входят в складской остаток.
+            qty_row = max(q_full, q)
 
             if qty_row > 0:
                 per_sku_qty[sku] = per_sku_qty.get(sku, 0.0) + qty_row

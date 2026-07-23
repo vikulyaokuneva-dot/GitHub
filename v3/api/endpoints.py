@@ -17,7 +17,11 @@ class WBEndpoint:
 
 ORDERS = WBEndpoint(name="orders", base=BASE_STATISTICS, path="/api/v1/supplier/orders")
 SALES = WBEndpoint(name="sales", base=BASE_STATISTICS, path="/api/v1/supplier/sales")
-STOCKS = WBEndpoint(name="stocks", base=BASE_STATISTICS, path="/api/v1/supplier/stocks")
+STOCKS = WBEndpoint(
+    name="stocks_wb_warehouses",
+    base=BASE_ANALYTICS,
+    path="/api/analytics/v1/stocks-report/wb-warehouses",
+)
 REALIZATION = WBEndpoint(name="realization", base=BASE_STATISTICS, path="/api/v5/supplier/reportDetailByPeriod")
 ADS = WBEndpoint(name="ads", base=BASE_ADVERT, path="/api/advert/v2/adverts")
 FINANCE_SALES_REPORTS_DETAILED = WBEndpoint(

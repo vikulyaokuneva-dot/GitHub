@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import re
 import time
-from datetime import date, timedelta
 from typing import Any, Dict, Iterable, List
 
 import requests
@@ -19,6 +18,7 @@ class WBClient:
 
         self.advert_url = os.getenv("WB_ADVERT_BASE_URL", "https://advert-api.wildberries.ru").rstrip("/")
         self.statistics_url = os.getenv("WB_STATISTICS_BASE_URL", "https://statistics-api.wildberries.ru").rstrip("/")
+        self.analytics_url = os.getenv("WB_ANALYTICS_BASE_URL", "https://seller-analytics-api.wildberries.ru").rstrip("/")
 
     @staticmethod
     def _as_float(value: Any) -> float | None:
@@ -111,6 +111,39 @@ class WBClient:
                     return empty_on_204
                 if response.status_code == 403 and allow_403:
                     return empty_on_403
+                if response.status_code in (429, 500, 502, 503, 504):
+                    last_error = f"{response.status_code}: {response.text[:200]}"
+                    time.sleep(attempt * 1.5)
+                    continue
+                raise RuntimeError(f"WB API error {response.status_code}: {response.text}")
+            except Exception as exc:
+                last_error = str(exc)
+                time.sleep(attempt * 1.5)
+        raise RuntimeError(f"WB API failed after retries: {last_error}")
+
+    def _post_json(
+        self,
+        base_url: str,
+        path: str,
+        json_body: Dict[str, Any],
+        *,
+        allow_204: bool = False,
+        empty_on_204: Any = None,
+    ) -> Any:
+        url = f"{base_url.rstrip('/')}{path}"
+        last_error: str = "unknown_error"
+        for attempt in range(1, 6):
+            try:
+                response = requests.post(
+                    url,
+                    headers=self._headers(),
+                    json=json_body,
+                    timeout=60,
+                )
+                if response.status_code == 200:
+                    return response.json()
+                if response.status_code == 204 and allow_204:
+                    return empty_on_204
                 if response.status_code in (429, 500, 502, 503, 504):
                     last_error = f"{response.status_code}: {response.text[:200]}"
                     time.sleep(attempt * 1.5)
@@ -718,16 +751,25 @@ class WBClient:
         return out
 
     def fetch_stocks(self) -> List[Dict[str, Any]]:
-        date_from = (date.today() - timedelta(days=30)).isoformat()
-        print(f"[wb] fetch_stocks started date_from={date_from}")
-        payload = self._get_json(
-            base_url=self.statistics_url,
-            path="/api/v1/supplier/stocks",
-            params={"dateFrom": date_from},
+        print("[wb] fetch_stocks started source=stocks_wb_warehouses_api")
+        payload = self._post_json(
+            base_url=self.analytics_url,
+            path="/api/analytics/v1/stocks-report/wb-warehouses",
+            json_body={
+                "nmIds": [],
+                "chrtIds": [],
+                "limit": 250000,
+                "offset": 0,
+            },
             allow_204=True,
             empty_on_204=[],
         )
-        rows = self._extract_rows(payload, ("data", "items", "rows"))
+        data = payload.get("data") if isinstance(payload, dict) else None
+        rows = (
+            self._extract_rows(data, ("items", "rows"))
+            if isinstance(data, dict)
+            else self._extract_rows(payload, ("data", "items", "rows"))
+        )
         out: List[Dict[str, Any]] = []
         for row in rows:
             sku = self._as_sku(
@@ -750,9 +792,7 @@ class WBClient:
             )
             quantity_full = self._pick_first_float(row, ("quantityFull", "quantity_full"), default=0.0)
             quantity = self._pick_first_float(row, ("quantity", "qty"), default=0.0)
-            in_way_to_client = self._pick_first_float(row, ("inWayToClient",), default=0.0)
-            in_way_from_client = self._pick_first_float(row, ("inWayFromClient",), default=0.0)
-            stock = max(quantity_full, quantity, quantity + in_way_to_client + in_way_from_client)
+            stock = max(quantity_full, quantity)
 
             item: Dict[str, Any] = {
                 "sku": sku,

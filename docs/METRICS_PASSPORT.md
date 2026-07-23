@@ -82,7 +82,7 @@ WB API (7 источников)          Локальные файлы (Excel)
 |----------|----------|-----------------|
 | Orders API | `GET statistics-api.wildberries.ru/api/v1/supplier/orders` | Заказы, кол-во, сумма, география |
 | Sales API | `GET statistics-api.wildberries.ru/api/v1/supplier/sales` | Продажи/выкупы, выручка |
-| Stocks API | `GET statistics-api.wildberries.ru/api/v1/supplier/stocks` | Остатки по складам |
+| Stocks API | `POST seller-analytics-api.wildberries.ru/api/analytics/v1/stocks-report/wb-warehouses` | Текущие остатки по складам WB; источник обновляется раз в 30 минут |
 | Finance API (new) | `POST statistics-api.wildberries.ru/api/finance/v1/sales-reports/detailed` | Финансовый детализ (комиссия, логистика, хранение, штрафы) |
 | Realization API (legacy) | `GET statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod` | Финансовый детализ (устаревший) |
 | Advertising API | `GET advert-api.wildberries.ru/api/advert/v2/adverts` + `GET advert-api.wildberries.ru/adv/v3/fullstats` | Расходы на рекламу, показы, клики |
@@ -1315,7 +1315,7 @@ WB API (7 источников)          Локальные файлы (Excel)
 
 
          ┌────────────┐
-         │ stock_qty  │  ← stocks (quantityFull)
+         │ stock_qty  │  ← stocks_wb_warehouses (quantity)
          └─────┬──────┘
                │
     ┌──────────┤
@@ -1360,7 +1360,7 @@ ads_spend ───────────────────────�
   └─► NOTE:     нет fallback       │  (реклама может быть пустой при 403)
 
 stock_qty_live ────────────────────┐
-  ├─► PRIMARY:  stocks_api         │  (live stocks)
+  ├─► PRIMARY:  stocks_wb_warehouses_api │  (current live stocks)
   └─► FALLBACK: cache              │  (latest_successful.json, stale=true)
 
 seller_payout ─────────────────────┐
@@ -1440,7 +1440,7 @@ sales_api ───────────────► live_operational.sale
                              (override при           funnel_section (Выкупы)
                               cabinet=0)
 
-stocks_api ──────────────► live_operational.stocks ──► hero_section (Остатки)
+stocks_wb_warehouses_api ─► live_operational.stocks ─► hero_section (Остатки)
                                                       live_section (Оперативные остатки)
                                                       stock_summary.stock_units
 
@@ -1515,8 +1515,8 @@ search_report_api ────────► search_section
 ├────────────────────────┼────────────────────────┼───────────────────────────┼───────────────────────┤
 │ nm.orders              │ ad_orders              │ SUM по кампаниям          │ ads                   │
 ├────────────────────────┼────────────────────────┼───────────────────────────┼───────────────────────┤
-│ quantityFull           │ stock                  │ MAX(q_full, q,            │ live (Остатки)        │
-│   / quantity           │                        │  q+inWayTo+inWayFrom)    │                       │
+│ quantityFull           │ stock                  │ MAX(q_full, quantity, 0)  │ live (Остатки)        │
+│   / quantity           │                        │ без товаров в пути        │                       │
 ├────────────────────────┼────────────────────────┼───────────────────────────┼───────────────────────┤
 │ priceWithDisc          │ amount (orders)        │ SUM по уникальным         │ hero, live,           │
 │   / finishedPrice      │                        │ order_id                  │ commerce              │
@@ -1604,7 +1604,7 @@ search_report_api ────────► search_section
 | **ads_spend** | Advertising API (sum/spend) | Первичная |
 | **impressions** | Advertising API (impressions) | Первичная |
 | **clicks** | Advertising API (clicks) | Первичная |
-| **stock_qty_live** | Stocks API (quantityFull) | Первичная |
+| **stock_qty_live** | Stocks WB Warehouses API (`quantity`; транзитные `inWayToClient`/`inWayFromClient` хранятся отдельно и в остаток не входят) | Первичная |
 | **net_profit** | revenue, cost_price, commission, logistics, storage, penalties, deductions, tax, ads_spend | Формула (9 компонентов) |
 | **margin_pct** | net_profit, revenue | Формула |
 | **avg_check** | buyouts_amount, buyouts_count | Формула |
@@ -1680,7 +1680,7 @@ search_report_api ────────► search_section
 | query_revenue | `total_revenue × min(1, query_orders / total_orders)` | Данные атрибуции WB (недоступны) |
 | growth_simulation | Линейная экстраполяция traffic × multiplier | A/B тестирование (недоступно) |
 | logistics (при отсутствии Finance API) | KTR коэффициенты из `warehouse_logistics_coefficients.json` | Данные Finance API |
-| stock_qty | `max(quantityFull, quantity, quantity + inWayToClient + inWayFromClient, 0)` | Точная конфигурация WB (зависит от бизнес-логики) |
+| stock_qty | `max(quantityFull, quantity, 0)`; для нового WB Warehouses API используется `quantity`, а транзитные поля не прибавляются | Текущий складской срез WB; отрицательные значения не допускаются |
 | IRP penalty | Табличный KRP × price × orders | Точный расчёт WB (недоступен) |
 
 ---
@@ -1795,7 +1795,7 @@ search_report_api ────────► search_section
 | **finance_legacy** | Legacy-финансовый отчёт (`/api/v5/supplier/reportDetailByPeriod`). Используется как fallback при 429 на finance_detailed |
 | **orders_api** | API оперативных заказов (`/api/v1/supplier/orders`). Возвращает построчные данные по заказам |
 | **sales_api** | API оперативных продаж (`/api/v1/supplier/sales`). Возвращает построчные данные по продажам |
-| **stocks_api** | API оперативных остатков (`/api/v1/supplier/stocks`). Возвращает quantityFull, quantity, inWayToClient, inWayFromClient |
+| **stocks_api** | API оперативных остатков (`POST /api/analytics/v1/stocks-report/wb-warehouses`, host `seller-analytics-api.wildberries.ru`). Заменяет отключённый 23.06.2026 `GET /api/v1/supplier/stocks`; возвращает текущий срез по товару/размеру/складу с пагинацией |
 | **ads_api** | API рекламы (`advert-api.wildberries.ru`). Двухэтапный: сначала список кампаний, потом статистика по nm |
 | **search_report_api** | API поисковых запросов (`/api/v2/search-report`). Двухэтапный: groups → details |
 | **supplier_goods** | Ручная выгрузка данных о товарах (v3 fallback). Файл: `supplier_goods_daily.json` |
@@ -1850,7 +1850,7 @@ search_report_api ────────► search_section
 | buyouts_count | sales_api | finance_detailed_api | sales_funnel_api | supplier_goods |
 | buyouts_revenue | finance_detailed_api | account_summary | funnel_summary | — |
 | revenue | finance_detailed_api | — | — | — |
-| stock_qty | stocks_api | cache (latest_successful) | — | — |
+| stock_qty | stocks_wb_warehouses_api | cache (latest_successful) | — | — |
 | ads_spend | ads_api | — | — | — |
 
 #### B.7.4. Обработка ошибок и fallback
@@ -1962,7 +1962,7 @@ cabinets/
 | Возвраты уменьшают SKU profit | Через `returns_revenue_est` (оценка) | `src/metrics.py:474` |
 | Nалог распределяется пропорционально | `sku_tax = tax × (sales_rev_sku / total_sales_rev)` | `src/metrics.py:636` |
 | no_sales_with_stock не считается при delayed | Если finance задержан — избегаем ложных dead-SKU выводов | `src/facts_builder.py:202-204` |
-| Stock: max(quantityFull, q, q+inWayTo+inWayFrom) | Максимально полная оценка остатков | `normalize.py:337` |
+| Stock: max(quantityFull, quantity, 0) | Складской остаток без двойного учёта товаров в пути; в новом WB Warehouses API используется `quantity` | `wb_api_core/normalize.py:_normalize_stocks` |
 | Orders dedup по order_id | Дублирующиеся строки заказов дедуплицируются по `last_change_date` | `reconcile.py:67-80` |
 | Finance rows: include_* флаги | Каждая строка finance имеет флаги `include_gross_revenue`, `include_logistics` и др. | `normalize.py:581-597` |
 | Reimbursement = zero technical | Строки-возмещения без финансового эффекта помечаются `is_zero_technical` | `normalize.py:525` |

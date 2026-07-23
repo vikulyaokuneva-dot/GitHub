@@ -14,7 +14,7 @@ from .client import (
     SALES_PATH,
     SEARCH_REPORT_DETAILS_PATH,
     SEARCH_REPORT_GROUPS_PATH,
-    STOCKS_PATH,
+    STOCKS_WB_WAREHOUSES_PATH,
     WBApiClient,
 )
 
@@ -23,6 +23,7 @@ FINANCE_LEGACY_PATH = "/api/v5/supplier/reportDetailByPeriod"
 SALES_FUNNEL_PAGE_LIMIT = 1000
 FINANCE_PAGE_LIMIT = 100000
 ADS_CHUNK_SIZE = 50
+STOCKS_WB_WAREHOUSES_PAGE_LIMIT = 250000
 CABINET_COMMERCE_SOURCE_FAMILY = "cabinet_commerce_daily"
 ADS_SOURCE_FAMILY = "ads_api"
 
@@ -494,20 +495,82 @@ def load_sales(client: WBApiClient, target_date: str) -> Dict[str, Any]:
     }
 
 
+def _extract_stocks_wb_warehouse_rows(payload: Any, client: WBApiClient) -> List[Dict[str, Any]]:
+    if isinstance(payload, dict):
+        data = payload.get("data")
+        if isinstance(data, dict):
+            return client.extract_rows(data, ("items", "rows", "stocks"))
+    return client.extract_rows(payload, ("data", "items", "rows", "stocks"))
+
+
 def load_stocks(client: WBApiClient, target_date: str) -> Dict[str, Any]:
-    response = client.request_json(
-        endpoint_name="stocks",
-        path=STOCKS_PATH,
-        params={"dateFrom": target_date},
-        allow_204=True,
-        empty_on_204=[],
-        retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
-    )
-    payload = response.get("payload", [])
-    rows_raw = client.extract_rows(payload, ("data", "items", "rows"))
+    rows_raw: List[Dict[str, Any]] = []
+    offset = 0
+    pages_loaded = 0
+    last_page_rows_loaded = 0
+    response: Dict[str, Any] = {
+        "endpoint": "stocks",
+        "path": STOCKS_WB_WAREHOUSES_PATH,
+        "method": "POST",
+        "base_url": client.analytics_base_url,
+        "success": False,
+        "status_code": None,
+        "attempts": 0,
+        "error_text": "",
+    }
+
+    while True:
+        response = client.request_json(
+            endpoint_name="stocks",
+            path=STOCKS_WB_WAREHOUSES_PATH,
+            method="POST",
+            json_body={
+                "nmIds": [],
+                "chrtIds": [],
+                "limit": STOCKS_WB_WAREHOUSES_PAGE_LIMIT,
+                "offset": offset,
+            },
+            allow_204=True,
+            empty_on_204=[],
+            base_url=client.analytics_base_url,
+            retry_policy={
+                "retryable_statuses": (429, 500, 502, 503, 504),
+                "max_attempts": 3,
+                "base_delay_seconds": 3.0,
+                "cap_delay_seconds": 20.0,
+                "jitter_ratio": 0.1,
+                "max_retry_window_seconds": 60.0,
+            },
+        )
+        if not bool(response.get("success", False)):
+            break
+        page_rows = _extract_stocks_wb_warehouse_rows(response.get("payload", []), client)
+        rows_raw.extend(page_rows)
+        pages_loaded += 1
+        last_page_rows_loaded = len(page_rows)
+        if last_page_rows_loaded < STOCKS_WB_WAREHOUSES_PAGE_LIMIT:
+            break
+        offset += STOCKS_WB_WAREHOUSES_PAGE_LIMIT
+
     return {
         "rows_raw": rows_raw,
-        "debug": _build_debug(response, rows_loaded=len(rows_raw), date_from=target_date, date_to=target_date),
+        "debug": _build_debug(
+            response,
+            rows_loaded=len(rows_raw),
+            date_from=target_date,
+            date_to=target_date,
+            extra={
+                "source_family": "stocks_wb_warehouses",
+                "snapshot_kind": "current",
+                "page_limit": STOCKS_WB_WAREHOUSES_PAGE_LIMIT,
+                "pages_loaded": pages_loaded,
+                "last_offset": offset,
+                "pagination_complete": bool(
+                    response.get("success", False)
+                    and last_page_rows_loaded < STOCKS_WB_WAREHOUSES_PAGE_LIMIT
+                ),
+            },
+        ),
     }
 
 

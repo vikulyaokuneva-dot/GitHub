@@ -8,7 +8,7 @@ SOURCE_RULES = {
     "finance_final_daily": "finance_detailed_api",
     "live_operational.orders": "orders_api",
     "live_operational.sales": "sales_api",
-    "live_operational.stocks": "stocks_api",
+    "live_operational.stocks": "stocks_wb_warehouses_api",
 }
 
 

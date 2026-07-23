@@ -340,7 +340,7 @@ class SKUFinancialRow:
 2. Load Operational Data (Commerce)
    ├─ Orders API (/api/v1/supplier/orders)
    ├─ Sales API (/api/v1/supplier/sales)
-   └─ Stocks API (/api/v1/supplier/stocks)
+   └─ Stocks API (/api/analytics/v1/stocks-report/wb-warehouses)
 
 3. Load Ads Data
    └─ Ads API (legacy advert-api)
@@ -623,7 +623,7 @@ deltas = {
 | `/api/v5/supplier/reportDetailByPeriod` | Legacy financial data | Fallback | For compatibility |
 | `/api/v1/supplier/orders` | Orders (operational) | Commerce | Not financial |
 | `/api/v1/supplier/sales` | Sales (operational) | Commerce | Not financial |
-| `/api/v1/supplier/stocks` | Inventory | Inventory | Not financial |
+| `/api/analytics/v1/stocks-report/wb-warehouses` | Inventory | Inventory | Not financial |
 
 ---
 

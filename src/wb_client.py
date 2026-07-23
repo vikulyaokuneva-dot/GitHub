@@ -217,19 +217,20 @@ class WBClient:
         return all_stats
 
     # ======================
-    # 3) ОСТАТКИ (Statistics)
+    # 3) ОСТАТКИ (Analytics, текущий срез)
     # ======================
     def fetch_stocks(self, date_from: str | None = None) -> Any:
-        if not date_from:
-            date_from = (dt.date.today() - dt.timedelta(days=30)).isoformat()
-
-        return self.get_json(
-            path="/api/v1/supplier/stocks",
-            params={"dateFrom": date_from},
+        _ = date_from
+        return self.post_json(
+            path="/api/analytics/v1/stocks-report/wb-warehouses",
+            body={
+                "nmIds": [],
+                "chrtIds": [],
+                "limit": 250000,
+                "offset": 0,
+            },
             name="stocks",
-            base_url=self.statistics_url,
-            allow_204=True,
-            empty_on_204=[],
+            base_url=self.analytics_url,
         )
 
     # ======================

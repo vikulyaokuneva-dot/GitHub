@@ -28,7 +28,9 @@ jobs:
       - name: Restore seller history
         uses: actions/cache/restore@v4
         with:
-          path: cabinets/${{ env.WB_SELLER_ID }}/history
+          path: |
+            cabinets/${{ env.WB_SELLER_ID }}/history
+            cabinets/${{ env.WB_SELLER_ID }}/artifacts/wb_api_core/cache
           key: wb-history-${{ env.WB_SELLER_ID }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             wb-history-${{ env.WB_SELLER_ID }}-
@@ -108,6 +110,7 @@ jobs:
             echo "::error::wb_api_core snapshot/debug artifacts are stale"
             exit 1
           fi
+          python -m v3.history.api_history_backfill --seller "${WB_SELLER_ID}" --date "${CORE_RUN_DATE}"
           python -m v3.entry daily --seller "${WB_SELLER_ID}" "${DATE_ARGS[@]}"
           echo "[workflow] pipeline finished"
 
@@ -172,7 +175,9 @@ jobs:
         if: success()
         uses: actions/cache/save@v4
         with:
-          path: cabinets/${{ env.WB_SELLER_ID }}/history
+          path: |
+            cabinets/${{ env.WB_SELLER_ID }}/history
+            cabinets/${{ env.WB_SELLER_ID }}/artifacts/wb_api_core/cache
           key: wb-history-${{ env.WB_SELLER_ID }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload report V2

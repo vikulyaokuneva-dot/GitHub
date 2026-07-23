@@ -340,6 +340,7 @@ class AbcSectionV2(TypedDict, total=False):
     critical_a_skus: list[AbcSectionSkuItemV2]
     c_skus_with_ads: list[AbcSectionSkuItemV2]
     low_margin_skus: list[AbcSectionSkuItemV2]
+    all_skus: list[AbcSectionSkuItemV2]
     recommendations: list[str]
     warnings: list[WarningItemV2]
     summary_rows: list[DisplayRowV2]
