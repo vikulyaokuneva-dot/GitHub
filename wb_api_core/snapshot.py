@@ -31,6 +31,7 @@ def build_snapshot(
     live_sales = live_operational.get("sales", {}) if isinstance(live_operational, dict) else {}
     live_stocks = live_operational.get("stocks", {}) if isinstance(live_operational, dict) else {}
     live_ads = live_operational.get("ads", {}) if isinstance(live_operational, dict) else {}
+    price_analytics = reconcile_result.get("price_analytics", {})
 
     return {
         "seller_id": seller_id,
@@ -38,6 +39,7 @@ def build_snapshot(
         "operational_date": operational_date,
         "timezone": timezone_name,
         "source_mode": "wb_api_core_v2",
+        "price_analytics": price_analytics if isinstance(price_analytics, dict) else {},
         "cabinet_commerce_daily": {
             "source": cabinet_commerce.get("source"),
             "available": bool(cabinet_commerce.get("available", False)),

@@ -4902,10 +4902,122 @@ def _build_sku_detail_section(
         "title": "Unit-экономика по SKU",
         "top_skus": [_fmt_sku(s) for s in top_skus],
         "loss_skus": [_fmt_sku(s) for s in loss_skus],
+        "all_skus": [_fmt_sku(s) for s in active_skus],
         "total_revenue": total_revenue,
         "total_profit": finance.get("seller_payout") or 0,
         "total_ads": total_ads,
     }
+
+
+def _build_product_price_sections(
+    snapshot: dict[str, Any],
+    *,
+    sku_detail_section: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    raw = _safe_dict(snapshot.get("price_analytics"))
+    raw_rows = raw.get("sku_rows", []) if isinstance(raw.get("sku_rows"), list) else []
+    detail_rows = (
+        sku_detail_section.get("all_skus", [])
+        if isinstance(sku_detail_section.get("all_skus"), list)
+        else []
+    )
+    details_by_nm = {
+        str(row.get("nm_id") or ""): row
+        for row in detail_rows
+        if isinstance(row, dict) and str(row.get("nm_id") or "")
+    }
+    price_by_nm = {
+        str(row.get("nm_id") or ""): row
+        for row in raw_rows
+        if isinstance(row, dict) and str(row.get("nm_id") or "")
+    }
+    sku_ids = sorted(set(details_by_nm) | set(price_by_nm), key=lambda item: (len(item), item))
+    rows: list[dict[str, Any]] = []
+    recommendations: list[dict[str, str]] = []
+    for nm_id in sku_ids:
+        price_row = price_by_nm.get(nm_id, {})
+        detail = details_by_nm.get(nm_id, {})
+        buyouts = _safe_int(detail.get("buyouts_count"))
+        finance_attribution = str(detail.get("finance_attribution") or "missing")
+        profit_value = (
+            _safe_decimal(detail.get("profit"))
+            if finance_attribution in {"direct", "allocated"}
+            else None
+        )
+        profit_per_unit = None
+        if profit_value is not None and buyouts is not None and buyouts > 0:
+            profit_per_unit = (profit_value / Decimal(buyouts)).quantize(Decimal("0.01"))
+        margin = _safe_decimal(detail.get("margin_pct")) if profit_value is not None else None
+        item = {
+            "sku": nm_id,
+            "nm_id": nm_id,
+            "seller_base_price": price_row.get("seller_base_price"),
+            "seller_discount_percent": price_row.get("seller_discount_percent"),
+            "seller_discounted_price": price_row.get("seller_discounted_price"),
+            "club_discounted_price": price_row.get("club_discounted_price"),
+            "platform_discount_percent": price_row.get("platform_discount_percent"),
+            "wallet_discount_percent": price_row.get("wallet_discount_percent"),
+            "buyer_price_before_wallet": price_row.get("buyer_price_before_wallet"),
+            "buyer_final_price": price_row.get("buyer_final_price"),
+            "platform_discount_change_day": price_row.get("platform_discount_change_day"),
+            "seller_price_change_day": price_row.get("seller_price_change_day"),
+            "buyer_price_change_day": price_row.get("buyer_price_change_day"),
+            "potential_price_increase_reserve": price_row.get("potential_price_increase_reserve"),
+            "buyouts": buyouts,
+            "profit": str(profit_value) if profit_value is not None else None,
+            "profit_per_unit": str(profit_per_unit) if profit_per_unit is not None else None,
+            "margin_percent": str(margin) if margin is not None else None,
+            "finance_discount_reconciliation": str(
+                price_row.get("finance_discount_reconciliation") or "unavailable"
+            ),
+            "finance_discount_reference_percent": price_row.get("finance_discount_reference_percent"),
+            "finance_discount_reference_type": str(
+                price_row.get("finance_discount_reference_type") or "unavailable"
+            ),
+            "data_quality_status": str(price_row.get("data_quality_status") or "missing_price"),
+            "source": str(price_row.get("source") or raw.get("source") or ""),
+        }
+        rows.append(item)
+        reserve = _safe_decimal(item.get("potential_price_increase_reserve"))
+        if reserve is not None and reserve > 0:
+            recommendations.append(
+                {
+                    "sku": nm_id,
+                    "recommendation": (
+                        f"Проверить тест повышения цены в пределах {reserve} ₽; "
+                        "автоматическое изменение запрещено."
+                    ),
+                    "evidence": "Платформенная скидка WB выросла относительно предыдущего доступного дня.",
+                    "confidence": "low",
+                }
+            )
+
+    available = bool(rows)
+    status = (
+        "ok"
+        if available and all(row["data_quality_status"] == "complete" for row in rows)
+        else ("partial" if available else "unavailable")
+    )
+    price_section = {
+        "title": "Цены по SKU",
+        "subtitle": "Платформенная скидка WB отделена от скидки продавца и скидки WB Кошелька.",
+        "available": available,
+        "status": status,
+        "source": str(raw.get("source") or ""),
+        "sku_rows": rows,
+        "reconciliation": _safe_dict(raw.get("reconciliation")),
+        "automatic_price_changes": False,
+    }
+    changes_section = {
+        "title": "Изменение цен и скидок",
+        "subtitle": "Изменения к предыдущему доступному дню. Только аналитика и рекомендации.",
+        "available": available,
+        "status": status,
+        "rows": rows,
+        "recommendations": recommendations,
+        "automatic_price_changes": False,
+    }
+    return price_section, changes_section
 
 
 def build_sales_dynamics_section_v2(
@@ -5338,6 +5450,12 @@ def build_report_payload_v2(
         if isinstance(item, dict):
             _append_once(warnings, item)
 
+    sku_detail_section = _build_sku_detail_section(snapshot, artifact_dir=artifact_dir)
+    product_price_analytics_section, price_changes_section = _build_product_price_sections(
+        snapshot,
+        sku_detail_section=sku_detail_section,
+    )
+
     payload: ReportPayloadV2 = {
         "meta": meta_block,
         "hero": build_hero_v2(
@@ -5384,7 +5502,9 @@ def build_report_payload_v2(
         "search_section": _build_search_section(snapshot, artifact_dir=artifact_dir),
         "sku_health_section": sku_health_section,
         "profit_contribution_section": profit_contribution_section,
-        "sku_detail_section": _build_sku_detail_section(snapshot, artifact_dir=artifact_dir),
+        "sku_detail_section": sku_detail_section,
+        "product_price_analytics_section": product_price_analytics_section,
+        "price_changes_section": price_changes_section,
         "abc_section": abc_section,
         "abc_analysis_section": abc_analysis_section,
         "finance_final": finance_block,

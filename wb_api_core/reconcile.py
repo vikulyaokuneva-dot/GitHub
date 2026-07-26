@@ -9,6 +9,7 @@ SOURCE_RULES = {
     "live_operational.orders": "orders_api",
     "live_operational.sales": "sales_api",
     "live_operational.stocks": "stocks_wb_warehouses_api",
+    "price_analytics": "goods_filter_v2+fbs_orders_v3",
 }
 
 

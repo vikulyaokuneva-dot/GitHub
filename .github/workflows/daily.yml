@@ -31,6 +31,7 @@ jobs:
           path: |
             cabinets/${{ env.WB_SELLER_ID }}/history
             cabinets/${{ env.WB_SELLER_ID }}/artifacts/wb_api_core/cache
+            cabinets/${{ env.WB_SELLER_ID }}/data/product_prices.sqlite3
           key: wb-history-${{ env.WB_SELLER_ID }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             wb-history-${{ env.WB_SELLER_ID }}-
@@ -178,6 +179,7 @@ jobs:
           path: |
             cabinets/${{ env.WB_SELLER_ID }}/history
             cabinets/${{ env.WB_SELLER_ID }}/artifacts/wb_api_core/cache
+            cabinets/${{ env.WB_SELLER_ID }}/data/product_prices.sqlite3
           key: wb-history-${{ env.WB_SELLER_ID }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload report V2

@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Iterable, List, Tuple
 
+from .pricing import normalize_fbs_order_prices, normalize_goods_prices
+
 _MISSING_LITERALS = {"", "none", "null", "nan", "n/a", "na", "-", "unknown"}
 _ZERO_LITERALS = {"0", "0.0", "00", "000"}
 _VALID_TOKEN_RE = re.compile(r"^[\w.\-]+$", flags=re.UNICODE)
@@ -503,6 +505,20 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             ("tax", "taxAmount"),
             diag=diag,
         )
+        platform_discount_percent_finance, _ = _parse_float_with_diag(
+            row,
+            (
+                "platform_discount_percent",
+                "platformDiscountPercent",
+                "Платформенные скидки, %",
+            ),
+            diag=diag,
+        )
+        spp_component_percent_finance, _ = _parse_float_with_diag(
+            row,
+            ("ppvz_spp_prc", "ppvzSppPrc"),
+            diag=diag,
+        )
         operation_name = _pick_text(row, ("sellerOperName", "supplierOperName", "docTypeName", "operationTypeName", "operationName"))
         document_type = _pick_text(row, ("docTypeName", "sellerOperName", "supplierOperName"))
         operation_text = _finance_row_operation_text(operation_name, document_type)
@@ -582,6 +598,16 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
                 "deductions": round(float(deductions or 0.0), 2),
                 "acquiring": round(float(acquiring or 0.0), 2),
                 "tax": round(float(tax or 0.0), 2),
+                "platform_discount_percent_finance": (
+                    round(float(platform_discount_percent_finance), 2)
+                    if platform_discount_percent_finance is not None
+                    else None
+                ),
+                "spp_component_percent_finance": (
+                    round(float(spp_component_percent_finance), 2)
+                    if spp_component_percent_finance is not None
+                    else None
+                ),
                 "warehouse": _pick_text(row, ("warehouseName", "warehouse", "officeName")),
                 "operation_name": operation_name,
                 "document_type": document_type,
@@ -655,7 +681,17 @@ def normalize_bundle(raw_bundle: Dict[str, Any]) -> Dict[str, Any]:
     stocks_rows = _normalize_stocks(list((raw_bundle.get("stocks") or {}).get("rows_raw", [])))
     ads_rows = _normalize_ads(list((raw_bundle.get("ads") or {}).get("rows_raw", [])))
     search_rows = list((raw_bundle.get("search_report") or {}).get("rows_raw", []))
+    product_prices_block = raw_bundle.get("product_prices") or {}
+    product_price_rows = normalize_goods_prices(
+        list(product_prices_block.get("rows_raw", [])),
+        captured_at=str(product_prices_block.get("captured_at") or ""),
+    )
+    fbs_order_price_rows = normalize_fbs_order_prices(
+        list((raw_bundle.get("fbs_order_prices") or {}).get("rows_raw", []))
+    )
     return {
+        "product_price_rows": product_price_rows,
+        "fbs_order_price_rows": fbs_order_price_rows,
         "cabinet_commerce_rows": cabinet_commerce_rows,
         "finance_final_rows": finance_final_rows,
         "orders_rows": orders_rows,
@@ -672,6 +708,8 @@ def normalize_bundle(raw_bundle: Dict[str, Any]) -> Dict[str, Any]:
                 "stocks": len(stocks_rows),
                 "ads": len(ads_rows),
                 "search": len(search_rows),
+                "product_prices": len(product_price_rows),
+                "fbs_order_prices": len(fbs_order_price_rows),
             },
             "finance_mapping": finance_mapping,
         },

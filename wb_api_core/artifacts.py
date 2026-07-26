@@ -112,7 +112,9 @@ def _snapshot_has_cacheable_live_data(snapshot: Dict[str, Any]) -> bool:
     live = snapshot.get("live_operational", {}) if isinstance(snapshot, dict) else {}
     if not isinstance(live, dict):
         return False
-    return all(_live_block_has_data(live.get(key, {}), key) for key in ("orders", "sales", "stocks", "ads"))
+    # Orders, sales and stocks form the operational cache contract. Advertising
+    # is an optional contour and must not prevent recovery of commerce data.
+    return all(_live_block_has_data(live.get(key, {}), key) for key in ("orders", "sales", "stocks"))
 
 
 def _debug_is_rate_limited(debug: Dict[str, Any]) -> bool:
@@ -318,7 +320,7 @@ def build_debug(
     reconcile_result: Dict[str, Any],
 ) -> Dict[str, Any]:
     endpoints = {}
-    for key in ("cabinet_commerce", "finance_final", "orders", "sales", "stocks", "ads", "search_report"):
+    for key in ("product_prices", "fbs_order_prices", "cabinet_commerce", "finance_final", "orders", "sales", "stocks", "ads", "search_report"):
         debug = dict((raw_bundle.get(key) or {}).get("debug", {}) or {})
         endpoints[key] = {
             "success": bool(debug.get("success", False)),
@@ -359,6 +361,8 @@ def build_debug(
         "stocks": len(list((raw_bundle.get("stocks") or {}).get("rows_raw", []))),
         "ads": len(list((raw_bundle.get("ads") or {}).get("rows_raw", []))),
         "search": len(list((raw_bundle.get("search_report") or {}).get("rows_raw", []))),
+        "product_prices": len(list((raw_bundle.get("product_prices") or {}).get("rows_raw", []))),
+        "fbs_order_prices": len(list((raw_bundle.get("fbs_order_prices") or {}).get("rows_raw", []))),
     }
     normalized_counts = dict((normalized_bundle.get("debug") or {}).get("counts", {}) or {})
     reconciled_counts = dict((reconcile_result.get("counts") or {}).get("reconciled", {}) or {})
@@ -447,6 +451,8 @@ def write_artifacts(
         "live_stocks_rows": list((((live_operational.get("stocks") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
         "live_ads_rows": list((((live_operational.get("ads") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
         "live_search_rows": list((((live_operational.get("search_report") or {}) if isinstance(live_operational, dict) else {})).get("rows", [])),
+        "product_price_rows": list((reconcile_result.get("price_analytics") or {}).get("sku_rows", [])),
+        "product_price_reconciliation": dict((reconcile_result.get("price_analytics") or {}).get("reconciliation", {}) or {}),
     }
     existing_reconciled_path = os.path.join(out_dir, "reconciled_rows.json")
     rows_payload = _merge_reconciled_rows_preserve_existing(new_rows_payload, existing_reconciled_path, reconcile_result)

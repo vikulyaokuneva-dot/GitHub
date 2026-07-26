@@ -3,12 +3,17 @@ from __future__ import annotations
 import json
 import os
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
+from zoneinfo import ZoneInfo
 
 from .client import (
     ADVERTS_PATH,
     ADVERT_STATS_PATH,
     FINANCE_DETAILED_PATH,
+    FBS_NEW_ORDERS_PATH,
+    FBS_ORDERS_PATH,
+    GOODS_PRICES_PATH,
     ORDERS_PATH,
     SALES_FUNNEL_PRODUCTS_PATH,
     SALES_PATH,
@@ -26,6 +31,7 @@ ADS_CHUNK_SIZE = 50
 STOCKS_WB_WAREHOUSES_PAGE_LIMIT = 250000
 CABINET_COMMERCE_SOURCE_FAMILY = "cabinet_commerce_daily"
 ADS_SOURCE_FAMILY = "ads_api"
+GOODS_PRICES_PAGE_LIMIT = 1000
 
 
 def _env_int(name: str, default: int) -> int:
@@ -518,7 +524,6 @@ def load_stocks(client: WBApiClient, target_date: str) -> Dict[str, Any]:
         "attempts": 0,
         "error_text": "",
     }
-
     while True:
         response = client.request_json(
             endpoint_name="stocks",
@@ -569,6 +574,126 @@ def load_stocks(client: WBApiClient, target_date: str) -> Dict[str, Any]:
                     response.get("success", False)
                     and last_page_rows_loaded < STOCKS_WB_WAREHOUSES_PAGE_LIMIT
                 ),
+            },
+        ),
+    }
+
+
+def load_product_prices(client: WBApiClient, captured_at: str) -> Dict[str, Any]:
+    rows_raw: List[Dict[str, Any]] = []
+    raw_pages: List[Any] = []
+    offset = 0
+    pages_loaded = 0
+    response: Dict[str, Any] = {}
+    while True:
+        response = client.request_json(
+            endpoint_name="product_prices",
+            path=GOODS_PRICES_PATH,
+            params={"limit": GOODS_PRICES_PAGE_LIMIT, "offset": offset},
+            base_url=client.prices_base_url,
+            retry_policy={"retryable_statuses": (429, 500, 502, 503, 504), "max_attempts": 3},
+        )
+        if not response.get("success"):
+            break
+        payload = response.get("payload") or {}
+        raw_pages.append(payload)
+        data = payload.get("data") if isinstance(payload, dict) else {}
+        page_rows = data.get("listGoods", []) if isinstance(data, dict) else []
+        page_rows = [row for row in page_rows if isinstance(row, dict)]
+        rows_raw.extend(page_rows)
+        pages_loaded += 1
+        if len(page_rows) < GOODS_PRICES_PAGE_LIMIT:
+            break
+        offset += GOODS_PRICES_PAGE_LIMIT
+    return {
+        "rows_raw": rows_raw,
+        "raw_payload": raw_pages,
+        "captured_at": captured_at,
+        "debug": _build_debug(
+            response,
+            rows_loaded=len(rows_raw),
+            date_from="",
+            date_to="",
+            extra={
+                "source_family": "goods_filter_v2",
+                "api_version": "v2",
+                "pages_loaded": pages_loaded,
+                "page_limit": GOODS_PRICES_PAGE_LIMIT,
+                "last_offset": offset,
+            },
+        ),
+    }
+
+
+def load_fbs_order_prices(client: WBApiClient, captured_at: str, target_date: str) -> Dict[str, Any]:
+    new_response = client.request_json(
+        endpoint_name="fbs_order_prices",
+        path=FBS_NEW_ORDERS_PATH,
+        base_url=client.marketplace_base_url,
+        retry_policy={"retryable_statuses": (429, 500, 502, 503, 504), "max_attempts": 3},
+    )
+    new_payload = new_response.get("payload") or {}
+    new_rows = new_payload.get("orders", []) if isinstance(new_payload, dict) else []
+
+    local_start = datetime.strptime(target_date, "%Y-%m-%d").replace(tzinfo=ZoneInfo("Europe/Moscow"))
+    local_end = local_start + timedelta(days=1)
+    next_cursor = 0
+    historical_rows: List[Dict[str, Any]] = []
+    historical_pages: List[Any] = []
+    historical_response: Dict[str, Any] = {}
+    while True:
+        historical_response = client.request_json(
+            endpoint_name="fbs_order_prices_history",
+            path=FBS_ORDERS_PATH,
+            params={
+                "limit": 1000,
+                "next": next_cursor,
+                "dateFrom": int(local_start.timestamp()),
+                "dateTo": int(local_end.timestamp()) - 1,
+            },
+            base_url=client.marketplace_base_url,
+            retry_policy={"retryable_statuses": (429, 500, 502, 503, 504), "max_attempts": 3},
+        )
+        if not historical_response.get("success"):
+            break
+        payload = historical_response.get("payload") or {}
+        historical_pages.append(payload)
+        page_rows = payload.get("orders", []) if isinstance(payload, dict) else []
+        page_rows = [row for row in page_rows if isinstance(row, dict)]
+        historical_rows.extend(page_rows)
+        new_cursor = payload.get("next") if isinstance(payload, dict) else None
+        if not page_rows or new_cursor in (None, "", next_cursor):
+            break
+        next_cursor = int(str(new_cursor))
+        if len(page_rows) < 1000:
+            break
+
+    deduped: Dict[str, Dict[str, Any]] = {}
+    for row in [*new_rows, *historical_rows]:
+        if not isinstance(row, dict):
+            continue
+        order_id = str(row.get("id", row.get("orderId", row.get("orderID", ""))) or "")
+        key = order_id or f"raw:{len(deduped)}"
+        deduped[key] = row
+    rows_raw = list(deduped.values())
+    success = bool(new_response.get("success") or historical_response.get("success"))
+    response_for_debug = historical_response if historical_response else new_response
+    response_for_debug = {**response_for_debug, "success": success}
+    return {
+        "rows_raw": rows_raw,
+        "raw_payload": {"new": new_payload, "history_pages": historical_pages},
+        "captured_at": captured_at,
+        "debug": _build_debug(
+            response_for_debug,
+            rows_loaded=len(rows_raw),
+            date_from=target_date,
+            date_to=target_date,
+            extra={
+                "source_family": "fbs_orders_v3",
+                "api_version": "v3",
+                "new_rows_loaded": len(new_rows),
+                "historical_rows_loaded": len(historical_rows),
+                "historical_pages_loaded": len(historical_pages),
             },
         ),
     }
@@ -1002,7 +1127,10 @@ def load_bundle(
     repo_root: str | None = None,
     max_finance_lag_days: int = 3,
 ) -> Dict[str, Any]:
+    captured_at = datetime.now(timezone.utc).isoformat()
     return {
+        "product_prices": load_product_prices(client, captured_at),
+        "fbs_order_prices": load_fbs_order_prices(client, captured_at, target_date),
         "cabinet_commerce": load_cabinet_commerce(client, target_date, seller_id=seller_id, repo_root=repo_root),
         "finance_final": load_finance_final_with_lag(client, target_date, max_lag_days=max_finance_lag_days),
         "orders": load_orders(client, target_date),

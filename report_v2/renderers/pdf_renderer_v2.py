@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from reportlab.lib import colors
@@ -101,6 +102,131 @@ def _format_money(value: Any) -> str:
 def _format_text(value: Any) -> str:
     text = str(value or "").strip()
     return text or "нет данных"
+
+
+def _format_price_money(value: Any) -> str:
+    if value is None or str(value).strip() == "":
+        return "нет данных"
+    try:
+        number = Decimal(str(value).replace("\u00a0", "").replace(" ", "").replace(",", "."))
+    except (InvalidOperation, ValueError):
+        return "нет данных"
+    rendered = f"{number:,.2f}".replace(",", " ").replace(".", ",")
+    return f"{rendered} ₽"
+
+
+def _format_price_percent(value: Any, *, signed: bool = False) -> str:
+    if value is None or str(value).strip() == "":
+        return "нет данных"
+    try:
+        number = Decimal(str(value).replace(",", "."))
+    except (InvalidOperation, ValueError):
+        return "нет данных"
+    sign = "+" if signed and number > 0 else ""
+    return f"{sign}{number.quantize(Decimal('0.01'))}%"
+
+
+def _format_price_change_money(value: Any) -> str:
+    rendered = _format_price_money(value)
+    if rendered == "нет данных":
+        return rendered
+    try:
+        number = Decimal(str(value).replace(",", "."))
+    except (InvalidOperation, ValueError):
+        return "нет данных"
+    return f"+{rendered}" if number > 0 else rendered
+
+
+def _product_price_table(
+    rows: list[dict[str, Any]],
+    *,
+    width: float,
+    style: ParagraphStyle,
+) -> Table:
+    headers = ["SKU", "Цена продавца", "Скидка WB", "Цена покупателя", "Выкупы", "Прибыль", "Маржа"]
+    data: list[list[Any]] = [[Paragraph(header, style) for header in headers]]
+    for row in rows:
+        data.append(
+            [
+                Paragraph(_format_text(row.get("sku")), style),
+                Paragraph(_format_price_money(row.get("seller_base_price")), style),
+                Paragraph(_format_price_percent(row.get("platform_discount_percent")), style),
+                Paragraph(_format_price_money(row.get("buyer_final_price")), style),
+                Paragraph(str(row.get("buyouts")) if row.get("buyouts") is not None else "нет данных", style),
+                Paragraph(_format_price_money(row.get("profit")), style),
+                Paragraph(_format_price_percent(row.get("margin_percent")), style),
+            ]
+        )
+    table = Table(
+        data,
+        repeatRows=1,
+        colWidths=[
+            width * 0.14,
+            width * 0.17,
+            width * 0.13,
+            width * 0.17,
+            width * 0.10,
+            width * 0.16,
+            width * 0.13,
+        ],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1D4ED8")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#EFF6FF")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    return table
+
+
+def _price_changes_table(
+    rows: list[dict[str, Any]],
+    *,
+    width: float,
+    style: ParagraphStyle,
+) -> Table:
+    headers = ["SKU", "Платф. скидка WB", "Цена продавца", "Цена покупателя", "Резерв"]
+    data: list[list[Any]] = [[Paragraph(header, style) for header in headers]]
+    for row in rows:
+        data.append(
+            [
+                Paragraph(_format_text(row.get("sku")), style),
+                Paragraph(_format_price_percent(row.get("platform_discount_change_day"), signed=True), style),
+                Paragraph(_format_price_change_money(row.get("seller_price_change_day")), style),
+                Paragraph(_format_price_change_money(row.get("buyer_price_change_day")), style),
+                Paragraph(_format_price_money(row.get("potential_price_increase_reserve")), style),
+            ]
+        )
+    table = Table(
+        data,
+        repeatRows=1,
+        colWidths=[width * 0.16, width * 0.21, width * 0.21, width * 0.21, width * 0.21],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F766E")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F0FDFA")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    return table
 
 
 def _profit_row_tone(row: dict[str, Any]) -> str:
@@ -1520,6 +1646,64 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             story.append(Spacer(1, 6))
         story.append(PageBreak())
 
+    product_prices = payload.get("product_price_analytics_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(product_prices, dict):
+        product_prices = {}
+    product_price_rows = product_prices.get("sku_rows", [])
+    if isinstance(product_price_rows, list) and product_price_rows:
+        story.append(PageBreak())
+        story.append(Paragraph(_format_text(product_prices.get("title") or "Цены по SKU"), styles["section"]))
+        if product_prices.get("subtitle"):
+            story.append(Paragraph(_format_text(product_prices.get("subtitle")), styles["meta"]))
+        story.append(
+            _product_price_table(
+                [row for row in product_price_rows if isinstance(row, dict)],
+                width=content_width,
+                style=styles["hero_card"],
+            )
+        )
+        reconciliation = product_prices.get("reconciliation", {})
+        if isinstance(reconciliation, dict):
+            status = str(reconciliation.get("status") or "unavailable")
+            sku_total = _format_price_money(reconciliation.get("sku_buyer_final_total"))
+            orders_total = _format_price_money(reconciliation.get("fbs_orders_buyer_final_total"))
+            story.append(Spacer(1, 5))
+            story.append(
+                Paragraph(
+                    f"Reconciliation: SKU {sku_total}; FBS-заказы {orders_total}; статус {status}.",
+                    styles["meta"],
+                )
+            )
+
+        changes = payload.get("price_changes_section", {}) if isinstance(payload, dict) else {}
+        if isinstance(changes, dict):
+            change_rows = changes.get("rows", [])
+            if isinstance(change_rows, list) and change_rows:
+                story.append(Spacer(1, 8))
+                story.append(Paragraph(_format_text(changes.get("title") or "Изменение цен и скидок"), styles["section"]))
+                if changes.get("subtitle"):
+                    story.append(Paragraph(_format_text(changes.get("subtitle")), styles["meta"]))
+                story.append(
+                    _price_changes_table(
+                        [row for row in change_rows if isinstance(row, dict)],
+                        width=content_width,
+                        style=styles["hero_card"],
+                    )
+                )
+                for recommendation in changes.get("recommendations", []):
+                    if isinstance(recommendation, dict):
+                        story.append(
+                            Paragraph(
+                                _format_text(
+                                    f"SKU {recommendation.get('sku')}: "
+                                    f"{recommendation.get('recommendation')} "
+                                    f"Доказательство: {recommendation.get('evidence')}; "
+                                    f"уверенность: {recommendation.get('confidence')}."
+                                ),
+                                styles["meta"],
+                            )
+                        )
+
     abc_section = payload.get("abc_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(abc_section, dict):
         abc_section = {}
@@ -1712,4 +1896,5 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         "hero_rows_count": len(hero_rows),
         "top_skus_count": len(a_skus) if isinstance(abc_summary_rows, list) and abc_summary_rows else 0,
         "loss_skus_count": len(c_negative_skus) if isinstance(abc_summary_rows, list) and abc_summary_rows else 0,
+        "product_price_rows_count": len(product_price_rows) if isinstance(product_price_rows, list) else 0,
     }

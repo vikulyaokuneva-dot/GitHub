@@ -1768,6 +1768,32 @@ search_report_api ────────► search_section
 | **Distribution State** | Состояние территориального распределения | Определяется по `localization_share` и порогам |
 | **Logistics Efficiency Status** | Статус логистической эффективности | Определяется по KTR и порогам |
 
+### B.3.1. Цены и платформенные скидки по SKU
+
+| Метрика | Каноническое определение |
+|---|---|
+| `seller_base_price` | `price` из `GET /api/v2/list/goods/filter`; денежное значение без деления на 100 |
+| `seller_discount_percent` | `discount` из `GET /api/v2/list/goods/filter`; скидка продавца |
+| `seller_discounted_price` | `discountedPrice` из `GET /api/v2/list/goods/filter`; цена после скидки продавца |
+| `club_discounted_price` | `clubDiscountedPrice` из `GET /api/v2/list/goods/filter`; отдельная клубная цена |
+| `buyer_price_before_wallet` | `convertedPrice / 100` из FBS-заказа; цена покупателя без скидки WB Кошелька |
+| `buyer_final_price` | `convertedFinalPrice / 100` из FBS-заказа; итоговая сумма к оплате |
+| `platform_discount_percent` | `(seller_discounted_price_at_order - buyer_price_before_wallet) / seller_discounted_price_at_order × 100`; только при снимке не позднее заказа |
+| `wallet_discount_percent` | `(buyer_price_before_wallet - buyer_final_price) / buyer_price_before_wallet × 100`; только при наличии знаменателя |
+| `platform_discount_change_day` | средняя платформенная скидка WB за бизнес-день минус средняя за предыдущий доступный бизнес-день |
+| `profit_per_unit` | `SKU profit / buyouts`; при `buyouts = 0` значение отсутствует |
+| `margin_percent` | `SKU profit / SKU revenue × 100`; при отсутствии выручки значение отсутствует |
+
+Правила качества:
+
+- Все денежные расчёты выполняются через `Decimal`, значения в БД хранятся как `NUMERIC`.
+- `captured_at` хранится в UTC; бизнес-день определяется в `Europe/Moscow`.
+- Старый заказ связывается только со снимком `captured_at <= order_created_at`. Текущая цена не подставляется задним числом.
+- `нет данных` не заменяется на `0`.
+- Основное название — «Платформенная скидка WB». `ppvz_spp_prc` является СПП-компонентом финансового отчёта и не переименовывает всю платформенную скидку в СПП.
+- Расхождение с финансовым компонентом до `0,50` процентного пункта считается согласованным.
+- Автоматическое изменение цен запрещено; резерв повышения цены является только рекомендацией с доказательством и уровнем уверенности.
+
 ### B.4. Архитектурные термины
 
 | Термин | Определение |

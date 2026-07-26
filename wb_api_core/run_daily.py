@@ -17,6 +17,7 @@ from .artifacts import (
 from .client import WBApiClient
 from .loaders import load_bundle
 from .normalize import normalize_bundle
+from .pricing import PriceSnapshotStore, build_price_analytics, write_raw_price_payloads
 from .reconcile import reconcile_bundle
 from .snapshot import build_snapshot
 
@@ -68,6 +69,49 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
         normalized_bundle=normalized_bundle,
         target_date=operational_date,
     )
+    price_store = PriceSnapshotStore.for_seller(repo_root=resolved_repo_root, seller_id=seller_id)
+    price_warnings = list(reconcile_result.get("warnings", []) or [])
+    try:
+        price_store.upsert_current_prices(
+            seller_id=seller_id,
+            rows=normalized_bundle.get("product_price_rows", []),
+        )
+        price_store.upsert_fbs_orders(
+            seller_id=seller_id,
+            rows=normalized_bundle.get("fbs_order_price_rows", []),
+        )
+        captured_at = str((raw_bundle.get("product_prices") or {}).get("captured_at") or "")
+        raw_paths = write_raw_price_payloads(
+            repo_root=resolved_repo_root,
+            seller_id=seller_id,
+            captured_at=captured_at,
+            goods_payload=(raw_bundle.get("product_prices") or {}).get("raw_payload"),
+            fbs_payload=(raw_bundle.get("fbs_order_prices") or {}).get("raw_payload"),
+        )
+        price_analytics = build_price_analytics(
+            seller_id=seller_id,
+            operational_date=operational_date,
+            store_rows=price_store.rows(seller_id=seller_id),
+            finance_rows=(reconcile_result.get("finance_final_daily") or {}).get("rows", []),
+        )
+        price_analytics["raw_payload_paths"] = raw_paths
+        reconcile_result["price_analytics"] = price_analytics
+    except Exception as exc:
+        price_warnings.append(
+            {
+                "code": "price_analytics_unavailable",
+                "message": f"Price analytics could not be built: {exc}",
+                "level": "warning",
+                "block": "price_analytics",
+            }
+        )
+        reconcile_result["price_analytics"] = {
+            "available": False,
+            "sku_rows": [],
+            "changes": {"rows": [], "automatic_price_changes": False},
+            "reconciliation": {"status": "unavailable"},
+        }
+    reconcile_result["warnings"] = price_warnings
     latest_snapshot_cache = read_latest_successful_snapshot(
         repo_root=resolved_repo_root,
         seller_id=seller_id,

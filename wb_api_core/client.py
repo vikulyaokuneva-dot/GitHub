@@ -14,6 +14,8 @@ STATISTICS_BASE_URL = "https://statistics-api.wildberries.ru"
 FINANCE_BASE_URL = "https://finance-api.wildberries.ru"
 ANALYTICS_BASE_URL = "https://seller-analytics-api.wildberries.ru"
 ADVERT_BASE_URL = "https://advert-api.wildberries.ru"
+PRICES_BASE_URL = "https://discounts-prices-api.wildberries.ru"
+MARKETPLACE_BASE_URL = "https://marketplace-api.wildberries.ru"
 
 ORDERS_PATH = "/api/v1/supplier/orders"
 SALES_PATH = "/api/v1/supplier/sales"
@@ -24,8 +26,11 @@ ADVERTS_PATH = "/api/advert/v2/adverts"
 ADVERT_STATS_PATH = "/adv/v3/fullstats"
 SEARCH_REPORT_GROUPS_PATH = "/api/v2/search-report/table/groups"
 SEARCH_REPORT_DETAILS_PATH = "/api/v2/search-report/table/details"
+GOODS_PRICES_PATH = "/api/v2/list/goods/filter"
+FBS_NEW_ORDERS_PATH = "/api/v3/orders/new"
+FBS_ORDERS_PATH = "/api/v3/orders"
 DEFAULT_RATE_LIMIT_RETRY_DELAY_CAP_SECONDS = 30.0
-DEFAULT_GLOBAL_REQUEST_BUDGET = 15
+DEFAULT_GLOBAL_REQUEST_BUDGET = 25
 
 
 class WBApiClient:
@@ -35,6 +40,8 @@ class WBApiClient:
         self.finance_base_url = os.getenv("WB_FINANCE_BASE_URL", FINANCE_BASE_URL).rstrip("/")
         self.analytics_base_url = os.getenv("WB_ANALYTICS_BASE_URL", ANALYTICS_BASE_URL).rstrip("/")
         self.advert_base_url = os.getenv("WB_ADVERT_BASE_URL", ADVERT_BASE_URL).rstrip("/")
+        self.prices_base_url = os.getenv("WB_PRICES_BASE_URL", PRICES_BASE_URL).rstrip("/")
+        self.marketplace_base_url = os.getenv("WB_MARKETPLACE_BASE_URL", MARKETPLACE_BASE_URL).rstrip("/")
         self.base_url = self.statistics_base_url
         self.timeout_seconds = max(5, int(str(os.getenv("WB_API_TIMEOUT_SECONDS", "60") or "60")))
         self.max_retries = max(1, int(str(os.getenv("WB_API_MAX_RETRIES", "5") or "5")))
