@@ -1,86 +1,80 @@
 WB Core Report v2
 seller_001
-Date: 2026-06-27
-Operational date: 2026-06-27
+Date: 2026-07-26
+Operational date: 2026-07-26
 
 Commerce:
-Заказы: 26 шт (ok; Источник: cabinet_commerce_daily)
-Сумма заказов: 63 640 ₽ (ok; Источник: sales_funnel_api)
-Выкупы: 5 шт (ok; Подтвержденные выкупы из live_operational_sales.)
-Сумма выкупов: 3 857,20 ₽ (ok; Источник: sales_api)
+Заказы: 2 шт (ok; Источник: cabinet_commerce_daily)
+Сумма заказов: 1 880 ₽ (ok; Источник: sales_funnel_api)
+Выкупы: 2 шт (ok; Подтвержденные выкупы из live_operational_sales.)
+Сумма выкупов: 1 899,97 ₽ (ok; Источник: sales_api)
+Источник: sales_funnel_api (ok; Дата: 2026-07-26)
 
 Advertising:
-Spend: 128.93
-DRR: 0,38%
-ROAS: 260,61x
-ROMI: -100,00%
-Wasted spend: 764.04
-Action: Cut or rebuild loss-making traffic sources and tighten query filters.
+Spend: unavailable
+DRR: unavailable
+ROAS: unavailable
+ROMI: unavailable
+Wasted spend: unavailable
+Action: Рекламная аналитика отключена или рекламные данные отсутствуют.
 
 Поисковые запросы:
 Статус: нет данных
 
 Товары:
 SKU в росте: 0
-SKU под риском: 7
-Требуют внимания: 7
-Dead stock: 3
-Действие: Снижение цены/распродажа остатков
+SKU под риском: 2
+Требуют внимания: 2
+Dead stock: 0
+Действие: Нет достаточных данных по трафику (показы/клики).
 
 Прибыль и ассортимент:
-Топ прибыльных SKU: 5 SKU; доля прибыли недоступна
-Убыточные SKU: 1
-A-категория: 3 SKU
+Топ прибыльных SKU: 2 SKU; доля прибыли недоступна
+Убыточные SKU: 0
+A-категория: 1 SKU
 
 Finance:
-Realized sales: 7 / 7 138.00
-Gross revenue: 7 138.00
-Seller payout: 5 716.58
-Returns: 2
-Deliveries: 9
-WB commission: 955.28
-Logistics: unavailable
-Storage: 40.42
-Acquiring: 255.96
+Realized sales: unavailable / unavailable
+Gross revenue: 0.00
+Seller payout: 1 052.94
+Returns: unavailable
+Deliveries: 2
+WB commission: 59.48
+Logistics: 85.80
+Storage: 16.93
+Acquiring: 36.24
 
 Live:
-Live orders: 3 / 5 760.00
-Live sales: 5 / 3 857.20
-Live stocks: 159
+Live orders: unavailable / unavailable
+Live sales: 2 / 1 899.97
+Live stocks: unavailable
 
 Warnings:
 - [meta] 429: {
     "title": "too many requests",
     "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
     "code": "461a0b83d6bd 2950e93b5fda",
-    "requestId": "c8a5a9d2257e3e761954a256b31ee025",
-    "origin": "s2s-fin; rate_limit_headers: x_ratelimit_retry=38433, x_ratelimit_reset=38433
+    "requestId": "1b8dbdcfbcafbb33133ab8a78441ba1f",
+    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=10299, x_ratelimit_reset=10299
 - [meta] 429: {
     "title": "too many requests",
     "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
     "code": "461a0b83d6bd 2950e93b5fda",
-    "requestId": "bb36407a03badbe2a7b372a028b004cc",
-    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=5039, x_ratelimit_reset=5039
-- [meta] 429: {
-    "title": "too many requests",
-    "detail": "Limited by global limiter, per seller df304a83-f7ea-4c8b-b0dc-bda70e99aabf; See https://dev.wildberries.ru/openapi/api-information",
-    "code": "461a0b83d6bd 2950e93b5fda",
-    "requestId": "e1efa7b9abf4ceeae8c6e39e63086aeb",
-    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=1433, x_ratelimit_reset=1433
-- [meta] 429: {
-    "title": "too many requests",
-    "detail": "This method is deprecated. Link: https://dev.wildberries.ru/release-notes?id=494",
-    "code": "461a0b83d6bd 2950e93b5fda",
-    "requestId": "849e905788d93c13e95826e7486937e9",
-    "origin": "s2s-api-auth-stat",
-    "status": 429,
-    "statusText": ; rate_limit_headers: x_ratelimit_retry=253440, x_ratelimit_reset=253440
-- [live_operational] orders returned 429; live_operational.orders was filled from latest_successful snapshot and marked stale.
-- [live_operational] sales returned 429; live_operational.sales was filled from latest_successful snapshot and marked stale.
-- [live_operational] stocks returned 429; live_operational.stocks was filled from latest_successful snapshot and marked stale.
-- [finance_final] finance_final_daily filled from latest_finance.json cache.
-- [stock_section] Отдельный источник товарных остатков WB/МП не подключён; live stocks_api не используется как полный складской остаток.
-- [live_operational.stocks] Оперативные остатки из stocks_api могут отличаться от остатков товарного отчёта WB за операционный день.
+    "requestId": "f913c30543719fc612034376a04c7146",
+    "origin": "s2s-api; rate_limit_headers: x_ratelimit_retry=6700, x_ratelimit_reset=6700
+- [meta] 403: {
+    "title": "forbidden",
+    "detail": "base token without secret is not allowed",
+    "code": "base token without secret is not allowed for this path",
+    "requestId": "8cac29b50b0661b6451a95364bf2ffb6",
+    "origin": "s2sauth-ca",
+    "status": 403,
+    "statusText": "Forbidden",
+    "timestam
+- [live_operational] Latest sales retry returned 429; report uses the previously verified sales API rows for 2026-07-26 only. No other-day cache was used.
+- [live_operational] Cabinet commerce reported 0 buyouts but sales API confirmed actual sales. Using sales API data.
+- [stock_section] Отдельный источник товарных остатков WB/МП не подключён; live stocks_wb_warehouses_api не используется как полный складской остаток.
+- [advertising_efficiency] Advertising efficiency analysis is disabled because ads data is missing.
 - [advertising_efficiency] Query-level advertising rows are missing; query analysis is limited.
 - [sku_health] funnel_insufficient_data
 - [profit_contribution] total_profit_non_positive

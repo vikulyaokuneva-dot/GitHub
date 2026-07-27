@@ -1,12 +1,8 @@
 {
   "seller_id": "seller_001",
-  "report_date": "2026-07-12",
+  "report_date": "2026-07-26",
   "status": "insufficient_data",
   "warnings": [
-    {
-      "code": "territorial_distribution_sales_rows_missing",
-      "message": "Sales rows are missing for robust localization estimation."
-    },
     {
       "code": "territorial_distribution_stock_rows_missing",
       "message": "Stock rows are missing for robust localization estimation."
@@ -28,8 +24,8 @@
     "engine": "territorial_distribution_engine",
     "version": "2.1",
     "seller_id": "seller_001",
-    "run_date": "2026-07-12",
-    "generated_at": "2026-07-11T22:30:40Z",
+    "run_date": "2026-07-26",
+    "generated_at": "2026-07-27T21:26:43Z",
     "wb_irp_effective_date": "2026-03-23",
     "source_artifacts": [
       "metrics.json"
@@ -173,12 +169,12 @@
     {
       "signal_type": "distribution_insufficient_data",
       "entity_type": "sku",
-      "entity_id": "551253854",
+      "entity_id": "453526507",
       "severity": "low",
       "title": "Territorial analysis unavailable for SKU",
       "description": "Insufficient evidence to confirm territorial risk for this SKU.",
       "evidence": {
-        "sku": "551253854",
+        "sku": "453526507",
         "localization_share": null,
         "ktr": null,
         "krp": null,
@@ -214,12 +210,12 @@
     {
       "signal_type": "distribution_insufficient_data",
       "entity_type": "sku",
-      "entity_id": "590614192",
+      "entity_id": "739377515",
       "severity": "low",
       "title": "Territorial analysis unavailable for SKU",
       "description": "Insufficient evidence to confirm territorial risk for this SKU.",
       "evidence": {
-        "sku": "590614192",
+        "sku": "739377515",
         "localization_share": null,
         "ktr": null,
         "krp": null,
@@ -255,13 +251,13 @@
   ],
   "sku_metrics": [
     {
-      "sku": "551253854",
+      "sku": "453526507",
       "total_orders": 0.0,
       "local_orders": 0.0,
       "localization_share": null,
       "ktr": null,
       "krp": null,
-      "average_retail_price": 159.6,
+      "average_retail_price": null,
       "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
       "distribution_state": "no_orders",
@@ -272,7 +268,7 @@
       "data_quality_status": "insufficient_data",
       "recommendation_status": "blocked_by_data",
       "diagnostics": {
-        "price_source": "revenue_div_buys",
+        "price_source": "missing",
         "local_orders_source": "not_applicable_no_orders",
         "distribution_gap": null,
         "locality_score": 0.0,
@@ -340,7 +336,7 @@
         ]
       },
       "notes": [
-        "price_fallback_revenue_div_buys",
+        "average_retail_price_missing",
         "localization_share_unknown"
       ],
       "status": "no_demand_data",
@@ -417,13 +413,13 @@
       ]
     },
     {
-      "sku": "590614192",
+      "sku": "739377515",
       "total_orders": 0.0,
       "local_orders": 0.0,
       "localization_share": null,
       "ktr": null,
       "krp": null,
-      "average_retail_price": 427.8,
+      "average_retail_price": null,
       "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
       "distribution_state": "no_orders",
@@ -434,7 +430,7 @@
       "data_quality_status": "insufficient_data",
       "recommendation_status": "blocked_by_data",
       "diagnostics": {
-        "price_source": "revenue_div_buys",
+        "price_source": "missing",
         "local_orders_source": "not_applicable_no_orders",
         "distribution_gap": null,
         "locality_score": 0.0,
@@ -502,7 +498,7 @@
         ]
       },
       "notes": [
-        "price_fallback_revenue_div_buys",
+        "average_retail_price_missing",
         "localization_share_unknown"
       ],
       "status": "no_demand_data",
@@ -581,13 +577,13 @@
   ],
   "skus": [
     {
-      "sku": "551253854",
+      "sku": "453526507",
       "total_orders": 0.0,
       "local_orders": 0.0,
       "localization_share": null,
       "ktr": null,
       "krp": null,
-      "average_retail_price": 159.6,
+      "average_retail_price": null,
       "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
       "distribution_state": "no_orders",
@@ -598,7 +594,7 @@
       "data_quality_status": "insufficient_data",
       "recommendation_status": "blocked_by_data",
       "diagnostics": {
-        "price_source": "revenue_div_buys",
+        "price_source": "missing",
         "local_orders_source": "not_applicable_no_orders",
         "distribution_gap": null,
         "locality_score": 0.0,
@@ -666,7 +662,7 @@
         ]
       },
       "notes": [
-        "price_fallback_revenue_div_buys",
+        "average_retail_price_missing",
         "localization_share_unknown"
       ],
       "status": "no_demand_data",
@@ -743,13 +739,13 @@
       ]
     },
     {
-      "sku": "590614192",
+      "sku": "739377515",
       "total_orders": 0.0,
       "local_orders": 0.0,
       "localization_share": null,
       "ktr": null,
       "krp": null,
-      "average_retail_price": 427.8,
+      "average_retail_price": null,
       "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
       "distribution_state": "no_orders",
@@ -760,7 +756,7 @@
       "data_quality_status": "insufficient_data",
       "recommendation_status": "blocked_by_data",
       "diagnostics": {
-        "price_source": "revenue_div_buys",
+        "price_source": "missing",
         "local_orders_source": "not_applicable_no_orders",
         "distribution_gap": null,
         "locality_score": 0.0,
@@ -828,7 +824,7 @@
         ]
       },
       "notes": [
-        "price_fallback_revenue_div_buys",
+        "average_retail_price_missing",
         "localization_share_unknown"
       ],
       "status": "no_demand_data",
@@ -907,13 +903,13 @@
   ],
   "items": [
     {
-      "sku": "551253854",
+      "sku": "453526507",
       "total_orders": 0.0,
       "local_orders": 0.0,
       "localization_share": null,
       "ktr": null,
       "krp": null,
-      "average_retail_price": 159.6,
+      "average_retail_price": null,
       "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
       "distribution_state": "no_orders",
@@ -924,7 +920,7 @@
       "data_quality_status": "insufficient_data",
       "recommendation_status": "blocked_by_data",
       "diagnostics": {
-        "price_source": "revenue_div_buys",
+        "price_source": "missing",
         "local_orders_source": "not_applicable_no_orders",
         "distribution_gap": null,
         "locality_score": 0.0,
@@ -992,7 +988,7 @@
         ]
       },
       "notes": [
-        "price_fallback_revenue_div_buys",
+        "average_retail_price_missing",
         "localization_share_unknown"
       ],
       "status": "no_demand_data",
@@ -1069,13 +1065,13 @@
       ]
     },
     {
-      "sku": "590614192",
+      "sku": "739377515",
       "total_orders": 0.0,
       "local_orders": 0.0,
       "localization_share": null,
       "ktr": null,
       "krp": null,
-      "average_retail_price": 427.8,
+      "average_retail_price": null,
       "irp_penalty_per_order": null,
       "estimated_irp_penalty_total": 0.0,
       "distribution_state": "no_orders",
@@ -1086,7 +1082,7 @@
       "data_quality_status": "insufficient_data",
       "recommendation_status": "blocked_by_data",
       "diagnostics": {
-        "price_source": "revenue_div_buys",
+        "price_source": "missing",
         "local_orders_source": "not_applicable_no_orders",
         "distribution_gap": null,
         "locality_score": 0.0,
@@ -1154,7 +1150,7 @@
         ]
       },
       "notes": [
-        "price_fallback_revenue_div_buys",
+        "average_retail_price_missing",
         "localization_share_unknown"
       ],
       "status": "no_demand_data",
@@ -1271,7 +1267,7 @@
   },
   "recommendation_candidates": [
     {
-      "sku": "551253854",
+      "sku": "453526507",
       "analysis_status": "blocked_by_data",
       "recommendation_candidates": [],
       "recommended_destination": "",
@@ -1285,7 +1281,7 @@
       "non_local_share_pct": null
     },
     {
-      "sku": "590614192",
+      "sku": "739377515",
       "analysis_status": "blocked_by_data",
       "recommendation_candidates": [],
       "recommended_destination": "",

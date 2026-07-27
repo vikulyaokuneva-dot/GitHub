@@ -97,7 +97,7 @@ def test_successful_run_writes_latest_successful_snapshot(tmp_path: Path) -> Non
     assert cached["live_operational"]["stocks"]["total_units"] == 7.0
 
 
-def test_rate_limited_run_uses_latest_successful_live_cache(tmp_path: Path) -> None:
+def test_rate_limited_run_does_not_use_live_cache_from_another_day(tmp_path: Path) -> None:
     _run_with_bundle(tmp_path, _successful_raw_bundle("2026-04-21"), run_date="2026-04-21")
 
     result = _run_with_bundle(tmp_path, _rate_limited_raw_bundle(), run_date="2026-04-22")
@@ -108,21 +108,20 @@ def test_rate_limited_run_uses_latest_successful_live_cache(tmp_path: Path) -> N
     sales = snapshot["live_operational"]["sales"]
     stocks = snapshot["live_operational"]["stocks"]
 
-    assert orders["available"] is True
-    assert orders["count"] == 1.0
-    assert orders["stale"] is True
-    assert orders["stale_reason"] == "rate_limited"
-    assert orders["source_actual_date"] == "2026-04-21"
-    assert orders["cache_age_seconds"] is not None
-    assert sales["stale"] is True
-    assert stocks["stale"] is True
+    assert orders["available"] is False
+    assert orders["count"] is None
+    assert "stale" not in orders
+    assert sales["available"] is False
+    assert stocks["available"] is False
 
     assert debug["endpoints"]["orders"]["status_code"] == 429
     assert debug["endpoints"]["sales"]["status_code"] == 429
     assert debug["endpoints"]["stocks"]["status_code"] == 429
-    assert debug["cache_fallback"]["latest_successful_snapshot_used"] is True
-    assert set(debug["cache_fallback"]["fallback_endpoints"]) == {"orders", "sales", "stocks"}
-    assert any(item.get("code") == "orders_latest_successful_cache_fallback" for item in debug["warnings"])
+    assert debug["cache_fallback"] == {}
+    assert not any(
+        item.get("code") == "orders_latest_successful_cache_fallback"
+        for item in debug["warnings"]
+    )
 
     cache_path = Path(latest_successful_snapshot_path(str(tmp_path), "seller_001"))
     cached_after_fallback = json.loads(cache_path.read_text(encoding="utf-8"))
@@ -130,21 +129,30 @@ def test_rate_limited_run_uses_latest_successful_live_cache(tmp_path: Path) -> N
     assert "stale" not in cached_after_fallback["live_operational"]["orders"]
 
 
-def test_report_payload_marks_cached_live_data_as_stale(tmp_path: Path) -> None:
+def test_rate_limited_run_may_use_cache_from_same_day(tmp_path: Path) -> None:
+    _run_with_bundle(tmp_path, _successful_raw_bundle("2026-04-21"), run_date="2026-04-21")
+
+    result = _run_with_bundle(tmp_path, _rate_limited_raw_bundle(), run_date="2026-04-21")
+
+    orders = result["snapshot"]["live_operational"]["orders"]
+    assert orders["available"] is True
+    assert orders["count"] == 1.0
+    assert orders["stale"] is True
+    assert orders["source_actual_date"] == "2026-04-21"
+    assert result["debug"]["cache_fallback"]["latest_successful_snapshot_used"] is True
+
+
+def test_report_payload_keeps_other_day_cache_out_of_report(tmp_path: Path) -> None:
     _run_with_bundle(tmp_path, _successful_raw_bundle("2026-04-21"), run_date="2026-04-21")
     result = _run_with_bundle(tmp_path, _rate_limited_raw_bundle(), run_date="2026-04-22")
 
     payload = build_report_payload_v2(result["snapshot"], debug=result["debug"])
 
-    assert payload["live_operational"]["orders"]["stale"] is True
-    assert payload["live_section"]["status"] == "warning"
-    assert any(
-        row.get("status") == "warning" and "stale/cache fallback" in row.get("note", "")
-        for row in payload["live_section"]["rows"]
-    )
+    assert payload["live_operational"]["orders"]["available"] is False
+    assert payload["live_operational"]["orders"]["stale"] is False
 
     diagnostic_flags = {item["name"]: item for item in payload["diagnostics"]["source_flags"]}
-    assert diagnostic_flags["live_operational.orders.stale"]["value"] == "true"
+    assert diagnostic_flags["live_operational.orders.stale"]["value"] == "false"
 
 
 def test_rate_limited_run_without_cache_keeps_no_data(tmp_path: Path) -> None:

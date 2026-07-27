@@ -4,7 +4,7 @@
     "version": "1.0",
     "seller_id": "seller_001",
     "run_date": "2026-04-13",
-    "generated_at": "2026-07-12T20:36:47Z",
+    "generated_at": "2026-07-27T21:35:41Z",
     "source_artifacts": [
       "territorial_distribution.json"
     ]
@@ -23,7 +23,7 @@
   },
   "skus": [
     {
-      "sku": "551253854",
+      "sku": "453526507",
       "total_buys": 0,
       "total_stock": 0,
       "ktr": null,
@@ -38,7 +38,7 @@
       "explanation": "Insufficient data for logistics assessment."
     },
     {
-      "sku": "590614192",
+      "sku": "739377515",
       "total_buys": 0,
       "total_stock": 0,
       "ktr": null,

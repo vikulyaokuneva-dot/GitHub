@@ -1,0 +1,19 @@
+Release 1 verification
+Date: 2026-07-27
+
+Focused Release 1 suite:
+115 passed in 18.98s
+
+Full repository suite:
+453 passed, 27 failed, 6 errors in 86.50s
+
+The full-suite failures are outside the modified Release 1 modules and include
+legacy V3 output-mode, financial-kernel, Ozon audit, and old report contract
+tests. The Release 1 pricing and report_v2 suites are green.
+
+Additional checks:
+- compileall: passed
+- mypy for modified wb_api_core modules and payload schema: passed
+- git diff --check: passed
+- Ruff: unavailable in the current environment
+- PDF: 4 non-empty A4 pages; no blank trailing page

@@ -168,6 +168,13 @@ def apply_latest_successful_live_fallback(
     cache_path = str(latest_snapshot_cache.get("path") or "")
     cache_age_seconds = latest_snapshot_cache.get("cache_age_seconds")
     source_actual_date = str(cached_snapshot.get("operational_date") or cached_snapshot.get("run_date") or "").strip()
+    target_date = str(
+        ((reconcile_result.get("live_operational") or {}).get("orders") or {}).get("target_date")
+        or ((reconcile_result.get("live_operational") or {}).get("sales") or {}).get("target_date")
+        or ""
+    ).strip()
+    if not target_date or source_actual_date != target_date:
+        return reconcile_result
     used: list[str] = []
 
     for endpoint_key, live_key in rate_limited:

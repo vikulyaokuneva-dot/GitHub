@@ -4,7 +4,7 @@ import json
 import os
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any, Iterable
@@ -345,9 +345,12 @@ def build_price_analytics(
     operational_date: str,
     store_rows: Iterable[dict[str, Any]],
     finance_rows: Iterable[dict[str, Any]],
+    funnel_rows: Iterable[dict[str, Any]] = (),
+    sales_rows: Iterable[dict[str, Any]] = (),
 ) -> dict[str, Any]:
     all_rows = [dict(row) for row in store_rows if isinstance(row, dict)]
     current_product: dict[str, dict[str, Any]] = {}
+    operational_product: dict[str, dict[str, Any]] = {}
     previous_product: dict[str, dict[str, Any]] = {}
     product_history: dict[str, list[dict[str, Any]]] = {}
     day_orders: dict[str, list[dict[str, Any]]] = {}
@@ -365,14 +368,78 @@ def build_price_analytics(
     for nm_id, history in product_history.items():
         ordered = sorted(history, key=lambda row: str(row.get("captured_at") or ""))
         current_product[nm_id] = ordered[-1]
+        operational_rows = [
+            row
+            for row in ordered
+            if (_local_date(str(row.get("captured_at") or "")) or "") == operational_date
+        ]
+        if operational_rows:
+            operational_product[nm_id] = operational_rows[-1]
         current_day = _local_date(str(ordered[-1].get("captured_at") or ""))
+        previous_day = None
+        if current_day:
+            previous_day = (
+                datetime.strptime(current_day, "%Y-%m-%d").date() - timedelta(days=1)
+            ).isoformat()
         prior_days = [
             row
             for row in ordered[:-1]
-            if (_local_date(str(row.get("captured_at") or "")) or "") < str(current_day or "")
+            if (_local_date(str(row.get("captured_at") or "")) or "") == str(previous_day or "")
         ]
         if prior_days:
             previous_product[nm_id] = prior_days[-1]
+
+    funnel_fallback_by_nm: dict[str, dict[str, Decimal]] = {}
+    for row in funnel_rows:
+        if not isinstance(row, dict):
+            continue
+        nm_id = str(row.get("nm_id") or row.get("nmId") or "")
+        row_date = str(row.get("date") or operational_date)
+        if not nm_id or row_date != operational_date:
+            continue
+        if not bool(row.get("buyout_count_confirmed", False)):
+            continue
+        if not bool(row.get("buyout_sum_confirmed", False)):
+            continue
+        buyouts = decimal_or_none(row.get("buyouts", row.get("buyout_count")))
+        buyout_sum = money(row.get("buyout_sum"))
+        if buyouts is None or buyouts <= 0 or buyout_sum is None or buyout_sum <= 0:
+            continue
+        bucket = funnel_fallback_by_nm.setdefault(
+            nm_id,
+            {"buyouts": Decimal("0"), "buyout_sum": Decimal("0")},
+        )
+        bucket["buyouts"] += buyouts
+        bucket["buyout_sum"] += buyout_sum
+
+    sales_fallback_by_nm: dict[str, dict[str, Decimal]] = {}
+    for row in sales_rows:
+        if not isinstance(row, dict):
+            continue
+        nm_id = str(row.get("nm_id") or row.get("nmId") or "")
+        row_date = str(row.get("date") or "")
+        if not nm_id or row_date != operational_date:
+            continue
+        if not bool(row.get("quantity_confirmed", False)):
+            continue
+        if not bool(row.get("amount_confirmed", False)):
+            continue
+        quantity = decimal_or_none(row.get("quantity"))
+        amount = money(row.get("amount"))
+        if quantity is None or quantity <= 0 or amount is None or amount <= 0:
+            continue
+        bucket = sales_fallback_by_nm.setdefault(
+            nm_id,
+            {"buyouts": Decimal("0"), "buyout_sum": Decimal("0")},
+        )
+        bucket["buyouts"] += quantity
+        bucket["buyout_sum"] += amount
+
+    # The sales endpoint is the preferred fallback because each row represents
+    # a factual sale. Funnel totals remain usable only when their count and sum
+    # semantics were both explicitly confirmed.
+    fallback_by_nm = dict(funnel_fallback_by_nm)
+    fallback_by_nm.update(sales_fallback_by_nm)
 
     finance_platform_by_nm: dict[str, list[Decimal]] = {}
     finance_spp_by_nm: dict[str, list[Decimal]] = {}
@@ -388,7 +455,11 @@ def build_price_analytics(
             finance_spp_by_nm.setdefault(nm_id, []).append(finance_spp)
 
     sku_ids = sorted(
-        set(current_product) | set(day_orders) | set(finance_platform_by_nm) | set(finance_spp_by_nm),
+        set(current_product)
+        | set(day_orders)
+        | set(fallback_by_nm)
+        | set(finance_platform_by_nm)
+        | set(finance_spp_by_nm),
         key=lambda item: (len(item), item),
     )
     sku_rows: list[dict[str, Any]] = []
@@ -396,16 +467,49 @@ def build_price_analytics(
         current = current_product.get(nm_id, {})
         previous = previous_product.get(nm_id, {})
         orders = day_orders.get(nm_id, [])
-        platform = _average((row.get("platform_discount_percent") for row in orders), quantum=PERCENT_QUANTUM)
-        wallet = _average((row.get("wallet_discount_percent") for row in orders), quantum=PERCENT_QUANTUM)
-        before_wallet = _average((row.get("buyer_price_before_wallet") for row in orders), quantum=MONEY_QUANTUM)
-        final_price = _average((row.get("buyer_final_price") for row in orders), quantum=MONEY_QUANTUM)
+        complete_orders = [
+            row
+            for row in orders
+            if money(row.get("buyer_price_before_wallet")) is not None
+            and money(row.get("buyer_final_price")) is not None
+        ]
+        platform = _average(
+            (row.get("platform_discount_percent") for row in complete_orders),
+            quantum=PERCENT_QUANTUM,
+        )
+        wallet = _average(
+            (row.get("wallet_discount_percent") for row in complete_orders),
+            quantum=PERCENT_QUANTUM,
+        )
+        before_wallet = _average(
+            (row.get("buyer_price_before_wallet") for row in complete_orders),
+            quantum=MONEY_QUANTUM,
+        )
+        final_price = _average(
+            (row.get("buyer_final_price") for row in complete_orders),
+            quantum=MONEY_QUANTUM,
+        )
+        buyer_price_source = "fbs_converted_price" if complete_orders else "unavailable"
+        buyer_units = Decimal(len(complete_orders))
         buyer_final_total = Decimal("0")
-        for order_row in orders:
+        for order_row in complete_orders:
             order_final_price = money(order_row.get("buyer_final_price"))
             if order_final_price is not None:
                 buyer_final_total += order_final_price
         buyer_final_total = buyer_final_total.quantize(MONEY_QUANTUM)
+        fallback = fallback_by_nm.get(nm_id)
+        if before_wallet is None and final_price is None and fallback:
+            fallback_count = fallback["buyouts"]
+            fallback_sum = fallback["buyout_sum"]
+            fallback_price = (fallback_sum / fallback_count).quantize(
+                MONEY_QUANTUM,
+                rounding=ROUND_HALF_UP,
+            )
+            before_wallet = fallback_price
+            final_price = fallback_price
+            buyer_final_total = fallback_sum.quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
+            buyer_units = fallback_count
+            buyer_price_source = "sales_funnel_fallback"
         finance_exact_platform = _average(
             finance_platform_by_nm.get(nm_id, []),
             quantum=PERCENT_QUANTUM,
@@ -435,15 +539,29 @@ def build_price_analytics(
             (row.get("platform_discount_percent") for row in previous_orders),
             quantum=PERCENT_QUANTUM,
         )
+        seller_base = money(current.get("seller_base_price"))
+        seller_discounted = money(current.get("seller_discounted_price"))
+        operational_seller_discounted = money(
+            operational_product.get(nm_id, {}).get("seller_discounted_price")
+        )
+        if (
+            not complete_orders
+            and fallback
+            and operational_seller_discounted is not None
+            and before_wallet is not None
+        ):
+            platform = discount_percent(operational_seller_discounted, before_wallet)
         delta = (
             (platform - previous_platform).quantize(PERCENT_QUANTUM, rounding=ROUND_HALF_UP)
             if platform is not None and previous_platform is not None
             else None
         )
-        seller_base = money(current.get("seller_base_price"))
-        seller_discounted = money(current.get("seller_discounted_price"))
-        previous_seller = money(previous.get("seller_base_price"))
-        seller_delta = seller_base - previous_seller if seller_base is not None and previous_seller is not None else None
+        previous_seller = money(previous.get("seller_discounted_price"))
+        seller_delta = (
+            seller_discounted - previous_seller
+            if seller_discounted is not None and previous_seller is not None
+            else None
+        )
         previous_buyer = _average((row.get("buyer_final_price") for row in previous_orders), quantum=MONEY_QUANTUM)
         buyer_delta = final_price - previous_buyer if final_price is not None and previous_buyer is not None else None
         reserve = None
@@ -470,12 +588,24 @@ def build_price_analytics(
             {
                 "nm_id": nm_id,
                 "seller_base_price": _decimal_text(seller_base),
+                "seller_price": _decimal_text(seller_discounted),
                 "seller_discount_percent": current.get("seller_discount_percent"),
                 "seller_discounted_price": _decimal_text(seller_discounted),
+                "seller_snapshot_date": (
+                    _local_date(str(operational_product.get(nm_id, {}).get("captured_at") or ""))
+                    if operational_product.get(nm_id)
+                    else None
+                ),
                 "club_discounted_price": current.get("club_discounted_price"),
                 "buyer_price_before_wallet": _decimal_text(before_wallet),
                 "buyer_final_price": _decimal_text(final_price),
-                "buyer_final_total": _decimal_text(buyer_final_total) if orders else None,
+                "buyer_final_total": (
+                    _decimal_text(buyer_final_total)
+                    if complete_orders or fallback
+                    else None
+                ),
+                "buyer_price_source": buyer_price_source,
+                "buyer_price_units": _decimal_text(buyer_units) if buyer_units > 0 else None,
                 "platform_discount_percent": _decimal_text(platform),
                 "wallet_discount_percent": _decimal_text(wallet),
                 "platform_discount_change_day": _decimal_text(delta),
@@ -486,18 +616,37 @@ def build_price_analytics(
                 "finance_discount_reference_type": finance_reference_type,
                 "finance_discount_reconciliation": reconciliation,
                 "fbs_orders_count": len(orders),
-                "source": f"{PRICE_SOURCE}+{FBS_ORDER_SOURCE}",
+                "source": f"{PRICE_SOURCE}+{buyer_price_source}",
                 "data_quality_status": quality,
             }
         )
 
-    order_total = sum(
-        (
-            (money(row.get("buyer_final_price")) or Decimal("0"))
-            for rows in day_orders.values()
-            for row in rows
-            if money(row.get("buyer_final_price")) is not None
-        ),
+    fbs_orders_count = sum(len(rows) for rows in day_orders.values())
+    fbs_orders_with_price_count = sum(
+        1
+        for rows in day_orders.values()
+        for row in rows
+        if money(row.get("buyer_price_before_wallet")) is not None
+        and money(row.get("buyer_final_price")) is not None
+    )
+    order_total = Decimal("0")
+    for nm_id in set(day_orders) | set(fallback_by_nm):
+        priced_fbs_rows = [
+            money(row.get("buyer_final_price"))
+            for row in day_orders.get(nm_id, [])
+            if money(row.get("buyer_price_before_wallet")) is not None
+            and money(row.get("buyer_final_price")) is not None
+        ]
+        if priced_fbs_rows:
+            order_total += sum(
+                (value for value in priced_fbs_rows if value is not None),
+                Decimal("0"),
+            )
+        elif nm_id in fallback_by_nm:
+            order_total += fallback_by_nm[nm_id]["buyout_sum"]
+    order_total = order_total.quantize(MONEY_QUANTUM)
+    fallback_total = sum(
+        (row["buyout_sum"] for row in fallback_by_nm.values()),
         Decimal("0"),
     ).quantize(MONEY_QUANTUM)
     sku_total = sum(
@@ -508,14 +657,12 @@ def build_price_analytics(
         ),
         Decimal("0"),
     ).quantize(MONEY_QUANTUM)
-    fbs_orders_count = sum(len(rows) for rows in day_orders.values())
-    fbs_orders_with_price_count = sum(
-        1
-        for rows in day_orders.values()
-        for row in rows
-        if money(row.get("buyer_final_price")) is not None
+    fallback_buyouts_count = sum(
+        (row["buyouts"] for row in fallback_by_nm.values()),
+        Decimal("0"),
     )
-    if fbs_orders_with_price_count == 0:
+    has_fallback_amount = fallback_total > 0 and fallback_buyouts_count > 0
+    if fbs_orders_with_price_count == 0 and not has_fallback_amount:
         totals_status = "unavailable"
     elif sku_total != order_total:
         totals_status = "mismatch"
@@ -523,12 +670,46 @@ def build_price_analytics(
         totals_status = "partial"
     else:
         totals_status = "matched"
-    has_reconciliation_amount = fbs_orders_with_price_count > 0
+    has_reconciliation_amount = fbs_orders_with_price_count > 0 or has_fallback_amount
+    weighted_discount_numerator = Decimal("0")
+    weighted_discount_units = Decimal("0")
+    for row in sku_rows:
+        row_discount = percent(row.get("platform_discount_percent"))
+        row_units = decimal_or_none(row.get("buyer_price_units"))
+        if row_discount is None or row_units is None or row_units <= 0:
+            continue
+        weighted_discount_numerator += row_discount * row_units
+        weighted_discount_units += row_units
+    weighted_platform_discount = (
+        (weighted_discount_numerator / weighted_discount_units).quantize(
+            PERCENT_QUANTUM,
+            rounding=ROUND_HALF_UP,
+        )
+        if weighted_discount_units > 0
+        else None
+    )
+    seller_price_available = any(money(row.get("seller_price")) is not None for row in sku_rows)
+    fbs_price_available = fbs_orders_with_price_count > 0
+    buyer_fallback_available = any(
+        row.get("buyer_price_source") == "sales_funnel_fallback"
+        and money(row.get("buyer_final_price")) is not None
+        for row in sku_rows
+    )
     return {
         "available": bool(sku_rows),
         "title": "Цены и платформенные скидки по SKU",
         "operational_date": operational_date,
         "sku_rows": sku_rows,
+        "weighted_platform_discount_percent": _decimal_text(weighted_platform_discount),
+        "status": {
+            "seller_price": "available" if seller_price_available else "unavailable",
+            "fbs_price_data": "available" if fbs_price_available else "unavailable",
+            "buyer_price": (
+                "available"
+                if fbs_price_available
+                else ("fallback/available" if buyer_fallback_available else "unavailable")
+            ),
+        },
         "changes": {
             "title": "Изменение цен и скидок",
             "rows": sku_rows,
@@ -545,6 +726,12 @@ def build_price_analytics(
             ),
             "fbs_orders_count": fbs_orders_count,
             "fbs_orders_with_price_count": fbs_orders_with_price_count,
+            "fallback_buyouts_count": _decimal_text(fallback_buyouts_count),
+            "buyer_total_source": (
+                "fbs_converted_final_price"
+                if fbs_orders_with_price_count > 0
+                else ("sales_funnel_fallback" if has_fallback_amount else "unavailable")
+            ),
             "status": totals_status,
         },
         "source": f"{PRICE_SOURCE}+{FBS_ORDER_SOURCE}+{FINANCE_SOURCE}",

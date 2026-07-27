@@ -137,6 +137,54 @@
         "orders_amount": 5280.0
       },
       "seller_id": "seller_001"
+    },
+    {
+      "date": "2026-07-26",
+      "path": "daily/2026-07-26",
+      "files": [
+        "2026-07-26_outcomes.json",
+        "abc_analysis.json",
+        "decisions.json",
+        "event_ledger.json",
+        "facts.json",
+        "health_score.json",
+        "keyword_monitoring.json",
+        "logistics_ktr.json",
+        "metrics.json",
+        "profit_contribution.json",
+        "sku_alerts.json",
+        "sku_daily_dynamics.json",
+        "sku_watchlists.json",
+        "territorial_distribution.json",
+        "territorial_distribution_metrics.json",
+        "territorial_distribution_summary.json",
+        "warnings.json"
+      ],
+      "kpi": {
+        "revenue": "1899.97",
+        "profit": null,
+        "buyouts": 2,
+        "ads_spend": null,
+        "funnel": {
+          "impressions": 0.0,
+          "open_count": 234,
+          "cart_count": 26,
+          "orders_count": 2,
+          "buyouts_count": 0,
+          "clicks": null,
+          "cart": null,
+          "orders": null,
+          "buyouts": 2.0,
+          "orders_amount": "1880.0",
+          "buyouts_amount": "0.0"
+        },
+        "orders": 2,
+        "orders_amount": "1880.0",
+        "sku_count": 2,
+        "valid_sku_count": 2,
+        "invalid_sku_rows": 0
+      },
+      "seller_id": "seller_001"
     }
   ]
 }

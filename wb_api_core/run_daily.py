@@ -69,6 +69,15 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
         normalized_bundle=normalized_bundle,
         target_date=operational_date,
     )
+    latest_snapshot_cache = read_latest_successful_snapshot(
+        repo_root=resolved_repo_root,
+        seller_id=seller_id,
+    )
+    reconcile_result = apply_latest_successful_live_fallback(
+        reconcile_result=reconcile_result,
+        raw_bundle=raw_bundle,
+        latest_snapshot_cache=latest_snapshot_cache,
+    )
     price_store = PriceSnapshotStore.for_seller(repo_root=resolved_repo_root, seller_id=seller_id)
     price_warnings = list(reconcile_result.get("warnings", []) or [])
     try:
@@ -93,6 +102,10 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
             operational_date=operational_date,
             store_rows=price_store.rows(seller_id=seller_id),
             finance_rows=(reconcile_result.get("finance_final_daily") or {}).get("rows", []),
+            funnel_rows=(reconcile_result.get("funnel_daily") or {}).get("sku_rows", []),
+            sales_rows=((reconcile_result.get("live_operational") or {}).get("sales") or {}).get(
+                "rows", []
+            ),
         )
         price_analytics["raw_payload_paths"] = raw_paths
         reconcile_result["price_analytics"] = price_analytics
@@ -112,16 +125,6 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
             "reconciliation": {"status": "unavailable"},
         }
     reconcile_result["warnings"] = price_warnings
-    latest_snapshot_cache = read_latest_successful_snapshot(
-        repo_root=resolved_repo_root,
-        seller_id=seller_id,
-    )
-    reconcile_result = apply_latest_successful_live_fallback(
-        reconcile_result=reconcile_result,
-        raw_bundle=raw_bundle,
-        latest_snapshot_cache=latest_snapshot_cache,
-    )
-
     finance_daily = reconcile_result.get("finance_final_daily", {})
     if isinstance(finance_daily, dict) and finance_daily.get("available"):
         write_finance_cache(

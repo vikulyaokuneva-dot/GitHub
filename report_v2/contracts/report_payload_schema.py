@@ -390,6 +390,7 @@ class StockSectionV2(TypedDict, total=False):
 class ProductPriceSkuV2(TypedDict, total=False):
     sku: str
     nm_id: str
+    seller_price: str | None
     seller_base_price: str | None
     seller_discount_percent: str | None
     seller_discounted_price: str | None
@@ -398,14 +399,17 @@ class ProductPriceSkuV2(TypedDict, total=False):
     wallet_discount_percent: str | None
     buyer_price_before_wallet: str | None
     buyer_final_price: str | None
+    buyer_price_source: str
     platform_discount_change_day: str | None
     seller_price_change_day: str | None
     buyer_price_change_day: str | None
     potential_price_increase_reserve: str | None
     buyouts: int | None
     profit: str | None
+    preliminary_income_before_wb_expenses: str | None
     profit_per_unit: str | None
     margin_percent: str | None
+    financial_expenses_complete: bool
     finance_discount_reconciliation: str
     finance_discount_reference_percent: str | None
     finance_discount_reference_type: str
@@ -420,6 +424,8 @@ class ProductPriceAnalyticsSectionV2(TypedDict, total=False):
     status: str
     source: str
     sku_rows: list[ProductPriceSkuV2]
+    status_rows: list[dict[str, str]]
+    weighted_platform_discount_percent: str | None
     reconciliation: dict[str, Any]
     automatic_price_changes: bool
 

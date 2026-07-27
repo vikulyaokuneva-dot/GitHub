@@ -1,20 +1,20 @@
 [
   {
-    "sku": "590614192",
-    "revenue": 427.8,
+    "sku": "453526507",
+    "revenue": 0.0,
     "profit": 0.0,
-    "share": 0.572691,
-    "cumulative_share": 0.572691,
+    "share": 0.5,
+    "cumulative_share": 0.5,
     "abc_class": "A",
-    "basis": "revenue"
+    "basis": "buys"
   },
   {
-    "sku": "551253854",
-    "revenue": 319.2,
+    "sku": "739377515",
+    "revenue": 0.0,
     "profit": 0.0,
-    "share": 0.427309,
+    "share": 0.5,
     "cumulative_share": 1.0,
     "abc_class": "C",
-    "basis": "revenue"
+    "basis": "buys"
   }
 ]

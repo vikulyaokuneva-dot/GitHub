@@ -245,8 +245,13 @@ def reconcile_bundle(
                 "cart": r.get("cart_count", 0),
                 "orders": r.get("order_count", 0),
                 "order_sum": r.get("order_sum", 0),
+                "order_sum_confirmed": bool(r.get("order_sum_confirmed", False)),
                 "buyouts": r.get("buyout_count", 0),
                 "buyout_sum": r.get("buyout_sum", 0),
+                "buyout_count_confirmed": bool(r.get("buyout_count_confirmed", False)),
+                "buyout_sum_confirmed": bool(r.get("buyout_sum_confirmed", False)),
+                "date": r.get("date"),
+                "source": r.get("source") or SOURCE_RULES["funnel_daily"],
             }
             for r in (cabinet_rows if cabinet_available else [])
         ],
@@ -285,6 +290,10 @@ def reconcile_bundle(
             "acquiring": _safe_total_if(finance_rows, "acquiring", "include_acquiring"),
             "tax": _safe_total_if(finance_rows, "tax", "include_tax"),
             "rows": finance_rows,
+            "expense_availability": {
+                key: any(bool(row.get(f"{key}_available", False)) for row in finance_rows)
+                for key in ("commission", "logistics", "storage", "deductions", "acquiring", "tax")
+            },
             "diagnostics": {
                 "selected_rows_count": len(finance_rows),
                 "effective_rows_count": len(finance_effective_rows),
@@ -316,6 +325,10 @@ def reconcile_bundle(
             "acquiring": None,
             "tax": None,
             "rows": [],
+            "expense_availability": {
+                key: False
+                for key in ("commission", "logistics", "storage", "deductions", "acquiring", "tax")
+            },
             "diagnostics": {
                 "selected_rows_count": 0,
                 "effective_rows_count": 0,
@@ -377,6 +390,9 @@ def reconcile_bundle(
         },
     }
 
+    reconciled_finance_rows_raw = finance_final_daily.get("rows", [])
+    finance_rows_count = len(reconciled_finance_rows_raw) if isinstance(reconciled_finance_rows_raw, list) else 0
+
     return {
         "source_rules": dict(SOURCE_RULES),
         "warnings": warnings,
@@ -387,7 +403,7 @@ def reconcile_bundle(
         "counts": {
             "reconciled": {
                 "cabinet_commerce": len(cabinet_rows),
-                "finance_final": len(finance_final_daily.get("rows", [])),
+                "finance_final": finance_rows_count,
                 "orders": len(orders_rows),
                 "sales": len(sales_rows),
                 "stocks": len(stock_rows),

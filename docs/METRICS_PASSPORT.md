@@ -1773,11 +1773,13 @@ search_report_api ────────► search_section
 | Метрика | Каноническое определение |
 |---|---|
 | `seller_base_price` | `price` из `GET /api/v2/list/goods/filter`; денежное значение без деления на 100 |
+| `seller_price` | `discountedPrice` из `GET /api/v2/list/goods/filter`; каноническая «Цена продавца» в отчёте |
 | `seller_discount_percent` | `discount` из `GET /api/v2/list/goods/filter`; скидка продавца |
 | `seller_discounted_price` | `discountedPrice` из `GET /api/v2/list/goods/filter`; цена после скидки продавца |
 | `club_discounted_price` | `clubDiscountedPrice` из `GET /api/v2/list/goods/filter`; отдельная клубная цена |
 | `buyer_price_before_wallet` | `convertedPrice / 100` из FBS-заказа; цена покупателя без скидки WB Кошелька |
 | `buyer_final_price` | `convertedFinalPrice / 100` из FBS-заказа; итоговая сумма к оплате |
+| `buyer_final_price` fallback | `buyout_sum / buyout_count` по SKU и операционному дню из `sales_funnel_api`; только при явном наличии обоих полей. Источник маркируется `sales_funnel_fallback` |
 | `platform_discount_percent` | `(seller_discounted_price_at_order - buyer_price_before_wallet) / seller_discounted_price_at_order × 100`; только при снимке не позднее заказа |
 | `wallet_discount_percent` | `(buyer_price_before_wallet - buyer_final_price) / buyer_price_before_wallet × 100`; только при наличии знаменателя |
 | `platform_discount_change_day` | средняя платформенная скидка WB за бизнес-день минус средняя за предыдущий доступный бизнес-день |
@@ -1789,6 +1791,9 @@ search_report_api ────────► search_section
 - Все денежные расчёты выполняются через `Decimal`, значения в БД хранятся как `NUMERIC`.
 - `captured_at` хранится в UTC; бизнес-день определяется в `Europe/Moscow`.
 - Старый заказ связывается только со снимком `captured_at <= order_created_at`. Текущая цена не подставляется задним числом.
+- FBS `convertedPrice` / `convertedFinalPrice` имеют приоритет над fallback из воронки.
+- Чистая прибыль и маржа SKU не рассчитываются без комиссии, логистики, эквайринга, хранения, удержаний и налога. В этом состоянии показывается предварительный доход до расходов WB.
+- Дневная конверсия заказ → выкуп не рассчитывается без когортной связи заказов с выкупами.
 - `нет данных` не заменяется на `0`.
 - Основное название — «Платформенная скидка WB». `ppvz_spp_prc` является СПП-компонентом финансового отчёта и не переименовывает всю платформенную скидку в СПП.
 - Расхождение с финансовым компонентом до `0,50` процентного пункта считается согласованным.

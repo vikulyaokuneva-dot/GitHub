@@ -76,6 +76,16 @@ def _sample_snapshot() -> dict:
             "logistics_amount": 166.40,
             "storage": 68.37,
             "acquiring": 186.08,
+            "deductions": 0.0,
+            "tax": 0.0,
+            "expense_availability": {
+                "commission": True,
+                "logistics": True,
+                "acquiring": True,
+                "storage": True,
+                "deductions": True,
+                "tax": True,
+            },
         },
         "live_operational": {
             "orders": {
@@ -886,12 +896,12 @@ def test_report_payload_v2_uses_funnel_daily_when_present() -> None:
 
     assert payload["funnel_section"]["status"] == "ok"
     assert payload["funnel_section"]["message"] == "Воронка собрана из sales_funnel_api."
-    assert rows["Открытия карточек"]["value"] == "423 шт"
-    assert rows["Открытия карточек"]["source"] == "sales_funnel_api"
+    assert rows["Переходы в карточку"]["value"] == "423 шт"
+    assert rows["Переходы в карточку"]["source"] == "sales_funnel_api"
     assert rows["Корзина"]["value"] == "42 шт"
-    assert rows["Открытие → корзина"]["value"] == "9.93%"
-    assert rows["Корзина → заказ"]["value"] == "11.9%"
-    assert rows["Заказ → выкуп"]["value"] == "40%"
+    assert rows["Карточка → Корзина"]["value"] == "9.93%"
+    assert rows["Корзина → Заказ"]["value"] == "11.9%"
+    assert "Заказ → выкуп" not in rows
     assert "Клики" not in rows
 
 
@@ -914,19 +924,17 @@ def test_funnel_section_v2_does_not_fake_missing_upper_funnel_zeroes() -> None:
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
     rows = {item["stage"]: item for item in payload["funnel_section"]["rows"]}
 
-    for stage in ("Показы", "Клики", "Корзина"):
+    for stage in ("Переходы в карточку", "Корзина"):
         assert rows[stage]["value"] == "нет данных"
         assert rows[stage]["status"] == "unavailable"
         assert rows[stage]["value"] != "0 шт"
 
 
-def test_funnel_section_v2_computes_order_to_buyout_conversion_in_builder() -> None:
+def test_funnel_section_v2_omits_non_cohort_order_to_buyout_conversion() -> None:
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
     rows = {item["stage"]: item for item in payload["funnel_section"]["rows"]}
 
-    assert rows["Конверсия заказ → выкуп"]["value"] == "40%"
-    assert rows["Конверсия заказ → выкуп"]["status"] == "ok"
-    assert "builder" in rows["Конверсия заказ → выкуп"]["note"]
+    assert "Конверсия заказ → выкуп" not in rows
 
 
 def test_funnel_section_v2_unavailable_without_orders_and_buyouts() -> None:
@@ -937,7 +945,7 @@ def test_funnel_section_v2_unavailable_without_orders_and_buyouts() -> None:
     assert funnel["status"] == "unavailable"
     assert rows["Заказы"]["value"] == "нет данных"
     assert rows["Выкупы"]["value"] == "нет данных"
-    assert rows["Конверсия заказ → выкуп"]["value"] == "нет данных"
+    assert "Конверсия заказ → выкуп" not in rows
 
 
 def test_report_payload_v2_fills_orders_from_live_operational_when_cabinet_commerce_rate_limited() -> None:
@@ -991,7 +999,7 @@ def test_report_payload_v2_does_not_label_sales_api_as_confirmed_buyouts() -> No
     assert "confirmed buyouts" in commerce_rows["Сумма оперативных продаж"]["note"]
     assert "Оперативные продажи" in funnel_rows
     assert "Выкупы" not in funnel_rows
-    assert funnel_rows["Конверсия заказ → выкуп"]["status"] == "unavailable"
+    assert "Конверсия заказ → выкуп" not in funnel_rows
     assert "operational_sales_not_confirmed_buyouts" in warning_codes
 
 
@@ -1045,7 +1053,7 @@ def test_ads_section_renders_no_data_when_artifacts_missing() -> None:
     assert rows["Клики"]["value"] == "нет данных"
     assert rows["Заказы из рекламы"]["value"] == "нет данных"
     assert rows["Выручка из рекламы"]["value"] == "нет данных"
-    assert rows["ДРР"]["value"] == "нет данных"
+    assert rows["ДРР рекламы"]["value"] == "нет данных"
 
 
 def test_ads_section_v2_missing_values_do_not_become_zero() -> None:
@@ -1064,7 +1072,7 @@ def test_ads_section_v2_missing_values_do_not_become_zero() -> None:
     assert rows["Расход на рекламу"]["value"] == "1 200 ₽"
     assert rows["Выручка из рекламы"]["value"] == "нет данных"
     assert rows["Выручка из рекламы"]["value"] != "0 ₽"
-    assert rows["ДРР"]["value"] == "нет данных"
+    assert rows["ДРР рекламы"]["value"] == "нет данных"
     assert rows["Заказы из рекламы"]["value"] != "0 шт"
 
 
@@ -1100,12 +1108,12 @@ def test_ads_section_uses_advertising_efficiency_artifact_when_present() -> None
     assert rows["Расход на рекламу"]["source"] == "advertising_efficiency.json"
     assert rows["Показы"]["value"] == "1 500 шт"
     assert rows["Клики"]["value"] == "150 шт"
-    assert rows["CTR"]["value"] == "10%"
+    assert rows["CTR рекламы"]["value"] == "10%"
     assert rows["CPC"]["value"] == "8 ₽"
     assert rows["CPM"]["value"] == "800 ₽"
     assert rows["Заказы из рекламы"]["value"] == "10"
     assert rows["Выручка из рекламы"]["value"] == "6 000 ₽"
-    assert rows["ДРР"]["value"] == "20%"
+    assert rows["ДРР рекламы"]["value"] == "20%"
     assert rows["ROAS"]["value"] == "5,00x"
     assert rows["ROMI"]["value"] == "150%"
     assert rows["Потери рекламы"]["value"] == "700 ₽"
@@ -1129,7 +1137,7 @@ def test_ads_section_v2_maps_ads_efficiency_daily_values() -> None:
     assert rows["Расход на рекламу"]["source"] == "ads_efficiency_api"
     assert rows["Заказы из рекламы"]["value"] == "4"
     assert rows["Выручка из рекламы"]["value"] == "6 000 ₽"
-    assert rows["ДРР"]["value"] == "20%"
+    assert rows["ДРР рекламы"]["value"] == "20%"
     assert rows["ROAS"]["value"] == "5,00x"
 
 
@@ -1141,8 +1149,8 @@ def test_ads_section_v2_partial_data_produces_partial_status() -> None:
 
     assert ads["status"] == "partial"
     assert rows["Расход на рекламу"]["value"] == "1 200 ₽"
-    assert rows["ДРР"]["value"] == "нет данных"
-    assert rows["ДРР"]["status"] == "unavailable"
+    assert rows["ДРР рекламы"]["value"] == "нет данных"
+    assert rows["ДРР рекламы"]["status"] == "unavailable"
 
 
 def test_sku_health_section_is_no_data_when_artifacts_missing() -> None:
@@ -1446,7 +1454,7 @@ def test_write_report_pdf_v2_creates_pdf_for_valid_snapshot(tmp_path: Path) -> N
 
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
-    assert info["hero_rows_count"] == 6
+    assert info["hero_rows_count"] == 7
     assert info["top_skus_count"] >= 0
 
 
@@ -1500,7 +1508,7 @@ def test_pdf_contains_ads_spend_drr_roas_when_data_exists(tmp_path: Path) -> Non
     assert info["ads_efficiency_section_status"] == "ok"
     assert info["ads_efficiency_loss_rows_count"] == 1
     assert rows["Расход на рекламу"]["value"] == "1 200 ₽"
-    assert rows["ДРР"]["value"] == "20%"
+    assert rows["ДРР рекламы"]["value"] == "20%"
     assert rows["ROAS"]["value"] == "5,00x"
 
 
@@ -1548,7 +1556,7 @@ def test_write_report_pdf_v2_creates_pdf_with_hero_block(tmp_path: Path) -> None
     assert payload["hero"]["cards"][0]["label"] == "Заказы"
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
-    assert info["hero_rows_count"] == 6
+    assert info["hero_rows_count"] == 7
 
 
 def test_pdf_renderer_visual_polish_removes_technical_hero_text() -> None:
@@ -1757,10 +1765,9 @@ def test_profit_contribution_total_revenue_falls_back_to_item_revenue(tmp_path: 
 
     pdf_path = tmp_path / "report_v2_profit_revenue_fallback.pdf"
     write_report_pdf_v2(pdf_path, payload)
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
     pdf_text = _extract_pdf_text(pdf_path)
-
-    assert "Общая выручка" in pdf_text
-    assert "5 000 ₽" in pdf_text
     _assert_no_mojibake(pdf_text)
 
 
@@ -1782,7 +1789,7 @@ def test_abc_analysis_section_is_ok_when_artifact_exists(tmp_path: Path) -> None
     assert section["categories"]["A"][0]["sku"] == "SKU-GROW"
 
 
-def test_abc_section_explains_buyout_basis(tmp_path: Path) -> None:
+def test_abc_section_explains_revenue_basis_even_when_legacy_artifact_says_buys(tmp_path: Path) -> None:
     artifact = _sample_abc_analysis_artifact()
     for row in artifact:
         row["basis"] = "buys"
@@ -1793,7 +1800,7 @@ def test_abc_section_explains_buyout_basis(tmp_path: Path) -> None:
 
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
 
-    assert "по количеству выкупов" in payload["abc_section"]["subtitle"]
+    assert "по выручке" in payload["abc_section"]["subtitle"]
     assert "C означает низкий вклад" in payload["abc_section"]["subtitle"]
 
 

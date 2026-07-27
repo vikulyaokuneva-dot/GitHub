@@ -1,0 +1,28 @@
+{
+  "report_date": "2026-07-26",
+  "revenue": {
+    "sku_total": "1899.97",
+    "cabinet_total": "1899.97",
+    "difference": "0.00",
+    "status": "matched",
+    "source": "sales_funnel_fallback"
+  },
+  "buyouts": {
+    "sku_count": 2,
+    "cabinet_count": 2,
+    "difference": 0,
+    "status": "matched"
+  },
+  "net_profit": {
+    "sku_total": null,
+    "cabinet_total": null,
+    "difference": null,
+    "status": "unavailable",
+    "reason": "mandatory_tax_unavailable"
+  },
+  "platform_discount": {
+    "weighted_percent": null,
+    "status": "unavailable",
+    "reason": "no_seller_price_snapshot_for_buyout_date"
+  }
+}

@@ -179,8 +179,254 @@ def test_sku_total_reconciles_with_fbs_orders(tmp_path) -> None:
         "difference": "0.00",
         "fbs_orders_count": 3,
         "fbs_orders_with_price_count": 3,
+        "fallback_buyouts_count": "0",
+        "buyer_total_source": "fbs_converted_final_price",
         "status": "matched",
     }
+
+
+def test_sales_funnel_fallback_uses_discounted_price_and_weighted_discount(tmp_path) -> None:
+    store = PriceSnapshotStore(tmp_path / "prices.sqlite3")
+    store.upsert_current_prices(
+        seller_id="seller_1",
+        rows=normalize_goods_prices(
+            [
+                {
+                    "nmID": 739377515,
+                    "discount": 20,
+                    "sizes": [{"sizeID": 1, "price": 2500, "discountedPrice": 2000}],
+                },
+                {
+                    "nmID": 453526507,
+                    "discount": 20,
+                    "sizes": [{"sizeID": 1, "price": 2500, "discountedPrice": 2000}],
+                },
+            ],
+            captured_at="2026-07-26T08:30:00Z",
+        ),
+    )
+
+    result = build_price_analytics(
+        seller_id="seller_1",
+        operational_date="2026-07-26",
+        store_rows=store.rows(seller_id="seller_1"),
+        finance_rows=[],
+        funnel_rows=[
+            {
+                "nm_id": "739377515",
+                "date": "2026-07-26",
+                "buyouts": 1,
+                "buyout_sum": "999.97",
+                "buyout_count_confirmed": True,
+                "buyout_sum_confirmed": True,
+            },
+            {
+                "nm_id": "453526507",
+                "date": "2026-07-26",
+                "buyouts": 1,
+                "buyout_sum": "900.00",
+                "buyout_count_confirmed": True,
+                "buyout_sum_confirmed": True,
+            },
+        ],
+    )
+    rows = {row["nm_id"]: row for row in result["sku_rows"]}
+
+    assert rows["739377515"]["seller_price"] == "2000.00"
+    assert rows["739377515"]["seller_base_price"] == "2500.00"
+    assert rows["739377515"]["buyer_final_price"] == "999.97"
+    assert rows["739377515"]["platform_discount_percent"] == "50.00"
+    assert rows["453526507"]["buyer_final_price"] == "900.00"
+    assert rows["453526507"]["platform_discount_percent"] == "55.00"
+    assert rows["453526507"]["buyer_price_source"] == "sales_funnel_fallback"
+    assert result["weighted_platform_discount_percent"] == "52.50"
+    assert result["status"] == {
+        "seller_price": "available",
+        "fbs_price_data": "unavailable",
+        "buyer_price": "fallback/available",
+    }
+
+
+def test_fbs_price_has_priority_over_sales_funnel_fallback(tmp_path) -> None:
+    store = PriceSnapshotStore(tmp_path / "prices.sqlite3")
+    store.upsert_current_prices(
+        seller_id="seller_1",
+        rows=normalize_goods_prices(
+            [
+                {
+                    "nmID": 739377515,
+                    "discount": 0,
+                    "sizes": [{"sizeID": 1, "price": 2000, "discountedPrice": 2000}],
+                }
+            ],
+            captured_at="2026-07-25T08:00:00Z",
+        ),
+    )
+    store.upsert_fbs_orders(
+        seller_id="seller_1",
+        rows=normalize_fbs_order_prices(
+            [
+                {
+                    "id": 991,
+                    "nmId": 739377515,
+                    "createdAt": "2026-07-26T08:00:00Z",
+                    "convertedPrice": 100_000,
+                    "convertedFinalPrice": 95_000,
+                }
+            ]
+        ),
+    )
+
+    result = build_price_analytics(
+        seller_id="seller_1",
+        operational_date="2026-07-26",
+        store_rows=store.rows(seller_id="seller_1"),
+        finance_rows=[],
+        funnel_rows=[
+            {
+                "nm_id": "739377515",
+                "date": "2026-07-26",
+                "buyouts": 1,
+                "buyout_sum": "999.97",
+                "buyout_count_confirmed": True,
+                "buyout_sum_confirmed": True,
+            }
+        ],
+    )
+
+    row = result["sku_rows"][0]
+    assert row["buyer_price_before_wallet"] == "1000.00"
+    assert row["buyer_final_price"] == "950.00"
+    assert row["buyer_price_source"] == "fbs_converted_price"
+    assert result["status"]["fbs_price_data"] == "available"
+
+
+def test_confirmed_sales_rows_supply_fallback_when_fbs_pair_is_incomplete(tmp_path) -> None:
+    store = PriceSnapshotStore(tmp_path / "prices.sqlite3")
+    store.upsert_current_prices(
+        seller_id="seller_1",
+        rows=normalize_goods_prices(
+            [
+                {
+                    "nmID": 739377515,
+                    "discount": 20,
+                    "sizes": [{"sizeID": 1, "price": 2500, "discountedPrice": 2000}],
+                }
+            ],
+            captured_at="2026-07-26T08:30:00Z",
+        ),
+    )
+    store.upsert_fbs_orders(
+        seller_id="seller_1",
+        rows=normalize_fbs_order_prices(
+            [
+                {
+                    "id": 991,
+                    "nmId": 739377515,
+                    "createdAt": "2026-07-26T08:00:00Z",
+                    "convertedPrice": 55_600,
+                    "convertedFinalPrice": None,
+                }
+            ]
+        ),
+    )
+    normalized = normalize_bundle(
+        {
+            "sales": {
+                "rows_raw": [
+                    {
+                        "date": "2026-07-26T09:00:00+03:00",
+                        "nmId": 739377515,
+                        "srid": "sale-1",
+                        "priceWithDisc": 999.97,
+                    }
+                ]
+            }
+        }
+    )
+
+    result = build_price_analytics(
+        seller_id="seller_1",
+        operational_date="2026-07-26",
+        store_rows=store.rows(seller_id="seller_1"),
+        finance_rows=[],
+        sales_rows=normalized["sales_rows"],
+    )
+
+    row = result["sku_rows"][0]
+    assert normalized["sales_rows"][0]["amount_confirmed"] is True
+    assert row["buyer_price_before_wallet"] == "999.97"
+    assert row["buyer_final_price"] == "999.97"
+    assert row["buyer_price_source"] == "sales_funnel_fallback"
+    assert result["status"]["fbs_price_data"] == "unavailable"
+    assert result["status"]["buyer_price"] == "fallback/available"
+
+
+def test_sales_fallback_does_not_use_later_seller_snapshot_for_discount(tmp_path) -> None:
+    store = PriceSnapshotStore(tmp_path / "prices.sqlite3")
+    store.upsert_current_prices(
+        seller_id="seller_1",
+        rows=normalize_goods_prices(
+            [
+                {
+                    "nmID": 739377515,
+                    "discount": 51,
+                    "sizes": [{"sizeID": 1, "price": 2000, "discountedPrice": 980}],
+                }
+            ],
+            captured_at="2026-07-27T08:30:00Z",
+        ),
+    )
+
+    result = build_price_analytics(
+        seller_id="seller_1",
+        operational_date="2026-07-26",
+        store_rows=store.rows(seller_id="seller_1"),
+        finance_rows=[],
+        sales_rows=[
+            {
+                "nm_id": "739377515",
+                "date": "2026-07-26",
+                "quantity": 1,
+                "amount": "999.97",
+                "quantity_confirmed": True,
+                "amount_confirmed": True,
+            }
+        ],
+    )
+
+    row = result["sku_rows"][0]
+    assert row["seller_price"] == "980.00"
+    assert row["seller_snapshot_date"] is None
+    assert row["buyer_final_price"] == "999.97"
+    assert row["platform_discount_percent"] is None
+    assert result["weighted_platform_discount_percent"] is None
+
+
+def test_missing_previous_discounted_price_snapshot_keeps_change_missing(tmp_path) -> None:
+    store = PriceSnapshotStore(tmp_path / "prices.sqlite3")
+    store.upsert_current_prices(
+        seller_id="seller_1",
+        rows=normalize_goods_prices(
+            [
+                {
+                    "nmID": 739377515,
+                    "discount": 20,
+                    "sizes": [{"sizeID": 1, "price": 2500, "discountedPrice": 2000}],
+                }
+            ],
+            captured_at="2026-07-27T00:30:00Z",
+        ),
+    )
+
+    result = build_price_analytics(
+        seller_id="seller_1",
+        operational_date="2026-07-26",
+        store_rows=store.rows(seller_id="seller_1"),
+        finance_rows=[],
+    )
+
+    assert result["sku_rows"][0]["seller_price_change_day"] is None
 
 
 def test_reconciliation_without_order_prices_is_unavailable_not_zero(tmp_path) -> None:

@@ -91,6 +91,7 @@ def build_snapshot(
             "deductions": finance_final.get("deductions"),
             "acquiring": finance_final.get("acquiring"),
             "tax": finance_final.get("tax"),
+            "expense_availability": finance_final.get("expense_availability", {}),
             "rows": finance_final.get("rows", []),
         },
         "live_operational": {

@@ -1,11 +1,9 @@
 {
-  "generated_at": "2026-07-11T22:30:40Z",
+  "generated_at": "2026-07-27T21:26:43Z",
   "seller_id": "seller_001",
-  "date": "2026-07-12",
+  "date": "2026-07-26",
   "status": "ok",
   "warnings": [
-    "profit_missing",
-    "margin_missing",
     "funnel_insufficient_data"
   ],
   "thresholds": {
@@ -29,28 +27,26 @@
   },
   "items": [
     {
-      "sku": "551253854",
-      "health_score": 1.33,
+      "sku": "453526507",
+      "health_score": 2.06,
       "health_status": "risk",
       "status": "LIQUIDATE",
       "scoring_status": "ok",
-      "confidence": "low",
+      "confidence": "medium",
       "factors": [
         "no_orders",
-        "profit_missing",
-        "margin_missing",
+        "zero_profit",
+        "critical_margin",
         "funnel_insufficient_data",
         "no_ads_activity"
       ],
       "warnings": [
-        "profit_missing",
-        "margin_missing",
         "funnel_insufficient_data"
       ],
       "reasons": [
         "no_orders",
-        "profit_missing",
-        "margin_missing",
+        "zero_profit",
+        "critical_margin",
         "funnel_insufficient_data",
         "no_ads_activity"
       ],
@@ -66,14 +62,14 @@
           "value": 0.0
         },
         "profit": {
-          "available": false,
+          "available": true,
           "weight": 2.5,
-          "value": 0.0
+          "value": 0.4
         },
         "margin": {
-          "available": false,
+          "available": true,
           "weight": 1.5,
-          "value": 0.0
+          "value": 0.1
         },
         "funnel": {
           "available": false,
@@ -105,28 +101,26 @@
       ]
     },
     {
-      "sku": "590614192",
-      "health_score": 1.33,
+      "sku": "739377515",
+      "health_score": 2.06,
       "health_status": "risk",
       "status": "LIQUIDATE",
       "scoring_status": "ok",
-      "confidence": "low",
+      "confidence": "medium",
       "factors": [
         "no_orders",
-        "profit_missing",
-        "margin_missing",
+        "zero_profit",
+        "critical_margin",
         "funnel_insufficient_data",
         "no_ads_activity"
       ],
       "warnings": [
-        "profit_missing",
-        "margin_missing",
         "funnel_insufficient_data"
       ],
       "reasons": [
         "no_orders",
-        "profit_missing",
-        "margin_missing",
+        "zero_profit",
+        "critical_margin",
         "funnel_insufficient_data",
         "no_ads_activity"
       ],
@@ -142,14 +136,14 @@
           "value": 0.0
         },
         "profit": {
-          "available": false,
+          "available": true,
           "weight": 2.5,
-          "value": 0.0
+          "value": 0.4
         },
         "margin": {
-          "available": false,
+          "available": true,
           "weight": 1.5,
-          "value": 0.0
+          "value": 0.1
         },
         "funnel": {
           "available": false,
@@ -192,29 +186,25 @@
       "healthy": 0,
       "strong": 0
     },
-    "average_health_score": 1.33,
+    "average_health_score": 2.06,
     "top_risk_sku": [
       {
-        "sku": "551253854",
-        "score": 1.33,
+        "sku": "453526507",
+        "score": 2.06,
         "health_status": "risk",
         "status": "LIQUIDATE",
         "profit": 0.0,
         "warnings": [
-          "profit_missing",
-          "margin_missing",
           "funnel_insufficient_data"
         ]
       },
       {
-        "sku": "590614192",
-        "score": 1.33,
+        "sku": "739377515",
+        "score": 2.06,
         "health_status": "risk",
         "status": "LIQUIDATE",
         "profit": 0.0,
         "warnings": [
-          "profit_missing",
-          "margin_missing",
           "funnel_insufficient_data"
         ]
       }
@@ -225,31 +215,27 @@
     "FIX": 0,
     "WATCH": 0,
     "LIQUIDATE": 2,
-    "confidence": "low",
+    "confidence": "medium",
     "reasons": [],
     "top_scale": [],
     "top_liquidate": [
       {
-        "sku": "551253854",
-        "score": 1.33,
+        "sku": "453526507",
+        "score": 2.06,
         "health_status": "risk",
         "status": "LIQUIDATE",
         "profit": 0.0,
         "warnings": [
-          "profit_missing",
-          "margin_missing",
           "funnel_insufficient_data"
         ]
       },
       {
-        "sku": "590614192",
-        "score": 1.33,
+        "sku": "739377515",
+        "score": 2.06,
         "health_status": "risk",
         "status": "LIQUIDATE",
         "profit": 0.0,
         "warnings": [
-          "profit_missing",
-          "margin_missing",
           "funnel_insufficient_data"
         ]
       }

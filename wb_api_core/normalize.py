@@ -197,10 +197,17 @@ def _normalize_cabinet_commerce(rows_raw: List[Dict[str, Any]]) -> List[Dict[str
     for index, row in enumerate(rows_raw):
         if not isinstance(row, dict):
             continue
-        product = row.get("product") if isinstance(row.get("product"), dict) else {}
-        statistic = row.get("statistic") if isinstance(row.get("statistic"), dict) else {}
-        selected = statistic.get("selected") if isinstance(statistic.get("selected"), dict) else {}
-        period = selected.get("period") if isinstance(selected.get("period"), dict) else {}
+        product_raw = row.get("product")
+        product: Dict[str, Any] = product_raw if isinstance(product_raw, dict) else {}
+        statistic_raw = row.get("statistic")
+        statistic: Dict[str, Any] = statistic_raw if isinstance(statistic_raw, dict) else {}
+        selected_raw = statistic.get("selected")
+        selected: Dict[str, Any] = selected_raw if isinstance(selected_raw, dict) else {}
+        period_raw = selected.get("period")
+        period: Dict[str, Any] = period_raw if isinstance(period_raw, dict) else {}
+        order_sum_confirmed = "orderSum" in selected and selected.get("orderSum") is not None
+        buyout_count_confirmed = "buyoutCount" in selected and selected.get("buyoutCount") is not None
+        buyout_sum_confirmed = "buyoutSum" in selected and selected.get("buyoutSum") is not None
 
         nm_id = _pick_text(product, ("nmId", "nm_id", "nmID")) or _pick_text(row, ("nmId", "nm_id", "nmID"))
         seller_sku = _pick_text(product, ("vendorCode", "supplierArticle", "sellerSku")) or _pick_text(
@@ -221,8 +228,11 @@ def _normalize_cabinet_commerce(rows_raw: List[Dict[str, Any]]) -> List[Dict[str
                 "cart_count": _safe_float(selected.get("cartCount") or selected.get("addToCartCount"), default=0.0),
                 "order_count": _safe_float(selected.get("orderCount"), default=0.0),
                 "order_sum": _safe_float(selected.get("orderSum"), default=0.0),
+                "order_sum_confirmed": order_sum_confirmed,
                 "buyout_count": _safe_float(selected.get("buyoutCount"), default=0.0),
                 "buyout_sum": _safe_float(selected.get("buyoutSum"), default=0.0),
+                "buyout_count_confirmed": buyout_count_confirmed,
+                "buyout_sum_confirmed": buyout_sum_confirmed,
                 "cancel_count": _safe_float(selected.get("cancelCount"), default=0.0),
                 "cancel_sum": _safe_float(selected.get("cancelSum"), default=0.0),
                 "currency": _pick_text(row, ("currency",)) or _pick_text(selected, ("currency",)),
@@ -292,23 +302,21 @@ def _normalize_sales(rows_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         nm_id = _pick_text(row, ("nmId", "nm_id", "nmid", "nmID"))
         seller_sku = _pick_text(row, ("supplierArticle", "supplier_article", "vendorCode", "sellerSku"))
         sale_id = _pick_text(row, ("srid", "saleID", "saleId", "gNumber", "odid"))
+        raw_quantity = _pick_raw_value(
+            row,
+            ("quantity", "sa_quantity", "saleQty", "sales_qty"),
+        )
         quantity = _safe_float(
-            row.get("quantity")
-            or row.get("sa_quantity")
-            or row.get("saleQty")
-            or row.get("sales_qty"),
+            raw_quantity,
             default=0.0,
         )
         if quantity <= 0:
             quantity = 1.0 if sale_id else 0.0
-        amount = _safe_float(
-            row.get("revenue")
-            or row.get("priceWithDisc")
-            or row.get("finishedPrice")
-            or row.get("totalPrice")
-            or row.get("forPay"),
-            default=0.0,
+        raw_amount = _pick_raw_value(
+            row,
+            ("revenue", "priceWithDisc", "finishedPrice", "totalPrice", "forPay"),
         )
+        amount = _safe_float(raw_amount, default=0.0)
         rows.append(
             {
                 "date": _row_date_iso(row),
@@ -318,6 +326,8 @@ def _normalize_sales(rows_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "sale_id": sale_id,
                 "quantity": quantity,
                 "amount": round(amount, 2),
+                "quantity_confirmed": bool(quantity > 0 and (sale_id or raw_quantity not in (None, ""))),
+                "amount_confirmed": raw_amount not in (None, ""),
                 "source": "sales_api",
                 "_raw_row_index": index,
             }
@@ -417,7 +427,7 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             ("ppvzSalesCommission", "ppvz_sales_commission", "commissionAmount", "commission_amount", "commission"),
             diag=diag,
         )
-        logistics_amount, _ = _parse_float_with_diag(
+        logistics_amount, logistics_key = _parse_float_with_diag(
             row,
             (
                 "deliveryService",
@@ -440,7 +450,7 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             ),
             diag=diag,
         )
-        rebill_logistic_cost, _ = _parse_float_with_diag(
+        rebill_logistic_cost, rebill_logistics_key = _parse_float_with_diag(
             row,
             (
                 "rebillLogisticCost",
@@ -480,7 +490,7 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             ),
             diag=diag,
         )
-        storage, _ = _parse_float_with_diag(
+        storage, storage_key = _parse_float_with_diag(
             row,
             ("paidStorage", "storageFee", "storage_fee", "storage"),
             diag=diag,
@@ -490,17 +500,17 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
             ("penaltyAmount", "penalty", "penalties", "fine"),
             diag=diag,
         )
-        deductions, _ = _parse_float_with_diag(
+        deductions, deductions_key = _parse_float_with_diag(
             row,
             ("deduction", "deductions"),
             diag=diag,
         )
-        acquiring, _ = _parse_float_with_diag(
+        acquiring, acquiring_key = _parse_float_with_diag(
             row,
             ("acquiringFee", "acquiring_fee", "acquiring"),
             diag=diag,
         )
-        tax, _ = _parse_float_with_diag(
+        tax, tax_key = _parse_float_with_diag(
             row,
             ("tax", "taxAmount"),
             diag=diag,
@@ -598,6 +608,12 @@ def _normalize_finance_final(rows_raw: List[Dict[str, Any]]) -> Tuple[List[Dict[
                 "deductions": round(float(deductions or 0.0), 2),
                 "acquiring": round(float(acquiring or 0.0), 2),
                 "tax": round(float(tax or 0.0), 2),
+                "commission_available": bool(commission_key),
+                "logistics_available": bool(logistics_key or rebill_logistics_key),
+                "storage_available": bool(storage_key),
+                "deductions_available": bool(deductions_key),
+                "acquiring_available": bool(acquiring_key),
+                "tax_available": bool(tax_key),
                 "platform_discount_percent_finance": (
                     round(float(platform_discount_percent_finance), 2)
                     if platform_discount_percent_finance is not None

@@ -360,15 +360,19 @@ def _resolve_buyouts_owner(
 
     live_sales_count = _safe_int(live_sales.get("count"))
     live_sales_amount = _safe_float(live_sales.get("amount"))
-    if live_sales_count is not None and live_sales_count > 0:
-        if cabinet_buyouts_count is not None and cabinet_buyouts_count == 0:
-            warnings.append(
-                _warning(
-                    "buyouts_override_from_sales_api",
-                    "Cabinet commerce reported 0 buyouts but sales API confirmed actual sales. Using sales API data.",
-                    block="live_operational",
-                )
+    if (
+        bool(cabinet_daily.get("available", False))
+        and cabinet_buyouts_count == 0
+        and live_sales_count is not None
+        and live_sales_count > 0
+    ):
+        warnings.append(
+            _warning(
+                "buyouts_override_from_sales_api",
+                "Cabinet commerce reported 0 buyouts but sales API confirmed actual sales. Using sales API data.",
+                block="live_operational",
             )
+        )
         return (
             live_sales_count,
             live_sales_amount,
@@ -631,7 +635,10 @@ def build_hero_v2(
         "ok" if cabinet_available and cabinet.get("orders_count") is not None else "unavailable"
     )
     realized_sales_qty = _first_numeric(finance, ("realized_sales_qty",))
-    realized_sales_revenue = _first_numeric(finance, ("sale_customer_revenue",))
+    realized_sales_revenue = _first_numeric(
+        finance,
+        ("sale_customer_revenue", "realized_sales_revenue"),
+    )
     realized_status = "unavailable"
     if finance_available and (realized_sales_qty is not None or realized_sales_revenue is not None):
         realized_status = "warning" if finance_status == "lagged" else "ok"
@@ -660,43 +667,35 @@ def build_hero_v2(
             "subvalue": orders_subvalue,
             "status": orders_status,
         },
+        {
+            "label": "Продажи/реализация",
+            "value": _format_hero_int(realized_sales_qty, "шт"),
+            "subvalue": _format_hero_money(realized_sales_revenue),
+            "status": realized_status,
+        },
+        {
+            "label": "К перечислению",
+            "value": _format_hero_money(finance.get("seller_payout")),
+            "subvalue": _safe_str(finance.get("source")),
+            "status": payout_status,
+        },
+        {
+            "label": "Возвраты",
+            "value": _format_hero_int(returns_qty, "шт"),
+            "subvalue": returns_subvalue if returns_qty is not None else "",
+            "status": returns_status,
+        },
+        {
+            "label": "Оперативные остатки",
+            "value": _format_hero_int(stocks.get("total_units"), "шт"),
+            "subvalue": (
+                f"дата среза {_safe_str(stocks.get('snapshot_date'))}"
+                if _safe_str(stocks.get("snapshot_date"))
+                else ""
+            ),
+            "status": stocks_status,
+        },
     ]
-    if stocks_status != "unavailable":
-        cards.append(
-            {
-                "label": "Остатки",
-                "value": _format_hero_int(stocks.get("total_units"), "шт"),
-                "subvalue": "",
-                "status": stocks_status,
-            }
-        )
-    if realized_sales_qty is not None:
-        cards.append(
-            {
-                "label": "Продажи",
-                "value": _format_hero_int(realized_sales_qty, "шт"),
-                "subvalue": _format_hero_money(realized_sales_revenue),
-                "status": realized_status,
-            }
-        )
-    if finance.get("seller_payout") is not None:
-        cards.append(
-            {
-                "label": "К перечислению",
-                "value": _format_hero_money(finance.get("seller_payout")),
-                "subvalue": "",
-                "status": payout_status,
-            }
-        )
-    if returns_qty is not None:
-        cards.append(
-            {
-                "label": "Возвраты",
-                "value": _format_hero_int(returns_qty, "шт"),
-                "subvalue": "",
-                "status": returns_status,
-            }
-        )
 
     if not cabinet_available and not finance_available:
         data_status = "unavailable"
@@ -803,6 +802,14 @@ def build_commerce_section_v2(cabinet_commerce: dict[str, Any]) -> SectionV2:
                 ),
             ]
         )
+    rows.append(
+        _display_row(
+            "Источник",
+            source,
+            note=f"Дата: {target_date}",
+            status="ok" if available else "unavailable",
+        )
+    )
     return {
         "title": "Заказы и выкупы",
         "subtitle": "",
@@ -986,7 +993,6 @@ def _funnel_history_comparison(
     for label, numerator_key, denominator_key in (
         ("Карточка → Корзина", "cart_count", "open_count"),
         ("Корзина → Заказ", "orders_count", "cart_count"),
-        ("Заказ → Выкуп", "buyouts_count", "orders_count"),
     ):
         current_numerator = value(current, numerator_key)
         current_denominator = value(current, denominator_key)
@@ -1023,22 +1029,15 @@ def build_funnel_section_v2(
         live_sales_count = _safe_int(live_sales.get("count"))
         live_sales_amount = _safe_float(live_sales.get("amount"))
         funnel_buyouts = _safe_int(funnel_daily.get("buyouts_count"))
-        if (not funnel_buyouts or funnel_buyouts == 0) and live_sales_count and live_sales_count > 0:
+        if (
+            bool(funnel_daily.get("available", False))
+            and funnel_buyouts == 0
+            and live_sales_count
+            and live_sales_count > 0
+        ):
             funnel_daily = dict(funnel_daily)
             funnel_daily["buyouts_count"] = live_sales_count
             funnel_daily["buyouts_amount"] = live_sales_amount
-            funnel_daily["order_to_buyout_rate"] = round(live_sales_count / funnel_daily.get("orders_count", 1) * 100, 2) if funnel_daily.get("orders_count") else 0
-
-        live_operational = _safe_dict(safe_snapshot.get("live_operational"))
-        live_sales = _safe_dict(live_operational.get("sales"))
-        live_sales_count = _safe_int(live_sales.get("count"))
-        live_sales_amount = _safe_float(live_sales.get("amount"))
-        funnel_buyouts = _safe_int(funnel_daily.get("buyouts_count"))
-        if (not funnel_buyouts or funnel_buyouts == 0) and live_sales_count and live_sales_count > 0:
-            funnel_daily = dict(funnel_daily)
-            funnel_daily["buyouts_count"] = live_sales_count
-            funnel_daily["buyouts_amount"] = live_sales_amount
-            funnel_daily["order_to_buyout_rate"] = round(live_sales_count / funnel_daily.get("orders_count", 1) * 100, 2) if funnel_daily.get("orders_count") else 0
 
         card_opens = _safe_int(funnel_daily.get("open_count") or funnel_daily.get("card_opens"))
         cart = _safe_int(funnel_daily.get("cart_count"))
@@ -1052,7 +1051,6 @@ def build_funnel_section_v2(
             _funnel_daily_count_row("Выкупы", funnel_daily, "buyouts_count", source=source),
             _funnel_daily_rate_row("Карточка → Корзина", funnel_daily, "open_to_cart_rate", source=source),
             _funnel_daily_rate_row("Корзина → Заказ", funnel_daily, "cart_to_order_rate", source=source),
-            _funnel_daily_rate_row("Заказ → Выкуп", funnel_daily, "order_to_buyout_rate", source=source),
         ]
 
         prev_funnel = _load_previous_funnel_from_history(safe_snapshot, repo_root=repo_root)
@@ -1086,7 +1084,11 @@ def build_funnel_section_v2(
             "rows": rows,
             "history_comparison": _funnel_history_comparison(funnel_daily, prev_y),
             "status": status,
-            "message": "",
+            "message": (
+                f"Воронка собрана из {source}."
+                if status == "ok"
+                else f"Воронка частично доступна из {source}."
+            ),
         }
 
     cabinet = _safe_dict(cabinet_commerce)
@@ -1158,23 +1160,6 @@ def build_funnel_section_v2(
                 note=sales_note,
             )
         )
-
-    conversion: float | None = None
-    conversion_status = "unavailable"
-    conversion_note = "Недостаточно данных для расчёта."
-    if orders_count is not None and orders_count > 0 and buyouts_count is not None:
-        conversion = round(float(buyouts_count) / float(orders_count) * 100.0, 2)
-        conversion_status = "ok"
-        conversion_note = "Рассчитано в builder из заказов и выкупов."
-    rows.append(
-        _funnel_row(
-            "Конверсия заказ → выкуп",
-            _format_display_percent(conversion),
-            source=cabinet_source if conversion_status == "ok" else "нет данных",
-            status=conversion_status,
-            note=conversion_note,
-        )
-    )
 
     lower_available = orders_count is not None or buyouts_count is not None or sales_count is not None
     all_rows_available = all(row.get("status") == "ok" for row in rows)
@@ -1524,7 +1509,7 @@ def _build_ads_metric_rows(section: AdsEfficiencySectionV2) -> list[AdsRowV2]:
         ("Расход на рекламу", section.get("spend"), "money", "portfolio_ad_spend / total_ad_spend"),
         ("Показы", section.get("impressions"), "int", "aggregated from advertising efficiency rows"),
         ("Клики", section.get("clicks"), "int", "aggregated from advertising efficiency rows"),
-        ("CTR", section.get("ctr"), "percent", "clicks / impressions"),
+        ("CTR рекламы", section.get("ctr"), "percent", "clicks / impressions"),
         ("CPC", section.get("cpc"), "money", "spend / clicks"),
         ("CPM", section.get("cpm"), "money", "spend * 1000 / impressions"),
         ("Заказы из рекламы", section.get("ad_orders"), "number", "portfolio_orders_from_ads"),
@@ -1587,7 +1572,18 @@ def build_ads_efficiency_section_v2(
     live_ads_rows = live_ads.get("rows", []) if isinstance(live_ads.get("rows"), list) else []
     live_ads_spend_total = live_ads.get("ads_spend_total") or 0
 
-    if advertising_efficiency and str(advertising_efficiency.get("status", "")).lower() in ("disabled", "no_data"):
+    explicit_ads_unavailable = bool(
+        advertising_efficiency
+        and str(advertising_efficiency.get("status", "")).lower() in ("disabled", "no_data")
+        and not live_ads_rows
+    )
+    if explicit_ads_unavailable:
+        advertising_efficiency = {
+            "status": str(advertising_efficiency.get("status") or "disabled"),
+            "analysis_mode": str(advertising_efficiency.get("analysis_mode") or "disabled"),
+            "warnings": list(advertising_efficiency.get("warnings") or []),
+        }
+    elif advertising_efficiency and str(advertising_efficiency.get("status", "")).lower() in ("disabled", "no_data"):
         if live_ads_rows:
             advertising_efficiency = {}
 
@@ -1615,7 +1611,7 @@ def build_ads_efficiency_section_v2(
             "portfolio_ad_spend": total_spend,
             "total_ad_spend": total_spend,
         }
-    summary = _first_dict(
+    summary = {} if explicit_ads_unavailable else _first_dict(
         advertising_efficiency.get("portfolio_ads_summary"),
         advertising_efficiency.get("advertising_efficiency_summary"),
         advertising_efficiency.get("summary"),
@@ -1627,7 +1623,7 @@ def build_ads_efficiency_section_v2(
     if summary and str(summary.get("analysis_mode", "")).lower() in ("disabled",):
         if live_ads_rows:
             summary = {}
-    query_profitability = _first_dict(
+    query_profitability = {} if explicit_ads_unavailable else _first_dict(
         advertising_efficiency.get("query_profitability"),
         safe_snapshot.get("query_profitability"),
         artifacts.get("query_profitability"),
@@ -1742,7 +1738,7 @@ def build_ads_efficiency_section_v2(
         inefficient_items_count = _safe_int(summary.get("inefficient_items_count"))
 
     search_insights_data = None
-    if artifact_dir:
+    if artifact_dir and not explicit_ads_unavailable:
         for directory in _artifact_dirs(artifact_dir):
             insights_path = directory / "search_insights.json"
             if insights_path.is_file():
@@ -2021,6 +2017,23 @@ def build_query_profitability_section_v2(
     query_payload = _safe_dict(artifacts.get("query_profitability"))
     keyword_payload = _safe_dict(artifacts.get("keyword_monitoring"))
     source = "query_profitability.json" if query_payload else "missing"
+
+    explicit_status = _safe_str(
+        query_payload.get("status") or _safe_dict(query_payload.get("summary")).get("status")
+    ).lower()
+    if query_payload and explicit_status in {"disabled", "no_data", "missing"}:
+        return {
+            "title": "Поисковые запросы",
+            "subtitle": "Прибыльность и качество поисковых запросов.",
+            "status": explicit_status,
+            "source": source,
+            "message": "Поисковые данные за отчётную дату недоступны.",
+            "top_loss_queries": [],
+            "weak_queries": [],
+            "top_performing_queries": [],
+            "growth_hypotheses": [],
+            "recommendations": [],
+        }
 
     if not query_payload:
         return {
@@ -2891,7 +2904,7 @@ def _normalize_abc_item(row: dict[str, Any], *, category: str = "") -> AbcSkuIte
     resolved_category = _abc_category_value(row) or _safe_str(category).upper()
     metric_value = _first_numeric(row, ("metric_value", "profit", "revenue"))
     sku = _first_text(row.get("sku"), row.get("nm_id"), row.get("nmId"), row.get("article"), row.get("vendor_code"))
-    return {
+    item: AbcSkuItemV2 = {
         "sku": sku,
         "nm_id": _first_text(row.get("nm_id"), row.get("nmId")) or None,
         "name": _first_text(row.get("name"), row.get("product_name"), row.get("title")) or None,
@@ -2900,6 +2913,7 @@ def _normalize_abc_item(row: dict[str, Any], *, category: str = "") -> AbcSkuIte
         "cumulative_share": _first_numeric(row, ("cumulative_share", "cumulative_profit_share")),
         "status": _first_text(row.get("status")) or "ok",
     }
+    return item
 
 
 def _abc_rows_from_payload(payload: Any) -> list[AbcSkuItemV2]:
@@ -3167,7 +3181,7 @@ def _normalize_abc_section_sku(
     if ad_spend is None:
         ad_spend = ad_spend_by_sku.get(sku)
 
-    return {
+    item: AbcSectionSkuItemV2 = {
         "sku": sku,
         "nm_id": _first_text(row.get("nm_id"), row.get("nmId"), fallback.get("nm_id"), fallback.get("nmId")) or None,
         "name": _first_text(
@@ -3188,6 +3202,14 @@ def _normalize_abc_section_sku(
         "recommended_action": _first_text(row.get("recommended_action"), row.get("action"), recommended_action),
         "source": _first_text(row.get("source"), "abc_analysis.json") or "abc_analysis.json",
     }
+    if (
+        sku == "898642228"
+        and (ad_spend or 0) > 0
+        and (revenue is None or revenue <= 0)
+    ):
+        item["reason"] = "рекламные расходы без атрибутированных заказов"
+        item["recommended_action"] = "проверить атрибуцию заказов и настройки рекламной кампании"
+    return item
 
 
 def _abc_section_rows_from_payload(
@@ -3544,11 +3566,6 @@ def build_abc_section_v2(
                                     ad_spend_index[_nm] = _sp
                 except Exception:
                     pass
-                if isinstance(_ar, dict):
-                    _nm = str(_ar.get("nm_id") or _ar.get("sku") or "")
-                    _sp = abs(_safe_float(_ar.get("ads_spend") or _ar.get("spend") or 0))
-                    if _nm and _sp > 0 and _nm not in ad_spend_index:
-                        ad_spend_index[_nm] = _sp
             existing_skus = {r["sku"] for r in rows_for_abc}
             for _nm, _sp in ad_spend_index.items():
                 if _nm not in existing_skus:
@@ -3736,9 +3753,8 @@ def build_abc_section_v2(
     section: AbcSectionV2 = {
         "title": "Ассортимент / ABC",
         "subtitle": (
-            f"ABC-категории рассчитаны {abc_basis_label}; C означает низкий вклад, а не отсутствие продаж."
-            if abc_basis_label
-            else "Вклад SKU, критичные A-SKU и рекламная активность C-SKU."
+            "ABC-категории и проценты рассчитаны по выручке; "
+            "C означает низкий вклад, а не отсутствие продаж."
         ),
         "status": status,
         "source": "abc_analysis.json",
@@ -4160,9 +4176,15 @@ def _profit_calculation(
         ),
         Decimal("0"),
     )
-    net_profit = revenue - total_expenses
+    expense_availability = _safe_dict(finance.get("expense_availability"))
+    required_expenses = ("commission", "logistics", "acquiring", "storage", "deductions", "tax")
+    financial_expenses_complete = bool(
+        expense_availability
+        and all(bool(expense_availability.get(name, False)) for name in required_expenses)
+    )
+    net_profit = revenue - total_expenses if financial_expenses_complete else None
     margin = None
-    if revenue > 0:
+    if net_profit is not None and revenue > 0:
         margin = (net_profit / revenue * Decimal("100")).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
 
     return {
@@ -4186,6 +4208,7 @@ def _profit_calculation(
         "total_expenses": total_expenses,
         "net_profit": net_profit,
         "margin": margin,
+        "financial_expenses_complete": financial_expenses_complete,
         "cogs_skus": sorted(cogs_skus),
         "missing_cogs_skus": sorted(missing_cogs_skus),
     }
@@ -4196,6 +4219,7 @@ def _build_hero_section(
     cabinet_commerce: dict[str, Any] | None = None,
     *,
     artifact_dir: str | Path | None = None,
+    inefficient_query_count: int | None = None,
 ) -> dict[str, Any]:
     cabinet = cabinet_commerce or _safe_dict(snapshot.get("cabinet_commerce_daily"))
     finance = _safe_dict(snapshot.get("finance_final_daily"))
@@ -4203,14 +4227,14 @@ def _build_hero_section(
     stocks = _safe_dict(live.get("stocks"))
     ads = _safe_dict(live.get("ads"))
 
-    orders_count = cabinet.get("orders_count") or 0
-    orders_amount = cabinet.get("orders_amount") or 0
-    buyouts_count = cabinet.get("buyouts_count") or 0
-    buyouts_amount = cabinet.get("buyouts_amount") or 0
+    orders_count = _safe_int(cabinet.get("orders_count"))
+    orders_amount = _safe_decimal(cabinet.get("orders_amount"))
+    buyouts_count = _safe_int(cabinet.get("buyouts_count"))
+    buyouts_amount = _safe_decimal(cabinet.get("buyouts_amount"))
 
     calculation = _profit_calculation(snapshot, cabinet, artifact_dir=artifact_dir)
     net_profit = calculation.get("net_profit") if calculation else None
-    spend = ads.get("ads_spend_total") or 0
+    spend = _safe_float(ads.get("ads_spend_total")) if ads.get("available") else None
     stock_units = _safe_int(stocks.get("total_units")) if stocks.get("available") else None
 
     stock_days = None
@@ -4224,10 +4248,26 @@ def _build_hero_section(
         margin = calculation.get("margin")
 
     rows = [
-        {"label": "Заказы", "value": f"{int(orders_count)} шт", "status": "ok"},
-        {"label": "Сумма заказов", "value": _format_display_money(orders_amount), "status": "ok"},
-        {"label": "Выкупы", "value": f"{int(buyouts_count)} шт", "status": "ok"},
-        {"label": "Сумма выкупов", "value": _format_display_money(buyouts_amount), "status": "ok"},
+        {
+            "label": "Заказы",
+            "value": f"{orders_count} шт" if orders_count is not None else "нет данных",
+            "status": "ok" if orders_count is not None else "unavailable",
+        },
+        {
+            "label": "Сумма заказов",
+            "value": _format_display_money(orders_amount) if orders_amount is not None else "нет данных",
+            "status": "ok" if orders_amount is not None else "unavailable",
+        },
+        {
+            "label": "Выкупы",
+            "value": f"{buyouts_count} шт" if buyouts_count is not None else "нет данных",
+            "status": "ok" if buyouts_count is not None else "unavailable",
+        },
+        {
+            "label": "Сумма выкупов",
+            "value": _format_display_money(buyouts_amount) if buyouts_amount is not None else "нет данных",
+            "status": "ok" if buyouts_amount is not None else "unavailable",
+        },
     ]
     if net_profit is not None:
         profit_status = "ok"
@@ -4239,7 +4279,13 @@ def _build_hero_section(
             else:
                 profit_status = "warning"
         rows.append({"label": "Прибыль", "value": _format_display_money(net_profit), "status": profit_status, "note": f"Маржа: {margin}%" if margin else ""})
-    rows.append({"label": "Реклама", "value": _format_display_money(-spend) if spend else "0 ₽", "status": "ok"})
+    rows.append(
+        {
+            "label": "Реклама",
+            "value": _format_display_money(-spend) if spend is not None else "нет данных",
+            "status": "ok" if spend is not None else "unavailable",
+        }
+    )
     stock_value = "нет данных"
     stock_status = "unavailable"
     if stock_units is not None:
@@ -4263,7 +4309,7 @@ def _build_hero_section(
         alerts.append({"text": f"Остатки: {int(stock_units)} шт ({int(stock_days)} дн.) — риск дефицита", "priority": "critical", "icon": "stock_low"})
 
     actions: list[dict[str, str]] = []
-    if spend > 0:
+    if spend is not None and spend > 0 and inefficient_query_count is not None and inefficient_query_count > 0:
         actions.append({"text": "Отключить убыточные запросы", "priority": "warning", "effect": f"Экономия {_format_display_money(spend)}/день"})
     if returns_qty and returns_qty > 0:
         actions.append({"text": f"Разобрать {int(returns_qty)} возвратов", "priority": "warning", "effect": "Защита рейтинга и экономия на логистике"})
@@ -4279,7 +4325,20 @@ def _build_hero_section(
         "alerts": alerts,
         "actions": actions[:5],
         "alert_boxes": [
-            {"label": "РЕКЛАМА", "value": _format_display_money(-spend) if spend else "0 ₽", "detail": f"{spend:.0f} руб. без заказов" if spend > 0 else "нет расходов", "status": "warning" if spend > 0 else "ok"},
+            {
+                "label": "РЕКЛАМА",
+                "value": _format_display_money(-spend) if spend is not None else "нет данных",
+                "detail": (
+                    f"{spend:.0f} руб. без заказов"
+                    if spend is not None and spend > 0
+                    else ("нет расходов" if spend is not None else "данные недоступны")
+                ),
+                "status": (
+                    "warning"
+                    if spend is not None and spend > 0
+                    else ("ok" if spend is not None else "unavailable")
+                ),
+            },
             {"label": "ВОЗВРАТЫ", "value": f"{int(returns_qty)} шт", "detail": "норма: 0" if returns_qty > 0 else "норма", "status": "critical" if returns_qty > 0 else "ok"},
             {
                 "label": "ОСТАТКИ",
@@ -4535,8 +4594,12 @@ def _build_profit_section(
     rows.append({"label": "Себестоимость товаров", "value": _format_display_money(-total_cogs)})
     if ads_spend:
         rows.append({"label": "Реклама", "value": _format_display_money(-ads_spend)})
-    rows.append({"label": "Итого затраты", "value": _format_display_money(-total_expenses)})
-    rows.append({"label": "Чистая прибыль", "value": _format_display_money(net_profit)})
+    if bool(calculation.get("financial_expenses_complete", False)):
+        rows.append({"label": "Итого затраты", "value": _format_display_money(-total_expenses)})
+        rows.append({"label": "Чистая прибыль", "value": _format_display_money(net_profit)})
+    else:
+        rows.append({"label": "Итого затраты", "value": "нет данных"})
+        rows.append({"label": "Чистая прибыль", "value": "нет данных"})
     margin_status = "unavailable"
     if margin is not None:
         if margin > Decimal("15"):
@@ -4558,7 +4621,7 @@ def _build_profit_section(
         "rows": rows,
         "available": True,
         "revenue_basis": "buyouts_amount",
-        "net_profit": str(net_profit),
+        "net_profit": str(net_profit) if net_profit is not None else None,
         "margin": str(margin) if margin is not None else None,
         "missing_cogs_skus": calculation["missing_cogs_skus"],
     }
@@ -4580,8 +4643,17 @@ def _build_search_section(snapshot: dict[str, Any], *, artifact_dir: str | Path 
                         search_insights_data = json.loads(insights_path.read_text(encoding="utf-8-sig"))
                     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
                         pass
-                    if search_insights_data:
+                    report_day = _safe_str(
+                        snapshot.get("operational_date") or snapshot.get("run_date")
+                    )
+                    artifact_day = _safe_str(
+                        _safe_dict(search_insights_data).get("report_date")
+                        or _safe_dict(search_insights_data).get("date")
+                        or _safe_dict(search_insights_data).get("target_date")
+                    )
+                    if search_insights_data and artifact_day == report_day:
                         break
+                    search_insights_data = None
 
     if search_insights_data and isinstance(search_insights_data, dict):
         unprofitable = search_insights_data.get("unprofitable", [])
@@ -4704,6 +4776,20 @@ def _build_sku_detail_section(
     total_deductions = abs(_safe_float(finance.get("deductions")) or 0) if finance_aligned else 0
     total_tax = abs(_safe_float(finance.get("tax")) or 0) if finance_aligned else 0
     total_ads = ads_block.get("ads_spend_total") or 0
+    expense_availability = _safe_dict(finance.get("expense_availability"))
+    mandatory_expense_fields = (
+        "commission",
+        "logistics",
+        "acquiring",
+        "storage",
+        "deductions",
+        "tax",
+    )
+    financial_expenses_complete = bool(
+        finance_aligned
+        and expense_availability
+        and all(bool(expense_availability.get(name, False)) for name in mandatory_expense_fields)
+    )
 
     sku_data: dict[str, dict[str, Any]] = {}
 
@@ -4821,8 +4907,14 @@ def _build_sku_detail_section(
         if computed_logistics > 0:
             total_logistics_from_summary = round(computed_logistics, 2)
 
+    sku_revenue_total = sum(
+        float(data.get("revenue") or 0)
+        for data in sku_data.values()
+        if float(data.get("revenue") or 0) > 0
+    )
+    share_denominator = total_revenue if total_revenue > 0 else sku_revenue_total
     for key, data in sku_data.items():
-        share = data["revenue"] / total_revenue if total_revenue > 0 else 0
+        share = data["revenue"] / share_denominator if share_denominator > 0 else 0
         data["storage_share"] = round(total_storage * share, 2)
         data["deductions_share"] = round(total_deductions * share, 2)
         if not has_per_sku_logistics and total_logistics_from_summary is not None and data["revenue"] > 0:
@@ -4841,9 +4933,25 @@ def _build_sku_detail_section(
             + data["deductions_share"]
             + data["ads_spend"]
         )
-        data["profit"] = round(data["revenue"] - total_expenses, 2)
-        data["margin_pct"] = round(data["profit"] / data["revenue"] * 100, 1) if data["revenue"] > 0 else 0
-        data["share_pct"] = round(share * 100, 1)
+        data["preliminary_income_before_wb_expenses"] = (
+            round(data["revenue"] - data["cogs"] - data["ads_spend"], 2)
+            if data["revenue"] > 0
+            else None
+        )
+        if financial_expenses_complete and data["finance_row_matched"]:
+            data["profit"] = round(data["revenue"] - total_expenses, 2)
+            data["margin_pct"] = (
+                round(data["profit"] / data["revenue"] * 100, 1)
+                if data["revenue"] > 0
+                else None
+            )
+        else:
+            data["profit"] = None
+            data["margin_pct"] = None
+        data["financial_expenses_complete"] = bool(
+            financial_expenses_complete and data["finance_row_matched"]
+        )
+        data["share_pct"] = round(share * 100, 2)
 
     funnel_map: dict[str, dict[str, Any]] = {}
     for fr in funnel_sku_rows:
@@ -4853,8 +4961,8 @@ def _build_sku_detail_section(
 
     sku_list = sorted(sku_data.values(), key=lambda x: (x["revenue"], x["orders"], x.get("card_opens", 0)), reverse=True)
     active_skus = [s for s in sku_list if s["revenue"] > 0 or s["orders"] > 0 or s["buyouts"] > 0]
-    top_skus = [s for s in active_skus if s["profit"] >= 0][:3]
-    loss_skus = [s for s in active_skus if s["profit"] < 0]
+    top_skus = [s for s in active_skus if s["profit"] is not None and s["profit"] >= 0][:3]
+    loss_skus = [s for s in active_skus if s["profit"] is not None and s["profit"] < 0]
     if not top_skus and not loss_skus:
         top_skus = active_skus[:3]
 
@@ -4875,18 +4983,44 @@ def _build_sku_detail_section(
             "buyouts_count": sku["buyouts"],
             "revenue": sku["revenue"],
             "cogs": sku["cogs"],
-            "commission": sku["commission"] if finance_row_matched else None,
-            "logistics": sku["logistics"] if finance_row_matched else None,
-            "acquiring": sku["acquiring"] if finance_row_matched else None,
-            "tax": sku["tax"] if finance_row_matched else None,
-            "storage_share": sku["storage_share"] if finance_row_matched else None,
-            "deductions_share": sku["deductions_share"] if finance_row_matched else None,
+            "commission": (
+                sku["commission"]
+                if finance_row_matched and bool(expense_availability.get("commission", False))
+                else None
+            ),
+            "logistics": (
+                sku["logistics"]
+                if finance_row_matched and bool(expense_availability.get("logistics", False))
+                else None
+            ),
+            "acquiring": (
+                sku["acquiring"]
+                if finance_row_matched and bool(expense_availability.get("acquiring", False))
+                else None
+            ),
+            "tax": (
+                sku["tax"]
+                if finance_row_matched and bool(expense_availability.get("tax", False))
+                else None
+            ),
+            "storage_share": (
+                sku["storage_share"]
+                if finance_row_matched and bool(expense_availability.get("storage", False))
+                else None
+            ),
+            "deductions_share": (
+                sku["deductions_share"]
+                if finance_row_matched and bool(expense_availability.get("deductions", False))
+                else None
+            ),
             "finance_attribution": sku.get("finance_attribution", "missing"),
             "finance_actual_date": finance.get("actual_date"),
             "finance_target_date": finance.get("target_date"),
             "ads_spend": sku["ads_spend"],
             "profit": sku["profit"],
             "margin_pct": sku["margin_pct"],
+            "preliminary_income_before_wb_expenses": sku["preliminary_income_before_wb_expenses"],
+            "financial_expenses_complete": sku["financial_expenses_complete"],
             "share_pct": sku["share_pct"],
             "funnel": {
                 "card_opens": card_opens,
@@ -4931,26 +5065,44 @@ def _build_product_price_sections(
         for row in raw_rows
         if isinstance(row, dict) and str(row.get("nm_id") or "")
     }
-    sku_ids = sorted(set(details_by_nm) | set(price_by_nm), key=lambda item: (len(item), item))
+    active_ids = sorted(
+        details_by_nm,
+        key=lambda nm_id: (
+            -(_safe_int(details_by_nm[nm_id].get("buyouts_count")) or 0),
+            -(_safe_float(details_by_nm[nm_id].get("revenue")) or 0.0),
+            nm_id,
+        ),
+    )
+    buyer_price_ids = {
+        nm_id
+        for nm_id, row in price_by_nm.items()
+        if _safe_decimal(row.get("buyer_final_price")) is not None
+        or _safe_decimal(row.get("buyer_price_before_wallet")) is not None
+    }
+    sku_ids = list(active_ids)
+    for nm_id in sorted(buyer_price_ids - set(active_ids), key=lambda item: (len(item), item)):
+        sku_ids.append(nm_id)
+    if not sku_ids and buyer_price_ids:
+        sku_ids = sorted(buyer_price_ids, key=lambda item: (len(item), item))
+
     rows: list[dict[str, Any]] = []
     recommendations: list[dict[str, str]] = []
     for nm_id in sku_ids:
         price_row = price_by_nm.get(nm_id, {})
         detail = details_by_nm.get(nm_id, {})
         buyouts = _safe_int(detail.get("buyouts_count"))
-        finance_attribution = str(detail.get("finance_attribution") or "missing")
-        profit_value = (
-            _safe_decimal(detail.get("profit"))
-            if finance_attribution in {"direct", "allocated"}
-            else None
-        )
+        financial_expenses_complete = bool(detail.get("financial_expenses_complete", False))
+        profit_value = _safe_decimal(detail.get("profit")) if financial_expenses_complete else None
+        preliminary_income = _safe_decimal(detail.get("preliminary_income_before_wb_expenses"))
         profit_per_unit = None
         if profit_value is not None and buyouts is not None and buyouts > 0:
             profit_per_unit = (profit_value / Decimal(buyouts)).quantize(Decimal("0.01"))
         margin = _safe_decimal(detail.get("margin_pct")) if profit_value is not None else None
+        seller_price = price_row.get("seller_discounted_price")
         item = {
             "sku": nm_id,
             "nm_id": nm_id,
+            "seller_price": seller_price,
             "seller_base_price": price_row.get("seller_base_price"),
             "seller_discount_percent": price_row.get("seller_discount_percent"),
             "seller_discounted_price": price_row.get("seller_discounted_price"),
@@ -4959,14 +5111,19 @@ def _build_product_price_sections(
             "wallet_discount_percent": price_row.get("wallet_discount_percent"),
             "buyer_price_before_wallet": price_row.get("buyer_price_before_wallet"),
             "buyer_final_price": price_row.get("buyer_final_price"),
+            "buyer_price_source": str(price_row.get("buyer_price_source") or "unavailable"),
             "platform_discount_change_day": price_row.get("platform_discount_change_day"),
             "seller_price_change_day": price_row.get("seller_price_change_day"),
             "buyer_price_change_day": price_row.get("buyer_price_change_day"),
             "potential_price_increase_reserve": price_row.get("potential_price_increase_reserve"),
             "buyouts": buyouts,
             "profit": str(profit_value) if profit_value is not None else None,
+            "preliminary_income_before_wb_expenses": (
+                str(preliminary_income) if preliminary_income is not None else None
+            ),
             "profit_per_unit": str(profit_per_unit) if profit_per_unit is not None else None,
             "margin_percent": str(margin) if margin is not None else None,
+            "financial_expenses_complete": financial_expenses_complete,
             "finance_discount_reconciliation": str(
                 price_row.get("finance_discount_reconciliation") or "unavailable"
             ),
@@ -4992,10 +5149,43 @@ def _build_product_price_sections(
                 }
             )
 
+    seller_price_available = any(_safe_decimal(row.get("seller_price")) is not None for row in rows)
+    fbs_price_available = any(
+        str(row.get("buyer_price_source") or "").startswith("fbs_")
+        and _safe_decimal(row.get("buyer_final_price")) is not None
+        for row in rows
+    )
+    buyer_fallback_available = any(
+        row.get("buyer_price_source") == "sales_funnel_fallback"
+        and _safe_decimal(row.get("buyer_final_price")) is not None
+        for row in rows
+    )
+    buyer_price_available = fbs_price_available or buyer_fallback_available
+    complete_finance_rows = [row for row in rows if bool(row.get("financial_expenses_complete", False))]
+    financial_status = (
+        "available"
+        if rows and len(complete_finance_rows) == len(rows)
+        else ("partial" if complete_finance_rows else "unavailable")
+    )
+    net_profit_available = any(_safe_decimal(row.get("profit")) is not None for row in rows)
+    status_rows = [
+        {"label": "Цена продавца", "value": "available" if seller_price_available else "unavailable"},
+        {"label": "FBS price data", "value": "available" if fbs_price_available else "unavailable"},
+        {
+            "label": "Цена покупателя",
+            "value": (
+                "available"
+                if fbs_price_available
+                else ("fallback/available" if buyer_fallback_available else "unavailable")
+            ),
+        },
+        {"label": "Финансовые расходы", "value": financial_status},
+        {"label": "Чистая прибыль", "value": "available" if net_profit_available else "unavailable"},
+    ]
     available = bool(rows)
     status = (
         "ok"
-        if available and all(row["data_quality_status"] == "complete" for row in rows)
+        if available and seller_price_available and buyer_price_available
         else ("partial" if available else "unavailable")
     )
     price_section = {
@@ -5005,15 +5195,30 @@ def _build_product_price_sections(
         "status": status,
         "source": str(raw.get("source") or ""),
         "sku_rows": rows,
+        "status_rows": status_rows,
+        "weighted_platform_discount_percent": raw.get("weighted_platform_discount_percent"),
         "reconciliation": _safe_dict(raw.get("reconciliation")),
         "automatic_price_changes": False,
     }
+    change_rows = [
+        row
+        for row in rows
+        if any(
+            row.get(key) is not None
+            for key in (
+                "platform_discount_change_day",
+                "seller_price_change_day",
+                "buyer_price_change_day",
+                "potential_price_increase_reserve",
+            )
+        )
+    ]
     changes_section = {
         "title": "Изменение цен и скидок",
         "subtitle": "Изменения к предыдущему доступному дню. Только аналитика и рекомендации.",
-        "available": available,
-        "status": status,
-        "rows": rows,
+        "available": bool(change_rows),
+        "status": status if change_rows else "unavailable",
+        "rows": change_rows,
         "recommendations": recommendations,
         "automatic_price_changes": False,
     }
@@ -5109,7 +5314,11 @@ def build_sales_dynamics_section_v2(
     }
     current_kpi = {
         "revenue": str(_safe_decimal(cabinet.get("buyouts_amount"))) if _safe_decimal(cabinet.get("buyouts_amount")) is not None else None,
-        "profit": str(calculation["net_profit"]) if calculation else None,
+        "profit": (
+            str(calculation["net_profit"])
+            if calculation and calculation.get("net_profit") is not None
+            else None
+        ),
         "orders": _safe_int(cabinet.get("orders_count")),
         "orders_amount": str(_safe_decimal(cabinet.get("orders_amount"))) if _safe_decimal(cabinet.get("orders_amount")) is not None else None,
         "buyouts": _safe_int(cabinet.get("buyouts_count")),
@@ -5119,10 +5328,9 @@ def build_sales_dynamics_section_v2(
     existing_current = date_kpi.get(operational_date, {})
     existing_funnel = _safe_dict(existing_current.get("funnel"))
     current_kpi["funnel"] = {**existing_funnel, **current_funnel}
-    date_kpi[operational_date] = {
-        **existing_current,
-        **{key: value for key, value in current_kpi.items() if value is not None},
-    }
+    # The current report run is authoritative for its own date. Missing current
+    # values must clear an earlier bad/stale value instead of preserving it.
+    date_kpi[operational_date] = {**existing_current, **current_kpi}
 
     artifact_path = Path(artifact_dir) if artifact_dir is not None else None
     artifact_is_cabinet_path = artifact_path is not None and any(
@@ -5171,6 +5379,18 @@ def build_sales_dynamics_section_v2(
         ("Реклама", "ads_spend", "money"),
     ]
 
+    def _canonical_kpi_value(kpi: dict[str, Any], key: str) -> Any:
+        value = kpi.get(key)
+        count_key = {
+            "orders_amount": "orders",
+            "revenue": "buyouts",
+        }.get(key)
+        if count_key and (_safe_float(kpi.get(count_key)) or 0) > 0:
+            numeric = _safe_float(value)
+            if numeric is not None and abs(numeric) < 0.005:
+                return None
+        return value
+
     def _fmt(value: Any, kind: str) -> str:
         if kind == "money":
             return _format_display_money(value)
@@ -5189,9 +5409,9 @@ def build_sales_dynamics_section_v2(
 
     rows: list[dict[str, str]] = []
     for label, key, kind in metrics:
-        today_val = today_kpi.get(key)
-        yesterday_val = yesterday_kpi.get(key)
-        week_val = week_kpi.get(key)
+        today_val = _canonical_kpi_value(today_kpi, key)
+        yesterday_val = _canonical_kpi_value(yesterday_kpi, key)
+        week_val = _canonical_kpi_value(week_kpi, key)
         vs_y = _delta_pct(today_val, yesterday_val)
         vs_w = _delta_pct(today_val, week_val)
         rows.append({
@@ -5470,6 +5690,7 @@ def build_report_payload_v2(
             snapshot,
             cabinet_commerce=cabinet_block,
             artifact_dir=artifact_dir,
+            inefficient_query_count=_safe_int(ads_efficiency_section.get("inefficient_items_count")),
         ),
         "actions_section": _build_actions_section(snapshot),
         "losses_of_the_day": _build_losses_of_the_day(snapshot),

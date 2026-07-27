@@ -10,7 +10,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 
@@ -143,18 +143,39 @@ def _product_price_table(
     width: float,
     style: ParagraphStyle,
 ) -> Table:
-    headers = ["SKU", "Цена продавца", "Скидка WB", "Цена покупателя", "Выкупы", "Прибыль", "Маржа"]
+    headers = ["SKU", "Цена продавца", "Скидка WB", "Цена покупателя", "Выкупы", "Фин. результат", "Маржа"]
     data: list[list[Any]] = [[Paragraph(header, style) for header in headers]]
     for row in rows:
+        financial_complete = bool(row.get("financial_expenses_complete", False))
+        result_value = (
+            row.get("profit")
+            if financial_complete
+            else row.get("preliminary_income_before_wb_expenses")
+        )
+        result_text = _format_price_money(result_value)
+        if not financial_complete and result_text != "нет данных":
+            result_text = f"Предварит.: {result_text}"
         data.append(
             [
                 Paragraph(_format_text(row.get("sku")), style),
-                Paragraph(_format_price_money(row.get("seller_base_price")), style),
+                Paragraph(
+                    _format_price_money(
+                        row.get("seller_price")
+                        if row.get("seller_price") is not None
+                        else row.get("seller_discounted_price")
+                    ),
+                    style,
+                ),
                 Paragraph(_format_price_percent(row.get("platform_discount_percent")), style),
                 Paragraph(_format_price_money(row.get("buyer_final_price")), style),
                 Paragraph(str(row.get("buyouts")) if row.get("buyouts") is not None else "нет данных", style),
-                Paragraph(_format_price_money(row.get("profit")), style),
-                Paragraph(_format_price_percent(row.get("margin_percent")), style),
+                Paragraph(result_text, style),
+                Paragraph(
+                    _format_price_percent(row.get("margin_percent"))
+                    if financial_complete
+                    else "нет данных",
+                    style,
+                ),
             ]
         )
     table = Table(
@@ -887,6 +908,7 @@ def _sku_detail_table(sku: dict[str, Any], *, width: float, font_name: str, styl
         numeric = 0.0 if abs(raw_numeric) < 0.005 else (-raw_numeric if expense else raw_numeric)
         return _format_money(numeric)
 
+    financial_complete = bool(sku.get("financial_expenses_complete", False))
     rows_data = [
         ("Заказы", f"{sku.get('orders_count', 0)} шт"),
         ("Выкупы", f"{sku.get('buyouts_count', 0)} шт"),
@@ -899,10 +921,19 @@ def _sku_detail_table(sku: dict[str, Any], *, width: float, font_name: str, styl
         ("Удержания", _money_or_no_data(sku.get("deductions_share"), expense=True)),
         ("Налог", _money_or_no_data(sku.get("tax"), expense=True)),
         ("Реклама", _money_or_no_data(sku.get("ads_spend"), expense=True)),
-        ("Чистая прибыль", _money_or_no_data(sku.get("profit"))),
-        ("Маржа", f"{sku.get('margin_pct', 0)}%"),
         ("Доля выручки", f"{sku.get('share_pct', 0)}%"),
     ]
+    if financial_complete:
+        rows_data.insert(-1, ("Чистая прибыль", _money_or_no_data(sku.get("profit"))))
+        rows_data.insert(-1, ("Маржа", f"{sku.get('margin_pct')}%"))
+    else:
+        rows_data.insert(
+            -1,
+            (
+                "Предварительный доход до расходов WB",
+                _money_or_no_data(sku.get("preliminary_income_before_wb_expenses")),
+            ),
+        )
     table_rows = [[Paragraph("Метрика", style), Paragraph("Значение", style)]]
     for label, value in rows_data:
         table_rows.append([Paragraph(label, style), Paragraph(str(value), style)])
@@ -928,13 +959,12 @@ def _sku_funnel_table(funnel: dict[str, Any], *, width: float, font_name: str, s
     orders = funnel.get("orders", 0)
     buyouts = funnel.get("buyouts", 0)
     cr_cart_to_order = funnel.get("cr_cart_to_order_pct", 0) or funnel.get("cr_cart_pct", 0)
-    cr_order_to_buyout = funnel.get("cr_order_to_buyout_pct", 0) or funnel.get("cr_order_pct", 0)
     open_to_cart = round(cart / card_opens * 100, 1) if card_opens else 0
     rows_data = [
         ("Переходы в карточку", str(card_opens) if card_opens else "—", "—"),
         ("Корзина", str(cart), f"{open_to_cart}%" if card_opens else "—"),
         ("Заказы", str(orders), f"{cr_cart_to_order}%" if cart else "—"),
-        ("Выкупы по воронке", str(buyouts), f"{cr_order_to_buyout}%" if orders else "—"),
+        ("Выкупы по воронке", str(buyouts), "—"),
     ]
     table_rows = [[Paragraph("Этап", style), Paragraph("Значение", style), Paragraph("Конверсия", style)]]
     for label, value, conv in rows_data:
@@ -1469,9 +1499,25 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             _labels = [d[-5:] for d in _dates]
             _drawing = Drawing(content_width, 160)
             _drawing.add(String(content_width / 2, 145, "Расходы на рекламу и сумма всех заказов за 7 дней (₽)", fontName=font_info["font_name"], fontSize=9, textAnchor="middle", fillColor=colors.HexColor("#374151")))
+            _available_days = sum(
+                1
+                for _spend_value, _orders_value in zip(_spend_vals, _orders_vals)
+                if _spend_value is not None or _orders_value is not None
+            )
+            _drawing.add(
+                String(
+                    content_width / 2,
+                    133,
+                    f"данные доступны за {_available_days} из 7 дней",
+                    fontName=font_info["font_name"],
+                    fontSize=8,
+                    textAnchor="middle",
+                    fillColor=colors.HexColor("#6B7280"),
+                )
+            )
             _chart_left = 50
             _chart_right = content_width - 30
-            _chart_top = 125
+            _chart_top = 115
             _chart_bottom = 30
             _chart_w = _chart_right - _chart_left
             _chart_h = _chart_top - _chart_bottom
@@ -1593,7 +1639,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                     sec_bg = colors.HexColor("#1a1a2e")
                     sec_text = colors.white
                 sec_header_style = ParagraphStyle("SecHeader", parent=styles["hero_card"], textColor=sec_text)
-                sec_header = [Paragraph(h, sec_header_style) for h in ['Запрос', 'Показы', 'Клики', 'CTR', 'Расход', 'Заказы', 'Выручка', 'ДРР', 'Действие']]
+                sec_header = [Paragraph(h, sec_header_style) for h in ['Запрос', 'Показы', 'Клики', 'CTR рекламы', 'Расход', 'Заказы', 'Выручка', 'ДРР', 'Действие']]
                 table_rows = [sec_header]
                 for r in sec_rows:
                     if not isinstance(r, dict):
@@ -1644,8 +1690,6 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                 ]))
                 story.append(sec_table)
             story.append(Spacer(1, 6))
-        story.append(PageBreak())
-
     product_prices = payload.get("product_price_analytics_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(product_prices, dict):
         product_prices = {}
@@ -1655,6 +1699,39 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         story.append(Paragraph(_format_text(product_prices.get("title") or "Цены по SKU"), styles["section"]))
         if product_prices.get("subtitle"):
             story.append(Paragraph(_format_text(product_prices.get("subtitle")), styles["meta"]))
+        status_rows = product_prices.get("status_rows", [])
+        if isinstance(status_rows, list) and status_rows:
+            status_table_rows = [
+                [Paragraph("Источник / показатель", styles["hero_card"]), Paragraph("Статус", styles["hero_card"])]
+            ]
+            for status_row in status_rows:
+                if not isinstance(status_row, dict):
+                    continue
+                status_table_rows.append(
+                    [
+                        Paragraph(_format_text(status_row.get("label")), styles["hero_card"]),
+                        Paragraph(_format_text(status_row.get("value")), styles["hero_card"]),
+                    ]
+                )
+            status_table = Table(
+                status_table_rows,
+                colWidths=[content_width * 0.58, content_width * 0.42],
+            )
+            status_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E2E8F0")),
+                        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
+                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+                        ("TOPPADDING", (0, 0), (-1, -1), 3),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    ]
+                )
+            )
+            story.append(status_table)
+            story.append(Spacer(1, 5))
         story.append(
             _product_price_table(
                 [row for row in product_price_rows if isinstance(row, dict)],
@@ -1662,15 +1739,31 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                 style=styles["hero_card"],
             )
         )
+        weighted_discount = product_prices.get("weighted_platform_discount_percent")
+        if weighted_discount is not None:
+            story.append(Spacer(1, 4))
+            story.append(
+                Paragraph(
+                    "Средневзвешенная платформенная скидка WB: "
+                    f"{_format_price_percent(weighted_discount)}.",
+                    styles["meta"],
+                )
+            )
         reconciliation = product_prices.get("reconciliation", {})
         if isinstance(reconciliation, dict):
             status = str(reconciliation.get("status") or "unavailable")
             sku_total = _format_price_money(reconciliation.get("sku_buyer_final_total"))
             orders_total = _format_price_money(reconciliation.get("fbs_orders_buyer_final_total"))
+            buyer_total_source = str(reconciliation.get("buyer_total_source") or "")
+            comparison_label = (
+                "фактические выкупы (sales/funnel fallback)"
+                if buyer_total_source == "sales_funnel_fallback"
+                else "FBS-заказы"
+            )
             story.append(Spacer(1, 5))
             story.append(
                 Paragraph(
-                    f"Reconciliation: SKU {sku_total}; FBS-заказы {orders_total}; статус {status}.",
+                    f"Reconciliation: SKU {sku_total}; {comparison_label} {orders_total}; статус {status}.",
                     styles["meta"],
                 )
             )
@@ -1772,7 +1865,6 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                 header_text = f"А-{idx+1}: {nm_id}"
                 if seller_article:
                     header_text += f" | {seller_article}"
-                story.append(Paragraph(header_text, styles["section"]))
                 half_width = content_width / 2 - 2 * mm
                 unit_table = _sku_detail_table(detail if detail else {
                     "nm_id": sku_id,
@@ -1787,10 +1879,18 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                     funnel_table = _sku_funnel_table(funnel, width=half_width, font_name=font_info["font_name"], style=styles["hero_card"])
                     outer = Table([[unit_table, funnel_table]], colWidths=[half_width + 2 * mm, half_width + 2 * mm])
                     outer.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
-                    story.append(outer)
+                    sku_content = outer
                 else:
-                    story.append(unit_table)
-                story.append(Spacer(1, 8))
+                    sku_content = unit_table
+                story.append(
+                    KeepTogether(
+                        [
+                            Paragraph(header_text, styles["section"]),
+                            sku_content,
+                            Spacer(1, 8),
+                        ]
+                    )
+                )
 
         if c_negative_skus:
             story.append(Paragraph("Товары с отрицательной прибылью", styles["section"]))
@@ -1835,7 +1935,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                     "Логистика",
                     "Эквайринг",
                     "Налог",
-                    "Прибыль / маржа",
+                    "Финансовый результат",
                     "Реклама",
                 ]
             ]
@@ -1843,13 +1943,18 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             for s in c_all_skus[:10]:
                 sku_id = str(s.get("sku") or s.get("nm_id") or "")
                 detail = top_skus_map.get(sku_id, {})
-                margin_val = s.get("profit_margin")
-                margin_str = f"{round(margin_val * 100, 1)}%" if margin_val is not None else "—"
-                profit_value = detail.get("profit") if detail else s.get("profit")
-                profit_margin = detail.get("margin_pct") if detail else None
-                if profit_margin is not None:
-                    margin_str = f"{profit_margin}%"
-                profit_margin_text = f"{_format_query_money(profit_value)} / {margin_str}"
+                if detail and bool(detail.get("financial_expenses_complete", False)):
+                    profit_margin_text = (
+                        f"{_format_query_money(detail.get('profit'))} / "
+                        f"{detail.get('margin_pct')}%"
+                    )
+                elif detail:
+                    profit_margin_text = (
+                        "Предварительный доход до расходов WB: "
+                        f"{_format_query_money(detail.get('preliminary_income_before_wb_expenses'))}"
+                    )
+                else:
+                    profit_margin_text = "нет данных"
                 c_rows.append([
                     Paragraph(_format_text(sku_id), styles["hero_card"]),
                     Paragraph(_format_query_money(detail.get("revenue") if detail else s.get("revenue")), styles["hero_card"]),
@@ -1889,6 +1994,11 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             story.append(Spacer(1, 6))
 
     doc.build(story)
+    sku_health_section = (
+        payload.get("sku_health_section", {})
+        if isinstance(payload.get("sku_health_section"), dict)
+        else {}
+    )
     return {
         "pdf_path": str(target),
         "font_name": font_info["font_name"],
@@ -1897,4 +2007,21 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         "top_skus_count": len(a_skus) if isinstance(abc_summary_rows, list) and abc_summary_rows else 0,
         "loss_skus_count": len(c_negative_skus) if isinstance(abc_summary_rows, list) and abc_summary_rows else 0,
         "product_price_rows_count": len(product_price_rows) if isinstance(product_price_rows, list) else 0,
+        "ads_section_status": str(ads_section.get("status") or "нет данных"),
+        "ads_efficiency_section_status": str(
+            ads_efficiency_section.get("status") or "нет данных"
+        ),
+        "ads_efficiency_loss_rows_count": len(
+            ads_efficiency_section.get("loss_rows", [])
+            if isinstance(ads_efficiency_section.get("loss_rows"), list)
+            else []
+        ),
+        "sku_health_section_status": str(
+            sku_health_section.get("status") or "нет данных"
+        ),
+        "sku_health_summary_rows_count": len(
+            sku_health_section.get("summary_rows", [])
+            if isinstance(sku_health_section.get("summary_rows"), list)
+            else []
+        ),
     }
