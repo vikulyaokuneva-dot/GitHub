@@ -5204,12 +5204,12 @@ def _build_product_price_sections(
         row
         for row in rows
         if any(
-            row.get(key) is not None
-            for key in (
-                "platform_discount_change_day",
-                "seller_price_change_day",
-                "buyer_price_change_day",
-                "potential_price_increase_reserve",
+            value is not None and value != 0
+            for value in (
+                _safe_decimal(row.get("platform_discount_change_day")),
+                _safe_decimal(row.get("seller_price_change_day")),
+                _safe_decimal(row.get("buyer_price_change_day")),
+                _safe_decimal(row.get("potential_price_increase_reserve")),
             )
         )
     ]
@@ -5223,6 +5223,157 @@ def _build_product_price_sections(
         "automatic_price_changes": False,
     }
     return price_section, changes_section
+
+
+def _history_kpi_from_core_snapshot(core_snapshot: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
+    operational_date = _safe_str(core_snapshot.get("operational_date"))
+    if not operational_date:
+        return None
+
+    cabinet = _safe_dict(core_snapshot.get("cabinet_commerce_daily"))
+    if (
+        not bool(cabinet.get("available", False))
+        or _safe_str(cabinet.get("target_date")) != operational_date
+    ):
+        cabinet = {}
+
+    finance = _safe_dict(core_snapshot.get("finance_final_daily"))
+    if (
+        not bool(finance.get("available", False))
+        or _safe_str(finance.get("actual_date")) != operational_date
+    ):
+        finance = {}
+
+    live = _safe_dict(core_snapshot.get("live_operational"))
+    live_orders = _safe_dict(live.get("orders"))
+    if (
+        not bool(live_orders.get("available", False))
+        or bool(live_orders.get("stale", False))
+        or _safe_str(live_orders.get("target_date")) != operational_date
+    ):
+        live_orders = {}
+    live_sales = _safe_dict(live.get("sales"))
+    if (
+        not bool(live_sales.get("available", False))
+        or bool(live_sales.get("stale", False))
+        or _safe_str(live_sales.get("target_date")) != operational_date
+    ):
+        live_sales = {}
+
+    orders_count = _safe_int(cabinet.get("orders_count"))
+    orders_amount = _safe_decimal(cabinet.get("orders_amount"))
+    if orders_count is None and live_orders:
+        orders_count = _safe_int(live_orders.get("count"))
+    if orders_amount is None and live_orders:
+        orders_amount = _safe_decimal(live_orders.get("amount"))
+
+    history_warnings: list[WarningItemV2] = []
+    buyouts_count, buyouts_amount_float, _, _ = _resolve_buyouts_owner(
+        cabinet_daily=cabinet,
+        finance_daily=finance,
+        live_sales=live_sales,
+        warnings=history_warnings,
+    )
+    buyouts_amount = _safe_decimal(buyouts_amount_float)
+
+    funnel_source = _safe_dict(core_snapshot.get("funnel_daily"))
+    funnel = {
+        "open_count": _safe_int(funnel_source.get("open_count")),
+        "cart_count": _safe_int(funnel_source.get("cart_count")),
+        "orders_count": (
+            _safe_int(funnel_source.get("orders_count"))
+            if funnel_source.get("orders_count") is not None
+            else orders_count
+        ),
+        "buyouts_count": buyouts_count,
+        "orders_amount": str(orders_amount) if orders_amount is not None else None,
+        "buyouts_amount": str(buyouts_amount) if buyouts_amount is not None else None,
+    }
+    funnel = {key: value for key, value in funnel.items() if value is not None}
+
+    ads = _safe_dict(live.get("ads"))
+    ads_spend = None
+    if (
+        bool(ads.get("available", False))
+        and not bool(ads.get("stale", False))
+        and _safe_str(ads.get("target_date")) in {"", operational_date}
+    ):
+        ads_spend = _safe_decimal(ads.get("ads_spend_total"))
+
+    return (
+        operational_date,
+        {
+            "revenue": str(buyouts_amount) if buyouts_amount is not None else None,
+            "orders": orders_count,
+            "orders_amount": str(orders_amount) if orders_amount is not None else None,
+            "buyouts": buyouts_count,
+            "ads_spend": str(ads_spend) if ads_spend is not None else None,
+            "funnel": funnel,
+            "history_recovered_from": "wb_api_core_snapshot",
+        },
+    )
+
+
+def _core_history_kpi_by_operational_date(core_root: Path) -> dict[str, dict[str, Any]]:
+    candidates: dict[str, tuple[str, dict[str, Any]]] = {}
+    if not core_root.is_dir():
+        return {}
+    for snapshot_path in sorted(core_root.glob("*/snapshot.json")):
+        core_snapshot = _read_json_dict(snapshot_path)
+        recovered = _history_kpi_from_core_snapshot(core_snapshot)
+        if recovered is None:
+            continue
+        operational_date, kpi = recovered
+        run_date = _safe_str(core_snapshot.get("run_date"))
+        existing = candidates.get(operational_date)
+        if existing is None or run_date >= existing[0]:
+            candidates[operational_date] = (run_date, kpi)
+    return {date: payload for date, (_, payload) in candidates.items()}
+
+
+def _merge_history_kpi_with_core(
+    history_kpi: dict[str, Any],
+    core_kpi: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(history_kpi)
+
+    def missing(key: str) -> bool:
+        value = merged.get(key)
+        return value is None or (isinstance(value, str) and not value.strip())
+
+    for key in ("orders", "buyouts", "ads_spend"):
+        if missing(key) and core_kpi.get(key) is not None:
+            merged[key] = core_kpi[key]
+
+    for money_key, count_key in (("orders_amount", "orders"), ("revenue", "buyouts")):
+        value = _safe_decimal(merged.get(money_key))
+        count = _safe_int(merged.get(count_key))
+        money_is_missing = value is None or (count is not None and count > 0 and abs(value) < Decimal("0.005"))
+        core_value = _safe_decimal(core_kpi.get(money_key))
+        if money_is_missing and core_value is not None:
+            merged[money_key] = str(core_value)
+
+    history_funnel = _safe_dict(merged.get("funnel"))
+    core_funnel = _safe_dict(core_kpi.get("funnel"))
+    for key in ("open_count", "cart_count", "orders_count", "buyouts_count"):
+        if history_funnel.get(key) is None and core_funnel.get(key) is not None:
+            history_funnel[key] = core_funnel[key]
+    for money_key, count_key in (
+        ("orders_amount", "orders_count"),
+        ("buyouts_amount", "buyouts_count"),
+    ):
+        value = _safe_decimal(history_funnel.get(money_key))
+        count = _safe_int(history_funnel.get(count_key))
+        money_is_missing = value is None or (count is not None and count > 0 and abs(value) < Decimal("0.005"))
+        core_value = _safe_decimal(core_funnel.get(money_key))
+        if money_is_missing and core_value is not None:
+            history_funnel[money_key] = str(core_value)
+    if history_funnel:
+        merged["funnel"] = history_funnel
+
+    if merged != history_kpi:
+        merged["history_recovered_from"] = "wb_api_core_snapshot"
+    return merged
 
 
 def build_sales_dynamics_section_v2(
@@ -5252,9 +5403,34 @@ def build_sales_dynamics_section_v2(
     for snap_meta in snapshots_list:
         if isinstance(snap_meta, dict):
             d = _safe_str(snap_meta.get("date"))
-            kpi = snap_meta.get("kpi") or {}
+            kpi = _safe_dict(snap_meta.get("kpi"))
             if d:
                 date_kpi[d] = kpi
+                snap_meta["kpi"] = kpi
+
+    core_root = root / "cabinets" / seller_id / "artifacts" / "wb_api_core"
+    for core_date, core_kpi in _core_history_kpi_by_operational_date(core_root).items():
+        merged_kpi = _merge_history_kpi_with_core(date_kpi.get(core_date, {}), core_kpi)
+        date_kpi[core_date] = merged_kpi
+        existing_meta = next(
+            (
+                item
+                for item in snapshots_list
+                if isinstance(item, dict) and _safe_str(item.get("date")) == core_date
+            ),
+            None,
+        )
+        if isinstance(existing_meta, dict):
+            existing_meta["kpi"] = merged_kpi
+        else:
+            snapshots_list.append(
+                {
+                    "date": core_date,
+                    "path": f"daily/{core_date}",
+                    "kpi": merged_kpi,
+                    "seller_id": seller_id,
+                }
+            )
 
     def _kpi_for(date_str: str) -> dict[str, Any]:
         return date_kpi.get(date_str, {})

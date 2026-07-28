@@ -1924,8 +1924,6 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
 
         c_all_skus = [s for s in unique_abc_skus if (s.get("abc_class") or "").upper() == "C" and (s.get("profit") or 0) >= 0]
         if c_all_skus:
-            story.append(Paragraph("Товары категории C", styles["section"]))
-            story.append(Spacer(1, 4))
             c_header = [
                 Paragraph(h, styles["hero_card"])
                 for h in [
@@ -1990,8 +1988,16 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
             ]))
-            story.append(c_table)
-            story.append(Spacer(1, 6))
+            story.append(
+                KeepTogether(
+                    [
+                        Paragraph("Товары категории C", styles["section"]),
+                        Spacer(1, 4),
+                        c_table,
+                        Spacer(1, 6),
+                    ]
+                )
+            )
 
     doc.build(story)
     sku_health_section = (

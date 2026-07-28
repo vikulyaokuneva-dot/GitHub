@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from report_v2.builders.report_payload_builder import (
+    _build_product_price_sections,
     build_abc_analysis_section_v2,
     build_ads_efficiency_section_v2,
     build_ads_section_v2,
@@ -760,6 +761,121 @@ def test_sales_history_is_updated_idempotently_and_feeds_chart(tmp_path: Path) -
     write_report_pdf_v2(pdf_path, next_payload)
     assert pdf_path.is_file()
     assert pdf_path.stat().st_size > 0
+
+
+def test_sales_history_recovers_missing_money_from_exact_core_snapshot(tmp_path: Path) -> None:
+    cabinet_root = tmp_path / "cabinets" / "seller_001"
+    history_path = cabinet_root / "history" / "history_index.json"
+    previous_core_dir = cabinet_root / "artifacts" / "wb_api_core" / "2026-04-21"
+    current_core_dir = cabinet_root / "artifacts" / "wb_api_core" / "2026-04-22"
+    history_path.parent.mkdir(parents=True)
+    previous_core_dir.mkdir(parents=True)
+    current_core_dir.mkdir(parents=True)
+    history_path.write_text(
+        json.dumps(
+            {
+                "seller_id": "seller_001",
+                "snapshots": [
+                    {
+                        "date": "2026-04-20",
+                        "kpi": {
+                            "orders": 4,
+                            "orders_amount": None,
+                            "buyouts": 2,
+                            "revenue": None,
+                            "funnel": {
+                                "orders_count": 4,
+                                "orders_amount": None,
+                                "buyouts_count": 2,
+                                "buyouts_amount": None,
+                            },
+                        },
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    previous_snapshot = _sample_snapshot()
+    previous_snapshot["run_date"] = "2026-04-21"
+    previous_snapshot["operational_date"] = "2026-04-20"
+    previous_snapshot["cabinet_commerce_daily"].update(
+        {
+            "target_date": "2026-04-20",
+            "orders_count": 4,
+            "orders_amount": 3200,
+            "buyouts_count": 0,
+            "buyouts_amount": 0,
+        }
+    )
+    previous_snapshot["finance_final_daily"]["available"] = False
+    previous_snapshot["live_operational"]["orders"].update(
+        {"target_date": "2026-04-20", "count": 4, "amount": 3200}
+    )
+    previous_snapshot["live_operational"]["sales"].update(
+        {"target_date": "2026-04-20", "count": 2, "amount": 1500}
+    )
+    (previous_core_dir / "snapshot.json").write_text(
+        json.dumps(previous_snapshot, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    current_snapshot = _sample_snapshot()
+    current_snapshot["run_date"] = "2026-04-22"
+    current_snapshot["operational_date"] = "2026-04-21"
+    payload = build_report_payload_v2(
+        current_snapshot,
+        debug=_sample_debug(),
+        artifact_dir=current_core_dir,
+    )
+    rows = {row["label"]: row for row in payload["sales_dynamics_section"]["rows"]}
+    persisted_history = json.loads(history_path.read_text(encoding="utf-8"))
+    recovered = next(
+        item for item in persisted_history["snapshots"] if item.get("date") == "2026-04-20"
+    )
+
+    assert rows["Выручка"]["yesterday"] == "1 500 ₽"
+    assert rows["Сумма заказов"]["yesterday"] == "3 200 ₽"
+    assert recovered["kpi"]["revenue"] == "1500.0"
+    assert recovered["kpi"]["orders_amount"] == "3200"
+    assert recovered["kpi"]["history_recovered_from"] == "wb_api_core_snapshot"
+
+
+def test_price_changes_section_omits_zero_only_rows() -> None:
+    snapshot = {
+        "price_analytics": {
+            "sku_rows": [
+                {
+                    "nm_id": "333615320",
+                    "seller_discounted_price": "900.00",
+                    "seller_price_change_day": "0.00",
+                    "platform_discount_change_day": "0.00",
+                    "buyer_price_change_day": None,
+                    "potential_price_increase_reserve": None,
+                }
+            ]
+        }
+    }
+    sku_details = {
+        "all_skus": [
+            {
+                "nm_id": "333615320",
+                "buyouts_count": 1,
+                "revenue": 900,
+                "financial_expenses_complete": False,
+            }
+        ]
+    }
+
+    _, changes = _build_product_price_sections(snapshot, sku_detail_section=sku_details)
+    assert changes["rows"] == []
+    assert changes["available"] is False
+
+    snapshot["price_analytics"]["sku_rows"][0]["seller_price_change_day"] = "10.00"
+    _, changed = _build_product_price_sections(snapshot, sku_detail_section=sku_details)
+    assert len(changed["rows"]) == 1
 
 
 def test_non_cabinet_artifact_dir_does_not_create_history(tmp_path: Path) -> None:
