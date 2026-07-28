@@ -19,7 +19,11 @@ from report_v2.builders.report_payload_builder import (
     build_report_payload_v2,
     build_sku_health_section_v2,
 )
-from report_v2.renderers.pdf_renderer_v2 import _profit_row_tone, write_report_pdf_v2
+from report_v2.renderers.pdf_renderer_v2 import (
+    _is_zero_display_value,
+    _profit_row_tone,
+    write_report_pdf_v2,
+)
 from report_v2.run_report_v2 import build_report_v2_from_files
 from wb_api_core.normalize import normalize_bundle
 from wb_api_core.reconcile import reconcile_bundle
@@ -43,6 +47,13 @@ def _extract_pdf_text(path: Path) -> str:
 
     reader = PdfReader(str(path))
     return "\n".join(page.extract_text() or "" for page in reader.pages)
+
+
+def test_zero_display_value_does_not_become_negative_zero() -> None:
+    assert _is_zero_display_value("0 ₽") is True
+    assert _is_zero_display_value("0,00 ₽") is True
+    assert _is_zero_display_value("298,77 ₽") is False
+    assert _is_zero_display_value("нет данных") is False
 
 
 def _sample_snapshot() -> dict:
@@ -2183,6 +2194,26 @@ def test_pdf_renderer_accepts_payload_without_profit_and_abc_sections(tmp_path: 
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 0
     assert info["hero_rows_count"] >= 0
+
+
+def test_pdf_does_not_render_placeholder_abc_rows_when_section_has_no_data(tmp_path: Path) -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    payload["abc_section"] = {
+        "status": "no_data",
+        "title": "ABC PLACEHOLDER MUST NOT RENDER",
+        "summary_rows": [
+            {"label": "Категория C", "value": "нет данных"},
+        ],
+        "all_skus": [
+            {"sku": f"EMPTY-{index}", "abc_class": "C", "profit": 0}
+            for index in range(27)
+        ],
+    }
+    pdf_path = tmp_path / "report_v2_without_placeholder_abc.pdf"
+
+    write_report_pdf_v2(pdf_path, payload)
+
+    assert "ABC PLACEHOLDER MUST NOT RENDER" not in _extract_pdf_text(pdf_path)
 
 
 def test_report_v2_does_not_import_legacy_daily_report_stage() -> None:

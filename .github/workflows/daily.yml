@@ -111,6 +111,10 @@ jobs:
             echo "::error::wb_api_core snapshot/debug artifacts are stale"
             exit 1
           fi
+          if ! python -m wb_api_core.validate_report_snapshot --snapshot "${CORE_SNAPSHOT_PATH}"; then
+            echo "::error::Current operational commerce data is unavailable; report_v2 will not be published"
+            exit 1
+          fi
           python -m v3.history.api_history_backfill --seller "${WB_SELLER_ID}" --date "${CORE_RUN_DATE}"
           python -m v3.entry daily --seller "${WB_SELLER_ID}" "${DATE_ARGS[@]}"
           echo "[workflow] pipeline finished"

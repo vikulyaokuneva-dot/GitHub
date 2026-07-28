@@ -142,6 +142,33 @@ def test_rate_limited_run_may_use_cache_from_same_day(tmp_path: Path) -> None:
     assert result["debug"]["cache_fallback"]["latest_successful_snapshot_used"] is True
 
 
+def test_retry_preserves_partial_same_operational_snapshot(tmp_path: Path) -> None:
+    partial_bundle = _successful_raw_bundle("2026-04-21")
+    partial_bundle["stocks"] = _endpoint(
+        [],
+        success=False,
+        status_code=429,
+        error_text="429 Too Many Requests",
+    )
+    first = _run_with_bundle(tmp_path, partial_bundle, run_date="2026-04-21")
+    cache_path = Path(latest_successful_snapshot_path(str(tmp_path), "seller_001"))
+    assert not cache_path.exists()
+    assert first["snapshot"]["live_operational"]["orders"]["count"] == 1.0
+    assert first["snapshot"]["live_operational"]["sales"]["amount"] == 90.0
+
+    retried = _run_with_bundle(tmp_path, _rate_limited_raw_bundle(), run_date="2026-04-21")
+    orders = retried["snapshot"]["live_operational"]["orders"]
+    sales = retried["snapshot"]["live_operational"]["sales"]
+
+    assert orders["available"] is True
+    assert orders["count"] == 1.0
+    assert orders["stale_reason"] == "same_operational_snapshot_preserved"
+    assert sales["available"] is True
+    assert sales["amount"] == 90.0
+    assert retried["debug"]["cache_fallback"]["same_operational_snapshot_used"] is True
+    assert "live_operational.orders" in retried["debug"]["cache_fallback"]["same_operational_snapshot_blocks"]
+
+
 def test_report_payload_keeps_other_day_cache_out_of_report(tmp_path: Path) -> None:
     _run_with_bundle(tmp_path, _successful_raw_bundle("2026-04-21"), run_date="2026-04-21")
     result = _run_with_bundle(tmp_path, _rate_limited_raw_bundle(), run_date="2026-04-22")

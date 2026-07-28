@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 
-def _live_cache_status_fields(block: Dict[str, Any]) -> Dict[str, Any]:
+def _cache_status_fields(block: Dict[str, Any]) -> Dict[str, Any]:
     fields = (
         "stale",
         "stale_reason",
@@ -48,6 +48,7 @@ def build_snapshot(
             "orders_amount": cabinet_commerce.get("orders_amount"),
             "buyouts_count": cabinet_commerce.get("buyouts_count"),
             "buyouts_amount": cabinet_commerce.get("buyouts_amount"),
+            **_cache_status_fields(cabinet_commerce),
         },
         "funnel_daily": {
             "source": funnel.get("source"),
@@ -67,6 +68,7 @@ def build_snapshot(
             "lower_funnel_status": funnel.get("lower_funnel_status"),
             "status": funnel.get("status"),
             "sku_rows": funnel.get("sku_rows", []),
+            **_cache_status_fields(funnel),
         },
         "finance_final_daily": {
             "source": finance_final.get("source"),
@@ -93,6 +95,7 @@ def build_snapshot(
             "tax": finance_final.get("tax"),
             "expense_availability": finance_final.get("expense_availability", {}),
             "rows": finance_final.get("rows", []),
+            **_cache_status_fields(finance_final),
         },
         "live_operational": {
             "orders": {
@@ -102,7 +105,7 @@ def build_snapshot(
                 "count": live_orders.get("count"),
                 "amount": live_orders.get("amount"),
                 "rows": live_orders.get("rows", []),
-                **_live_cache_status_fields(live_orders),
+                **_cache_status_fields(live_orders),
             },
             "sales": {
                 "source": live_sales.get("source"),
@@ -111,7 +114,7 @@ def build_snapshot(
                 "count": live_sales.get("count"),
                 "amount": live_sales.get("amount"),
                 "rows": live_sales.get("rows", []),
-                **_live_cache_status_fields(live_sales),
+                **_cache_status_fields(live_sales),
             },
             "stocks": {
                 "source": live_stocks.get("source"),
@@ -121,7 +124,7 @@ def build_snapshot(
                 "snapshot_date": live_stocks.get("snapshot_date"),
                 "total_units": live_stocks.get("total_units"),
                 "rows": live_stocks.get("rows", []),
-                **_live_cache_status_fields(live_stocks),
+                **_cache_status_fields(live_stocks),
             },
             "ads": {
                 "source": live_ads.get("source"),
@@ -130,6 +133,7 @@ def build_snapshot(
                 "count": live_ads.get("count"),
                 "ads_spend_total": live_ads.get("ads_spend_total"),
                 "rows": live_ads.get("rows", []),
+                **_cache_status_fields(live_ads),
             },
             "search_report": {
                 "source": "search_report_api",

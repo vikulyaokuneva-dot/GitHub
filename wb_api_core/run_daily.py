@@ -8,7 +8,9 @@ from zoneinfo import ZoneInfo
 
 from .artifacts import (
     apply_latest_successful_live_fallback,
+    apply_same_operational_snapshot_fallback,
     build_debug,
+    read_best_same_operational_snapshot,
     read_latest_finance_cache,
     read_latest_successful_snapshot,
     write_artifacts,
@@ -49,6 +51,11 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
     timezone_name = str(os.getenv("TZ", DEFAULT_TIMEZONE) or DEFAULT_TIMEZONE).strip() or DEFAULT_TIMEZONE
     operational_date = _resolve_operational_date(resolved_run_date, timezone_name)
     resolved_repo_root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    same_operational_snapshot = read_best_same_operational_snapshot(
+        repo_root=resolved_repo_root,
+        seller_id=seller_id,
+        operational_date=operational_date,
+    )
 
     wb_api_token_value = os.getenv("WB_API_TOKEN", "")
     print(
@@ -77,6 +84,10 @@ def run_daily(*, seller: str, run_date: str, repo_root: str | None = None) -> Di
         reconcile_result=reconcile_result,
         raw_bundle=raw_bundle,
         latest_snapshot_cache=latest_snapshot_cache,
+    )
+    reconcile_result = apply_same_operational_snapshot_fallback(
+        reconcile_result=reconcile_result,
+        same_operational_snapshot=same_operational_snapshot,
     )
     price_store = PriceSnapshotStore.for_seller(repo_root=resolved_repo_root, seller_id=seller_id)
     price_warnings = list(reconcile_result.get("warnings", []) or [])

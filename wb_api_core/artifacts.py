@@ -85,6 +85,178 @@ def read_latest_successful_snapshot(*, repo_root: str, seller_id: str) -> Dict[s
     }
 
 
+def _snapshot_block_score(block: Any, fields: tuple[str, ...]) -> int:
+    if not isinstance(block, dict):
+        return 0
+    score = 20 if bool(block.get("available", False)) else 0
+    score += sum(2 for field in fields if block.get(field) is not None)
+    rows = block.get("rows")
+    if isinstance(rows, list):
+        score += min(len(rows), 20)
+    return score
+
+
+def _snapshot_quality_score(snapshot: Dict[str, Any]) -> int:
+    live = snapshot.get("live_operational", {}) if isinstance(snapshot, dict) else {}
+    if not isinstance(live, dict):
+        live = {}
+    return sum(
+        (
+            _snapshot_block_score(
+                snapshot.get("cabinet_commerce_daily"),
+                ("orders_count", "orders_amount", "buyouts_count", "buyouts_amount"),
+            ),
+            _snapshot_block_score(
+                snapshot.get("funnel_daily"),
+                ("open_count", "cart_count", "orders_count", "orders_amount", "buyouts_count", "buyouts_amount"),
+            ),
+            _snapshot_block_score(
+                snapshot.get("finance_final_daily"),
+                ("gross_revenue", "seller_payout", "wb_commission", "logistics", "storage", "acquiring", "tax"),
+            ),
+            _snapshot_block_score(live.get("orders"), ("count", "amount")),
+            _snapshot_block_score(live.get("sales"), ("count", "amount")),
+            _snapshot_block_score(live.get("stocks"), ("total_units",)),
+            _snapshot_block_score(live.get("ads"), ("count", "ads_spend_total")),
+        )
+    )
+
+
+def read_best_same_operational_snapshot(
+    *,
+    repo_root: str,
+    seller_id: str,
+    operational_date: str,
+) -> Dict[str, Any] | None:
+    core_root = os.path.join(
+        repo_root,
+        "cabinets",
+        seller_id,
+        "artifacts",
+        "wb_api_core",
+    )
+    if not os.path.isdir(core_root):
+        return None
+    best: tuple[int, str, str, Dict[str, Any]] | None = None
+    for entry in os.listdir(core_root):
+        if entry == "cache":
+            continue
+        snapshot_path = os.path.join(core_root, entry, "snapshot.json")
+        payload = _read_json(snapshot_path)
+        if not isinstance(payload, dict):
+            continue
+        if str(payload.get("operational_date") or "").strip() != str(operational_date or "").strip():
+            continue
+        candidate = (
+            _snapshot_quality_score(payload),
+            str(payload.get("run_date") or entry),
+            snapshot_path,
+            payload,
+        )
+        if best is None:
+            best = candidate
+        elif candidate[:2] > best[:2]:
+            best = candidate
+    if best is None:
+        return None
+    return {
+        "path": best[2],
+        "quality_score": best[0],
+        "snapshot": best[3],
+    }
+
+
+def apply_same_operational_snapshot_fallback(
+    *,
+    reconcile_result: Dict[str, Any],
+    same_operational_snapshot: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    if not isinstance(same_operational_snapshot, dict):
+        return reconcile_result
+    cached_snapshot = same_operational_snapshot.get("snapshot")
+    if not isinstance(cached_snapshot, dict):
+        return reconcile_result
+
+    result = deepcopy(reconcile_result)
+    used: list[str] = []
+    top_level_specs = {
+        "cabinet_commerce_daily": ("orders_count", "orders_amount", "buyouts_count", "buyouts_amount"),
+        "funnel_daily": ("open_count", "cart_count", "orders_count", "orders_amount", "buyouts_count", "buyouts_amount"),
+        "finance_final_daily": ("gross_revenue", "seller_payout", "wb_commission", "logistics", "storage", "acquiring", "tax"),
+    }
+    for block_name, fields in top_level_specs.items():
+        current_block = result.get(block_name, {})
+        cached_block = cached_snapshot.get(block_name, {})
+        if _snapshot_block_score(cached_block, fields) <= _snapshot_block_score(current_block, fields):
+            continue
+        fallback_block = deepcopy(cached_block)
+        if isinstance(fallback_block, dict):
+            fallback_block.update(
+                {
+                    "stale": True,
+                    "stale_reason": "same_operational_snapshot_preserved",
+                    "source_actual_date": cached_snapshot.get("operational_date"),
+                    "cache_path": same_operational_snapshot.get("path"),
+                    "cache_fallback_used": True,
+                }
+            )
+        result[block_name] = fallback_block
+        used.append(block_name)
+
+    current_live = result.get("live_operational", {})
+    cached_live = cached_snapshot.get("live_operational", {})
+    if isinstance(current_live, dict) and isinstance(cached_live, dict):
+        live_specs = {
+            "orders": ("count", "amount"),
+            "sales": ("count", "amount"),
+            "stocks": ("total_units",),
+            "ads": ("count", "ads_spend_total"),
+        }
+        for live_key, fields in live_specs.items():
+            current_block = current_live.get(live_key, {})
+            cached_block = cached_live.get(live_key, {})
+            if _snapshot_block_score(cached_block, fields) <= _snapshot_block_score(current_block, fields):
+                continue
+            fallback_block = deepcopy(cached_block)
+            if isinstance(fallback_block, dict):
+                fallback_block.update(
+                    {
+                        "stale": True,
+                        "stale_reason": "same_operational_snapshot_preserved",
+                        "source_actual_date": cached_snapshot.get("operational_date"),
+                        "cache_path": same_operational_snapshot.get("path"),
+                        "cache_fallback_used": True,
+                    }
+                )
+            current_live[live_key] = fallback_block
+            used.append(f"live_operational.{live_key}")
+
+    if used:
+        warnings = list(result.get("warnings", []) or [])
+        warnings.append(
+            {
+                "code": "same_operational_snapshot_preserved",
+                "message": (
+                    "The current retry returned less complete data; blocks were preserved "
+                    "from a previously saved snapshot for the same operational date."
+                ),
+                "level": "warning",
+                "block": "wb_api_core",
+            }
+        )
+        result["warnings"] = warnings
+        fallback_meta = dict(result.get("cache_fallback", {}) or {})
+        fallback_meta.update(
+            {
+                "same_operational_snapshot_used": True,
+                "same_operational_snapshot_blocks": used,
+                "same_operational_snapshot_path": same_operational_snapshot.get("path"),
+            }
+        )
+        result["cache_fallback"] = fallback_meta
+    return result
+
+
 def _live_block_has_data(block: Dict[str, Any], live_key: str) -> bool:
     if not isinstance(block, dict) or not bool(block.get("available", False)):
         return False

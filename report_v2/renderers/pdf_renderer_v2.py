@@ -137,6 +137,23 @@ def _format_price_change_money(value: Any) -> str:
     return f"+{rendered}" if number > 0 else rendered
 
 
+def _is_zero_display_value(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    numeric = (
+        text.replace("\u00a0", "")
+        .replace(" ", "")
+        .replace("₽", "")
+        .replace("%", "")
+        .replace(",", ".")
+    )
+    try:
+        return Decimal(numeric) == Decimal("0")
+    except InvalidOperation:
+        return False
+
+
 def _product_price_table(
     rows: list[dict[str, Any]],
     *,
@@ -1060,7 +1077,12 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         if _key in sd_map:
             for _fld in ("today", "yesterday", "week_ago"):
                 _v = sd_map[_key].get(_fld, "")
-                if _v and _v not in ("н/д", "нет данных") and not _v.startswith("-"):
+                if (
+                    _v
+                    and _v not in ("н/д", "нет данных")
+                    and not _v.startswith("-")
+                    and not _is_zero_display_value(_v)
+                ):
                     sd_map[_key][_fld] = f"-{_v}"
     if isinstance(hero_rows, list):
         for _hr in hero_rows:
@@ -1807,8 +1829,15 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
     abc_analysis = payload.get("abc_analysis_section", {}) if isinstance(payload, dict) else {}
     if not isinstance(abc_analysis, dict):
         abc_analysis = {}
+    abc_status = str(abc_section.get("status") or "").strip().lower()
+    a_skus: list[dict[str, Any]] = []
+    c_negative_skus: list[dict[str, Any]] = []
 
-    if isinstance(abc_summary_rows, list) and abc_summary_rows:
+    if (
+        isinstance(abc_summary_rows, list)
+        and abc_summary_rows
+        and abc_status not in {"no_data", "missing", "unavailable"}
+    ):
         story.append(Paragraph(_format_text(abc_section.get("title") or "Ассортимент / ABC"), styles["section"]))
         subtitle = abc_section.get("subtitle", "")
         if subtitle:
