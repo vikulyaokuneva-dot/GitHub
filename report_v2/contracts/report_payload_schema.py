@@ -440,6 +440,36 @@ class PriceChangesSectionV2(TypedDict, total=False):
     automatic_price_changes: bool
 
 
+class DataHealthRowV2(TypedDict, total=False):
+    label: str
+    status: str
+    detail: str
+
+
+class DataHealthSectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    status: str
+    rows: list[DataHealthRowV2]
+
+
+class UnattributedAdSpendRowV2(TypedDict, total=False):
+    sku: str
+    spend: str
+    attributed_orders: int
+    reason: str
+    recommendation: str
+    source: str
+
+
+class UnattributedAdSpendSectionV2(TypedDict, total=False):
+    title: str
+    subtitle: str
+    status: str
+    source: str
+    rows: list[UnattributedAdSpendRowV2]
+
+
 class SourceFlagsV2(TypedDict, total=False):
     snapshot_present: bool
     debug_present: bool
@@ -487,6 +517,8 @@ class ReportPayloadV2(TypedDict):
     live_operational: LiveOperationalBlockV2
     live_section: SectionV2
     stock_section: NotRequired[StockSectionV2]
+    data_health_section: NotRequired[DataHealthSectionV2]
+    unattributed_ad_spend_section: NotRequired[UnattributedAdSpendSectionV2]
     product_price_analytics_section: NotRequired[ProductPriceAnalyticsSectionV2]
     price_changes_section: NotRequired[PriceChangesSectionV2]
     warnings: list[WarningItemV2]

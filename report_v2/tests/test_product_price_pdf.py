@@ -11,6 +11,7 @@ from report_v2.builders.report_payload_builder import (
     _normalize_abc_section_sku,
     build_abc_section_v2,
     build_funnel_section_v2,
+    build_unattributed_ad_spend_section_v2,
 )
 from report_v2.renderers.pdf_renderer_v2 import write_report_pdf_v2
 
@@ -298,6 +299,88 @@ def test_ads_only_sku_reason_is_not_low_margin() -> None:
     )
 
     assert item["reason"] == "рекламные расходы без атрибутированных заказов"
+
+
+def test_ads_only_sku_is_excluded_from_abc_and_rendered_separately() -> None:
+    snapshot = {
+        "live_operational": {
+            "sales": {"available": True, "rows": []},
+            "orders": {"available": True, "rows": []},
+            "ads": {
+                "available": True,
+                "rows": [
+                    {
+                        "nm_id": "898642228",
+                        "ads_spend": "163.64",
+                        "orders": 0,
+                        "source": "ads_api",
+                    }
+                ],
+            },
+        }
+    }
+
+    abc = build_abc_section_v2(snapshot, None)
+    ads_without_orders = build_unattributed_ad_spend_section_v2(snapshot)
+
+    assert abc["status"] == "no_data"
+    assert abc["summary"]["category_C_count"] is None
+    assert ads_without_orders["status"] == "ok"
+    assert ads_without_orders["rows"] == [
+        {
+            "sku": "898642228",
+            "spend": "163.64",
+            "attributed_orders": 0,
+            "reason": "рекламные расходы без атрибутированных заказов",
+            "recommendation": "проверить атрибуцию заказов и настройки рекламной кампании",
+            "source": "ads_api",
+        }
+    ]
+
+
+def test_abc_uses_revenue_cumulative_share_and_requires_denominator(tmp_path) -> None:
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    (artifact_dir / "abc_analysis.json").write_text(
+        json.dumps(
+            {
+                "items": [
+                    {"sku": "A", "revenue": "60.00", "profit": "-5.00"},
+                    {"sku": "B", "revenue": "30.00", "profit": "100.00"},
+                    {"sku": "C", "revenue": "10.00", "profit": "1.00"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    section = build_abc_section_v2({}, None, artifact_dir=artifact_dir)
+    classes = {row["sku"]: row["abc_class"] for row in section["all_skus"]}
+
+    assert classes == {"A": "A", "B": "B", "C": "C"}
+
+
+def test_funnel_explains_why_commerce_buyouts_may_differ() -> None:
+    snapshot = {
+        "funnel_daily": {
+            "available": True,
+            "source": "sales_funnel_api",
+            "status": "ok",
+            "target_date": "2026-07-27",
+            "open_count": 287,
+            "cart_count": 14,
+            "orders_count": 4,
+            "buyouts_count": 0,
+        },
+        "live_operational": {
+            "sales": {"available": True, "count": 0, "amount": 0},
+        },
+    }
+
+    section = build_funnel_section_v2(snapshot, {}, None)
+
+    assert "могут отличаться" in section["subtitle"]
+    assert "когортная конверсия не рассчитывается" in section["subtitle"]
 
 
 def test_abc_subtitle_describes_revenue_percentages(tmp_path) -> None:

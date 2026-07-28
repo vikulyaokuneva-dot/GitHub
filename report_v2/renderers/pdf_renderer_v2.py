@@ -10,7 +10,16 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    CondPageBreak,
+    KeepTogether,
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 from reportlab.graphics.shapes import Drawing, Rect, String, Line, Circle
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 
@@ -893,7 +902,7 @@ def _abc_section_sku_rows_table(rows: list[dict[str, Any]], *, width: float, fon
     return table
 
 
-def _source_flags_table(rows: list[tuple[str, str, str]], *, width: float, font_name: str) -> Table:
+def _source_flags_table(rows: list[tuple[Any, Any, Any]], *, width: float, font_name: str) -> Table:
     table = Table(rows, colWidths=[width * 0.42, width * 0.36, width * 0.22])
     table.setStyle(
         TableStyle(
@@ -1425,6 +1434,40 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         story.append(profit_table)
         story.append(Spacer(1, 6))
 
+    data_health = payload.get("data_health_section", {}) if isinstance(payload, dict) else {}
+    if not isinstance(data_health, dict):
+        data_health = {}
+    data_health_rows = data_health.get("rows", [])
+    if isinstance(data_health_rows, list) and data_health_rows:
+        story.append(Paragraph(_format_text(data_health.get("title") or "Data health"), styles["section"]))
+        if data_health.get("subtitle"):
+            story.append(Paragraph(_format_text(data_health.get("subtitle")), styles["meta"]))
+        health_table_rows: list[list[Any]] = [
+            [
+                Paragraph("Источник / показатель", styles["hero_card"]),
+                Paragraph("Статус", styles["hero_card"]),
+                Paragraph("Комментарий", styles["hero_card"]),
+            ]
+        ]
+        for row in data_health_rows:
+            if not isinstance(row, dict):
+                continue
+            health_table_rows.append(
+                [
+                    Paragraph(_format_text(row.get("label")), styles["hero_card"]),
+                    Paragraph(_format_text(row.get("status")), styles["hero_card"]),
+                    Paragraph(_format_text(row.get("detail")), styles["hero_card"]),
+                ]
+            )
+        story.append(
+            _source_flags_table(
+                [tuple(row) for row in health_table_rows],
+                width=content_width,
+                font_name=font_info["font_name"],
+            )
+        )
+        story.append(Spacer(1, 6))
+
     story.append(PageBreak())
 
     funnel_section = payload.get("funnel_section", {}) if isinstance(payload, dict) else {}
@@ -1440,6 +1483,8 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             if stage in sd_map:
                 funnel_sd[stage] = sd_map[stage]
     story.append(Paragraph(_format_text(funnel_section.get("title")), styles["section"]))
+    if funnel_section.get("subtitle"):
+        story.append(Paragraph(_format_text(funnel_section.get("subtitle")), styles["meta"]))
     story.append(_table_with_comparison(funnel_rows, width=content_width, font_name=font_info["font_name"], style=styles["hero_card"], key_map=funnel_comparison, label_key="stage", value_key="value"))
     story.append(Spacer(1, 6))
 
@@ -1586,6 +1631,76 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
             story.append(_drawing)
             story.append(Spacer(1, 6))
 
+    unattributed_ads = (
+        payload.get("unattributed_ad_spend_section", {})
+        if isinstance(payload, dict)
+        else {}
+    )
+    if not isinstance(unattributed_ads, dict):
+        unattributed_ads = {}
+    unattributed_rows = unattributed_ads.get("rows", [])
+    if isinstance(unattributed_rows, list) and unattributed_rows:
+        story.append(CondPageBreak(58 * mm))
+        story.append(
+            Paragraph(
+                _format_text(
+                    unattributed_ads.get("title")
+                    or "Рекламные расходы без атрибутированных заказов"
+                ),
+                styles["section"],
+            )
+        )
+        if unattributed_ads.get("subtitle"):
+            story.append(Paragraph(_format_text(unattributed_ads.get("subtitle")), styles["meta"]))
+        ad_loss_rows: list[list[Any]] = [
+            [
+                Paragraph("SKU", styles["hero_card"]),
+                Paragraph("Расход", styles["hero_card"]),
+                Paragraph("Заказы", styles["hero_card"]),
+                Paragraph("Причина", styles["hero_card"]),
+                Paragraph("Рекомендация", styles["hero_card"]),
+            ]
+        ]
+        for row in unattributed_rows:
+            if not isinstance(row, dict):
+                continue
+            ad_loss_rows.append(
+                [
+                    Paragraph(_format_text(row.get("sku")), styles["hero_card"]),
+                    Paragraph(_format_price_money(row.get("spend")), styles["hero_card"]),
+                    Paragraph(str(row.get("attributed_orders", 0)), styles["hero_card"]),
+                    Paragraph(_format_text(row.get("reason")), styles["hero_card"]),
+                    Paragraph(_format_text(row.get("recommendation")), styles["hero_card"]),
+                ]
+            )
+        ad_loss_table = Table(
+            ad_loss_rows,
+            colWidths=[
+                content_width * 0.13,
+                content_width * 0.13,
+                content_width * 0.09,
+                content_width * 0.29,
+                content_width * 0.36,
+            ],
+        )
+        ad_loss_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#7C2D12")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D1D5DB")),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#FEF2F2")]),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ]
+            )
+        )
+        story.append(ad_loss_table)
+        story.append(Spacer(1, 6))
+
     search_section = payload.get("search_section", {})
     if not isinstance(search_section, dict):
         search_section = {}
@@ -1717,7 +1832,7 @@ def write_report_pdf_v2(path: str | Path, payload: dict[str, Any]) -> dict[str, 
         product_prices = {}
     product_price_rows = product_prices.get("sku_rows", [])
     if isinstance(product_price_rows, list) and product_price_rows:
-        story.append(PageBreak())
+        story.append(CondPageBreak(82 * mm))
         story.append(Paragraph(_format_text(product_prices.get("title") or "Цены по SKU"), styles["section"]))
         if product_prices.get("subtitle"):
             story.append(Paragraph(_format_text(product_prices.get("subtitle")), styles["meta"]))

@@ -1916,7 +1916,7 @@ def test_abc_analysis_section_is_ok_when_artifact_exists(tmp_path: Path) -> None
     assert section["categories"]["A"][0]["sku"] == "SKU-GROW"
 
 
-def test_abc_section_explains_revenue_basis_even_when_legacy_artifact_says_buys(tmp_path: Path) -> None:
+def test_abc_section_rejects_legacy_artifact_without_revenue_denominator(tmp_path: Path) -> None:
     artifact = _sample_abc_analysis_artifact()
     for row in artifact:
         row["basis"] = "buys"
@@ -1927,11 +1927,11 @@ def test_abc_section_explains_revenue_basis_even_when_legacy_artifact_says_buys(
 
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
 
-    assert "по выручке" in payload["abc_section"]["subtitle"]
-    assert "C означает низкий вклад" in payload["abc_section"]["subtitle"]
+    assert payload["abc_section"]["status"] == "no_data"
+    assert payload["abc_section"]["summary"]["total_skus"] is None
 
 
-def test_abc_section_preserves_revenue_for_all_c_skus(tmp_path: Path) -> None:
+def test_abc_section_reclassifies_all_skus_by_revenue(tmp_path: Path) -> None:
     artifact = [
         {
             "sku": "739377515",
@@ -1967,23 +1967,23 @@ def test_abc_section_preserves_revenue_for_all_c_skus(tmp_path: Path) -> None:
     )
 
     payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug(), artifact_dir=tmp_path)
-    c_skus = {
+    skus = {
         row["sku"]: row
         for row in payload["abc_section"]["all_skus"]
-        if row.get("abc_class") == "C"
     }
 
-    assert c_skus["453526507"]["revenue"] == 400.0
-    assert c_skus["453526507"]["profit"] == 120.0
-    assert c_skus["969315704"]["revenue"] == 280.0
-    assert c_skus["969315704"]["profit"] == 80.0
+    assert skus["739377515"]["abc_class"] == "A"
+    assert skus["453526507"]["abc_class"] == "B"
+    assert skus["453526507"]["revenue"] == 400.0
+    assert skus["453526507"]["profit"] == 120.0
+    assert skus["969315704"]["abc_class"] == "C"
+    assert skus["969315704"]["revenue"] == 280.0
+    assert skus["969315704"]["profit"] == 80.0
 
     pdf_path = tmp_path / "abc_c_skus.pdf"
     write_report_pdf_v2(pdf_path, payload)
     pdf_text = _extract_pdf_text(pdf_path)
 
-    assert "453526507" in pdf_text
-    assert "400 ₽" in pdf_text
     assert "969315704" in pdf_text
     assert "280 ₽" in pdf_text
 
@@ -2214,6 +2214,76 @@ def test_pdf_does_not_render_placeholder_abc_rows_when_section_has_no_data(tmp_p
     write_report_pdf_v2(pdf_path, payload)
 
     assert "ABC PLACEHOLDER MUST NOT RENDER" not in _extract_pdf_text(pdf_path)
+
+
+def test_payload_contains_general_data_health_and_price_provenance() -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    rows = {
+        row["label"]: row
+        for row in payload["data_health_section"]["rows"]
+    }
+
+    assert rows["Commerce: заказы и выкупы"]["status"] == "available"
+    assert rows["Остатки"]["status"] in {"available", "unavailable", "stale", "lagged"}
+    assert rows["Цена продавца"]["detail"] == "discounts-prices API v2: discountedPrice"
+    assert "discountedPrice" in payload["product_price_analytics_section"]["subtitle"]
+    assert "базового price" in payload["product_price_analytics_section"]["subtitle"]
+
+
+def test_pdf_has_no_blank_page_when_chart_is_followed_by_price_sections(tmp_path: Path) -> None:
+    payload = build_report_payload_v2(_sample_snapshot(), debug=_sample_debug())
+    payload["sales_dynamics_section"]["chart_rows"] = [
+        {
+            "date": f"2026-04-{day:02d}",
+            "orders_amount": str(day * 100),
+            "ads_spend": "10.00",
+        }
+        for day in range(15, 22)
+    ]
+    payload["product_price_analytics_section"] = {
+        "title": "Цены по SKU",
+        "subtitle": "Цена продавца = discountedPrice.",
+        "sku_rows": [
+            {
+                "sku": "452102417",
+                "seller_price": "900.00",
+                "buyer_final_price": None,
+                "buyouts": 0,
+                "financial_expenses_complete": False,
+            }
+        ],
+        "status_rows": [
+            {"label": "Цена продавца", "value": "available"},
+        ],
+        "reconciliation": {"status": "unavailable"},
+    }
+    payload["unattributed_ad_spend_section"] = {
+        "title": "Рекламные расходы без атрибутированных заказов",
+        "subtitle": "Не участвует в ABC.",
+        "status": "ok",
+        "rows": [
+            {
+                "sku": "898642228",
+                "spend": "163.64",
+                "attributed_orders": 0,
+                "reason": "рекламные расходы без атрибутированных заказов",
+                "recommendation": "проверить атрибуцию",
+            }
+        ],
+    }
+    payload["abc_section"] = {
+        "status": "no_data",
+        "summary_rows": [{"label": "Категория C", "value": "нет данных"}],
+    }
+    pdf_path = tmp_path / "report_v2_no_blank_page.pdf"
+
+    write_report_pdf_v2(pdf_path, payload)
+
+    from pypdf import PdfReader
+
+    page_texts = [(page.extract_text() or "").strip() for page in PdfReader(str(pdf_path)).pages]
+    assert page_texts
+    assert all(page_texts)
 
 
 def test_report_v2_does_not_import_legacy_daily_report_stage() -> None:

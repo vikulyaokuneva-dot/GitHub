@@ -13,6 +13,8 @@ from ..contracts.report_payload_schema import (
     AdsEfficiencySectionV2,
     AdsRowV2,
     AdsSectionV2,
+    DataHealthRowV2,
+    DataHealthSectionV2,
     DiagnosticsRowV2,
     DiagnosticsV2,
     DisplayRowV2,
@@ -28,6 +30,8 @@ from ..contracts.report_payload_schema import (
     SectionV2,
     SourceFlagRowV2,
     StockSectionV2,
+    UnattributedAdSpendRowV2,
+    UnattributedAdSpendSectionV2,
     SkuHealthItemV2,
     SkuHealthSectionV2,
     WarningItemV2,
@@ -1080,7 +1084,10 @@ def build_funnel_section_v2(
 
         return {
             "title": "Воронка продаж",
-            "subtitle": "",
+            "subtitle": (
+                "Выкупы в воронке — события Funnel API. Выкупы в сводке Commerce "
+                "формируются отдельно и могут отличаться; когортная конверсия не рассчитывается."
+            ),
             "rows": rows,
             "history_comparison": _funnel_history_comparison(funnel_daily, prev_y),
             "status": status,
@@ -1198,7 +1205,10 @@ def build_funnel_section_v2(
 
     return {
         "title": "Воронка продаж",
-        "subtitle": "События карточки и заказа; финансовая реализация считается отдельно.",
+        "subtitle": (
+            "События карточки и заказа. Выкупы Commerce и Funnel имеют разные источники "
+            "и могут отличаться; финансовая реализация считается отдельно."
+        ),
         "rows": rows,
         "history_comparison": _funnel_history_comparison(
             {
@@ -3140,6 +3150,89 @@ def _abc_ad_spend_index(snapshot: dict[str, Any], artifact_dir: str | Path | Non
     return index
 
 
+def _operational_ads_rows(
+    snapshot: dict[str, Any],
+    artifact_dir: str | Path | None,
+) -> list[dict[str, Any]]:
+    safe_snapshot = _safe_dict(snapshot)
+    live = _safe_dict(safe_snapshot.get("live_operational"))
+    ads = _safe_dict(live.get("ads"))
+    candidates = _safe_dict_list(ads.get("rows"))
+    candidates.extend(_safe_dict_list(safe_snapshot.get("live_ads_rows")))
+    if not candidates and artifact_dir:
+        for directory in _artifact_dirs(artifact_dir):
+            reconciled_path = directory / "reconciled_rows.json"
+            if not reconciled_path.is_file():
+                continue
+            try:
+                reconciled = json.loads(reconciled_path.read_text(encoding="utf-8-sig"))
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                continue
+            candidates.extend(_safe_dict_list(_safe_dict(reconciled).get("live_ads_rows")))
+            if candidates:
+                break
+    return candidates
+
+
+def build_unattributed_ad_spend_section_v2(
+    snapshot: dict[str, Any],
+    *,
+    artifact_dir: str | Path | None = None,
+) -> UnattributedAdSpendSectionV2:
+    aggregated: dict[str, dict[str, Any]] = {}
+    for row in _operational_ads_rows(snapshot, artifact_dir):
+        sku = _sku_lookup_key(row)
+        spend = _safe_decimal(
+            _first_text(
+                row.get("ads_spend"),
+                row.get("spend"),
+                row.get("cost"),
+            )
+        )
+        orders = _safe_decimal(
+            _first_text(
+                row.get("orders"),
+                row.get("order_count"),
+                row.get("ordersCount"),
+            )
+        )
+        if not sku or spend is None or spend <= 0 or (orders is not None and orders > 0):
+            continue
+        item = aggregated.setdefault(
+            sku,
+            {
+                "sku": sku,
+                "spend": Decimal("0"),
+                "attributed_orders": Decimal("0"),
+                "source": _first_text(row.get("source"), "ads_api") or "ads_api",
+            },
+        )
+        item["spend"] += spend
+        if orders is not None:
+            item["attributed_orders"] += orders
+
+    rows: list[UnattributedAdSpendRowV2] = []
+    for sku in sorted(aggregated):
+        item = aggregated[sku]
+        rows.append(
+            {
+                "sku": sku,
+                "spend": str(item["spend"].quantize(Decimal("0.01"))),
+                "attributed_orders": int(item["attributed_orders"]),
+                "reason": "рекламные расходы без атрибутированных заказов",
+                "recommendation": "проверить атрибуцию заказов и настройки рекламной кампании",
+                "source": item["source"],
+            }
+        )
+    return {
+        "title": "Рекламные расходы без атрибутированных заказов",
+        "subtitle": "Этот блок не участвует в ABC-классификации и не подменяет выручку.",
+        "status": "ok" if rows else "no_data",
+        "source": "ads_api",
+        "rows": rows,
+    }
+
+
 def _abc_section_source_rows(payload: Any, *keys: str) -> list[dict[str, Any]]:
     root = _safe_dict(payload)
     for key in keys:
@@ -3545,57 +3638,75 @@ def build_abc_section_v2(
             rows_for_abc = [{"sku": k, "revenue": v["revenue"], "profit": v["profit"]} for k, v in sku_rev_profit.items() if k in sales_only_skus and v["revenue"] > 0]
             if not rows_for_abc:
                 rows_for_abc = [{"sku": k, "revenue": v["revenue"], "profit": v["profit"]} for k, v in sku_rev_profit.items() if v["revenue"] > 0]
-            ad_spend_index = {}
-            for _ar in (snapshot.get("live_ads_rows") or []) if isinstance(snapshot, dict) else []:
-                if isinstance(_ar, dict):
-                    _nm = str(_ar.get("nm_id") or _ar.get("sku") or "")
-                    _sp = abs(_safe_float(_ar.get("ads_spend") or _ar.get("spend") or 0))
-                    if _nm and _sp > 0:
-                        ad_spend_index[_nm] = _sp
-            if not ad_spend_index and artifact_dir:
-                try:
-                    import json as _aj
-                    _rr_path = Path(artifact_dir) / "reconciled_rows.json"
-                    if _rr_path.is_file():
-                        _rr = _aj.load(open(_rr_path, encoding="utf-8"))
-                        for _ar in (_rr.get("live_ads_rows") or []):
-                            if isinstance(_ar, dict):
-                                _nm = str(_ar.get("nm_id") or _ar.get("sku") or "")
-                                _sp = abs(_safe_float(_ar.get("ads_spend") or _ar.get("spend") or 0))
-                                if _nm and _sp > 0:
-                                    ad_spend_index[_nm] = _sp
-                except Exception:
-                    pass
-            existing_skus = {r["sku"] for r in rows_for_abc}
-            for _nm, _sp in ad_spend_index.items():
-                if _nm not in existing_skus:
-                    rows_for_abc.append({"sku": _nm, "revenue": 0, "profit": -_sp})
-            rows_for_abc.sort(key=lambda r: r["profit"], reverse=True)
-            positive_profit_total = sum(r["profit"] for r in rows_for_abc if r["profit"] > 0)
-            total_revenue = sum(r["revenue"] for r in rows_for_abc)
-            cumulative = 0.0
-            computed = []
-            for r in rows_for_abc:
-                rev_share = r["revenue"] / total_revenue if total_revenue > 0 else 0
-                if r["profit"] <= 0 or positive_profit_total <= 0:
-                    abc_class = "C"
+            rows_for_abc.sort(
+                key=lambda row: _safe_decimal(row.get("revenue")) or Decimal("0"),
+                reverse=True,
+            )
+            total_revenue = sum(
+                (_safe_decimal(row.get("revenue")) or Decimal("0"))
+                for row in rows_for_abc
+            )
+            cumulative = Decimal("0")
+            computed: list[dict[str, Any]] = []
+            for row in rows_for_abc:
+                revenue = _safe_decimal(row.get("revenue")) or Decimal("0")
+                rev_share = revenue / total_revenue if total_revenue > 0 else Decimal("0")
+                cumulative += rev_share
+                if not computed or cumulative <= Decimal("0.80"):
+                    abc_class = "A"
+                elif cumulative <= Decimal("0.95"):
+                    abc_class = "B"
                 else:
-                    cumulative += r["profit"] / positive_profit_total
-                    if cumulative <= 0.80:
-                        abc_class = "A"
-                    elif cumulative <= 0.95:
-                        abc_class = "B"
-                    else:
-                        abc_class = "C"
+                    abc_class = "C"
                 computed.append({
-                    "sku": r["sku"],
-                    "revenue": round(r["revenue"], 2),
-                    "profit": round(r["profit"], 2),
-                    "share": round(rev_share, 6),
-                    "cumulative_share": round(cumulative, 6),
+                    "sku": row["sku"],
+                    "revenue": str(revenue.quantize(Decimal("0.01"))),
+                    "profit": row["profit"],
+                    "share": str(rev_share.quantize(Decimal("0.000001"))),
+                    "cumulative_share": str(cumulative.quantize(Decimal("0.000001"))),
                     "abc_class": abc_class,
                 })
-            payload = computed
+            payload = computed if total_revenue > 0 else None
+
+    if payload is not None:
+        revenue_rows = [
+            dict(row)
+            for row in _abc_raw_rows(payload)
+            if (_safe_decimal(row.get("revenue")) or Decimal("0")) > 0
+        ]
+        revenue_rows.sort(
+            key=lambda row: _safe_decimal(row.get("revenue")) or Decimal("0"),
+            reverse=True,
+        )
+        revenue_total = sum(
+            (_safe_decimal(row.get("revenue")) or Decimal("0"))
+            for row in revenue_rows
+        )
+        if not revenue_rows or revenue_total <= 0:
+            payload = None
+        else:
+            cumulative = Decimal("0")
+            classified_rows: list[dict[str, Any]] = []
+            for row in revenue_rows:
+                classified = dict(row)
+                revenue = _safe_decimal(row.get("revenue")) or Decimal("0")
+                share = revenue / revenue_total
+                cumulative += share
+                if not classified_rows or cumulative <= Decimal("0.80"):
+                    abc_class = "A"
+                elif cumulative <= Decimal("0.95"):
+                    abc_class = "B"
+                else:
+                    abc_class = "C"
+                classified.update(
+                    {
+                        "abc_class": abc_class,
+                        "share": str(share.quantize(Decimal("0.000001"))),
+                        "cumulative_share": str(cumulative.quantize(Decimal("0.000001"))),
+                    }
+                )
+                classified_rows.append(classified)
+            payload = classified_rows
 
     if payload is None:
         summary = {
@@ -5190,7 +5301,11 @@ def _build_product_price_sections(
     )
     price_section = {
         "title": "Цены по SKU",
-        "subtitle": "Платформенная скидка WB отделена от скидки продавца и скидки WB Кошелька.",
+        "subtitle": (
+            "Цена продавца берётся из discounts-prices API v2, поле discountedPrice "
+            "(цена после скидки продавца), а не из базового price. "
+            "Платформенная скидка WB и скидка WB Кошелька учитываются отдельно."
+        ),
         "available": available,
         "status": status,
         "source": str(raw.get("source") or ""),
@@ -5223,6 +5338,100 @@ def _build_product_price_sections(
         "automatic_price_changes": False,
     }
     return price_section, changes_section
+
+
+def build_data_health_section_v2(
+    snapshot: dict[str, Any],
+    *,
+    product_price_section: dict[str, Any],
+) -> DataHealthSectionV2:
+    safe_snapshot = _safe_dict(snapshot)
+    operational_date = _safe_str(safe_snapshot.get("operational_date"))
+    cabinet = _safe_dict(safe_snapshot.get("cabinet_commerce_daily"))
+    funnel = _safe_dict(safe_snapshot.get("funnel_daily"))
+    finance = _safe_dict(safe_snapshot.get("finance_final_daily"))
+    live = _safe_dict(safe_snapshot.get("live_operational"))
+    ads = _safe_dict(live.get("ads"))
+    stocks = _safe_dict(live.get("stocks"))
+
+    def source_status(block: dict[str, Any], *, date_field: str = "target_date") -> str:
+        if bool(block.get("stale", False)):
+            return "stale"
+        if not bool(block.get("available", False)):
+            return "unavailable"
+        source_date = _safe_str(block.get(date_field))
+        if operational_date and source_date and source_date != operational_date:
+            return "lagged"
+        return "available"
+
+    price_status_by_label = {
+        _safe_str(row.get("label")): _safe_str(row.get("value"))
+        for row in _safe_dict_list(product_price_section.get("status_rows"))
+    }
+    rows: list[DataHealthRowV2] = [
+        {
+            "label": "Commerce: заказы и выкупы",
+            "status": source_status(cabinet),
+            "detail": _safe_str(cabinet.get("source")) or "sales_funnel_api",
+        },
+        {
+            "label": "Воронка продаж",
+            "status": source_status(funnel),
+            "detail": "события Funnel API; не когорта и не финансовое закрытие",
+        },
+        {
+            "label": "Реклама",
+            "status": source_status(ads),
+            "detail": _safe_str(ads.get("source")) or "ads_api",
+        },
+        {
+            "label": "Остатки",
+            "status": source_status(stocks, date_field="snapshot_date"),
+            "detail": "оперативный Stocks API",
+        },
+        {
+            "label": "Финансовые расходы",
+            "status": (
+                "unavailable"
+                if not bool(finance.get("available", False))
+                else ("lagged" if finance.get("date_aligned") is False else "available")
+            ),
+            "detail": "комиссия, логистика, эквайринг, хранение, удержания и налог",
+        },
+        {
+            "label": "Цена продавца",
+            "status": price_status_by_label.get("Цена продавца", "unavailable"),
+            "detail": "discounts-prices API v2: discountedPrice",
+        },
+        {
+            "label": "FBS price data",
+            "status": price_status_by_label.get("FBS price data", "unavailable"),
+            "detail": "convertedPrice / convertedFinalPrice",
+        },
+        {
+            "label": "Цена покупателя",
+            "status": price_status_by_label.get("Цена покупателя", "unavailable"),
+            "detail": "FBS или подтверждённый sales/funnel fallback",
+        },
+        {
+            "label": "Чистая прибыль",
+            "status": price_status_by_label.get("Чистая прибыль", "unavailable"),
+            "detail": "только при полном наборе обязательных расходов",
+        },
+    ]
+    statuses = {row["status"] for row in rows}
+    if statuses == {"available"}:
+        overall_status = "available"
+    elif rows[0]["status"] == "unavailable":
+        overall_status = "unavailable"
+    else:
+        overall_status = "partial"
+    return {
+        "title": "Data health",
+        "subtitle": "Доступность источников для текущего операционного дня.",
+        "status": overall_status,
+        "rows": rows,
+    }
 
 
 def _history_kpi_from_core_snapshot(core_snapshot: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
@@ -5851,6 +6060,14 @@ def build_report_payload_v2(
         snapshot,
         sku_detail_section=sku_detail_section,
     )
+    data_health_section = build_data_health_section_v2(
+        snapshot,
+        product_price_section=product_price_analytics_section,
+    )
+    unattributed_ad_spend_section = build_unattributed_ad_spend_section_v2(
+        snapshot,
+        artifact_dir=artifact_dir,
+    )
 
     payload: ReportPayloadV2 = {
         "meta": meta_block,
@@ -5900,6 +6117,8 @@ def build_report_payload_v2(
         "sku_health_section": sku_health_section,
         "profit_contribution_section": profit_contribution_section,
         "sku_detail_section": sku_detail_section,
+        "data_health_section": data_health_section,
+        "unattributed_ad_spend_section": unattributed_ad_spend_section,
         "product_price_analytics_section": product_price_analytics_section,
         "price_changes_section": price_changes_section,
         "abc_section": abc_section,

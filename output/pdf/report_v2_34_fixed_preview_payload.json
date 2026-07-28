@@ -1,0 +1,1638 @@
+{
+  "meta": {
+    "contract_version": "report_payload_v2",
+    "seller_id": "seller_001",
+    "report_date": "2026-07-27",
+    "operational_date": "2026-07-27",
+    "snapshot_source_mode": "wb_api_core_v2",
+    "debug_available": true
+  },
+  "hero": {
+    "title": "Ежедневный отчёт WB",
+    "subtitle": "Кабинет: seller_001 | Дата: 2026-07-27",
+    "cards": [
+      {
+        "label": "Заказы",
+        "value": "4 шт",
+        "subvalue": "3 600 ₽",
+        "status": "ok"
+      },
+      {
+        "label": "Продажи/реализация",
+        "value": "нет данных",
+        "subvalue": "нет данных",
+        "status": "unavailable"
+      },
+      {
+        "label": "К перечислению",
+        "value": "нет данных",
+        "subvalue": "missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Возвраты",
+        "value": "нет данных",
+        "subvalue": "",
+        "status": "unavailable"
+      },
+      {
+        "label": "Оперативные остатки",
+        "value": "нет данных",
+        "subvalue": "",
+        "status": "unavailable"
+      }
+    ],
+    "data_status": "partial",
+    "data_status_message": "Часть основных данных недоступна или пришла с лагом."
+  },
+  "cabinet_commerce": {
+    "available": true,
+    "status": "ok",
+    "source": "sales_funnel_api",
+    "owner_block": "cabinet_commerce_daily",
+    "target_date": "2026-07-27",
+    "orders_count": 4,
+    "orders_amount": 3600.0,
+    "orders_source": "sales_funnel_api",
+    "orders_note": "Источник: cabinet_commerce_daily",
+    "orders_status": "ok",
+    "orders_fallback": false,
+    "buyouts_count": 0,
+    "buyouts_amount": 0.0,
+    "buyouts_source": "sales_funnel_api",
+    "buyouts_note": "Подтвержденные выкупы из cabinet_commerce_daily.",
+    "buyouts_status": "ok",
+    "sales_count": 0,
+    "sales_amount": 0.0,
+    "sales_source": "missing",
+    "sales_note": "Оперативные продажи из live_operational.sales.",
+    "sales_status": "ok",
+    "sales_fallback": false
+  },
+  "hero_section": {
+    "title": "Ежедневный отчёт WB",
+    "subtitle": "Кабинет: seller_001 | Дата: 2026-07-27",
+    "rows": [
+      {
+        "label": "Заказы",
+        "value": "4 шт",
+        "status": "ok"
+      },
+      {
+        "label": "Сумма заказов",
+        "value": "3 600 ₽",
+        "status": "ok"
+      },
+      {
+        "label": "Выкупы",
+        "value": "0 шт",
+        "status": "ok"
+      },
+      {
+        "label": "Сумма выкупов",
+        "value": "0 ₽",
+        "status": "ok"
+      },
+      {
+        "label": "Реклама",
+        "value": "-163,64 ₽",
+        "status": "ok"
+      },
+      {
+        "label": "Остатки",
+        "value": "нет данных",
+        "status": "unavailable"
+      }
+    ],
+    "alerts": [],
+    "actions": [],
+    "alert_boxes": [
+      {
+        "label": "РЕКЛАМА",
+        "value": "-163,64 ₽",
+        "detail": "164 руб. без заказов",
+        "status": "warning"
+      },
+      {
+        "label": "ВОЗВРАТЫ",
+        "value": "0 шт",
+        "detail": "норма",
+        "status": "ok"
+      },
+      {
+        "label": "ОСТАТКИ",
+        "value": "нет данных",
+        "detail": "API WB недоступен",
+        "status": "unavailable"
+      }
+    ]
+  },
+  "actions_section": {
+    "title": "Действия сегодня",
+    "actions": [
+      {
+        "text": "Рекламный расход: -163,64 ₽",
+        "priority": "info"
+      },
+      {
+        "text": "Финансовые данные WB: данные появятся через 2-3 дня",
+        "priority": "warning"
+      }
+    ]
+  },
+  "losses_of_the_day": {
+    "title": "Потери дня",
+    "items": [
+      {
+        "label": "Реклама",
+        "value": "-163,64 ₽",
+        "amount": 163.64
+      }
+    ],
+    "total": "-163,64 ₽",
+    "total_amount": 163.64
+  },
+  "commerce_section": {
+    "title": "Заказы и выкупы",
+    "subtitle": "",
+    "rows": [
+      {
+        "label": "Заказы",
+        "value": "4 шт",
+        "note": "Источник: cabinet_commerce_daily",
+        "status": "ok"
+      },
+      {
+        "label": "Сумма заказов",
+        "value": "3 600 ₽",
+        "note": "Источник: sales_funnel_api",
+        "status": "ok"
+      },
+      {
+        "label": "Выкупы",
+        "value": "0 шт",
+        "note": "Подтвержденные выкупы из cabinet_commerce_daily.",
+        "status": "ok"
+      },
+      {
+        "label": "Сумма выкупов",
+        "value": "0 ₽",
+        "note": "Источник: sales_funnel_api",
+        "status": "ok"
+      },
+      {
+        "label": "Источник",
+        "value": "sales_funnel_api",
+        "note": "Дата: 2026-07-27",
+        "status": "ok"
+      }
+    ],
+    "status": "ok"
+  },
+  "profit_section": {
+    "title": "Прибыль",
+    "rows": [],
+    "available": false
+  },
+  "sales_dynamics_section": {
+    "title": "Динамика продаж",
+    "subtitle": "Сегодня: 2026-07-27 | Вчера: 2026-07-26 | 7 дн. назад: 2026-07-20",
+    "rows": [
+      {
+        "label": "Выручка",
+        "today": "0 ₽",
+        "yesterday": "1 899,97 ₽",
+        "week_ago": "нет данных",
+        "vs_yesterday": "-100.0%",
+        "vs_week": "н/д"
+      },
+      {
+        "label": "Прибыль",
+        "today": "нет данных",
+        "yesterday": "нет данных",
+        "week_ago": "нет данных",
+        "vs_yesterday": "н/д",
+        "vs_week": "н/д"
+      },
+      {
+        "label": "Заказы",
+        "today": "4 шт",
+        "yesterday": "2 шт",
+        "week_ago": "нет данных",
+        "vs_yesterday": "+100.0%",
+        "vs_week": "н/д"
+      },
+      {
+        "label": "Сумма заказов",
+        "today": "3 600 ₽",
+        "yesterday": "1 880 ₽",
+        "week_ago": "нет данных",
+        "vs_yesterday": "+91.5%",
+        "vs_week": "н/д"
+      },
+      {
+        "label": "Выкупы",
+        "today": "0 шт",
+        "yesterday": "2 шт",
+        "week_ago": "нет данных",
+        "vs_yesterday": "-100.0%",
+        "vs_week": "н/д"
+      },
+      {
+        "label": "Реклама",
+        "today": "163,64 ₽",
+        "yesterday": "нет данных",
+        "week_ago": "нет данных",
+        "vs_yesterday": "н/д",
+        "vs_week": "н/д"
+      }
+    ],
+    "chart_rows": [
+      {
+        "date": "2026-07-21",
+        "ads_spend": null,
+        "orders_amount": null
+      },
+      {
+        "date": "2026-07-22",
+        "ads_spend": null,
+        "orders_amount": null
+      },
+      {
+        "date": "2026-07-23",
+        "ads_spend": null,
+        "orders_amount": null
+      },
+      {
+        "date": "2026-07-24",
+        "ads_spend": null,
+        "orders_amount": null
+      },
+      {
+        "date": "2026-07-25",
+        "ads_spend": null,
+        "orders_amount": null
+      },
+      {
+        "date": "2026-07-26",
+        "ads_spend": null,
+        "orders_amount": 1880.0
+      },
+      {
+        "date": "2026-07-27",
+        "ads_spend": 163.64,
+        "orders_amount": 3600.0
+      }
+    ],
+    "chart_available": true,
+    "available": true
+  },
+  "funnel_section": {
+    "title": "Воронка продаж",
+    "subtitle": "Выкупы в воронке — события Funnel API. Выкупы в сводке Commerce формируются отдельно и могут отличаться; когортная конверсия не рассчитывается.",
+    "rows": [
+      {
+        "stage": "Переходы в карточку",
+        "value": "287 шт",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Корзина",
+        "value": "14 шт",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Заказы",
+        "value": "4 шт",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Выкупы",
+        "value": "0 шт",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Карточка → Корзина",
+        "value": "4.88%",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Корзина → Заказ",
+        "value": "28.57%",
+        "source": "sales_funnel_api",
+        "status": "ok",
+        "note": "Данные получены из snapshot.funnel_daily."
+      },
+      {
+        "stage": "Переходы в карточку (Δ вчера / 7 дн.)",
+        "value": "+22.6% / н/д",
+        "source": "history",
+        "status": "ok",
+        "note": ""
+      },
+      {
+        "stage": "Корзина (Δ вчера / 7 дн.)",
+        "value": "-46.2% / н/д",
+        "source": "history",
+        "status": "ok",
+        "note": ""
+      },
+      {
+        "stage": "Заказы (Δ вчера / 7 дн.)",
+        "value": "+100.0% / н/д",
+        "source": "history",
+        "status": "ok",
+        "note": ""
+      },
+      {
+        "stage": "Выкупы (Δ вчера / 7 дн.)",
+        "value": "н/д / н/д",
+        "source": "history",
+        "status": "ok",
+        "note": ""
+      }
+    ],
+    "history_comparison": {
+      "Переходы в карточку": {
+        "today": "287 шт",
+        "yesterday": "234 шт",
+        "vs_yesterday": "+22.6%"
+      },
+      "Корзина": {
+        "today": "14 шт",
+        "yesterday": "26 шт",
+        "vs_yesterday": "-46.2%"
+      },
+      "Заказы": {
+        "today": "4 шт",
+        "yesterday": "2 шт",
+        "vs_yesterday": "+100.0%"
+      },
+      "Выкупы": {
+        "today": "0 шт",
+        "yesterday": "0 шт",
+        "vs_yesterday": "н/д"
+      },
+      "Карточка → Корзина": {
+        "today": "4.9%",
+        "yesterday": "11.1%",
+        "vs_yesterday": "-56.1%"
+      },
+      "Корзина → Заказ": {
+        "today": "28.6%",
+        "yesterday": "7.7%",
+        "vs_yesterday": "+271.4%"
+      }
+    },
+    "status": "ok",
+    "message": "Воронка собрана из sales_funnel_api."
+  },
+  "ads_efficiency_section": {
+    "title": "Реклама",
+    "subtitle": "Эффективность рекламы из advertising_efficiency artifacts.",
+    "status": "partial",
+    "source": "live_operational.ads",
+    "message": "Рекламная эффективность доступна частично; пропуски не заменялись нулями.",
+    "spend": 163.64,
+    "impressions": 361,
+    "clicks": 45,
+    "ctr": 12.47,
+    "cpc": 3.64,
+    "cpm": 453.3,
+    "ad_orders": 0.0,
+    "ad_revenue": null,
+    "ad_buyouts": null,
+    "drr": null,
+    "drr_cabinet": null,
+    "roas": null,
+    "romi": null,
+    "cpo": null,
+    "profit_from_ads": null,
+    "wasted_spend": null,
+    "inefficient_items_count": null,
+    "top_profitable_queries": [],
+    "top_unprofitable_queries": [],
+    "high_potential_queries": [],
+    "warnings": [],
+    "loss_rows": [],
+    "opportunity_rows": [],
+    "recommendations": [],
+    "metric_rows": [
+      {
+        "label": "Расход на рекламу",
+        "value": "163,64 ₽",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "portfolio_ad_spend / total_ad_spend"
+      },
+      {
+        "label": "Показы",
+        "value": "361 шт",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "Клики",
+        "value": "45 шт",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "CTR рекламы",
+        "value": "12,47%",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "clicks / impressions"
+      },
+      {
+        "label": "CPC",
+        "value": "3,64 ₽",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "spend / clicks"
+      },
+      {
+        "label": "CPM",
+        "value": "453,30 ₽",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "spend * 1000 / impressions"
+      },
+      {
+        "label": "Заказы из рекламы",
+        "value": "0",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "portfolio_orders_from_ads"
+      },
+      {
+        "label": "Выручка из рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "portfolio_revenue_from_ads"
+      },
+      {
+        "label": "Выкупы из рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "portfolio_buyouts_from_ads"
+      },
+      {
+        "label": "ДРР рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "расход / выручка из рекламы"
+      },
+      {
+        "label": "ДРР по кабинету",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "расход / сумма выкупов"
+      },
+      {
+        "label": "ROAS",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "revenue / spend"
+      },
+      {
+        "label": "ROMI",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "portfolio_ROMI"
+      },
+      {
+        "label": "CPO",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "portfolio_CPO"
+      },
+      {
+        "label": "Прибыль от рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "portfolio_profit_from_ads"
+      },
+      {
+        "label": "Потери рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "sum of loss query spend"
+      },
+      {
+        "label": "Неэффективных запросов",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "query_profitability summary"
+      }
+    ]
+  },
+  "ads_section": {
+    "title": "Реклама",
+    "subtitle": "Эффективность рекламы из advertising_efficiency artifacts.",
+    "rows": [
+      {
+        "label": "Расход на рекламу",
+        "value": "163,64 ₽",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "portfolio_ad_spend / total_ad_spend"
+      },
+      {
+        "label": "Показы",
+        "value": "361 шт",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "Клики",
+        "value": "45 шт",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "aggregated from advertising efficiency rows"
+      },
+      {
+        "label": "CTR рекламы",
+        "value": "12,47%",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "clicks / impressions"
+      },
+      {
+        "label": "CPC",
+        "value": "3,64 ₽",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "spend / clicks"
+      },
+      {
+        "label": "CPM",
+        "value": "453,30 ₽",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "spend * 1000 / impressions"
+      },
+      {
+        "label": "Заказы из рекламы",
+        "value": "0",
+        "source": "live_operational.ads",
+        "status": "ok",
+        "note": "portfolio_orders_from_ads"
+      },
+      {
+        "label": "Выручка из рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "portfolio_revenue_from_ads"
+      },
+      {
+        "label": "Выкупы из рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "portfolio_buyouts_from_ads"
+      },
+      {
+        "label": "ДРР рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "расход / выручка из рекламы"
+      },
+      {
+        "label": "ДРР по кабинету",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "расход / сумма выкупов"
+      },
+      {
+        "label": "ROAS",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "revenue / spend"
+      },
+      {
+        "label": "ROMI",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "portfolio_ROMI"
+      },
+      {
+        "label": "CPO",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "portfolio_CPO"
+      },
+      {
+        "label": "Прибыль от рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "portfolio_profit_from_ads"
+      },
+      {
+        "label": "Потери рекламы",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "sum of loss query spend"
+      },
+      {
+        "label": "Неэффективных запросов",
+        "value": "нет данных",
+        "source": "нет данных",
+        "status": "unavailable",
+        "note": "query_profitability summary"
+      }
+    ],
+    "status": "partial",
+    "message": "Рекламная эффективность доступна частично; пропуски не заменялись нулями."
+  },
+  "query_profitability_section": {
+    "title": "Поисковые запросы",
+    "subtitle": "Прибыльность и качество поисковых запросов.",
+    "status": "no_data",
+    "source": "missing",
+    "message": "Данные query_profitability.json недоступны.",
+    "top_loss_queries": [],
+    "weak_queries": [],
+    "top_performing_queries": [],
+    "growth_hypotheses": [],
+    "recommendations": []
+  },
+  "search_section": {
+    "title": "Поисковые запросы",
+    "sections": [],
+    "summary": [],
+    "available": false
+  },
+  "sku_health_section": {
+    "title": "Состояние товаров / SKU health",
+    "subtitle": "Списки SKU из health_score, sku_watchlists, sku_alerts и sku_daily_dynamics.",
+    "status": "no_data",
+    "source": "missing",
+    "message": "SKU health artifacts отсутствуют в snapshot и artifacts.",
+    "summary": {
+      "total_skus": null,
+      "healthy_count": null,
+      "growth_count": null,
+      "risk_count": null,
+      "liquidation_count": null,
+      "dead_stock_count": null,
+      "ad_inefficiency_count": null,
+      "conversion_drop_count": null,
+      "logistics_risk_count": null
+    },
+    "health_score": {
+      "value": null,
+      "status": "unavailable",
+      "comment": "health_score artifact"
+    },
+    "watchlists": {
+      "top_growth": [],
+      "top_risk": [],
+      "dead_stock": [],
+      "ad_inefficiency": [],
+      "conversion_drop": [],
+      "logistics_risk": []
+    },
+    "alerts": [],
+    "daily_dynamics": {},
+    "warnings": [],
+    "risk_rows": [],
+    "growth_rows": [],
+    "attention_rows": [],
+    "summary_rows": [
+      {
+        "label": "Всего SKU",
+        "value": "нет данных",
+        "note": "SKU health / watchlists",
+        "status": "unavailable"
+      },
+      {
+        "label": "Здоровые SKU",
+        "value": "нет данных",
+        "note": "SKU health / watchlists",
+        "status": "unavailable"
+      },
+      {
+        "label": "SKU в росте",
+        "value": "нет данных",
+        "note": "SKU health / watchlists",
+        "status": "unavailable"
+      },
+      {
+        "label": "SKU под риском",
+        "value": "нет данных",
+        "note": "SKU health / watchlists",
+        "status": "unavailable"
+      },
+      {
+        "label": "Ликвидация",
+        "value": "нет данных",
+        "note": "SKU health / watchlists",
+        "status": "unavailable"
+      },
+      {
+        "label": "Dead stock",
+        "value": "нет данных",
+        "note": "SKU health / watchlists",
+        "status": "unavailable"
+      },
+      {
+        "label": "Неэффективная реклама",
+        "value": "нет данных",
+        "note": "SKU health / watchlists",
+        "status": "unavailable"
+      },
+      {
+        "label": "Падение конверсии",
+        "value": "нет данных",
+        "note": "SKU health / watchlists",
+        "status": "unavailable"
+      },
+      {
+        "label": "Логистический риск",
+        "value": "нет данных",
+        "note": "SKU health / watchlists",
+        "status": "unavailable"
+      },
+      {
+        "label": "Средний health score",
+        "value": "нет данных",
+        "note": "health_score artifact",
+        "status": "unavailable"
+      }
+    ]
+  },
+  "profit_contribution_section": {
+    "title": "Товары категории А",
+    "subtitle": "Вклад SKU в прибыль по artifact profit_contribution.json.",
+    "status": "no_data",
+    "source": "missing",
+    "message": "Данные profit_contribution.json недоступны.",
+    "summary": {
+      "total_profit": null,
+      "total_revenue": null,
+      "top_sku_share": null,
+      "loss_sku_count": null
+    },
+    "top_profit_skus": [],
+    "loss_skus": [],
+    "sku_pnl": [],
+    "warnings": [],
+    "summary_rows": [
+      {
+        "label": "Общая прибыль",
+        "value": "нет данных",
+        "note": "profit_contribution.json",
+        "status": "unavailable"
+      },
+      {
+        "label": "Общая выручка",
+        "value": "нет данных",
+        "note": "profit_contribution.json",
+        "status": "unavailable"
+      },
+      {
+        "label": "Доля топ SKU",
+        "value": "нет данных",
+        "note": "profit contribution share",
+        "status": "unavailable"
+      },
+      {
+        "label": "Убыточные SKU",
+        "value": "нет данных",
+        "note": "profit_contribution.json",
+        "status": "unavailable"
+      }
+    ]
+  },
+  "sku_detail_section": {
+    "title": "Unit-экономика по SKU",
+    "top_skus": [
+      {
+        "nm_id": "452102417",
+        "seller_article": "",
+        "title": "",
+        "orders_count": 1,
+        "buyouts_count": 0,
+        "revenue": 0,
+        "cogs": 0,
+        "commission": null,
+        "logistics": null,
+        "acquiring": null,
+        "tax": null,
+        "storage_share": null,
+        "deductions_share": null,
+        "finance_attribution": "missing",
+        "finance_actual_date": null,
+        "finance_target_date": "2026-07-27",
+        "ads_spend": 0,
+        "profit": null,
+        "margin_pct": null,
+        "preliminary_income_before_wb_expenses": null,
+        "financial_expenses_complete": false,
+        "share_pct": 0,
+        "funnel": {
+          "card_opens": 0,
+          "cart": 0,
+          "orders": 0,
+          "buyouts": 0,
+          "cr_cart_to_order_pct": 0,
+          "cr_order_to_buyout_pct": 0
+        }
+      },
+      {
+        "nm_id": "453526507",
+        "seller_article": "",
+        "title": "",
+        "orders_count": 1,
+        "buyouts_count": 0,
+        "revenue": 0,
+        "cogs": 0,
+        "commission": null,
+        "logistics": null,
+        "acquiring": null,
+        "tax": null,
+        "storage_share": null,
+        "deductions_share": null,
+        "finance_attribution": "missing",
+        "finance_actual_date": null,
+        "finance_target_date": "2026-07-27",
+        "ads_spend": 0,
+        "profit": null,
+        "margin_pct": null,
+        "preliminary_income_before_wb_expenses": null,
+        "financial_expenses_complete": false,
+        "share_pct": 0,
+        "funnel": {
+          "card_opens": 0,
+          "cart": 0,
+          "orders": 0,
+          "buyouts": 0,
+          "cr_cart_to_order_pct": 0,
+          "cr_order_to_buyout_pct": 0
+        }
+      }
+    ],
+    "loss_skus": [],
+    "all_skus": [
+      {
+        "nm_id": "452102417",
+        "seller_article": "",
+        "title": "",
+        "orders_count": 1,
+        "buyouts_count": 0,
+        "revenue": 0,
+        "cogs": 0,
+        "commission": null,
+        "logistics": null,
+        "acquiring": null,
+        "tax": null,
+        "storage_share": null,
+        "deductions_share": null,
+        "finance_attribution": "missing",
+        "finance_actual_date": null,
+        "finance_target_date": "2026-07-27",
+        "ads_spend": 0,
+        "profit": null,
+        "margin_pct": null,
+        "preliminary_income_before_wb_expenses": null,
+        "financial_expenses_complete": false,
+        "share_pct": 0,
+        "funnel": {
+          "card_opens": 0,
+          "cart": 0,
+          "orders": 0,
+          "buyouts": 0,
+          "cr_cart_to_order_pct": 0,
+          "cr_order_to_buyout_pct": 0
+        }
+      },
+      {
+        "nm_id": "453526507",
+        "seller_article": "",
+        "title": "",
+        "orders_count": 1,
+        "buyouts_count": 0,
+        "revenue": 0,
+        "cogs": 0,
+        "commission": null,
+        "logistics": null,
+        "acquiring": null,
+        "tax": null,
+        "storage_share": null,
+        "deductions_share": null,
+        "finance_attribution": "missing",
+        "finance_actual_date": null,
+        "finance_target_date": "2026-07-27",
+        "ads_spend": 0,
+        "profit": null,
+        "margin_pct": null,
+        "preliminary_income_before_wb_expenses": null,
+        "financial_expenses_complete": false,
+        "share_pct": 0,
+        "funnel": {
+          "card_opens": 0,
+          "cart": 0,
+          "orders": 0,
+          "buyouts": 0,
+          "cr_cart_to_order_pct": 0,
+          "cr_order_to_buyout_pct": 0
+        }
+      }
+    ],
+    "total_revenue": 0,
+    "total_profit": 0,
+    "total_ads": 163.64
+  },
+  "data_health_section": {
+    "title": "Data health",
+    "subtitle": "Доступность источников для текущего операционного дня.",
+    "status": "partial",
+    "rows": [
+      {
+        "label": "Commerce: заказы и выкупы",
+        "status": "available",
+        "detail": "sales_funnel_api"
+      },
+      {
+        "label": "Воронка продаж",
+        "status": "available",
+        "detail": "события Funnel API; не когорта и не финансовое закрытие"
+      },
+      {
+        "label": "Реклама",
+        "status": "available",
+        "detail": "ads_api"
+      },
+      {
+        "label": "Остатки",
+        "status": "unavailable",
+        "detail": "оперативный Stocks API"
+      },
+      {
+        "label": "Финансовые расходы",
+        "status": "unavailable",
+        "detail": "комиссия, логистика, эквайринг, хранение, удержания и налог"
+      },
+      {
+        "label": "Цена продавца",
+        "status": "available",
+        "detail": "discounts-prices API v2: discountedPrice"
+      },
+      {
+        "label": "FBS price data",
+        "status": "unavailable",
+        "detail": "convertedPrice / convertedFinalPrice"
+      },
+      {
+        "label": "Цена покупателя",
+        "status": "unavailable",
+        "detail": "FBS или подтверждённый sales/funnel fallback"
+      },
+      {
+        "label": "Чистая прибыль",
+        "status": "unavailable",
+        "detail": "только при полном наборе обязательных расходов"
+      }
+    ]
+  },
+  "unattributed_ad_spend_section": {
+    "title": "Рекламные расходы без атрибутированных заказов",
+    "subtitle": "Этот блок не участвует в ABC-классификации и не подменяет выручку.",
+    "status": "ok",
+    "source": "ads_api",
+    "rows": [
+      {
+        "sku": "898642228",
+        "spend": "163.64",
+        "attributed_orders": 0,
+        "reason": "рекламные расходы без атрибутированных заказов",
+        "recommendation": "проверить атрибуцию заказов и настройки рекламной кампании",
+        "source": "ads_api"
+      }
+    ]
+  },
+  "product_price_analytics_section": {
+    "title": "Цены по SKU",
+    "subtitle": "Цена продавца берётся из discounts-prices API v2, поле discountedPrice (цена после скидки продавца), а не из базового price. Платформенная скидка WB и скидка WB Кошелька учитываются отдельно.",
+    "available": true,
+    "status": "partial",
+    "source": "goods_filter_v2",
+    "sku_rows": [
+      {
+        "sku": "452102417",
+        "nm_id": "452102417",
+        "seller_price": "900.00",
+        "seller_base_price": "2000.00",
+        "seller_discount_percent": "55",
+        "seller_discounted_price": "900.00",
+        "club_discounted_price": null,
+        "platform_discount_percent": null,
+        "wallet_discount_percent": null,
+        "buyer_price_before_wallet": null,
+        "buyer_final_price": null,
+        "buyer_price_source": "unavailable",
+        "platform_discount_change_day": null,
+        "seller_price_change_day": null,
+        "buyer_price_change_day": null,
+        "potential_price_increase_reserve": null,
+        "buyouts": 0,
+        "profit": null,
+        "preliminary_income_before_wb_expenses": null,
+        "profit_per_unit": null,
+        "margin_percent": null,
+        "financial_expenses_complete": false,
+        "finance_discount_reconciliation": "unavailable",
+        "finance_discount_reference_percent": null,
+        "finance_discount_reference_type": "unavailable",
+        "data_quality_status": "complete",
+        "source": "goods_filter_v2"
+      },
+      {
+        "sku": "453526507",
+        "nm_id": "453526507",
+        "seller_price": "900.00",
+        "seller_base_price": "2000.00",
+        "seller_discount_percent": "55",
+        "seller_discounted_price": "900.00",
+        "club_discounted_price": null,
+        "platform_discount_percent": null,
+        "wallet_discount_percent": null,
+        "buyer_price_before_wallet": null,
+        "buyer_final_price": null,
+        "buyer_price_source": "unavailable",
+        "platform_discount_change_day": null,
+        "seller_price_change_day": null,
+        "buyer_price_change_day": null,
+        "potential_price_increase_reserve": null,
+        "buyouts": 0,
+        "profit": null,
+        "preliminary_income_before_wb_expenses": null,
+        "profit_per_unit": null,
+        "margin_percent": null,
+        "financial_expenses_complete": false,
+        "finance_discount_reconciliation": "unavailable",
+        "finance_discount_reference_percent": null,
+        "finance_discount_reference_type": "unavailable",
+        "data_quality_status": "complete",
+        "source": "goods_filter_v2"
+      }
+    ],
+    "status_rows": [
+      {
+        "label": "Цена продавца",
+        "value": "available"
+      },
+      {
+        "label": "FBS price data",
+        "value": "unavailable"
+      },
+      {
+        "label": "Цена покупателя",
+        "value": "unavailable"
+      },
+      {
+        "label": "Финансовые расходы",
+        "value": "unavailable"
+      },
+      {
+        "label": "Чистая прибыль",
+        "value": "unavailable"
+      }
+    ],
+    "weighted_platform_discount_percent": null,
+    "reconciliation": {
+      "status": "unavailable"
+    },
+    "automatic_price_changes": false
+  },
+  "price_changes_section": {
+    "title": "Изменение цен и скидок",
+    "subtitle": "Изменения к предыдущему доступному дню. Только аналитика и рекомендации.",
+    "available": false,
+    "status": "unavailable",
+    "rows": [],
+    "recommendations": [],
+    "automatic_price_changes": false
+  },
+  "abc_section": {
+    "title": "Ассортимент / ABC",
+    "subtitle": "ABC-анализ SKU по artifact abc_analysis.json.",
+    "status": "no_data",
+    "source": "missing",
+    "message": "Данные abc_analysis.json недоступны.",
+    "summary": {
+      "total_skus": null,
+      "category_A_count": null,
+      "category_B_count": null,
+      "category_C_count": null,
+      "category_A_share": null,
+      "category_B_share": null,
+      "category_C_share": null,
+      "critical_a_skus_count": null,
+      "c_skus_with_ads_count": null,
+      "low_margin_skus_count": null
+    },
+    "top_a_skus": [],
+    "critical_a_skus": [],
+    "c_skus_with_ads": [],
+    "low_margin_skus": [],
+    "all_skus": [],
+    "recommendations": [],
+    "warnings": [],
+    "summary_rows": [
+      {
+        "label": "Всего SKU",
+        "value": "нет данных",
+        "note": "abc_analysis.json",
+        "status": "unavailable"
+      },
+      {
+        "label": "Категория A",
+        "value": "нет данных / нет данных",
+        "note": "ABC share",
+        "status": "unavailable"
+      },
+      {
+        "label": "Категория B",
+        "value": "нет данных / нет данных",
+        "note": "ABC share",
+        "status": "unavailable"
+      },
+      {
+        "label": "Категория C",
+        "value": "нет данных / нет данных",
+        "note": "ABC share",
+        "status": "unavailable"
+      },
+      {
+        "label": "Критичные A-SKU",
+        "value": "нет данных",
+        "note": "A-SKU с риском маржи или прибыли",
+        "status": "unavailable"
+      },
+      {
+        "label": "C-SKU с рекламой",
+        "value": "нет данных",
+        "note": "C-категория с рекламным расходом",
+        "status": "unavailable"
+      },
+      {
+        "label": "Низкая маржинальность",
+        "value": "нет данных",
+        "note": "SKU с низкой или отрицательной маржой",
+        "status": "unavailable"
+      }
+    ]
+  },
+  "abc_analysis_section": {
+    "title": "ABC-анализ",
+    "subtitle": "ABC-категории SKU по artifact abc_analysis.json.",
+    "status": "no_data",
+    "source": "missing",
+    "message": "Данные abc_analysis.json недоступны.",
+    "summary": {
+      "total_skus": null,
+      "category_A_count": null,
+      "category_B_count": null,
+      "category_C_count": null,
+      "category_A_share": null,
+      "category_B_share": null,
+      "category_C_share": null
+    },
+    "categories": {
+      "A": [],
+      "B": [],
+      "C": []
+    },
+    "warnings": [],
+    "summary_rows": [
+      {
+        "label": "Всего SKU",
+        "value": "нет данных",
+        "note": "abc_analysis.json",
+        "status": "unavailable"
+      },
+      {
+        "label": "Категория A",
+        "value": "нет данных / нет данных",
+        "note": "ABC share",
+        "status": "unavailable"
+      },
+      {
+        "label": "Категория B",
+        "value": "нет данных / нет данных",
+        "note": "ABC share",
+        "status": "unavailable"
+      },
+      {
+        "label": "Категория C",
+        "value": "нет данных / нет данных",
+        "note": "ABC share",
+        "status": "unavailable"
+      }
+    ]
+  },
+  "finance_final": {
+    "available": false,
+    "source": "missing",
+    "owner_block": "finance_final_daily",
+    "status": "unavailable",
+    "target_date": "2026-07-27",
+    "actual_date": null,
+    "date_aligned": null,
+    "gross_revenue": null,
+    "realized_sales_qty": null,
+    "realized_sales_revenue": null,
+    "seller_payout": null,
+    "wb_commission": null,
+    "deliveries_qty": null,
+    "returns_qty": null,
+    "logistics": null,
+    "logistics_amount": null,
+    "storage": null,
+    "acquiring": null,
+    "penalties": null,
+    "deductions": null,
+    "tax": null
+  },
+  "finance_section": {
+    "title": "Финансы",
+    "subtitle": "Финансы считаются по реализации и операциям финансового отчёта WB.",
+    "rows": [
+      {
+        "label": "Статус",
+        "value": "unavailable",
+        "note": "Операционный день: 2026-07-27; финансы: нет данных; реализация и операции WB",
+        "status": "unavailable"
+      },
+      {
+        "label": "Продажи/реализация",
+        "value": "нет данных",
+        "note": "нет данных; источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Валовая выручка",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "К перечислению продавцу",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Возвраты",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Доставки",
+        "value": "нет данных",
+        "note": "Количество доставок не используется как денежная логистика.",
+        "status": "unavailable"
+      },
+      {
+        "label": "Комиссия WB",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Логистика",
+        "value": "нет данных",
+        "note": "Денежное поле услуг доставки; источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Хранение",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Эквайринг",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      }
+    ],
+    "status": "unavailable"
+  },
+  "finance_alignment_notice": {
+    "state": "unavailable",
+    "title": "Финансовый контур недоступен",
+    "lines": [
+      "Финансовые данные за день не получены из wb_api_core."
+    ],
+    "source": "finance_final_daily",
+    "target_date": "2026-07-27",
+    "actual_date": null
+  },
+  "live_operational": {
+    "status": "partial",
+    "orders": {
+      "available": true,
+      "source": "missing",
+      "target_date": "2026-07-27",
+      "count": 4,
+      "amount": 3600.0,
+      "total_units": null,
+      "snapshot_date": null,
+      "snapshot_kind": null,
+      "operational_date_reference": null,
+      "stale": false,
+      "stale_reason": null,
+      "source_actual_date": null,
+      "cache_age_seconds": null,
+      "cache_path": null,
+      "cache_fallback_used": false
+    },
+    "sales": {
+      "available": true,
+      "source": "missing",
+      "target_date": "2026-07-27",
+      "count": 0,
+      "amount": 0.0,
+      "total_units": null,
+      "snapshot_date": null,
+      "snapshot_kind": null,
+      "operational_date_reference": null,
+      "stale": false,
+      "stale_reason": null,
+      "source_actual_date": null,
+      "cache_age_seconds": null,
+      "cache_path": null,
+      "cache_fallback_used": false
+    },
+    "stocks": {
+      "available": false,
+      "source": "missing",
+      "target_date": null,
+      "count": null,
+      "amount": null,
+      "total_units": null,
+      "snapshot_date": null,
+      "snapshot_kind": null,
+      "operational_date_reference": null,
+      "stale": false,
+      "stale_reason": null,
+      "source_actual_date": null,
+      "cache_age_seconds": null,
+      "cache_path": null,
+      "cache_fallback_used": false
+    }
+  },
+  "live_section": {
+    "title": "Оперативный срез",
+    "subtitle": "Оперативные заказы, продажи и live-остатки stocks_wb_warehouses_api без сравнения с товарным отчётом WB.",
+    "rows": [
+      {
+        "label": "Оперативные заказы",
+        "value": "4 шт",
+        "note": "3 600 ₽; источник: missing",
+        "status": "ok"
+      },
+      {
+        "label": "Оперативные продажи",
+        "value": "0 шт",
+        "note": "0 ₽; источник: missing",
+        "status": "ok"
+      },
+      {
+        "label": "Оперативные остатки",
+        "value": "нет данных",
+        "note": "live snapshot stocks_wb_warehouses_api, дата среза нет данных; источник: missing; Оперативные остатки из stocks_wb_warehouses_api могут отличаться от остатков товарного отчёта WB за операционный день.",
+        "status": "unavailable"
+      },
+      {
+        "label": "Дата среза оперативных остатков",
+        "value": "нет данных",
+        "note": "Тип среза: нет данных; source: stocks_wb_warehouses_api live snapshot",
+        "status": "unavailable"
+      }
+    ],
+    "status": "partial"
+  },
+  "stock_section": {
+    "title": "Товарные остатки",
+    "subtitle": "Отдельный контур для остатков WB/МП и стоимости запасов; не смешивается с live stocks_wb_warehouses_api.",
+    "available": false,
+    "status": "no_data",
+    "source": "missing",
+    "message": "Нет отдельного источника stock_wb_qty/stock_mp_qty/stock_value; live stocks_wb_warehouses_api не подставляется.",
+    "stock_wb_qty": null,
+    "stock_mp_qty": null,
+    "stock_total_qty": null,
+    "stock_value": null,
+    "sku_rows_count": null,
+    "rows": [
+      {
+        "label": "Остатки WB",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Остатки МП",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "Всего остатков",
+        "value": "нет данных",
+        "note": "Не заполняется из live stocks_wb_warehouses_api без отдельного товарного источника.",
+        "status": "unavailable"
+      },
+      {
+        "label": "Сумма остатков",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      },
+      {
+        "label": "SKU-строк",
+        "value": "нет данных",
+        "note": "Источник: missing",
+        "status": "unavailable"
+      }
+    ],
+    "warnings": [
+      {
+        "code": "stock_goods_source_missing",
+        "message": "Отдельный источник товарных остатков WB/МП не подключён; live stocks_wb_warehouses_api не используется как полный складской остаток.",
+        "level": "info",
+        "block": "stock_section"
+      }
+    ]
+  },
+  "warnings": [
+    {
+      "code": "finance_final_unavailable",
+      "message": "finance_final_daily is present but marked unavailable.",
+      "level": "warning",
+      "block": "finance_final"
+    },
+    {
+      "code": "buyouts_owner_from_cabinet_commerce",
+      "message": "Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them.",
+      "level": "warning",
+      "block": "cabinet_commerce"
+    },
+    {
+      "code": "stock_goods_source_missing",
+      "message": "Отдельный источник товарных остатков WB/МП не подключён; live stocks_wb_warehouses_api не используется как полный складской остаток.",
+      "level": "info",
+      "block": "stock_section"
+    }
+  ],
+  "source_flags": {
+    "snapshot_present": true,
+    "debug_present": true,
+    "snapshot_source_mode": "wb_api_core_v2",
+    "buyouts_owner": "cabinet_commerce_daily",
+    "buyouts_source": "sales_funnel_api",
+    "warnings_count": 3
+  },
+  "diagnostics": {
+    "warnings": [
+      {
+        "code": "finance_final_unavailable",
+        "level": "warning",
+        "block": "finance_final",
+        "message": "finance_final_daily is present but marked unavailable."
+      },
+      {
+        "code": "buyouts_owner_from_cabinet_commerce",
+        "level": "warning",
+        "block": "cabinet_commerce",
+        "message": "Buyouts are mapped from cabinet_commerce_daily because finance_final_daily does not provide them."
+      },
+      {
+        "code": "stock_goods_source_missing",
+        "level": "info",
+        "block": "stock_section",
+        "message": "Отдельный источник товарных остатков WB/МП не подключён; live stocks_wb_warehouses_api не используется как полный складской остаток."
+      }
+    ],
+    "source_flags": [
+      {
+        "name": "cabinet_commerce.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "cabinet_commerce.status",
+        "value": "ok",
+        "status": "ok"
+      },
+      {
+        "name": "cabinet_commerce.source",
+        "value": "sales_funnel_api",
+        "status": "ok"
+      },
+      {
+        "name": "finance_final.available",
+        "value": "false",
+        "status": "unavailable"
+      },
+      {
+        "name": "finance_final.status",
+        "value": "unavailable",
+        "status": "unavailable"
+      },
+      {
+        "name": "finance_final.source",
+        "value": "missing",
+        "status": "unavailable"
+      },
+      {
+        "name": "finance_final.date_aligned",
+        "value": "unknown",
+        "status": "unavailable"
+      },
+      {
+        "name": "live_operational.orders.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.orders.stale",
+        "value": "false",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.sales.available",
+        "value": "true",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.sales.stale",
+        "value": "false",
+        "status": "ok"
+      },
+      {
+        "name": "live_operational.stocks.available",
+        "value": "false",
+        "status": "unavailable"
+      },
+      {
+        "name": "live_operational.stocks.stale",
+        "value": "false",
+        "status": "unavailable"
+      },
+      {
+        "name": "debug_present",
+        "value": "true",
+        "status": "ok"
+      }
+    ],
+    "warnings_count": 3
+  },
+  "debug_summary": {
+    "endpoints_present": [
+      "cabinet_commerce",
+      "finance_final",
+      "orders",
+      "sales",
+      "stocks"
+    ],
+    "warnings_count": 0
+  }
+}
