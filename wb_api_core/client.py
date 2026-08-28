@@ -4,11 +4,27 @@ import os
 import random
 import time
 from email.utils import parsedate_to_datetime
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Protocol
 
 import requests
 
+from .raw_capture import RawCaptureError
 from .token_resolver import resolve_wb_api_token
+
+
+class RawCaptureSink(Protocol):
+    """Optional transport observer that must not alter a successful response."""
+
+    def capture(
+        self,
+        *,
+        endpoint_name: str,
+        path: str,
+        method: str,
+        request_metadata: Dict[str, Any],
+        payload: Any,
+        status_code: int,
+    ) -> None: ...
 
 STATISTICS_BASE_URL = "https://statistics-api.wildberries.ru"
 FINANCE_BASE_URL = "https://finance-api.wildberries.ru"
@@ -34,7 +50,7 @@ DEFAULT_GLOBAL_REQUEST_BUDGET = 25
 
 
 class WBApiClient:
-    def __init__(self, token: str | None = None) -> None:
+    def __init__(self, token: str | None = None, capture_writer: RawCaptureSink | None = None) -> None:
         self.token, self.token_env_name_used = resolve_wb_api_token(token)
         self.statistics_base_url = os.getenv("WB_STATISTICS_BASE_URL", STATISTICS_BASE_URL).rstrip("/")
         self.finance_base_url = os.getenv("WB_FINANCE_BASE_URL", FINANCE_BASE_URL).rstrip("/")
@@ -47,6 +63,7 @@ class WBApiClient:
         self.max_retries = max(1, int(str(os.getenv("WB_API_MAX_RETRIES", "5") or "5")))
         self.global_request_budget = max(1, int(str(os.getenv("WB_API_GLOBAL_BUDGET", str(DEFAULT_GLOBAL_REQUEST_BUDGET)) or str(DEFAULT_GLOBAL_REQUEST_BUDGET))))
         self._global_request_count = 0
+        self._capture_writer = capture_writer
 
     def has_token(self) -> bool:
         return bool(self.token)
@@ -393,11 +410,27 @@ class WBApiClient:
                     except Exception as exc:
                         last_error = f"invalid_json: {exc}"
                         break
+                    if self._capture_writer is not None:
+                        try:
+                            self._capture_writer.capture(
+                                endpoint_name=endpoint_name,
+                                path=path,
+                                method=request_method,
+                                request_metadata={
+                                    "params": params or {},
+                                    "json_body": json_body if request_method != "GET" else None,
+                                },
+                                payload=payload,
+                                status_code=int(response.status_code),
+                            )
+                        except Exception as exc:
+                            raise RawCaptureError("raw capture failed") from exc
                     return {
                         "endpoint": endpoint_name,
                         "path": path,
                         "success": True,
                         "payload": payload,
+                        "payload_bytes": bytes(response.content),
                         "error_text": "",
                         "status_code": response.status_code,
                         "attempts": attempts,
@@ -454,6 +487,8 @@ class WBApiClient:
                     continue
                 last_error = self._status_error_text(response, rate_limit_details)
                 break
+            except RawCaptureError:
+                raise
             except Exception as exc:
                 last_error = str(exc)
                 if attempt >= max_attempts:
