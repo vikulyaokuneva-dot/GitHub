@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ИИ Директор ВБ — Ежедневный аудит</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">Д</div>
+        <div class="brand-text">
+          <h1>ИИ Директор ВБ</h1>
+          <p class="subtitle">Ежедневный аудит<span id="auditDateCaption"> · —</span></p>
+        </div>
+      </div>
+
+      <form id="auditForm" class="controls">
+        <label class="field">
+          <span class="field-label">Аккаунт</span>
+          <select id="accountSelect"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Аудит за</span>
+          <input id="auditDateInput" type="date">
+        </label>
+        <button type="submit" class="btn-primary" id="submitBtn">Показать аудит</button>
+        <a id="pdfLink" class="btn-secondary" href="#" hidden>Скачать PDF</a>
+      </form>
+    </header>
+
+    <p id="connectionStatus" class="connection">Подключение к API…</p>
+
+    <section id="errorBanner" class="banner" hidden>
+      <div class="banner-text">
+        <strong>Не удалось получить данные</strong>
+        <p>Проверьте подключение к Wildberries и попробуйте ещё раз.</p>
+        <p id="errorDetail" class="banner-detail"></p>
+      </div>
+      <button id="retryBtn" type="button" class="btn-primary">Повторить</button>
+    </section>
+
+    <section id="loadingState" class="loading" hidden>Выполняем аудит…</section>
+
+    <main id="dashboard" class="dashboard" hidden>
+
+      <section class="card verdict" id="verdictCard" data-severity="neutral">
+        <p class="eyebrow">Главный вывод</p>
+        <div class="verdict-body">
+          <div class="severity" id="verdictSeverity">
+            <span class="severity-dot" aria-hidden="true"></span>
+            <span id="verdictSeverityText">—</span>
+          </div>
+          <h2 id="verdictHeadline">—</h2>
+          <p id="verdictDetail" class="verdict-detail"></p>
+          <p id="verdictNote" class="verdict-note"></p>
+        </div>
+      </section>
+
+      <section class="kpi-grid" aria-label="Ключевые показатели">
+        <article class="card kpi">
+          <p class="eyebrow">Продажи</p>
+          <p class="kpi-value" id="kpiSales">—</p>
+          <p class="kpi-hint" id="kpiSalesHint"></p>
+        </article>
+        <article class="card kpi">
+          <p class="eyebrow">Выручка</p>
+          <p class="kpi-value" id="kpiRevenue">—</p>
+          <p class="kpi-hint" id="kpiRevenueHint"></p>
+        </article>
+        <article class="card kpi">
+          <p class="eyebrow">Реклама</p>
+          <p class="kpi-value" id="kpiAds">—</p>
+          <p class="kpi-hint" id="kpiAdsHint"></p>
+        </article>
+        <article class="card kpi" id="kpiProfitCard">
+          <p class="eyebrow">Прибыль</p>
+          <p class="kpi-value" id="kpiProfit">—</p>
+          <p class="kpi-hint" id="kpiProfitHint"></p>
+        </article>
+      </section>
+
+      <section class="card funnel">
+        <p class="eyebrow">Воронка продаж</p>
+        <div class="funnel-steps" id="funnelSteps"></div>
+        <div class="funnel-rates" id="funnelRates"></div>
+      </section>
+
+      <div class="split">
+        <section class="card finance">
+          <p class="eyebrow">Финансы</p>
+          <dl class="rows" id="financeRows"></dl>
+          <div class="explain" id="financeExplain" hidden>
+            <h3>Почему прибыль не рассчитана?</h3>
+            <p id="financeExplainLead">Для расчёта не хватает:</p>
+            <ul id="financeMissingList"></ul>
+          </div>
+        </section>
+
+        <section class="card ads">
+          <p class="eyebrow">Реклама</p>
+          <p class="ads-total" id="adsTotal">—</p>
+          <p class="ads-total-label">Расход за день</p>
+          <dl class="rows" id="adRows"></dl>
+          <p class="muted" id="adEmpty" hidden>Дополнительные данные по рекламе отсутствуют.</p>
+        </section>
+      </div>
+
+      <section class="card settings" id="settingsCard" hidden>
+        <p class="eyebrow">Финансовые параметры</p>
+        <p class="settings-lead">Себестоимость и налог — ваши данные. Система не придумывает их сама и не считает прибыль без нужных значений.</p>
+
+        <div class="settings-grid">
+          <div class="field">
+            <label class="field-label" for="taxRateInput">Налог, % с выручки</label>
+            <div class="inline-field">
+              <input id="taxRateInput" class="text-input" inputmode="decimal" autocomplete="off" placeholder="например, 6">
+              <button type="button" class="btn-secondary btn-control" id="saveTaxBtn">Сохранить</button>
+            </div>
+            <p class="field-error" id="taxError" hidden></p>
+          </div>
+
+          <div class="field">
+            <span class="field-label">День закрыт финансово</span>
+            <div class="inline-field">
+              <label class="checkbox"><input type="checkbox" id="finalityInput"><span>Данные за день окончательные</span></label>
+              <button type="button" class="btn-secondary btn-control" id="saveFinalityBtn">Сохранить</button>
+            </div>
+            <p class="field-hint" id="finalityHint"></p>
+            <p class="field-error" id="finalityError" hidden></p>
+          </div>
+        </div>
+
+        <div class="cogs-block">
+          <p class="cogs-title">Себестоимость проданных товаров</p>
+          <div id="cogsRows" class="cogs-rows"></div>
+          <p class="field-hint" id="cogsEmpty" hidden>Продаж за этот день не было. Заданная себестоимость сохранится и будет использоваться в следующих аудитах.</p>
+        </div>
+      </section>
+
+      <section class="card actions">
+        <p class="eyebrow">Что нужно сделать</p>
+        <ol class="action-list" id="actionList"></ol>
+      </section>
+
+      <section class="card status" id="statusCard" data-severity="neutral">
+        <p class="eyebrow">Статус аудита</p>
+        <p class="status-line"><span class="status-dot" id="statusDot"></span><strong id="statusLabel">—</strong></p>
+        <p class="muted" id="statusDescription"></p>
+        <p class="status-reason" id="statusReason"></p>
+      </section>
+
+      <details class="tech">
+        <summary>Техническая информация</summary>
+        <div class="tech-body">
+          <dl class="rows" id="techRows"></dl>
+          <h3>Диагностика источника</h3>
+          <ul id="techDiagnostics" class="tech-list"></ul>
+        </div>
+      </details>
+    </main>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

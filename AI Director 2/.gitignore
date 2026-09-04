@@ -1,0 +1,20 @@
+.env
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+coverage.xml
+htmlcov/
+runtime/
+*.sqlite3
+
+# Build and test artifacts (local only)
+*.egg-info/
+build/
+dist/
+pytest_full_output.txt
+
+# Local runbook: holds a live WB_API_TOKEN value, must never be committed
+Запуск сервера на ПК.txt

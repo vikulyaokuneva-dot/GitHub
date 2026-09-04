@@ -1,0 +1,19 @@
+{
+  "classification": "synthetic",
+  "files": {
+    "expected_snapshot": "expected_snapshot.json",
+    "raw_bundle": "raw_bundle.json"
+  },
+  "fixture_id": "wb_core_snapshot_v1",
+  "schema_version": "1",
+  "sha256": {
+    "expected_snapshot": "ca58732dd091cbdcd4eef0051d6defead42b58b21f6225ef5b2be9de595f6500",
+    "raw_bundle": "a8f156b5238b9b889461119b6a0255b3983100f4467b14c5ae51d34c6932e470"
+  },
+  "snapshot_context": {
+    "operational_date": "2026-04-21",
+    "run_date": "2026-04-21",
+    "seller_id": "synthetic_seller_001",
+    "timezone": "Europe/Moscow"
+  }
+}
