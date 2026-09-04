@@ -2,7 +2,7 @@
 
 Real legacy ``load_ads`` rows look like::
 
-    {"date": ..., "sku": "739384273", "nm_id": "739384273", "ads_spend": 123.45,
+    {"date": ..., "sku": "1001021", "nm_id": "1001021", "ads_spend": 123.45,
      "impressions": 1000.0, "clicks": 50.0, "add_to_cart": 5.0, "orders": 2.0,
      "ctr": 5.0, "cpo": 61.72, "source": "ads_api"}
 
@@ -32,8 +32,8 @@ OPERATIONAL_DATE = date(2026, 9, 2)
 def _legacy_row(**overrides: Any) -> dict[str, Any]:
     row: dict[str, Any] = {
         "date": OPERATIONAL_DATE.isoformat(),
-        "sku": "739384273",
-        "nm_id": "739384273",
+        "sku": "1001021",
+        "nm_id": "1001021",
         "ads_spend": 123.45,
         "impressions": 1000.0,
         "clicks": 50.0,
@@ -79,7 +79,7 @@ class _FakeAdsClient:
                         {
                             "nm": [
                                 {
-                                    "nmId": 739384273,
+                                    "nmId": 1001021,
                                     "sum": 123.45,
                                     "impressions": 1000.0,
                                     "clicks": 50.0,
@@ -97,7 +97,7 @@ def test_map_legacy_advertising_row_renames_only_present_fields() -> None:
     mapped = map_legacy_advertising_row(_legacy_row())
 
     assert mapped["sum"] == 123.45
-    assert mapped["nmId"] == "739384273"
+    assert mapped["nmId"] == "1001021"
     assert "ads_spend" not in mapped and "nm_id" not in mapped
     # untouched legacy fields survive verbatim; nothing invented
     assert mapped["impressions"] == 1000.0
@@ -124,9 +124,9 @@ def test_mapped_legacy_row_normalizes_as_direct_sku_spend() -> None:
 
     assert len(facts) == 1
     assert facts[0].attribution_scope == AdvertisingAttributionScope.DIRECT_SKU
-    assert facts[0].nm_id == "739384273"
+    assert facts[0].nm_id == "1001021"
     assert facts[0].spend == Decimal("123.45")
-    assert read_model.direct_sku_spend == {"739384273": Decimal("123.45")}
+    assert read_model.direct_sku_spend == {"1001021": Decimal("123.45")}
 
 
 def test_mapped_legacy_row_without_nm_id_falls_back_to_unknown_scope() -> None:
@@ -156,7 +156,7 @@ def test_loaders_transport_maps_legacy_ads_rows_through_real_loader_flow() -> No
     row = rows[0]
     # AD2 contract keys are present after mapping
     assert row["sum"] == 123.45
-    assert row["nmId"] == "739384273"
+    assert row["nmId"] == "1001021"
     assert row["impressions"] == 1000.0
     assert row["clicks"] == 50.0
     assert row["orders"] == 2.0
@@ -166,4 +166,4 @@ def test_loaders_transport_maps_legacy_ads_rows_through_real_loader_flow() -> No
 
     facts = normalize_advertising_performance(_raw_object(rows))
     read_model = build_advertising_read_model(facts)
-    assert read_model.direct_sku_spend == {"739384273": Decimal("123.45")}
+    assert read_model.direct_sku_spend == {"1001021": Decimal("123.45")}

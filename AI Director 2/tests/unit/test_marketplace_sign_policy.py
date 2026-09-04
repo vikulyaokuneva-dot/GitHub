@@ -84,14 +84,14 @@ def _charge(source_field: str, value: object) -> tuple[object, CanonicalSourceMo
 
 @pytest.mark.parametrize("source_field", CONFIRMED_FIELDS)
 def test_documented_positive_magnitude_becomes_negative_component(source_field: str) -> None:
-    record, charge = _charge(source_field, "232.46")
+    record, charge = _charge(source_field, "198.00")
     component = marketplace_component_input(charge, record)
     policy = MARKETPLACE_SIGN_POLICIES[source_field]
 
     assert component is not None
     assert component.component is policy.component
     assert component.state is FinancialInputState.PROVIDED
-    assert component.amount == Decimal("-232.46")
+    assert component.amount == Decimal("-198.00")
     assert isinstance(component.amount, Decimal)
 
 
@@ -144,7 +144,7 @@ def test_decimal_precision_survives_the_sign_rule() -> None:
 def test_rebill_logistics_is_admitted_as_a_seller_charge() -> None:
     """The source books it as negative revenue: ``vw = -rebillLogisticCost / 1.22`` on every real row."""
 
-    record, charge = _charge("rebillLogisticCost", "76.92")
+    record, charge = _charge("rebillLogisticCost", "75.60")
     component = marketplace_component_input(charge, record)
     policy = MARKETPLACE_SIGN_POLICIES["rebillLogisticCost"]
 
@@ -154,7 +154,7 @@ def test_rebill_logistics_is_admitted_as_a_seller_charge() -> None:
     assert component is not None
     assert component.component is FinancialComponent.REBILL_LOGISTICS
     assert component.state is FinancialInputState.PROVIDED
-    assert component.amount == Decimal("-76.92")
+    assert component.amount == Decimal("-75.60")
 
 
 def test_immaterial_zero_of_an_unresolved_component_does_not_block_the_period() -> None:

@@ -76,14 +76,14 @@ def test_comma_decimal_separator_is_accepted(harness) -> None:
 def test_product_cost_is_saved_read_back_and_replaced(harness) -> None:
     client, owner, _, store = harness
 
-    first = client.put(f"{_url(owner.account_id)}/cogs", json={"sku": "739384273", "cogs_per_unit": "500", "seller_sku": "ART-739"})
+    first = client.put(f"{_url(owner.account_id)}/cogs", json={"sku": "1001021", "cogs_per_unit": "500", "seller_sku": "ART-1001021"})
     assert first.status_code == 200
-    assert first.json()["cogs"] == [{"sku": "739384273", "cogs_per_unit": "500", "seller_sku": "ART-739"}]
+    assert first.json()["cogs"] == [{"sku": "1001021", "cogs_per_unit": "500", "seller_sku": "ART-1001021"}]
 
-    client.put(f"{_url(owner.account_id)}/cogs", json={"sku": "739384273", "cogs_per_unit": "480.50"})
+    client.put(f"{_url(owner.account_id)}/cogs", json={"sku": "1001021", "cogs_per_unit": "480.50"})
     body = client.get(_url(owner.account_id)).json()
-    assert body["cogs"] == [{"sku": "739384273", "cogs_per_unit": "480.50", "seller_sku": None}]
-    assert store.list_product_costs(owner.scope) == (("739384273", Decimal("480.50"), None),)
+    assert body["cogs"] == [{"sku": "1001021", "cogs_per_unit": "480.50", "seller_sku": None}]
+    assert store.list_product_costs(owner.scope) == (("1001021", Decimal("480.50"), None),)
 
 
 def test_negative_cogs_is_rejected_with_a_human_message(harness) -> None:

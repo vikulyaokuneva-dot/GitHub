@@ -192,12 +192,12 @@ def test_sales_funnel_fallback_uses_discounted_price_and_weighted_discount(tmp_p
         rows=normalize_goods_prices(
             [
                 {
-                    "nmID": 739377515,
+                    "nmID": 1001020,
                     "discount": 20,
                     "sizes": [{"sizeID": 1, "price": 2500, "discountedPrice": 2000}],
                 },
                 {
-                    "nmID": 453526507,
+                    "nmID": 1001009,
                     "discount": 20,
                     "sizes": [{"sizeID": 1, "price": 2500, "discountedPrice": 2000}],
                 },
@@ -213,7 +213,7 @@ def test_sales_funnel_fallback_uses_discounted_price_and_weighted_discount(tmp_p
         finance_rows=[],
         funnel_rows=[
             {
-                "nm_id": "739377515",
+                "nm_id": "1001020",
                 "date": "2026-07-26",
                 "buyouts": 1,
                 "buyout_sum": "999.97",
@@ -221,7 +221,7 @@ def test_sales_funnel_fallback_uses_discounted_price_and_weighted_discount(tmp_p
                 "buyout_sum_confirmed": True,
             },
             {
-                "nm_id": "453526507",
+                "nm_id": "1001009",
                 "date": "2026-07-26",
                 "buyouts": 1,
                 "buyout_sum": "900.00",
@@ -232,13 +232,13 @@ def test_sales_funnel_fallback_uses_discounted_price_and_weighted_discount(tmp_p
     )
     rows = {row["nm_id"]: row for row in result["sku_rows"]}
 
-    assert rows["739377515"]["seller_price"] == "2000.00"
-    assert rows["739377515"]["seller_base_price"] == "2500.00"
-    assert rows["739377515"]["buyer_final_price"] == "999.97"
-    assert rows["739377515"]["platform_discount_percent"] == "50.00"
-    assert rows["453526507"]["buyer_final_price"] == "900.00"
-    assert rows["453526507"]["platform_discount_percent"] == "55.00"
-    assert rows["453526507"]["buyer_price_source"] == "sales_funnel_fallback"
+    assert rows["1001020"]["seller_price"] == "2000.00"
+    assert rows["1001020"]["seller_base_price"] == "2500.00"
+    assert rows["1001020"]["buyer_final_price"] == "999.97"
+    assert rows["1001020"]["platform_discount_percent"] == "50.00"
+    assert rows["1001009"]["buyer_final_price"] == "900.00"
+    assert rows["1001009"]["platform_discount_percent"] == "55.00"
+    assert rows["1001009"]["buyer_price_source"] == "sales_funnel_fallback"
     assert result["weighted_platform_discount_percent"] == "52.50"
     assert result["status"] == {
         "seller_price": "available",
@@ -254,7 +254,7 @@ def test_fbs_price_has_priority_over_sales_funnel_fallback(tmp_path) -> None:
         rows=normalize_goods_prices(
             [
                 {
-                    "nmID": 739377515,
+                    "nmID": 1001020,
                     "discount": 0,
                     "sizes": [{"sizeID": 1, "price": 2000, "discountedPrice": 2000}],
                 }
@@ -268,7 +268,7 @@ def test_fbs_price_has_priority_over_sales_funnel_fallback(tmp_path) -> None:
             [
                 {
                     "id": 991,
-                    "nmId": 739377515,
+                    "nmId": 1001020,
                     "createdAt": "2026-07-26T08:00:00Z",
                     "convertedPrice": 100_000,
                     "convertedFinalPrice": 95_000,
@@ -284,7 +284,7 @@ def test_fbs_price_has_priority_over_sales_funnel_fallback(tmp_path) -> None:
         finance_rows=[],
         funnel_rows=[
             {
-                "nm_id": "739377515",
+                "nm_id": "1001020",
                 "date": "2026-07-26",
                 "buyouts": 1,
                 "buyout_sum": "999.97",
@@ -308,7 +308,7 @@ def test_confirmed_sales_rows_supply_fallback_when_fbs_pair_is_incomplete(tmp_pa
         rows=normalize_goods_prices(
             [
                 {
-                    "nmID": 739377515,
+                    "nmID": 1001020,
                     "discount": 20,
                     "sizes": [{"sizeID": 1, "price": 2500, "discountedPrice": 2000}],
                 }
@@ -322,7 +322,7 @@ def test_confirmed_sales_rows_supply_fallback_when_fbs_pair_is_incomplete(tmp_pa
             [
                 {
                     "id": 991,
-                    "nmId": 739377515,
+                    "nmId": 1001020,
                     "createdAt": "2026-07-26T08:00:00Z",
                     "convertedPrice": 55_600,
                     "convertedFinalPrice": None,
@@ -336,7 +336,7 @@ def test_confirmed_sales_rows_supply_fallback_when_fbs_pair_is_incomplete(tmp_pa
                 "rows_raw": [
                     {
                         "date": "2026-07-26T09:00:00+03:00",
-                        "nmId": 739377515,
+                        "nmId": 1001020,
                         "srid": "sale-1",
                         "priceWithDisc": 999.97,
                     }
@@ -369,7 +369,7 @@ def test_sales_fallback_does_not_use_later_seller_snapshot_for_discount(tmp_path
         rows=normalize_goods_prices(
             [
                 {
-                    "nmID": 739377515,
+                    "nmID": 1001020,
                     "discount": 51,
                     "sizes": [{"sizeID": 1, "price": 2000, "discountedPrice": 980}],
                 }
@@ -385,7 +385,7 @@ def test_sales_fallback_does_not_use_later_seller_snapshot_for_discount(tmp_path
         finance_rows=[],
         sales_rows=[
             {
-                "nm_id": "739377515",
+                "nm_id": "1001020",
                 "date": "2026-07-26",
                 "quantity": 1,
                 "amount": "999.97",
@@ -410,7 +410,7 @@ def test_missing_previous_discounted_price_snapshot_keeps_change_missing(tmp_pat
         rows=normalize_goods_prices(
             [
                 {
-                    "nmID": 739377515,
+                    "nmID": 1001020,
                     "discount": 20,
                     "sizes": [{"sizeID": 1, "price": 2500, "discountedPrice": 2000}],
                 }

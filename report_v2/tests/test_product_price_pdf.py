@@ -170,16 +170,16 @@ def test_price_section_keeps_active_skus_and_hides_inactive_price_only_rows() ->
     snapshot = {
         "price_analytics": {
             "sku_rows": [
-                {"nm_id": "739377515", "seller_discounted_price": "2000.00"},
-                {"nm_id": "453526507", "seller_discounted_price": "2000.00"},
+                {"nm_id": "1001020", "seller_discounted_price": "2000.00"},
+                {"nm_id": "1001009", "seller_discounted_price": "2000.00"},
                 {"nm_id": "111111111", "seller_discounted_price": "1500.00"},
             ]
         }
     }
     detail = {
         "all_skus": [
-            {"nm_id": "739377515", "buyouts_count": 1, "revenue": "999.97"},
-            {"nm_id": "453526507", "buyouts_count": 1, "revenue": "900.00"},
+            {"nm_id": "1001020", "buyouts_count": 1, "revenue": "999.97"},
+            {"nm_id": "1001009", "buyouts_count": 1, "revenue": "900.00"},
         ]
     }
 
@@ -188,7 +188,7 @@ def test_price_section_keeps_active_skus_and_hides_inactive_price_only_rows() ->
         sku_detail_section=detail,
     )
 
-    assert [row["sku"] for row in price_section["sku_rows"]] == ["739377515", "453526507"]
+    assert [row["sku"] for row in price_section["sku_rows"]] == ["1001020", "1001009"]
     assert changes_section["rows"] == []
     assert changes_section["status"] == "unavailable"
 
@@ -198,7 +198,7 @@ def test_missing_financial_articles_show_preliminary_income_and_correct_share(tm
     config_dir = artifact_dir / "config"
     config_dir.mkdir(parents=True)
     (config_dir / "cogs.json").write_text(
-        json.dumps({"values": {"739377515": "210", "453526507": "210"}}),
+        json.dumps({"values": {"1001020": "210", "1001009": "210"}}),
         encoding="utf-8",
     )
     snapshot = {
@@ -216,8 +216,8 @@ def test_missing_financial_articles_show_preliminary_income_and_correct_share(tm
         "live_operational": {
             "sales": {
                 "rows": [
-                    {"nm_id": "739377515", "quantity": 1, "amount": 999.97},
-                    {"nm_id": "453526507", "quantity": 1, "amount": 900.00},
+                    {"nm_id": "1001020", "quantity": 1, "amount": 999.97},
+                    {"nm_id": "1001009", "quantity": 1, "amount": 900.00},
                 ]
             },
             "orders": {"rows": []},
@@ -229,11 +229,11 @@ def test_missing_financial_articles_show_preliminary_income_and_correct_share(tm
     section = _build_sku_detail_section(snapshot, artifact_dir=artifact_dir)
     rows = {str(row["nm_id"]): row for row in section["all_skus"]}
 
-    assert rows["739377515"]["share_pct"] == 52.63
-    assert rows["739377515"]["profit"] is None
-    assert rows["739377515"]["margin_pct"] is None
-    assert rows["739377515"]["preliminary_income_before_wb_expenses"] == 789.97
-    assert rows["453526507"]["preliminary_income_before_wb_expenses"] == 690.0
+    assert rows["1001020"]["share_pct"] == 52.63
+    assert rows["1001020"]["profit"] is None
+    assert rows["1001020"]["margin_pct"] is None
+    assert rows["1001020"]["preliminary_income_before_wb_expenses"] == 789.97
+    assert rows["1001009"]["preliminary_income_before_wb_expenses"] == 690.0
 
 
 def test_daily_funnel_never_renders_order_to_buyout_without_cohort() -> None:
@@ -290,10 +290,10 @@ def test_zero_inefficient_queries_do_not_create_disable_action() -> None:
 
 def test_ads_only_sku_reason_is_not_low_margin() -> None:
     item = _normalize_abc_section_sku(
-        {"sku": "898642228", "revenue": 0, "profit": -158.56},
+        {"sku": "1001022", "revenue": 0, "profit": -158.56},
         category="C",
         profit_by_sku={},
-        ad_spend_by_sku={"898642228": 158.56},
+        ad_spend_by_sku={"1001022": 158.56},
         reason="низкая маржинальность",
         recommended_action="пересчитать цену",
     )
@@ -310,7 +310,7 @@ def test_ads_only_sku_is_excluded_from_abc_and_rendered_separately() -> None:
                 "available": True,
                 "rows": [
                     {
-                        "nm_id": "898642228",
+                        "nm_id": "1001022",
                         "ads_spend": "163.64",
                         "orders": 0,
                         "source": "ads_api",
@@ -328,7 +328,7 @@ def test_ads_only_sku_is_excluded_from_abc_and_rendered_separately() -> None:
     assert ads_without_orders["status"] == "ok"
     assert ads_without_orders["rows"] == [
         {
-            "sku": "898642228",
+            "sku": "1001022",
             "spend": "163.64",
             "attributed_orders": 0,
             "reason": "рекламные расходы без атрибутированных заказов",
@@ -392,14 +392,14 @@ def test_abc_subtitle_describes_revenue_percentages(tmp_path) -> None:
                 "basis": "buys",
                 "items": [
                     {
-                        "sku": "739377515",
+                        "sku": "1001020",
                         "abc_class": "A",
                         "revenue": 999.97,
                         "profit": 100,
                         "share": 0.5263,
                     },
                     {
-                        "sku": "453526507",
+                        "sku": "1001009",
                         "abc_class": "C",
                         "revenue": 900,
                         "profit": 90,

@@ -21,7 +21,7 @@ def test_backfills_previous_operational_day_once(monkeypatch, tmp_path: Path) ->
         return {
             "rows_raw": [
                 {
-                    "product": {"nmId": 739377515},
+                    "product": {"nmId": 1001020},
                     "statistic": {
                         "selected": {
                             "openCount": 10,
@@ -34,7 +34,7 @@ def test_backfills_previous_operational_day_once(monkeypatch, tmp_path: Path) ->
                     },
                 },
                 {
-                    "product": {"nmId": 453526507},
+                    "product": {"nmId": 1001009},
                     "statistic": {
                         "selected": {
                             "openCount": 5,

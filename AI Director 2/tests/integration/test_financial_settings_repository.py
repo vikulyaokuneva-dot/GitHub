@@ -46,15 +46,15 @@ def test_product_cost_is_saved_read_back_and_replaced(tmp_path: Path) -> None:
     registration = _registration(database_path)
     repository = SQLiteFinancialSettingsRepository(database_path)
 
-    profile = repository.save_product_cost(registration.scope, "739384273", Decimal("500.00"), seller_sku="ART-739", now=NOW)
+    profile = repository.save_product_cost(registration.scope, "1001021", Decimal("500.00"), seller_sku="ART-1001021", now=NOW)
     assert profile.state is FinancialInputState.PROVIDED
     assert profile.unit_cogs == Decimal("500.00")
     assert profile.source == "seller_financial_setting"
     assert profile.effective_from == DEFAULT_EFFECTIVE_FROM
 
-    assert repository.list_product_costs(registration.scope) == (("739384273", Decimal("500.00"), "ART-739"),)
+    assert repository.list_product_costs(registration.scope) == (("1001021", Decimal("500.00"), "ART-1001021"),)
 
-    repository.save_product_cost(registration.scope, "739384273", Decimal("480.50"), seller_sku="ART-739", now=NOW)
+    repository.save_product_cost(registration.scope, "1001021", Decimal("480.50"), seller_sku="ART-1001021", now=NOW)
     stored = repository.list_product_costs(registration.scope)
     assert len(stored) == 1
     assert stored[0][1] == Decimal("480.50")

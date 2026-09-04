@@ -18,7 +18,7 @@ class _Client:
                 "data": {
                     "items": [
                         {
-                            "nmId": 739377515,
+                            "nmId": 1001020,
                             "warehouseName": "Коледино",
                             "regionName": "Москва",
                             "quantity": 7,

@@ -532,7 +532,7 @@ def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -
             "returns_qty": 3.0,
             "rows": [
                 {
-                    "nm_id": "898642228",
+                    "nm_id": "1001022",
                     "order_date": "2026-07-15",
                     "warehouse": "Екатеринбург - Перспективная 14",
                     "returns_qty": 1.0,
@@ -540,7 +540,7 @@ def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -
                     "logistics_amount": 284.0,
                 },
                 {
-                    "nm_id": "898642228",
+                    "nm_id": "1001022",
                     "order_date": "2026-07-15",
                     "warehouse": "Екатеринбург - Перспективная 14",
                     "returns_qty": 0.0,
@@ -555,9 +555,9 @@ def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -
             "count": 4.0,
             "amount": 4500.77,
             "rows": [
-                {"nm_id": "333615320", "quantity": 1.0, "amount": 1500.77},
-                {"nm_id": "898642228", "quantity": 1.0, "amount": 2300.0},
-                {"nm_id": "453526507", "quantity": 2.0, "amount": 700.0},
+                {"nm_id": "1001004", "quantity": 1.0, "amount": 1500.77},
+                {"nm_id": "1001022", "quantity": 1.0, "amount": 2300.0},
+                {"nm_id": "1001009", "quantity": 2.0, "amount": 700.0},
             ],
         }
     )
@@ -574,9 +574,9 @@ def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -
         json.dumps(
             {
                 "values": {
-                    "333615320": "210",
-                    "898642228": "600",
-                    "453526507": "210",
+                    "1001004": "200",
+                    "1001022": "500",
+                    "1001009": "200",
                 }
             }
         ),
@@ -585,8 +585,8 @@ def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -
     (artifact_dir / "abc_analysis.json").write_text(
         json.dumps(
             [
-                {"sku": "333615320", "revenue": 1500.77, "profit": 400.0, "abc_class": "A"},
-                {"sku": "898642228", "revenue": 2300.0, "profit": 300.0, "abc_class": "B"},
+                {"sku": "1001004", "revenue": 1500.77, "profit": 400.0, "abc_class": "A"},
+                {"sku": "1001022", "revenue": 2300.0, "profit": 300.0, "abc_class": "B"},
             ]
         ),
         encoding="utf-8",
@@ -610,14 +610,14 @@ def test_profit_table_uses_total_buyouts_for_every_calculation(tmp_path: Path) -
     assert profit_rows["Обратная логистика возвратов"]["value"] == "-284 ₽"
     assert profit_rows["Всего затрат на возвраты (в составе логистики)"]["value"] == "-923 ₽"
     assert profit_rows["Всего затрат на возвраты (в составе логистики)"]["status"] == "critical"
-    assert profit_rows["Себестоимость товаров"]["value"] == "-1 230 ₽"
+    assert profit_rows["Себестоимость товаров"]["value"] == "-1 100 ₽"
     assert profit_rows["Реклама"]["value"] == "-298,77 ₽"
-    assert profit_rows["Итого затраты"]["value"] == "-7 048,77 ₽"
-    assert profit_rows["Чистая прибыль"]["value"] == "-2 548 ₽"
-    assert profit_rows["Маржа"]["value"] == "-56.6%"
+    assert profit_rows["Итого затраты"]["value"] == "-6 918,77 ₽"
+    assert profit_rows["Чистая прибыль"]["value"] == "-2 418 ₽"
+    assert profit_rows["Маржа"]["value"] == "-53.7%"
     assert profit_rows["Маржа"]["status"] == "critical"
     assert hero_rows["Сумма выкупов"] == "4 500,77 ₽"
-    assert hero_rows["Прибыль"] == "-2 548 ₽"
+    assert hero_rows["Прибыль"] == "-2 418 ₽"
     assert payload["profit_section"]["revenue_basis"] == "buyouts_amount"
 
 
@@ -634,10 +634,10 @@ def test_return_cost_contains_direct_and_reverse_logistics_for_all_returns() -> 
         {
             "returns_qty": 3.0,
             "rows": [
-                {"nm_id": "898642228", "order_date": "2026-07-15", "warehouse": "Екатеринбург", "deliveries_qty": 5.0, "returns_qty": 0.0, "logistics_amount": 3195.0},
-                {"nm_id": "898642228", "order_date": "2026-07-15", "warehouse": "Екатеринбург", "deliveries_qty": 0.0, "returns_qty": 2.0, "logistics_amount": 568.0},
-                {"nm_id": "547274690", "order_date": "2026-07-14", "warehouse": "ЦФО МП", "deliveries_qty": 1.0, "returns_qty": 0.0, "logistics_amount": 312.98},
-                {"nm_id": "547274690", "order_date": "2026-07-14", "warehouse": "ЦФО МП", "deliveries_qty": 0.0, "returns_qty": 1.0, "logistics_amount": 189.69},
+                {"nm_id": "1001022", "order_date": "2026-07-15", "warehouse": "Екатеринбург", "deliveries_qty": 5.0, "returns_qty": 0.0, "logistics_amount": 3195.0},
+                {"nm_id": "1001022", "order_date": "2026-07-15", "warehouse": "Екатеринбург", "deliveries_qty": 0.0, "returns_qty": 2.0, "logistics_amount": 568.0},
+                {"nm_id": "1001011", "order_date": "2026-07-14", "warehouse": "ЦФО МП", "deliveries_qty": 1.0, "returns_qty": 0.0, "logistics_amount": 312.98},
+                {"nm_id": "1001011", "order_date": "2026-07-14", "warehouse": "ЦФО МП", "deliveries_qty": 0.0, "returns_qty": 1.0, "logistics_amount": 189.69},
             ],
         }
     )
@@ -653,7 +653,7 @@ def test_return_cost_contains_direct_and_reverse_logistics_for_all_returns() -> 
 def test_default_cogs_for_cross_block_is_100_rubles() -> None:
     snapshot = _sample_snapshot()
     snapshot["live_operational"]["sales"]["rows"] = [
-        {"nm_id": "898642228", "quantity": 1.0, "amount": 1700.0}
+        {"nm_id": "1001022", "quantity": 1.0, "amount": 1700.0}
     ]
 
     payload = build_report_payload_v2(snapshot, debug=_sample_debug())
@@ -859,7 +859,7 @@ def test_price_changes_section_omits_zero_only_rows() -> None:
         "price_analytics": {
             "sku_rows": [
                 {
-                    "nm_id": "333615320",
+                    "nm_id": "1001004",
                     "seller_discounted_price": "900.00",
                     "seller_price_change_day": "0.00",
                     "platform_discount_change_day": "0.00",
@@ -872,7 +872,7 @@ def test_price_changes_section_omits_zero_only_rows() -> None:
     sku_details = {
         "all_skus": [
             {
-                "nm_id": "333615320",
+                "nm_id": "1001004",
                 "buyouts_count": 1,
                 "revenue": 900,
                 "financial_expenses_complete": False,
@@ -1934,7 +1934,7 @@ def test_abc_section_rejects_legacy_artifact_without_revenue_denominator(tmp_pat
 def test_abc_section_reclassifies_all_skus_by_revenue(tmp_path: Path) -> None:
     artifact = [
         {
-            "sku": "739377515",
+            "sku": "1001020",
             "revenue": 1000.0,
             "profit": 790.0,
             "share": 0.5952,
@@ -1943,7 +1943,7 @@ def test_abc_section_reclassifies_all_skus_by_revenue(tmp_path: Path) -> None:
             "basis": "buys",
         },
         {
-            "sku": "453526507",
+            "sku": "1001009",
             "revenue": 400.0,
             "profit": 120.0,
             "share": 0.2381,
@@ -1952,7 +1952,7 @@ def test_abc_section_reclassifies_all_skus_by_revenue(tmp_path: Path) -> None:
             "basis": "buys",
         },
         {
-            "sku": "969315704",
+            "sku": "1001023",
             "revenue": 280.0,
             "profit": 80.0,
             "share": 0.1667,
@@ -1972,33 +1972,33 @@ def test_abc_section_reclassifies_all_skus_by_revenue(tmp_path: Path) -> None:
         for row in payload["abc_section"]["all_skus"]
     }
 
-    assert skus["739377515"]["abc_class"] == "A"
-    assert skus["453526507"]["abc_class"] == "B"
-    assert skus["453526507"]["revenue"] == 400.0
-    assert skus["453526507"]["profit"] == 120.0
-    assert skus["969315704"]["abc_class"] == "C"
-    assert skus["969315704"]["revenue"] == 280.0
-    assert skus["969315704"]["profit"] == 80.0
+    assert skus["1001020"]["abc_class"] == "A"
+    assert skus["1001009"]["abc_class"] == "B"
+    assert skus["1001009"]["revenue"] == 400.0
+    assert skus["1001009"]["profit"] == 120.0
+    assert skus["1001023"]["abc_class"] == "C"
+    assert skus["1001023"]["revenue"] == 280.0
+    assert skus["1001023"]["profit"] == 80.0
 
     pdf_path = tmp_path / "abc_c_skus.pdf"
     write_report_pdf_v2(pdf_path, payload)
     pdf_text = _extract_pdf_text(pdf_path)
 
-    assert "969315704" in pdf_text
+    assert "1001023" in pdf_text
     assert "280 ₽" in pdf_text
 
 
 def test_sku_finance_columns_are_standard_and_tax_is_attributed(tmp_path: Path) -> None:
     snapshot = _sample_snapshot()
     snapshot["live_operational"]["sales"]["rows"] = [
-        {"nm_id": "739377515", "quantity": 1, "amount": 1000.0}
+        {"nm_id": "1001020", "quantity": 1, "amount": 1000.0}
     ]
     snapshot["live_operational"]["orders"]["rows"] = [
-        {"nm_id": "739377515", "seller_sku": "Простор синий"}
+        {"nm_id": "1001020", "seller_sku": "DEMO-LOZHE-01"}
     ]
     snapshot["finance_final_daily"]["rows"] = [
         {
-            "nm_id": "739377515",
+            "nm_id": "1001020",
             "wb_commission": 100.0,
             "logistics_amount": 50.0,
             "acquiring": 20.0,
@@ -2012,7 +2012,7 @@ def test_sku_finance_columns_are_standard_and_tax_is_attributed(tmp_path: Path) 
         json.dumps(
             [
                 {
-                    "sku": "739377515",
+                    "sku": "1001020",
                     "revenue": 1000.0,
                     "profit": 800.0,
                     "share": 1.0,
@@ -2020,7 +2020,7 @@ def test_sku_finance_columns_are_standard_and_tax_is_attributed(tmp_path: Path) 
                     "abc_class": "A",
                 },
                 {
-                    "sku": "453526507",
+                    "sku": "1001009",
                     "revenue": 1.0,
                     "profit": 1.0,
                     "share": 0.0,
@@ -2036,7 +2036,7 @@ def test_sku_finance_columns_are_standard_and_tax_is_attributed(tmp_path: Path) 
     payload = build_report_payload_v2(snapshot, debug=_sample_debug(), artifact_dir=tmp_path)
     detail = payload["sku_detail_section"]["top_skus"][0]
 
-    assert detail["nm_id"] == "739377515"
+    assert detail["nm_id"] == "1001020"
     assert detail["commission"] == 100.0
     assert detail["logistics"] == 50.0
     assert detail["acquiring"] == 20.0
@@ -2056,11 +2056,11 @@ def test_sku_finance_columns_show_no_data_instead_of_disappearing(tmp_path: Path
     snapshot["finance_final_daily"]["date_aligned"] = False
     snapshot["finance_final_daily"]["actual_date"] = "2026-04-20"
     snapshot["live_operational"]["sales"]["rows"] = [
-        {"nm_id": "739377515", "quantity": 1, "amount": 1000.0}
+        {"nm_id": "1001020", "quantity": 1, "amount": 1000.0}
     ]
     snapshot["finance_final_daily"]["rows"] = [
         {
-            "nm_id": "739377515",
+            "nm_id": "1001020",
             "wb_commission": 100.0,
             "logistics_amount": 50.0,
             "acquiring": 20.0,
@@ -2071,7 +2071,7 @@ def test_sku_finance_columns_show_no_data_instead_of_disappearing(tmp_path: Path
         json.dumps(
             [
                 {
-                    "sku": "739377515",
+                    "sku": "1001020",
                     "revenue": 1000.0,
                     "profit": 800.0,
                     "share": 1.0,
@@ -2079,7 +2079,7 @@ def test_sku_finance_columns_show_no_data_instead_of_disappearing(tmp_path: Path
                     "abc_class": "A",
                 },
                 {
-                    "sku": "453526507",
+                    "sku": "1001009",
                     "revenue": 1.0,
                     "profit": 1.0,
                     "share": 0.0,
@@ -2245,7 +2245,7 @@ def test_pdf_has_no_blank_page_when_chart_is_followed_by_price_sections(tmp_path
         "subtitle": "Цена продавца = discountedPrice.",
         "sku_rows": [
             {
-                "sku": "452102417",
+                "sku": "1001008",
                 "seller_price": "900.00",
                 "buyer_final_price": None,
                 "buyouts": 0,
@@ -2263,7 +2263,7 @@ def test_pdf_has_no_blank_page_when_chart_is_followed_by_price_sections(tmp_path
         "status": "ok",
         "rows": [
             {
-                "sku": "898642228",
+                "sku": "1001022",
                 "spend": "163.64",
                 "attributed_orders": 0,
                 "reason": "рекламные расходы без атрибутированных заказов",

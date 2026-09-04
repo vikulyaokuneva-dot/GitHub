@@ -83,11 +83,11 @@ The fixture is unchanged.
 
 | Field | Stage 9 status | Stage 9.1 status | Basis |
 | --- | --- | --- | --- |
-| `ppvzSalesCommission` | `CONFLICT` | `CONFIRMED` → `marketplace_commission`, canonical `−raw` | 5 non-negative real values (232.46, 93.11 …); the composite aliases `pvzCompensation` / `paymentServicesCompensation` are absent from this endpoint, so the legacy blend does not apply |
+| `ppvzSalesCommission` | `CONFLICT` | `CONFIRMED` → `marketplace_commission`, canonical `−raw` | 5 non-negative values (198.00, 132.00 — synthetic stand-ins for the observed magnitudes); the composite aliases `pvzCompensation` / `paymentServicesCompensation` are absent from this endpoint, so the legacy blend does not apply |
 | `deliveryService` / `deliveryRub` | `CONFLICT` | `CONFIRMED` → `logistics`, canonical `−raw` | 7 non-negative values on rows named "Логистика"/"Доставка"; `retailAmount` is 0 on those rows, so no double count with revenue |
-| `paidStorage` | not assessed | `CONFIRMED` → `storage`, canonical `−raw` | rows named "Хранение" (5.89, 6.29); metric passport maps `paidStorage → storage` |
+| `paidStorage` | not assessed | `CONFIRMED` → `storage`, canonical `−raw` | rows named "Хранение" (6.15, 6.50 — synthetic stand-ins); metric passport maps `paidStorage → storage` |
 | `paidAcceptance` | `UNRESOLVED` ("no mapped source field") | `CONFIRMED` → `acceptance`, canonical `−raw` | the field exists in the real payload on rows named "Обработка товара" |
-| `acquiringFee` | `CONFLICT` | `CONFIRMED` → `acquiring`, canonical `−raw` | 5 non-negative values on sale rows (33.36, 24.2) |
+| `acquiringFee` | `CONFLICT` | `CONFIRMED` → `acquiring`, canonical `−raw` | 5 non-negative values on sale rows (36.00, 24.00 — synthetic stand-ins) |
 | `penalty` / `penaltyAmount` | not assessed | `CONFIRMED` → `penalties`, canonical `−raw` | field present; zero in this sample, so no non-zero observation yet |
 | `deduction` | `CONFLICT` | `CONFIRMED` → `other_marketplace_deductions`, canonical `−raw` | field present; zero in this sample |
 | `rebillLogisticCost` | `UNRESOLVED` | `CONFIRMED` → `rebill_logistics`, canonical `−raw` | the source settles the direction itself: on all 20 real rows `vw = -rebillLogisticCost / 1.22` with matching negative `vwNds`, i.e. WB books the operation as a reduction of the seller's revenue base, while `forPay` and `retailAmount` are both zero. Proof and falsification criteria: `docs/architecture/REBILL_LOGISTICS_EVIDENCE.md` |
@@ -95,8 +95,8 @@ The fixture is unchanged.
 
 Stage 9.1 closed the last marketplace deduction on 2026-09-04. With
 `rebillLogisticCost` classified from source evidence, every component of the
-target P&L formula is admitted, and the first real day reached `COMPLETE`
-(`2026-09-02`, `net_profit = 304.28 ₽`).
+target P&L formula is admitted, and the first day reached `COMPLETE`
+(`2026-09-02`, `net_profit = 206.25 ₽` — synthetic stand-in for the observed result).
 
 The mandatory runtime boundary is implemented rather than only stated: no
 `missing → 0`, no sign inference, no `abs()` (a static test forbids `abs()`

@@ -73,7 +73,7 @@ def _sale(rrd_id: str, retail: str, commission: str, acquiring: str) -> dict[str
         "quantity": "1",
         "retailAmount": retail,
         "retailPriceWithDiscRub": retail,
-        "forPay": "517.04",
+        "forPay": "666.00",
         "ppvzSalesCommission": commission,
         "acquiringFee": acquiring,
         "deliveryService": "0",
@@ -100,19 +100,24 @@ def _charge_row(rrd_id: str, operation: str, **charges: str) -> dict[str, object
     return row
 
 
-def _real_day_rows(*, include_rebill: bool = True) -> list[dict[str, object]]:
-    """Amounts are the observed 2026-09-02 report values; record IDs are synthetic."""
+def _demo_day_rows(*, include_rebill: bool = True) -> list[dict[str, object]]:
+    """Synthetic demo day: the same component shapes as a real WB day, invented amounts.
+
+    Totals are internally consistent (revenue 1500.00, commission 330.00 = 22 %,
+    acquiring 60.00 = 4 %, logistics 80.00 = 32.00 + 48.00, storage 6.15,
+    acceptance 12.00, rebill 75.60), so every P&L assertion below stays meaningful.
+    """
 
     rows: list[dict[str, object]] = [
-        _sale("parity-1", "834", "232.46", "33.36"),
-        _sale("parity-2", "605", "93.11", "24.2"),
-        _charge_row("parity-3", "Доставка", deliveryService="31.2"),
-        _charge_row("parity-4", "Доставка", deliveryService="44.2"),
-        _charge_row("parity-5", "Хранение", paidStorage="5.89"),
-        _charge_row("parity-6", "Обработка товара", paidAcceptance="10"),
+        _sale("parity-1", "900.00", "198.00", "36.00"),
+        _sale("parity-2", "600.00", "132.00", "24.00"),
+        _charge_row("parity-3", "Доставка", deliveryService="32.00"),
+        _charge_row("parity-4", "Доставка", deliveryService="48.00"),
+        _charge_row("parity-5", "Хранение", paidStorage="6.15"),
+        _charge_row("parity-6", "Обработка товара", paidAcceptance="12.00"),
     ]
     if include_rebill:
-        rows.append(_charge_row("parity-7", "Возмещение издержек по перевозке", rebillLogisticCost="76.92"))
+        rows.append(_charge_row("parity-7", "Возмещение издержек по перевозке", rebillLogisticCost="75.60"))
     return rows
 
 
@@ -186,14 +191,14 @@ def _amount_for(build: object, component: FinancialComponent) -> Decimal | None:
 def test_charges_are_extracted_from_their_own_operation_rows() -> None:
     """The adapter no longer stops at realized_revenue: logistics lives on its own rows."""
 
-    build = build_financial_input_from_finance_detail(normalize_finance_detail(_finance_raw(_real_day_rows())))
+    build = build_financial_input_from_finance_detail(normalize_finance_detail(_finance_raw(_demo_day_rows())))
 
-    assert _amount_for(build, FinancialComponent.REALIZED_REVENUE) == Decimal("1439")
-    assert _amount_for(build, FinancialComponent.MARKETPLACE_COMMISSION) == Decimal("-325.57")
-    assert _amount_for(build, FinancialComponent.ACQUIRING) == Decimal("-57.56")
-    assert _amount_for(build, FinancialComponent.LOGISTICS) == Decimal("-75.4")
-    assert _amount_for(build, FinancialComponent.STORAGE) == Decimal("-5.89")
-    assert _amount_for(build, FinancialComponent.ACCEPTANCE) == Decimal("-10")
+    assert _amount_for(build, FinancialComponent.REALIZED_REVENUE) == Decimal("1500.00")
+    assert _amount_for(build, FinancialComponent.MARKETPLACE_COMMISSION) == Decimal("-330.00")
+    assert _amount_for(build, FinancialComponent.ACQUIRING) == Decimal("-60.00")
+    assert _amount_for(build, FinancialComponent.LOGISTICS) == Decimal("-80.00")
+    assert _amount_for(build, FinancialComponent.STORAGE) == Decimal("-6.15")
+    assert _amount_for(build, FinancialComponent.ACCEPTANCE) == Decimal("-12.00")
 
 
 def test_absent_charge_field_yields_no_component_rather_than_zero() -> None:
@@ -270,8 +275,8 @@ def test_source_declared_zero_retail_is_not_reported_as_an_exclusion() -> None:
     """A non-sale row with retailAmount 0 excluded nothing; the report must not claim it did."""
 
     rows = [
-        _sale("parity-1", "834.00", "232.46", "33.36"),
-        _charge_row("parity-2", "Доставка", deliveryService="75.40"),
+        _sale("parity-1", "900.00", "198.00", "36.00"),
+        _charge_row("parity-2", "Доставка", deliveryService="80.00"),
     ]
 
     build = build_financial_input_from_finance_detail(normalize_finance_detail(_finance_raw(rows)))
@@ -283,8 +288,8 @@ def test_nonzero_retail_on_a_non_sale_row_is_reported_as_an_exclusion() -> None:
     """The opposite case still has to be visible: real money left the revenue view."""
 
     rows = [
-        _sale("parity-1", "834.00", "232.46", "33.36"),
-        _charge_row("parity-3", "Доставка", retailAmount="150.00", deliveryService="75.40"),
+        _sale("parity-1", "900.00", "198.00", "36.00"),
+        _charge_row("parity-3", "Доставка", retailAmount="150.00", deliveryService="80.00"),
     ]
 
     build = build_financial_input_from_finance_detail(normalize_finance_detail(_finance_raw(rows)))
@@ -297,16 +302,16 @@ def test_nonzero_retail_on_a_non_sale_row_is_reported_as_an_exclusion() -> None:
 def test_rebill_evidence_stays_inspectable_in_the_canonical_record() -> None:
     """The VAT columns that proved the direction are retained, not discarded."""
 
-    row = _charge_row("parity-vat", "Возмещение издержек по перемещению", rebillLogisticCost="2.65")
-    row["vw"] = "-2.1721311475409836"
-    row["vwNds"] = "-0.48"
+    row = _charge_row("parity-vat", "Возмещение издержек по перемещению", rebillLogisticCost="3.00")
+    row["vw"] = "-2.4590163934426230"
+    row["vwNds"] = "-0.54"
 
     record = normalize_finance_detail(_finance_raw([row]))[0]
     charges = {charge.source_field: charge.value for charge in record.unapproved_money_fields}
 
-    assert charges["vw"] == Decimal("-2.1721311475409836")
-    assert charges["vwNds"] == Decimal("-0.48")
-    assert (Decimal("2.65") / Decimal("1.22")).quantize(Decimal("0.01")) == Decimal("2.17")
+    assert charges["vw"] == Decimal("-2.4590163934426230")
+    assert charges["vwNds"] == Decimal("-0.54")
+    assert (Decimal("3.00") / Decimal("1.22")).quantize(Decimal("0.01")) == Decimal("2.46")
 
 
 def test_legacy_operation_name_alias_still_normalizes() -> None:
@@ -385,7 +390,7 @@ def _flow_with_settings(rows: list[dict[str, object]]) -> object:
     return calculate_integrated_financial_flow(
         finance_records=normalize_finance_detail(_finance_raw(rows)),
         finality=_finality(),
-        advertising=_advertising("77.04"),
+        advertising=_advertising("90.00"),
         period_cogs=DirectPeriodCogsInput(
             scope=synthetic_scope(),
             operational_date=DAY,
@@ -400,7 +405,7 @@ def _flow_with_settings(rows: list[dict[str, object]]) -> object:
             operational_date=DAY,
             financial_date=DAY,
             state=FinancialInputState.PROVIDED,
-            amount=Decimal("-86.34"),
+            amount=Decimal("-90.00"),
             source="tax_statement",
             source_record_id="tax-1",
             source_endpoint="tax",
@@ -409,18 +414,18 @@ def _flow_with_settings(rows: list[dict[str, object]]) -> object:
 
 
 def test_day_without_rebill_rows_is_complete() -> None:
-    flow = _flow_with_settings(_real_day_rows(include_rebill=False))
+    flow = _flow_with_settings(_demo_day_rows(include_rebill=False))
 
     result = flow.financial_result
     assert result is not None
     assert result.status is FinancialStatus.COMPLETE
-    assert result.net_profit == Decimal("251.20")
+    assert result.net_profit == Decimal("281.85")
 
 
 def test_rebill_logistics_is_subtracted_from_the_full_day() -> None:
     """The proven charge reduces profit by exactly its source magnitude."""
 
-    flow = _flow_with_settings(_real_day_rows())
+    flow = _flow_with_settings(_demo_day_rows())
 
     result = flow.financial_result
     assert result is not None
@@ -428,9 +433,9 @@ def test_rebill_logistics_is_subtracted_from_the_full_day() -> None:
     rebill = next(trace for trace in result.component_traces if trace.component is FinancialComponent.REBILL_LOGISTICS)
     assert rebill.status is FinancialComponentStatus.AVAILABLE
     assert rebill.included is True
-    assert rebill.amount == Decimal("-76.92")
-    assert result.net_profit == Decimal("174.28")
-    assert result.net_profit == Decimal("251.20") - Decimal("76.92")
+    assert rebill.amount == Decimal("-75.60")
+    assert result.net_profit == Decimal("206.25")
+    assert result.net_profit == Decimal("281.85") - Decimal("75.60")
 
 
 def test_unresolved_rows_produce_one_aggregated_diagnostic() -> None:

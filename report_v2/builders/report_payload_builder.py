@@ -1764,7 +1764,7 @@ def build_ads_efficiency_section_v2(
         effective_queries = search_insights_data.get("effective", [])
         search_unprofitable_spend = sum(_safe_float(r.get("spend")) or 0 for r in unprofitable_queries)
         search_effective_orders = sum(_safe_int(r.get("orders")) or 0 for r in effective_queries)
-        price_map = {898642228: 2800, 969315704: 2800, 333615320: 1480, 452102417: 780, 453526507: 840, 590614192: 720, 283212418: 450}
+        price_map = {1001022: 3000, 1001023: 3000, 1001004: 1500, 1001008: 800, 1001009: 900, 1001019: 700, 1001001: 500}
         search_effective_revenue = sum((_safe_int(r.get("orders")) or 0) * price_map.get(_safe_int(r.get("nmId")) or 0, 0) for r in effective_queries)
         search_effective_spend = sum(_safe_float(r.get("spend")) or 0 for r in effective_queries)
 
@@ -3296,7 +3296,7 @@ def _normalize_abc_section_sku(
         "source": _first_text(row.get("source"), "abc_analysis.json") or "abc_analysis.json",
     }
     if (
-        sku == "898642228"
+        sku == "1001022"
         and (ad_spend or 0) > 0
         and (revenue is None or revenue <= 0)
     ):
@@ -4125,13 +4125,13 @@ def build_stock_section_v2(snapshot: dict[str, Any]) -> StockSectionV2:
 
 
 _LEGACY_COGS_BY_NM_ID = {
-    898642228: Decimal("100"),
-    969315704: Decimal("600"),
-    333615320: Decimal("210"),
-    452102417: Decimal("210"),
-    453526507: Decimal("210"),
-    590614192: Decimal("180"),
-    283212418: Decimal("450"),
+    1001022: Decimal("100"),
+    1001023: Decimal("500"),
+    1001004: Decimal("200"),
+    1001008: Decimal("200"),
+    1001009: Decimal("200"),
+    1001019: Decimal("160"),
+    1001001: Decimal("400"),
 }
 
 
@@ -4540,12 +4540,12 @@ def _build_unit_economics_section(
     sales_rows = sales.get("rows", []) if isinstance(sales.get("rows"), list) else []
     if not sales_rows:
         sales_rows = [
-            {"nm_id": 333615320, "quantity": 1, "amount": 740},
-            {"nm_id": 898642228, "quantity": 1, "amount": 2850},
-            {"nm_id": 898642228, "quantity": 1, "amount": 2850},
-            {"nm_id": 898642228, "quantity": 1, "amount": 2850},
-            {"nm_id": 898642228, "quantity": 1, "amount": 2850},
-            {"nm_id": 453526507, "quantity": 1, "amount": 814.8},
+            {"nm_id": 1001004, "quantity": 1, "amount": 750},
+            {"nm_id": 1001022, "quantity": 1, "amount": 3050},
+            {"nm_id": 1001022, "quantity": 1, "amount": 3050},
+            {"nm_id": 1001022, "quantity": 1, "amount": 3050},
+            {"nm_id": 1001022, "quantity": 1, "amount": 3050},
+            {"nm_id": 1001009, "quantity": 1, "amount": 915},
         ]
 
     sku_data = {}
@@ -4771,7 +4771,7 @@ def _build_search_section(snapshot: dict[str, Any], *, artifact_dir: str | Path 
         effective = search_insights_data.get("effective", [])
         potential = search_insights_data.get("potential", [])
 
-        price_map = {898642228: 2800, 969315704: 2800, 333615320: 1480, 452102417: 780, 453526507: 840, 590614192: 720, 283212418: 450}
+        price_map = {1001022: 3000, 1001023: 3000, 1001004: 1500, 1001008: 800, 1001009: 900, 1001019: 700, 1001001: 500}
 
         def _calc_revenue(r: dict[str, Any]) -> float:
             orders = _safe_int(r.get("orders")) or 0

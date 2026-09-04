@@ -53,8 +53,8 @@ function auditFixture(revenue, options = {}) {
   const traceStatus = Object.fromEntries(traces.map((trace) => [trace.component, trace.status]));
   const metric = (key, value, status) => ({ key, owner: "finance", value, status });
   return {
-    account_id: "62b0754c-d359-4072-b432-239bcc0856f9",
-    seller_id: "seller_Sergey",
+    account_id: "00000000-0000-4000-8000-000000000001",
+    seller_id: "seller_demo",
     operational_date: "2026-09-02",
     data_origin: "real_wb_data",
     ingestion_status: "ingested:daily+finance_detail",
@@ -78,12 +78,12 @@ function auditFixture(revenue, options = {}) {
             metric("funnel_carts", "11", "complete"),
             metric("funnel_orders", "0", "complete"),
             metric("realized_revenue", String(revenue), "available"),
-            metric("advertising", "-77.04", "available"),
+            metric("advertising", "-90", "available"),
             metric("cogs", traceStatus.cogs === "available" ? "500" : null, traceStatus.cogs || "missing"),
             metric("tax", traceStatus.tax === "available" ? "54" : null, traceStatus.tax || "missing"),
             metric("net_profit", netProfit === null ? null : String(netProfit), netProfit === null ? "partial" : "available"),
             metric("profit_margin", null, "partial"),
-            metric("advertising_direct_sku", "77.04", "available"),
+            metric("advertising_direct_sku", "90", "available"),
             ...(options.extraMetrics || []).map(([key, value, status]) => metric(key, value, status)),
           ],
         },
@@ -100,7 +100,7 @@ function auditFixture(revenue, options = {}) {
 
 const registry = new Map();
 let serverMode = "ok";
-let revenue = 1439;
+let revenue = 1500;
 let custom = null;
 let auditCalls = 0;
 let settingsCalls = 0;
@@ -183,7 +183,7 @@ const context = {
   fetch: async (url, options) => {
     const target = String(url);
     if (target.startsWith("/api/accounts") && !target.includes("/financial-settings")) {
-      return { ok: true, status: 200, json: async () => ({ accounts: [{ account_id: "62b0754c-d359-4072-b432-239bcc0856f9", seller_id: "seller_Sergey", active: true }] }) };
+      return { ok: true, status: 200, json: async () => ({ accounts: [{ account_id: "00000000-0000-4000-8000-000000000001", seller_id: "seller_demo", active: true }] }) };
     }
     if (target.includes("/financial-settings")) {
       settingsCalls += 1;
@@ -227,7 +227,7 @@ function check(name, condition, detail = "") {
 
   console.log("1) первый успешный аудит");
   check("dashboard виден", el("dashboard").hidden === false);
-  check("выручка отображена", text("kpiRevenue") === "1 439 ₽", text("kpiRevenue"));
+  check("выручка отображена", text("kpiRevenue") === "1 500 ₽", text("kpiRevenue"));
   check("главный вывод собран", text("verdictHeadline") === "11 корзин → 0 заказов", text("verdictHeadline"));
   check("severity-чип заполнен текстом", text("verdictSeverityText") === "Критическая проблема", text("verdictSeverityText"));
   check("воронка отрендерена", el("funnelSteps").children.length === 5);
@@ -279,7 +279,7 @@ function check(name, condition, detail = "") {
   serverMode = "ok";
   const bullets = () => (el("financeMissingList").children || []).map((li) => li.textContent.replace("• ", ""));
 
-  custom = auditFixture(1439);
+  custom = auditFixture(1500);
   await el("auditForm")._listeners.submit({ preventDefault() {} });
   await settle();
   check("объяснение показано", el("financeExplain").hidden === false);
@@ -289,13 +289,13 @@ function check(name, condition, detail = "") {
   check("технических имён нет", !bullets().some((b) => /cogs|tax|missing|MISSING/i.test(b)), bullets().join(" | "));
   check("причина в статусе", text("statusReason") === "Причина: не задана себестоимость и налог.", text("statusReason"));
 
-  custom = auditFixture(1439, { traces: [{ component: "cogs", status: "available" }, { component: "tax", status: "missing" }] });
+  custom = auditFixture(1500, { traces: [{ component: "cogs", status: "available" }, { component: "tax", status: "missing" }] });
   await el("auditForm")._listeners.submit({ preventDefault() {} });
   await settle();
   check("COGS появился — пункт исчез сам", bullets().length === 1 && bullets()[0] === "данных для расчёта налога", bullets().join(" | "));
   check("себестоимость показана числом", rows("financeRows")[2] === "Себестоимость: 500 ₽", rows("financeRows")[2]);
 
-  custom = auditFixture(1439, { traces: [{ component: "rebill_logistic_cost", status: "missing" }] });
+  custom = auditFixture(1500, { traces: [{ component: "rebill_logistic_cost", status: "missing" }] });
   await el("auditForm")._listeners.submit({ preventDefault() {} });
   await settle();
   check("неизвестный компонент не протекает в UI", !bullets().some((b) => b.includes("rebill_logistic_cost")), bullets().join(" | "));
@@ -305,7 +305,7 @@ function check(name, condition, detail = "") {
    * Новые marketplace-компоненты: «не хватает» и «данные есть, но методика не
    * подтверждена» — два разных состояния, и UI обязан не смешивать их.
    */
-  custom = auditFixture(1439, {
+  custom = auditFixture(1500, {
     traces: [
       { component: "marketplace_commission", status: "available" },
       { component: "logistics", status: "available" },
@@ -337,7 +337,7 @@ function check(name, condition, detail = "") {
     text("statusReason"),
   );
 
-  custom = auditFixture(1439, { traces: [{ component: "rebill_logistics", status: "unresolved" }] });
+  custom = auditFixture(1500, { traces: [{ component: "rebill_logistics", status: "unresolved" }] });
   await el("auditForm")._listeners.submit({ preventDefault() {} });
   await settle();
   check(
@@ -351,25 +351,25 @@ function check(name, condition, detail = "") {
     text("statusReason"),
   );
 
-  custom = auditFixture(1439, { traces: [{ component: "marketplace_commission", status: "missing" }] });
+  custom = auditFixture(1500, { traces: [{ component: "marketplace_commission", status: "missing" }] });
   await el("auditForm")._listeners.submit({ preventDefault() {} });
   await settle();
   check("комиссия WB названа прямо", bullets()[0] === "данных по комиссии WB", bullets().join(" | "));
   check("подсказка осталась про нехватку", text("financeExplainLead") === "Для расчёта не хватает:", text("financeExplainLead"));
 
-  custom = auditFixture(1439, { traces: [], finality: "final" });
+  custom = auditFixture(1500, { traces: [], finality: "final" });
   await el("auditForm")._listeners.submit({ preventDefault() {} });
   await settle();
   check("объяснение есть даже без traces", el("financeExplain").hidden === false && bullets().length === 1, bullets().join(" | "));
 
-  custom = auditFixture(1439, { traces: [{ component: "cogs", status: "available" }, { component: "tax", status: "available" }] });
+  custom = auditFixture(1500, { traces: [{ component: "cogs", status: "available" }, { component: "tax", status: "available" }] });
   await el("auditForm")._listeners.submit({ preventDefault() {} });
   await settle();
   check("данные полны, но день открыт — про нехватку не врём", bullets()[0] === "подтверждения, что день закрыт финансово", bullets().join(" | "));
   check("подсказка переключилась на подтверждение", text("financeExplainLead") === "Все финансовые данные заданы. Прибыль появится после:", text("financeExplainLead"));
   check("причина в статусе — про закрытие дня", text("statusReason") === "Причина: день не подтверждён как закрытый финансово.", text("statusReason"));
 
-  custom = auditFixture(1439, { traces: [{ component: "cogs", status: "available" }, { component: "tax", status: "available" }], netProfit: 862, finality: "final" });
+  custom = auditFixture(1500, { traces: [{ component: "cogs", status: "available" }, { component: "tax", status: "available" }], netProfit: 862, finality: "final" });
   await el("auditForm")._listeners.submit({ preventDefault() {} });
   await settle();
   check("при рассчитанной прибыли блока нет", el("financeExplain").hidden === true);
@@ -381,23 +381,23 @@ function check(name, condition, detail = "") {
    * знаковыми числами из backend и не показать ни одного технического имени.
    */
   const CLOSED_DAY = [
-    ["realized_revenue", "1439", "available"],
-    ["marketplace_commission", "-325.57", "available"],
-    ["logistics", "-75.4", "available"],
-    ["storage", "-5.89", "available"],
-    ["acceptance", "-10", "available"],
-    ["acquiring", "-57.56", "available"],
+    ["realized_revenue", "1500", "available"],
+    ["marketplace_commission", "-330", "available"],
+    ["logistics", "-80", "available"],
+    ["storage", "-6.15", "available"],
+    ["acceptance", "-12", "available"],
+    ["acquiring", "-60", "available"],
     ["penalties", "0", "available"],
     ["other_marketplace_deductions", "0", "available"],
-    ["rebill_logistics", "-76.92", "available"],
-    ["advertising", "-77.04", "available"],
+    ["rebill_logistics", "-75.6", "available"],
+    ["advertising", "-90", "available"],
     ["cogs", "-550", "available"],
-    ["tax", "-86.34", "available"],
-    ["net_profit", "174.28", "available"],
+    ["tax", "-90", "available"],
+    ["net_profit", "206.25", "available"],
   ];
-  custom = auditFixture(1439, {
+  custom = auditFixture(1500, {
     traces: CLOSED_DAY.map(([component, , status]) => ({ component, status })),
-    netProfit: 174.28,
+    netProfit: 206.25,
     finality: "final",
     auditStatus: "complete",
     extraMetrics: CLOSED_DAY,
@@ -406,11 +406,11 @@ function check(name, condition, detail = "") {
   await settle();
   const financeLines = rows("financeRows");
   check("группа удержаний WB показана", financeLines.includes("Удержания WB"), financeLines.join(" | "));
-  check("комиссия WB знаковая", financeLines.includes("Комиссия WB: −325,57 ₽"), financeLines.join(" | "));
-  check("логистика знаковая", financeLines.includes("Логистика: −75,40 ₽"), financeLines.join(" | "));
-  check("корректировки логистики показаны", financeLines.includes("Корректировки логистики WB: −76,92 ₽"), financeLines.join(" | "));
-  check("себестоимость и налог знаковые", financeLines.includes("Себестоимость: −550 ₽") && financeLines.includes("Налог: −86,34 ₽"), financeLines.join(" | "));
-  check("чистая прибыль показана с копейками", financeLines[financeLines.length - 1] === "Чистая прибыль: 174,28 ₽", financeLines[financeLines.length - 1]);
+  check("комиссия WB знаковая", financeLines.includes("Комиссия WB: −330 ₽"), financeLines.join(" | "));
+  check("логистика знаковая", financeLines.includes("Логистика: −80 ₽"), financeLines.join(" | "));
+  check("корректировки логистики показаны", financeLines.includes("Корректировки логистики WB: −75,60 ₽"), financeLines.join(" | "));
+  check("себестоимость и налог знаковые", financeLines.includes("Себестоимость: −550 ₽") && financeLines.includes("Налог: −90 ₽"), financeLines.join(" | "));
+  check("чистая прибыль показана с копейками", financeLines[financeLines.length - 1] === "Чистая прибыль: 206,25 ₽", financeLines[financeLines.length - 1]);
   check(
     "ни одного технического имени компонента на экране",
     !financeLines.some((line) => /rebill|logistics|commission|acquiring|acceptance|penalt|marketplace|unresolved|available/i.test(line)),
@@ -428,8 +428,8 @@ function check(name, condition, detail = "") {
 
   console.log("\n6) пользовательские финансовые параметры (себестоимость и налог)");
   soldProducts = [
-    { nm_id: "333615320", seller_sku: "ART-320", sales_quantity: "1" },
-    { nm_id: "739384273", seller_sku: null, sales_quantity: "2" },
+    { nm_id: "1001004", seller_sku: "ART-1001004", sales_quantity: "1" },
+    { nm_id: "1001021", seller_sku: null, sales_quantity: "2" },
     { nm_id: "ABC-1", seller_sku: null, sales_quantity: "1" },
   ];
   settingsStore = { tax_rate: null, tax_rate_unit: "percent", tax_basis: "realized_revenue", finality_confirmed: false, cogs: [] };
