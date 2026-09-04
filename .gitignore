@@ -104,3 +104,17 @@ Thumbs.db
 # Логи от ИИ Директора - оркестратора
 ai_director/logs/runs/*
 !ai_director/logs/runs/.gitkeep
+
+# ==== Локальные данные и генерируемые артефакты ====
+/.tmp/
+/tmp_*/
+/runtime/
+/output/
+/history/
+/.mimocode/
+/local_audit*/
+/cabinets/
+
+# Локальные БД
+*.sqlite3
+*.db
