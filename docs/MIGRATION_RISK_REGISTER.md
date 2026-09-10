@@ -1,0 +1,33 @@
+# Migration Risk Register
+
+| ID | Risk | Component | Probability | Impact | Detection | Mitigation | Owner |
+| -- | ---- | --------- | ----------- | ------ | --------- | ---------- | ----- |
+| R-01 | Finance drift from duplicate formulas, float rounding, sign conventions, or COGS allocation | `v3` finance/kernel, `src`, `audit`, `report_v2` | High | Critical | closed-period Decimal reconciliation and account/SKU parity fixture | freeze formulas; establish one finance owner; move only after exact approved parity | Finance owner + engineering |
+| R-02 | Date drift mixes report, operational, financial, event, and snapshot dates | `wb_api_core`, `v3`, `src` | High | High | fixture matrix around Moscow day, UTC timestamps, lagged finance, current-day shift | target date-time contract; endpoint date registry; remove naive timestamps only in reviewed tasks | Data platform owner |
+| R-03 | WB API schema/version semantics change or legacy finance endpoint disappears | WB clients/loaders | High | Critical | endpoint contract fixtures; error/freshness monitoring; schema-version provenance | typed target adapters; registry; raw replay; maintain compatibility fallback only under tests | WB integration owner |
+| R-04 | 429/rate limiting causes incomplete or misleading report | `wb_api_core.client/loaders` | Medium | High | request metrics, retry exhaustion, pages/cursors, partial source status | per-account/per-endpoint limiter, bounded backoff, queued retries, freshness UI | WB integration owner |
+| R-05 | Duplicate ingestion or cache fallback overwrites data state | artifacts/history/price SQLite | Medium | High | idempotency-key tests, repeated-run fixtures, checksum comparison | immutable raw events, unique ingestion keys, transaction/replay model | Data platform owner |
+| R-06 | Stale cached data is presented as current | core fallback/cache and report payload | Medium | High | source `fetched_at`, watermark, status/lag tests | explicit freshness model and report labels; never silently promote fallback | Data platform + reporting |
+| R-07 | Report regression due to implicit artifact discovery or PDF layout change | `report_v2`, v3 output | High | High | declared input fixture, payload JSON diff, PDF semantic and visual checks | pure report read model; fixture manifest includes secondary files | Reporting owner |
+| R-08 | Hidden legacy dependency breaks extracted target package | `v3.entry`, dynamic stage support, direct imports | High | High | import boundary tests, dependency graph, target package static scan | introduce explicit compat interfaces before extraction; remove dynamic global injection later | Migration owner |
+| R-09 | Raw artifacts/fixtures expose customer data or API credentials | artifacts, runtime, local audit, git history | Medium | Critical | approved secret scan, fixture review, data classification | redact/synthesize fixtures; object storage access controls; no secret values in logs | Security owner |
+| R-10 | Tenant isolation is missing during early migration | target persistence absent | High | Critical | repository tests proving server-side scope filters | build tenancy/account repository first; mandatory `tenant_id`; authorization review | Platform owner |
+| R-11 | AI hallucinates metrics or receives raw sensitive payload | future AI gateway; legacy LLM client | Medium | High | prompt/tool contract tests; evidence link checks; red-team review | AI consumes derived facts only; structured output with evidence/confidence | AI owner |
+| R-12 | Suggested actions become executable without authorization | `src/action_orchestrator.py`, future automation | Medium | Critical | policy-denial and no-write integration tests; audit inspection | default deny; Policy + Approval + dry-run + audit before WB write adapter exists | Automation owner |
+| R-13 | Legacy direct HTTP clients diverge from WB Core semantics | `src/wb_client.py`, `v3/wb_client.py`, `v3/api/wb_client.py` | High | High | endpoint parity tests and import usage scan | prohibit new callers; deprecate after target client fixture parity | WB integration owner |
+| R-14 | Finance status wrongly treats missing values as zero | normalizers, financial snapshots, renderers | High | High | tests for missing/zero/not-applicable and completeness states | target optional money values; explicit completeness/unknown reason | Finance owner |
+| R-15 | Spreadsheet parser schema changes break offline audit without detection | `audit/*`, `v3/sources/wb_reports_loader.py` | Medium | Medium | versioned XLSX fixtures and parser diagnostics | retain manual-import adapter; version parser mappings; classify unsupported files | Import pipeline owner |
+| R-16 | Email transport or recipient handling leaks data / lacks auditable delivery | `src/mailer_yandex.py`, v3 email orchestrator | Medium | High | notification contract tests; delivery audit fields | move to notifications package; secure recipient config; audit outbound events | Notifications owner |
+| R-17 | Unreviewed migration changes active scheduled workflow | `.github/workflows/daily.yml` | Medium | High | staged shadow runs and artifact comparison | human-reviewed cutover checklist; retain old route until parity green | Release owner |
+| R-18 | Ozon audit scope is accidentally merged with WB-only SaaS | `audit/audit_ozon`, local Ozon artifacts | Medium | Medium | product scope decision record | human decision: separate product, marketplace extension, or sunset | Product owner |
+| R-19 | SQLite price history migration loses Decimal precision/history | `wb_api_core/pricing.py` | Medium | High | price fixture and historical query parity | model price amounts as Decimal/NUMERIC, import with checksums | Products/data owner |
+| R-20 | Target skeleton is mistaken for production-ready platform | `AI Director 2` apps/packages | High | High | readiness checks, missing service inventory, release gate | label shell state explicitly; block production credentials/WB calls until P3 foundations exist | Platform owner |
+
+## Risk Gates
+
+1. No business-logic move before redacted fixtures and parity assertions exist.
+2. No finance move before a human-approved closed-period reconciliation establishes component semantics.
+3. No target WB sync before tenant/account scope, encrypted credentials, raw provenance, rate-limit policy, and idempotency are tested.
+4. No report cutover before payload and PDF acceptance checks are green.
+5. No AI recommendation exposure without evidence and confidence fields.
+6. No WB write action before Policy, Approval, dry-run, audit, and rollback/supporting safeguards are implemented and reviewed.
