@@ -108,6 +108,16 @@ WB API (7 источников)          Локальные файлы (Excel)
 | **Проверка корректности** | Сверка с кабинетом WB; подтверждение через `orders_count_confirmed` флаг |
 | **ИИ при анализе** | YES — используется в Health Score (вес 2.0), Decision Engine (пороги 10/3/1), AI Director (задачи мониторинга) |
 
+> **Целевой контур (AI Director 2, STAGE 20.22):** Orders/Sales API WB
+> возвращает окно `lastChangeDate >= dateFrom`, в которое попадают строки и
+> соседних дней (поздние изменения старых заказов). Нормализатор
+> (`packages/data/normalization.py`) относит строку к дню аудита только если
+> её собственный `date` совпадает с этим днём — это прямое применение формулы
+> `WHERE date = target_date`, а не её изменение. Сырое окно сохраняется в
+> RawObject без правок; неатрибутируемые строки не дописываются ни к одному
+> дню. Тот же принцип действует для `buyouts_count` (Sales API). Тесты:
+> `AI Director 2/tests/unit/test_statistics_window_day_attribution.py`.
+
 ### 2.2. Сумма заказов (orders_amount)
 
 | Поле | Значение |
@@ -389,6 +399,75 @@ Finance и live-блоков; восстановленные блоки полу
 | **Надёжность** | C — вычисляется формулой; зависит от точности каждой компоненты |
 | **Проверка корректности** | Выручка в таблице прибыли обязана совпадать с `buyouts_amount` в Commerce KPI; `total_expenses` равен сумме показанных расходов; `net_profit = buyouts_amount - total_expenses` |
 | **ИИ при анализе** | YES — центральная метрика для Decision Engine, Health Score (вес 2.5), Growth Simulator, Opportunity Engine, AI Director |
+
+### 3.12.1. Целевой контур (AI Director 2): политика знаков удержаний WB
+
+Владелец правила — `packages/finance/marketplace_policy.py` (версия
+`marketplace-sign-policy-v1`). Нормализация (`packages/data`) сохраняет поле
+ровно с тем знаком, который прислал WB; экономический смысл присваивает только
+эта таблица; ядро (`packages/finance/kernel.py`) складывает уже знаковые
+компоненты и не знает ни про WB, ни про знаки.
+
+Доказательная база: 40 реальных строк
+`/api/finance/v1/sales-reports/detailed` из двух отчётов с устойчивыми `rrdId`.
+Во всех строках денежные поля удержаний **ненулевого знака не имеют**: WB
+присылает величину списания положительным числом, а тип строки задаёт
+`sellerOperName` («Логистика», «Доставка», «Хранение», «Обработка товара»,
+«Возмещение издержек …»). Отрицательное значение поля для этого источника —
+аномалия, а не «минусовая комиссия».
+
+| Компонент | Поле WB | Знак в источнике | Канонический знак | Участие в P&L | Статус |
+|-----------|---------|------------------|-------------------|---------------|--------|
+| `realized_revenue` | `retailAmount` | ≥ 0 | ≥ 0 | да | CONFIRMED |
+| `marketplace_commission` | `ppvzSalesCommission` | ≥ 0 (напр. 232.46) | ≤ 0 (`−raw`) | да | CONFIRMED |
+| `logistics` | `deliveryService` / `deliveryRub` | ≥ 0 (31.2, 44.2, 312.98) | ≤ 0 (`−raw`) | да | CONFIRMED |
+| `storage` | `paidStorage` / `storageFee` | ≥ 0 (5.89, 6.29) | ≤ 0 (`−raw`) | да | CONFIRMED |
+| `acceptance` | `paidAcceptance` | ≥ 0 (10) | ≤ 0 (`−raw`) | да | CONFIRMED |
+| `acquiring` | `acquiringFee` | ≥ 0 (33.36, 24.2) | ≤ 0 (`−raw`) | да | CONFIRMED |
+| `penalties` | `penalty` / `penaltyAmount` | ≥ 0 (в выборке 0) | ≤ 0 (`−raw`) | да | CONFIRMED |
+| `other_marketplace_deductions` | `deduction` | ≥ 0 (в выборке 0) | ≤ 0 (`−raw`) | да | CONFIRMED |
+| `rebill_logistics` | `rebillLogisticCost` | ≥ 0 (76.92, 46.91) | ≤ 0 (`−raw`) | да | CONFIRMED |
+| — | `cashbackAmount`, `spp`, `kvw`, `kvwBase`, `vw`, `vwNds`, `loyaltyDiscount`, `sellerPromo*`, `installmentCofinancingAmount`, `supRatingUp` | ≥ 0 | — | нет | нет утверждённой политики |
+
+Правила применения (все покрыты тестами):
+
+1. `raw > 0` → компонент `PROVIDED` с суммой `−raw`;
+2. `raw = 0` → компонент `PROVIDED` с нулём: это ноль, заявленный источником, а
+   не подставленный;
+3. `raw < 0` → компонент `UNRESOLVED` с **сохранённым исходным значением**;
+   знак не «чинится», `abs()` в этом пути запрещён статическим тестом;
+4. `rebillLogisticCost` подтверждён как удержание продавца: на всех 20 реальных
+   строках источника `vw = −rebillLogisticCost / 1.22`, а `vwNds` — отрицательный
+   НДС той же суммы, то есть WB бухгалтерски регистрирует операцию как
+   **уменьшение выручки продавца**. Доказательство и критерий опровержения:
+   `AI Director 2/docs/architecture/REBILL_LOGISTICS_EVIDENCE.md`. Для компонента
+   с неподтверждённым знаком сохраняется правило: нулевая сумма не создаётся —
+   ноль не может исказить итог и не должен навечно оставлять период частичным;
+5. `UNRESOLVED` с материальной суммой делает период `PARTIAL`, а `net_profit`
+   остаётся `None`: «данные есть, но их смысл не подтверждён» — отдельное
+   состояние, а не ноль и не нехватка данных;
+6. денежные поля без политики не отбрасываются молча: адаптер выдаёт
+   диагностику «excluded, not zeroed» с суммой;
+7. поле `quantity` с отрицательным значением больше не разворачивается через
+   `abs()`: выручные представления по такой строке не строятся, факт уходит в
+   диагностику;
+8. строка, у которой `retailAmount` равен нулю по самому источнику, не даёт
+   диагностику «исключено из выручки»: исключать нечего, и отчёт не вправе
+   утверждать обратное.
+
+Формула целевого ядра (то же самое, что исполняет `calculate_financial_result`):
+
+```text
+net_profit = realized_revenue
+           + marketplace_commission + logistics + storage + acceptance
+           + acquiring + penalties + other_marketplace_deductions
+            + rebill_logistics
+           + advertising + cogs + tax          (все слагаемые уже знаковые)
+```
+
+Удержаниями `cashbackAmount` и аналогичными полями без утверждённой политики итог
+не уменьшается: они в формулу не входят и показаны отдельной диагностикой
+(«excluded, not zeroed»).
 
 ### 3.13. Валовая прибыль (gross_profit)
 

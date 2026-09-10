@@ -88,7 +88,7 @@ class AuditRawReferences(BaseModel):
         *,
         scope: TenantAccountScope,
         operational_date: date,
-    ) -> "AuditRawReferences":
+    ) -> AuditRawReferences:
         references: list[RawObjectReference] = []
         for raw_object in repository.list(scope=scope):
             if raw_object.operational_date != operational_date:
@@ -125,7 +125,7 @@ class AuditReportArtifact(BaseModel):
     pdf_path: Path
 
     @classmethod
-    def from_artifact(cls, artifact: AnalysisArtifact) -> "AuditReportArtifact":
+    def from_artifact(cls, artifact: AnalysisArtifact) -> AuditReportArtifact:
         return cls(
             text_path=artifact.text_path,
             html_path=artifact.html_path,
@@ -141,7 +141,7 @@ class CabinetAuditResult(BaseModel):
     operational_date: date
     account_id: UUID
     seller_id: str
-    data_origin: str = Field(pattern=r"^(real_wb_data|test_fixture)$")
+    data_origin: str = Field(pattern=r"^(real_wb_data|test_fixture|replay_bundle)$")
     ingestion_status: str
     finance_status: FinancialStatus | None
     audit_status: str
@@ -186,7 +186,7 @@ class CabinetAuditor:
         """Run one cabinet audit day; delegates all work to existing boundaries."""
 
         resolved_date = operational_date or resolve_operational_date(now)
-        if data_origin not in {"real_wb_data", "test_fixture"}:
+        if data_origin not in {"real_wb_data", "test_fixture", "replay_bundle"}:
             raise ValueError("data_origin must be real_wb_data or test_fixture")
 
         registration = self._accounts.get_by_account_id(account_id)
@@ -195,7 +195,7 @@ class CabinetAuditor:
         if not registration.active:
             raise ValueError("registered account is inactive")
 
-        ingestion_status = self._run_ingestion(
+        ingestion_status, ingestion_diagnostics = self._run_ingestion(
             scope=registration.scope,
             operational_date=resolved_date,
             data_origin=data_origin,
@@ -212,6 +212,9 @@ class CabinetAuditor:
             unresolved_marketplace_components=unresolved_marketplace_components,
             financial_lag=financial_lag,
             financial_settings=financial_settings,
+            # This audit already ran the ingestion boundary above; the analysis
+            # must read persisted RawObjects only and never re-request WB.
+            ingest_first=False,
         )
 
         return CabinetAuditResult(
@@ -229,7 +232,7 @@ class CabinetAuditor:
                 operational_date=resolved_date,
             ),
             report_artifact=AuditReportArtifact.from_artifact(analysis.artifact),
-            diagnostics=analysis.diagnostics,
+            diagnostics=_merge_diagnostics(ingestion_diagnostics, analysis.diagnostics),
         )
 
     def _run_ingestion(
@@ -238,11 +241,21 @@ class CabinetAuditor:
         scope: TenantAccountScope,
         operational_date: date,
         data_origin: str,
-    ) -> str:
-        """Ingest through existing boundaries; every service is idempotent by raw identity."""
+    ) -> tuple[str, tuple[str, ...]]:
+        """Ingest through existing boundaries; every service is idempotent by raw identity.
 
+        A single unavailable WB source produces an explicit
+        ``source_unavailable`` diagnostic and degrades the audit; it never
+        aborts the other sources and never persists a failed request as
+        empty data. When nothing could be ingested at all the day is an
+        upstream outage, not a no-data day, so the audit refuses to present
+        it as a completed result.
+        """
+
+        if data_origin == "replay_bundle":
+            return "replay_bundle_ingested", ()
         if data_origin != "real_wb_data":
-            return "skipped_fixture_origin"
+            return "skipped_fixture_origin", ()
 
         if self._daily_ingestion is None and self._finance_detail_ingestion is None:
             raise RuntimeError(
@@ -250,14 +263,56 @@ class CabinetAuditor:
             )
 
         ingested: list[str] = []
+        diagnostics: list[str] = []
         if self._daily_ingestion is not None:
-            self._daily_ingestion.ingest(scope=scope, operational_date=operational_date)
+            diagnostics.extend(
+                self._daily_ingestion.ingest(
+                    scope=scope,
+                    operational_date=operational_date,
+                )
+                or ()
+            )
             ingested.append("daily")
         if self._finance_detail_ingestion is not None:
-            self._finance_detail_ingestion.ingest(scope=scope, operational_date=operational_date)
-            ingested.append("finance_detail")
+            try:
+                self._finance_detail_ingestion.ingest(
+                    scope=scope,
+                    operational_date=operational_date,
+                )
+            except RuntimeError as error:
+                diagnostics.append(f"source_unavailable:finance_detail: {error}")
+            else:
+                ingested.append("finance_detail")
 
-        return "ingested:" + "+".join(ingested)
+        persisted_today = any(
+            raw.operational_date == operational_date
+            for raw in self._raw_repository.list(scope=scope)
+        )
+        if not persisted_today:
+            detail = "; ".join(diagnostics) or "no ingestion service ran"
+            raise RuntimeError(
+                f"no WB source could be ingested for {operational_date.isoformat()}: {detail}"
+            )
+
+        status = "ingested:" + "+".join(ingested)
+        if diagnostics:
+            status += "+degraded"
+        return status, tuple(diagnostics)
+
+
+def _merge_diagnostics(
+    *groups: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Concatenate diagnostic tuples preserving order and dropping duplicates."""
+
+    merged: list[str] = []
+    seen: set[str] = set()
+    for group in groups:
+        for item in group:
+            if item not in seen:
+                seen.add(item)
+                merged.append(item)
+    return tuple(merged)
 
 
 def _audit_status(finance_status: FinancialStatus | None) -> str:

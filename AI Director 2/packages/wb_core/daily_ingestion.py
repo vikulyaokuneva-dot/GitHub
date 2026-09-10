@@ -3,16 +3,13 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from typing import Any, Final, Protocol
 
-
 from packages.wb_core.contracts import (
     ADVERTISING_PERFORMANCE_ENDPOINT,
-    FINANCE_DETAIL_ENDPOINT,
     ORDERS_ENDPOINT,
     SALES_ENDPOINT,
     SALES_FUNNEL_PRODUCTS_ENDPOINT,
     STOCKS_ENDPOINT,
     RawObject,
-    RawObjectType,
     TenantAccountScope,
 )
 from packages.wb_core.sqlite_repository import SQLiteRawObjectRepository
@@ -97,14 +94,32 @@ class WBDailyIngestionService:
         scope: TenantAccountScope,
         operational_date: date,
         retrieved_at: datetime | None = None,
-    ) -> None:
+    ) -> tuple[str, ...]:
+        """Ingest every daily source, one endpoint at a time.
+
+        A transport failure of a single WB source is recorded as an explicit
+        ``source_unavailable`` diagnostic and the remaining sources continue.
+        The failure is never persisted as empty data and never silently
+        dropped: absence of a source stays absence, visible to the audit.
+        """
+
         captured_at = retrieved_at or datetime.now(UTC)
 
-        self._ensure_orders(scope, operational_date, captured_at)
-        self._ensure_sales(scope, operational_date, captured_at)
-        self._ensure_stocks(scope, operational_date, captured_at)
-        self._ensure_funnel(scope, operational_date, captured_at)
-        self._ensure_advertising(scope, operational_date, captured_at)
+        steps: tuple[tuple[str, Any], ...] = (
+            (ORDERS_ENDPOINT.name, self._ensure_orders),
+            (SALES_ENDPOINT.name, self._ensure_sales),
+            (STOCKS_ENDPOINT.name, self._ensure_stocks),
+            (SALES_FUNNEL_PRODUCTS_ENDPOINT.name, self._ensure_funnel),
+            (ADVERTISING_PERFORMANCE_ENDPOINT.name, self._ensure_advertising),
+        )
+
+        diagnostics: list[str] = []
+        for endpoint_name, ensure in steps:
+            try:
+                ensure(scope, operational_date, captured_at)
+            except RuntimeError as error:
+                diagnostics.append(f"source_unavailable:{endpoint_name}: {error}")
+        return tuple(diagnostics)
 
     def _existing(
         self,
@@ -166,7 +181,7 @@ class WBDailyIngestionService:
             f"{scope.model_dump_json()}|"
             f"{endpoint.name}|"
             f"{operational_date.isoformat()}|"
-        ).encode("utf-8") + payload_bytes
+        ).encode() + payload_bytes
         return hashlib.sha256(material).hexdigest()
 
     def _ensure_orders(
@@ -191,7 +206,7 @@ class WBDailyIngestionService:
             result=result,
             request_scope={
                 "dateFrom": operational_date.isoformat(),
-                "flag": 1,
+                "flag": 0,
             },
         )
 
@@ -328,6 +343,21 @@ class WBDailyIngestionService:
         validator, which stays authoritative.
         """
         import json
+
+        debug = result.get("debug")
+        if isinstance(debug, dict) and debug.get("success") is False:
+            # A failed WB request must never be persisted as an empty raw
+            # object: "no data" and "request failed" are different states,
+            # and persisting the failure would also lock idempotency against
+            # a later successful refetch.
+            reason = str(
+                debug.get("final_failure_reason")
+                or debug.get("error_text")
+                or "loader transport failed"
+            )
+            raise RuntimeError(
+                f"{endpoint.name} WB request failed with status {debug.get('status_code')}: {reason[:200]}"
+            )
 
         payload = result.get("payload")
 

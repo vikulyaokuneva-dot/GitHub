@@ -25,8 +25,7 @@ from packages.wb_core.contracts import RawObjectRepository, TenantAccountScope
 
 from .service import PipelineResult, run_stored_daily_pipeline
 
-
-_DATA_ORIGINS = frozenset({"real_wb_data", "test_fixture"})
+_DATA_ORIGINS = frozenset({"real_wb_data", "test_fixture", "replay_bundle"})
 
 
 class DailyIngestion(Protocol):
@@ -37,8 +36,8 @@ class DailyIngestion(Protocol):
         *,
         scope: TenantAccountScope,
         operational_date: date,
-        retrieved_at: object | None = None,
-    ) -> None:
+        retrieved_at: datetime | None = None,
+    ) -> tuple[str, ...]:
         ...
 
 
@@ -72,9 +71,9 @@ class DailyAnalysisResult(BaseModel):
 
     account_id: UUID
     operational_date: date
-    data_origin: str = Field(pattern=r"^(real_wb_data|test_fixture)$")
+    data_origin: str = Field(pattern=r"^(real_wb_data|test_fixture|replay_bundle)$")
     pipeline: PipelineResult
-    products: tuple["ProductAnalysisRow", ...] = ()
+    products: tuple[ProductAnalysisRow, ...] = ()
     artifact: AnalysisArtifact
     status: FinancialStatus | None = None
     diagnostics: tuple[str, ...] = ()
@@ -143,12 +142,16 @@ class DailyAnalysisService:
         ] = (),
         financial_lag: bool = False,
         financial_settings: FinancialSettings | None = None,
+        ingest_first: bool = True,
     ) -> DailyAnalysisResult:
         """
         Run one persisted daily analysis.
 
         For real WB data, ingestion happens before the pipeline reads
         RawObjects. Test fixtures never trigger external ingestion.
+        ``ingest_first=False`` is used by callers (the cabinet audit) that
+        already ran the ingestion boundary themselves: WB sources must be
+        requested once per operation, never twice.
         """
 
         if date_from != date_to:
@@ -197,26 +200,38 @@ class DailyAnalysisService:
         #
         # The ingestion service persists immutable RawObjects.
         #
-        # We deliberately do NOT swallow ingestion errors here.
-        # A live report must not silently continue with missing data.
+        # Ingestion errors are never silently swallowed: a WB source that
+        # could not be obtained yields an explicit ``source_unavailable``
+        # diagnostic, is excluded from the persisted day, and therefore
+        # stays visible in the analysis output as missing data rather than
+        # being imputed as zero.
         # ------------------------------------------------------------
-        if data_origin == "real_wb_data":
+        ingestion_diagnostics: list[str] = []
+        if data_origin == "real_wb_data" and ingest_first:
             if self._daily_ingestion is None and self._finance_detail_ingestion is None:
                 raise RuntimeError(
                     "real_wb_data analysis requires daily_ingestion or finance_detail_ingestion"
                 )
 
             if self._daily_ingestion is not None:
-                self._daily_ingestion.ingest(
-                    scope=registration.scope,
-                    operational_date=date_from,
+                ingestion_diagnostics.extend(
+                    self._daily_ingestion.ingest(
+                        scope=registration.scope,
+                        operational_date=date_from,
+                    )
+                    or ()
                 )
 
             if self._finance_detail_ingestion is not None:
-                self._finance_detail_ingestion.ingest(
-                    scope=registration.scope,
-                    operational_date=date_from,
-                )
+                try:
+                    self._finance_detail_ingestion.ingest(
+                        scope=registration.scope,
+                        operational_date=date_from,
+                    )
+                except RuntimeError as error:
+                    ingestion_diagnostics.append(
+                        f"source_unavailable:finance_detail: {error}"
+                    )
 
         # ------------------------------------------------------------
         # PURE PERSISTED PIPELINE
@@ -248,6 +263,8 @@ class DailyAnalysisService:
         financial = pipeline.financial_flow.financial_result
 
         diagnostics = tuple(pipeline.report_payload.diagnostics)
+
+        diagnostics += tuple(ingestion_diagnostics)
 
         if not pipeline.finance_records:
             diagnostics += (

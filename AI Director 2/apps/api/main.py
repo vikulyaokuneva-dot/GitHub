@@ -6,7 +6,6 @@ process-level health until tenant-scoped persistence and authorization exist.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -15,6 +14,16 @@ from uuid import UUID
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from packages.accounts.contracts import AccountRegistrationRepository
+from packages.accounts.sqlite_repository import SQLiteAccountRegistrationRepository
+from packages.common.health import HealthPayload, HealthState, ReadinessProbe, StaticReadinessProbe
+from packages.common.settings import Settings
+from packages.pipeline.analysis import DailyAnalysisService
+from packages.pipeline.audit import CabinetAuditor, resolve_operational_date
+from packages.settings.sqlite_repository import SQLiteFinancialSettingsRepository
+from packages.wb_core.daily_ingestion import WBDailyIngestionService
+from packages.wb_core.finance_ingestion import WBFinanceDetailIngestionService
+from packages.wb_core.sqlite_repository import SQLiteRawObjectRepository
 
 from apps.api.financial_settings import (
     FinancialSettingsInputError,
@@ -24,16 +33,6 @@ from apps.api.financial_settings import (
     parse_tax_rate,
     settings_payload,
 )
-from packages.common.health import HealthPayload, HealthState, ReadinessProbe, StaticReadinessProbe
-from packages.common.settings import Settings
-from packages.accounts.contracts import AccountRegistrationRepository
-from packages.accounts.sqlite_repository import SQLiteAccountRegistrationRepository
-from packages.pipeline.analysis import DailyAnalysisService
-from packages.pipeline.audit import CabinetAuditor, resolve_operational_date
-from packages.settings.sqlite_repository import SQLiteFinancialSettingsRepository
-from packages.wb_core.daily_ingestion import WBDailyIngestionService
-from packages.wb_core.sqlite_repository import SQLiteRawObjectRepository
-from packages.wb_core.finance_ingestion import WBFinanceDetailIngestionService
 
 
 def create_app(
@@ -200,11 +199,18 @@ def create_app(
         return _settings_response(scope, moment)  # type: ignore[arg-type]
 
     @app.get("/audit/{account_id}", response_model=None, tags=["analysis"])
-    def run_audit(account_id: UUID, date: date | None = None, data_origin: str = "real_wb_data") -> dict[str, object]:
+    def run_audit(
+        account_id: UUID,
+        date: date | None = None,
+        data_origin: str = "real_wb_data",
+        replay_case: str | None = None,
+    ) -> dict[str, object]:
         """One cabinet audit day: D-1 Europe/Moscow by default, ingestion + persisted analysis.
 
         Seller-declared financial parameters are loaded server-side and handed to
         the existing audit inputs; the Finance Kernel remains the only calculator.
+        ``data_origin=replay_bundle`` requires an explicit locally captured
+        ``replay_case`` bundle id; no captured case identifiers live in code.
         """
         if auditor is None:
             return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"detail": "audit service is not configured"})
@@ -214,6 +220,41 @@ def create_app(
             registration = accounts.get_by_account_id(account_id)
             if registration is not None:
                 settings_bundle = financial_settings.get_settings(registration.scope, resolved_date)
+        if data_origin == "replay_bundle":
+            if not replay_case:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"detail": "replay_case query parameter is required for data_origin=replay_bundle"},
+                )
+            from packages.wb_core.contracts import InMemoryRawObjectRepository
+            from packages.wb_core.replay import load_replay_bundle
+            bundle = load_replay_bundle(
+                replay_case,
+                fixtures_root=Path(".tmp/replay_fixtures"),
+            )
+            replay_repo = InMemoryRawObjectRepository()
+            for ro in bundle.raw_objects:
+                replay_repo.save(ro)
+            from packages.pipeline.audit import CabinetAuditor
+            replay_auditor = CabinetAuditor(
+                accounts=accounts or _default_account_repository(),
+                raw_repository=replay_repo,
+                analysis_service=analysis or _default_analysis_service(),
+                daily_ingestion=None,
+                finance_detail_ingestion=None,
+            )
+            try:
+                result = replay_auditor.audit(
+                    account_id=account_id,
+                    operational_date=resolved_date,
+                    data_origin="replay_bundle",
+                    financial_settings=settings_bundle,
+                )
+            except (LookupError, ValueError, RuntimeError) as error:
+                status_code = status.HTTP_503_SERVICE_UNAVAILABLE if isinstance(error, RuntimeError) else status.HTTP_400_BAD_REQUEST
+                detail = f"transport/upstream error: {str(error)}" if isinstance(error, RuntimeError) else str(error)
+                return JSONResponse(status_code=status_code, content={"detail": detail})
+            return result.model_dump(mode="json")
         try:
             result = auditor.audit(
                 account_id=account_id,
@@ -221,8 +262,10 @@ def create_app(
                 data_origin=data_origin,
                 financial_settings=settings_bundle,
             )
-        except (LookupError, ValueError) as error:
-            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": str(error)})
+        except (LookupError, ValueError, RuntimeError) as error:
+            status_code = status.HTTP_503_SERVICE_UNAVAILABLE if isinstance(error, RuntimeError) else status.HTTP_400_BAD_REQUEST
+            detail = f"transport/upstream error: {str(error)}" if isinstance(error, RuntimeError) else str(error)
+            return JSONResponse(status_code=status_code, content={"detail": detail})
         return result.model_dump(mode="json")
 
     @app.get("/api/reports/{account_id}/{operational_date}/report.pdf", response_model=None, tags=["analysis"])

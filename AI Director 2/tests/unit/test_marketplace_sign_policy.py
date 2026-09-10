@@ -237,7 +237,9 @@ def _abs_calls(module: str) -> list[int]:
         "packages/finance/finance_detail_adapter.py",
         "packages/finance/kernel.py",
         "packages/finance/flow.py",
+        "packages/finance/contracts.py",
         "packages/data/normalization.py",
+        "packages/data/canonical.py",
     ],
 )
 def test_marketplace_financial_normalization_never_uses_abs(module: str) -> None:
@@ -246,6 +248,14 @@ def test_marketplace_financial_normalization_never_uses_abs(module: str) -> None
     A sign repaired by taking an absolute value is indistinguishable from a
     sign that was always correct, which is exactly the failure this slice
     exists to prevent: contradictions must surface as unresolved components.
+
+    The list covers every module that stores, validates or propagates a signed
+    amount, not only the modules that currently interpret one: ``contracts.py``
+    enforces the negative-expense rule and ``canonical.py`` stores the raw sign
+    WB sent, so an ``abs()`` introduced in either would erase the sign upstream
+    of the policy that exists to preserve it. Legacy report code is deliberately
+    outside this guard: it normalizes charges with ``abs()`` and is not a target
+    for repair.
     """
 
     assert _abs_calls(module) == []

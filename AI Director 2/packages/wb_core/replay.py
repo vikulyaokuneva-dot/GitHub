@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Final, Mapping, cast
+from typing import Any, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .contracts import EndpointMetadata, RawObject, TenantAccountScope
+from .endpoint_policy import ENDPOINT_ARRAY_POLICY
 
 REPLAY_BUNDLE_SCHEMA_VERSION: Final = "replay-bundle-v1"
 REPLAY_FIXTURES_ROOT: Final = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "replay"
@@ -141,14 +143,29 @@ class ReplayBundle(BaseModel):
         return self
 
 
-def _read_json(path: Path, *, label: str) -> Mapping[str, Any]:
+def _read_json(path: Path, *, label: str) -> Any:
+    """Read JSON payload; must be valid JSON (object or array per endpoint contract)."""
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise ReplayBundleSchemaError(f"{label} must be valid UTF-8 JSON: {path.name}") from error
-    if not isinstance(value, Mapping):
-        raise ReplayBundleSchemaError(f"{label} must be a JSON object: {path.name}")
-    return value
+    if isinstance(value, (Mapping, list)):
+        return value
+    raise ReplayBundleSchemaError(f"{label} must be JSON object or array: {path.name}")
+
+
+def _accept_payload_for_endpoint(value: Any, endpoint: EndpointMetadata) -> Any:
+    """Endpoint-specific payload kind guard; no global relaxation."""
+    policy = ENDPOINT_ARRAY_POLICY.get(endpoint.name)
+    if isinstance(value, list):
+        if policy == "array":
+            return value
+        raise ReplayBundleSchemaError(f"endpoint {endpoint.name} payload must be object, got array")
+    if isinstance(value, Mapping):
+        if policy is None or policy == "object":
+            return dict(value)
+        raise ReplayBundleSchemaError(f"endpoint {endpoint.name} payload must be array, got object")
+    raise ReplayBundleSchemaError(f"unsupported payload type for endpoint {endpoint.name}: {type(value).__name__}")
 
 
 def _sha256(path: Path) -> str:
@@ -218,7 +235,7 @@ def _raw_objects(case_directory: Path, metadata: ReplayBundleMetadata) -> tuple[
                     retrieved_at=item.retrieved_at,
                     operational_date=item.operational_date,
                     request_scope=item.request_scope,
-                    payload=cast(dict[str, Any], dict(payload)),
+                    payload=_accept_payload_for_endpoint(payload, item.endpoint),
                     schema_version=item.schema_version,
                 )
             )

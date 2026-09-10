@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date
-from typing import Any, Mapping
+from typing import Any
 
 
 class LegacyWBApiSalesFunnelTransport:
@@ -96,7 +97,7 @@ class LegacyWBApiFinanceDetailTransport:
                 "rrdId": 0,
             },
             allow_204=True,
-            empty_on_204={"data": []},
+            empty_on_204=[],
             base_url=self._client.finance_base_url,
             retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
         )

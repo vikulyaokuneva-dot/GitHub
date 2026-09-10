@@ -11,27 +11,27 @@ from packages.wb_core.contracts import (
     ADVERTISING_PERFORMANCE_ENDPOINT,
     FINANCE_DETAIL_ENDPOINT,
     ORDERS_ENDPOINT,
+    SALES_ENDPOINT,
+    SALES_FUNNEL_PRODUCTS_ENDPOINT,
+    STOCKS_ENDPOINT,
     PayloadKind,
     RawObject,
     RawObjectType,
-    SALES_FUNNEL_PRODUCTS_ENDPOINT,
-    SALES_ENDPOINT,
-    STOCKS_ENDPOINT,
 )
 
 from .canonical import (
-    CanonicalCurrency,
+    AdvertisingAttributionScope,
     CanonicalAdvertisingPerformance,
-    CanonicalFinanceDetailRecord,
+    CanonicalCurrency,
     CanonicalFieldInput,
+    CanonicalFinanceDetailRecord,
     CanonicalInputState,
     CanonicalOperationalOrder,
     CanonicalOperationalSale,
     CanonicalSalesFunnelProduct,
-    CanonicalSourceMoney,
     CanonicalSourceMetadata,
+    CanonicalSourceMoney,
     CanonicalStockSnapshot,
-    AdvertisingAttributionScope,
     CanonicalValueKind,
     FinancialRecordClassification,
 )
@@ -566,6 +566,32 @@ def normalize_finance_detail(raw_object: RawObject) -> tuple[CanonicalFinanceDet
     return FinanceDetailNormalizer().normalize(raw_object)
 
 
+def _statistics_row_belongs_to_day(item: object, operational_date: date) -> bool:
+    """Attribute one WB statistics row to its own event day, not the fetch day.
+
+    WB ``/api/v1/supplier/orders`` and ``/api/v1/supplier/sales`` return a
+    window filtered by ``lastChangeDate >= dateFrom``: a daily RawObject can
+    legitimately contain rows whose event ``date`` falls on adjacent days
+    (late cancellations, orders created before the window and changed inside
+    it). The operational day of such a row is its own ``date``; foreign-day
+    rows stay in the immutable window payload as raw evidence but are not
+    counted on this day, and a row without a parseable event date is not
+    attributed either (absence of evidence is not evidence for this day).
+    Non-mapping items pass the filter so the strict record builder keeps
+    raising its structural error unchanged.
+    """
+
+    if not isinstance(item, Mapping):
+        return True
+    raw_date = item.get("date")
+    if not isinstance(raw_date, str) or not raw_date.strip():
+        return False
+    try:
+        return date.fromisoformat(raw_date.strip()[:10]) == operational_date
+    except ValueError:
+        return False
+
+
 def _statistics_row_quantity_input(
     row: Mapping[str, Any],
 ) -> tuple[object, CanonicalFieldInput]:
@@ -600,6 +626,7 @@ class OperationalNormalizer:
         return tuple(
             self._order_record(raw_object, operational_date, _required_mapping(item, raw_path=f"payload.data[{index}]"), index)
             for index, item in enumerate(_rows_payload(raw_object, endpoint_name="orders"))
+            if _statistics_row_belongs_to_day(item, operational_date)
         )
 
     def normalize_sales(self, raw_object: RawObject) -> tuple[CanonicalOperationalSale, ...]:
@@ -611,6 +638,7 @@ class OperationalNormalizer:
         return tuple(
             self._sale_record(raw_object, operational_date, _required_mapping(item, raw_path=f"payload.data[{index}]"), index)
             for index, item in enumerate(_rows_payload(raw_object, endpoint_name="sales"))
+            if _statistics_row_belongs_to_day(item, operational_date)
         )
 
     def normalize_stocks(self, raw_object: RawObject) -> tuple[CanonicalStockSnapshot, ...]:
