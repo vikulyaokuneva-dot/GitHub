@@ -12,7 +12,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from packages.accounts.contracts import AccountRegistrationRepository
 from packages.accounts.sqlite_repository import SQLiteAccountRegistrationRepository
@@ -33,6 +33,25 @@ from apps.api.financial_settings import (
     parse_tax_rate,
     settings_payload,
 )
+
+
+class RevalidatingStaticFiles(StaticFiles):
+    """Serve frontend assets with an explicit revalidation policy.
+
+    ``StaticFiles`` sends ``ETag``/``Last-Modified`` but no ``Cache-Control``,
+    so browsers fall back to heuristic freshness and can keep rendering stale
+    ``app.js``/``styles.css`` bytes for hours after a deploy. ``no-cache``
+    allows the response to be stored yet forces a conditional request on every
+    reuse, so the validators stay authoritative. ``max-age`` must not be used
+    while asset filenames carry no content hash, and ``no-store`` is avoided so
+    conditional requests keep working. Only responses produced by the static
+    mount get this header: API routes and the PDF endpoint are untouched.
+    """
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers.setdefault("Cache-Control", "no-cache")
+        return response
 
 
 def create_app(
@@ -278,7 +297,7 @@ def create_app(
 
     static_root = Path(__file__).resolve().parents[1] / "web" / "static"
     if static_root.exists():
-        app.mount("/", StaticFiles(directory=static_root, html=True), name="mvp-ui")
+        app.mount("/", RevalidatingStaticFiles(directory=static_root, html=True), name="mvp-ui")
 
     return app
 

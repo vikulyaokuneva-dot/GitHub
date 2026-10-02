@@ -7,8 +7,13 @@ credentials, and never renders MISSING as zero.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
+from uuid import uuid4
 
+from apps.api.main import create_app
+from fastapi.testclient import TestClient
+from packages.common.settings import Settings
 
 STATIC_ROOT = Path("apps/web/static")
 
@@ -19,6 +24,11 @@ def _index() -> str:
 
 def _app() -> str:
     return (STATIC_ROOT / "app.js").read_text(encoding="utf-8")
+
+
+def _client() -> TestClient:
+    settings = Settings(service_name="test-api", environment="test", version="0.1.0-test")
+    return TestClient(create_app(settings=settings))
 
 
 def test_screen_uses_existing_audit_endpoint_and_never_touches_credentials() -> None:
@@ -181,3 +191,58 @@ def test_explanation_distinguishes_missing_data_from_an_open_period() -> None:
     assert "подтверждения, что день закрыт финансово" in app_js
     assert "Все финансовые данные заданы" in app_js
     assert "Причина: день не подтверждён как закрытый финансово." in app_js
+
+
+def test_frontend_static_resources_declare_an_explicit_revalidation_policy() -> None:
+    """Свежая статика должна подтверждаться запросом, а не браться из heuristic cache."""
+    client = _client()
+
+    for path in ("/", "/index.html", "/app.js", "/styles.css"):
+        response = client.get(path)
+
+        assert response.status_code == 200, path
+        # без content-hash в именах файлов max-age запрещён, no-store убил бы conditional requests
+        assert response.headers["cache-control"] == "no-cache", path
+        assert "etag" in response.headers, path
+        assert "last-modified" in response.headers, path
+
+
+def test_conditional_requests_keep_working_under_no_cache() -> None:
+    """no-cache обязан оставить валидацию: повторный запрос отдаёт 304, а не полные байты."""
+    client = _client()
+
+    first = client.get("/styles.css")
+    revalidated = client.get("/styles.css", headers={"If-None-Match": first.headers["etag"]})
+
+    assert first.status_code == 200
+    assert revalidated.status_code == 304
+    assert revalidated.headers["cache-control"] == "no-cache"
+
+
+def test_api_response_does_not_inherit_the_static_cache_policy() -> None:
+    """API-ответы не входят в static mount и не должны получать его cache policy."""
+    client = _client()
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 200
+    assert "cache-control" not in response.headers
+
+
+def test_pdf_endpoint_keeps_its_own_cache_behaviour() -> None:
+    """PDF обслуживается отдельным FileResponse и не наследует no-cache статики."""
+    client = _client()
+    account_id, operational_date = uuid4(), "2026-01-01"
+    pdf_path = Path("runtime") / "reports" / str(account_id) / operational_date / "report.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4 test fixture")
+
+    try:
+        response = client.get(f"/api/reports/{account_id}/{operational_date}/report.pdf")
+    finally:
+        # удаляется только созданный тестом uuid-каталог, чужие отчёты не трогаются
+        shutil.rmtree(pdf_path.parent, ignore_errors=True)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/pdf")
+    assert response.headers.get("cache-control") != "no-cache"
