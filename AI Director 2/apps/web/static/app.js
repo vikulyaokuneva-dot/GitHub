@@ -688,7 +688,9 @@ function renderAudit(audit) {
     ui.pdfLink.hidden = false;
     ui.pdfLink.href = `/api/reports/${audit.account_id}/${audit.operational_date}/report.pdf`;
   } else {
+    // href сбрасывается вместе со скрытием: иначе остаётся URL предыдущего отчёта.
     ui.pdfLink.hidden = true;
+    ui.pdfLink.href = "#";
   }
 
   ui.dashboard.hidden = false;
@@ -712,7 +714,10 @@ function resetDashboard() {
   state.audit = null;
   state.settings = null;
   ui.dashboard.hidden = true;
+  // href сбрасывается вместе со скрытием: иначе под скрытой кнопкой
+  // остаётся URL PDF предыдущего аудита.
   ui.pdfLink.hidden = true;
+  ui.pdfLink.href = "#";
   ui.auditDateCaption.textContent = " · —";
   ui.verdictCard.dataset.severity = "neutral";
   ui.verdictSeverity.dataset.severity = "neutral";

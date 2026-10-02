@@ -49,6 +49,31 @@ DEFAULT_RATE_LIMIT_RETRY_DELAY_CAP_SECONDS = 30.0
 DEFAULT_GLOBAL_REQUEST_BUDGET = 25
 
 
+def rate_limited_retry_policy() -> dict[str, Any]:
+    """Retry policy for WB endpoints that answer HTTP 429 (per-seller limiter).
+
+    ``request_json`` already derives the delay from the rate-limit headers of a
+    custom policy (``Retry-After`` / ``X-Ratelimit-Retry`` / ``X-Ratelimit-Reset``),
+    so this only declares 429 retryable and bounds the wait:
+
+    * ``max_delay_seconds`` caps a header-derived sleep at 15s, so a hint of
+      hours never blocks the caller for hours;
+    * ``max_retry_window_seconds`` (20s) is the total sleep budget of one
+      request: when it would be exceeded the attempt stops with
+      ``retry_window_exhausted`` instead of sleeping through the limiter window;
+    * without a header the exponential backoff applies (3s base, 20s cap).
+    """
+    return {
+        "retryable_statuses": (429, 500, 502, 503, 504),
+        "max_attempts": 3,
+        "base_delay_seconds": 3.0,
+        "cap_delay_seconds": 20.0,
+        "jitter_ratio": 0.1,
+        "max_delay_seconds": 15.0,
+        "max_retry_window_seconds": 20.0,
+    }
+
+
 class WBApiClient:
     def __init__(self, token: str | None = None, capture_writer: RawCaptureSink | None = None) -> None:
         self.token, self.token_env_name_used = resolve_wb_api_token(token)

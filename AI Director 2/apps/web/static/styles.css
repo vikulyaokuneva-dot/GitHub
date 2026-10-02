@@ -142,6 +142,10 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
   text-decoration: none;
 }
 
+/* Скрытая кнопка обязана быть скрытой: display у .btn-secondary иначе
+   перебивает стандартное [hidden] { display: none } UA-стилей. */
+.btn-secondary[hidden] { display: none; }
+
 .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
 
 .connection { margin: 0 0 20px; color: var(--muted); font-size: 13px; }

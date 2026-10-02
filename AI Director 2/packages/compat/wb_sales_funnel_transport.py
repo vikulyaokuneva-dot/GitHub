@@ -83,7 +83,7 @@ class LegacyWBApiFinanceDetailTransport:
         self._client = client
 
     def fetch_finance_detail(self, *, operational_date: date) -> tuple[dict[str, Any] | list[Any], bytes]:
-        from wb_api_core.client import FINANCE_DETAILED_PATH
+        from wb_api_core.client import FINANCE_DETAILED_PATH, rate_limited_retry_policy
 
         response = self._client.request_json(
             endpoint_name="finance_detail",
@@ -99,7 +99,7 @@ class LegacyWBApiFinanceDetailTransport:
             allow_204=True,
             empty_on_204=[],
             base_url=self._client.finance_base_url,
-            retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
+            retry_policy=rate_limited_retry_policy(),
         )
         if not bool(response.get("success", False)):
             raise RuntimeError(f"finance_detail WB request failed with status {response.get('status_code')}")

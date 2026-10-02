@@ -21,6 +21,7 @@ from .client import (
     SEARCH_REPORT_GROUPS_PATH,
     STOCKS_WB_WAREHOUSES_PATH,
     WBApiClient,
+    rate_limited_retry_policy,
 )
 
 FINANCE_LEGACY_PATH = "/api/v5/supplier/reportDetailByPeriod"
@@ -465,7 +466,7 @@ def load_orders(client: WBApiClient, target_date: str) -> Dict[str, Any]:
         params={"dateFrom": target_date, "flag": 0},
         allow_204=True,
         empty_on_204=[],
-        retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
+        retry_policy=rate_limited_retry_policy(),
     )
     payload = response.get("payload", [])
     rows_raw = client.extract_rows(payload, ("data", "items", "rows"))
@@ -491,7 +492,7 @@ def load_sales(client: WBApiClient, target_date: str) -> Dict[str, Any]:
         params={"dateFrom": target_date, "flag": 1},
         allow_204=True,
         empty_on_204=[],
-        retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
+        retry_policy=rate_limited_retry_policy(),
     )
     payload = response.get("payload", [])
     rows_raw = client.extract_rows(payload, ("data", "items", "rows"))
@@ -797,7 +798,7 @@ def load_ads(client: WBApiClient, target_date: str) -> Dict[str, Any]:
         allow_204=True,
         empty_on_204={"data": {"adverts": []}},
         base_url=client.advert_base_url,
-        retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
+        retry_policy=rate_limited_retry_policy(),
     )
     adverts_payload = adverts_response.get("payload", {})
     advert_rows = []
@@ -850,7 +851,7 @@ def load_ads(client: WBApiClient, target_date: str) -> Dict[str, Any]:
             allow_204=True,
             empty_on_204=[],
             base_url=client.advert_base_url,
-            retry_policy={"retryable_statuses": (500, 502, 503, 504), "max_attempts": 2},
+            retry_policy=rate_limited_retry_policy(),
         )
         stats_debug = stats_response
         stats_payload = stats_response.get("payload", [])
