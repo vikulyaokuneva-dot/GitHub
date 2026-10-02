@@ -2,9 +2,28 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from datetime import date
 from typing import Any
+
+
+def _request_failure(*, endpoint_name: str, response: Any) -> RuntimeError:
+    """Raise-site message that keeps the exhausted-retry diagnostics.
+
+    ``request_json`` reports ``final_failure_reason`` / ``error_text`` (the
+    parsed ``Retry-After``, ``retry_window_exhausted``, the attempt count).
+    Dropping them would leave the audit with a bare status code and no proof of
+    how the retry policy ended. The shape matches
+    ``daily_ingestion._persist_loader_result`` so both paths read the same way.
+    """
+
+    status = response.get("status_code") if isinstance(response, Mapping) else None
+    reason = ""
+    if isinstance(response, Mapping):
+        reason = str(response.get("final_failure_reason") or response.get("error_text") or "").strip()
+    suffix = f": {reason[:200]}" if reason else ""
+    return RuntimeError(f"{endpoint_name} WB request failed with status {status}{suffix}")
 
 
 class LegacyWBApiSalesFunnelTransport:
@@ -14,7 +33,10 @@ class LegacyWBApiSalesFunnelTransport:
         self._client = client
 
     def fetch_sales_funnel_products(self, *, operational_date: date) -> Mapping[str, Any]:
-        from wb_api_core.client import SALES_FUNNEL_PRODUCTS_PATH  # type: ignore[import-not-found]
+        from wb_api_core.client import (  # type: ignore[import-not-found]
+            SALES_FUNNEL_PRODUCTS_PATH,
+            rate_limited_retry_policy,
+        )
 
         response = self._client.request_json(
             endpoint_name="sales_funnel_products",
@@ -31,10 +53,10 @@ class LegacyWBApiSalesFunnelTransport:
                 "offset": 0,
             },
             base_url=self._client.analytics_base_url,
+            retry_policy=rate_limited_retry_policy(),
         )
         if not bool(response.get("success", False)):
-            status = response.get("status_code")
-            raise RuntimeError(f"sales_funnel_products WB request failed with status {status}")
+            raise _request_failure(endpoint_name="sales_funnel_products", response=response)
         payload = response.get("payload")
         if not isinstance(payload, Mapping):
             raise ValueError("sales_funnel_products response must be a JSON object")
@@ -66,9 +88,20 @@ class LegacyWBApiOperationalTransport:
         )
 
     def _request_array(self, *, endpoint_name: str, path: str, params: dict[str, Any]) -> tuple[list[dict[str, Any]], bytes]:
-        response = self._client.request_json(endpoint_name=endpoint_name, path=path, params=params)
+        from wb_api_core.client import rate_limited_retry_policy
+
+        # The rate-limited policy keeps 429 handling identical to the loaders:
+        # header-derived delay, capped and windowed, instead of the implicit
+        # default that would sleep through a long limiter window request by
+        # request (5 attempts x 30s header cap).
+        response = self._client.request_json(
+            endpoint_name=endpoint_name,
+            path=path,
+            params=params,
+            retry_policy=rate_limited_retry_policy(),
+        )
         if not bool(response.get("success", False)):
-            raise RuntimeError(f"{endpoint_name} WB request failed with status {response.get('status_code')}")
+            raise _request_failure(endpoint_name=endpoint_name, response=response)
         payload = response.get("payload")
         raw_bytes = response.get("payload_bytes")
         if not isinstance(payload, list) or raw_bytes is None or not all(isinstance(item, dict) for item in payload):
@@ -102,9 +135,19 @@ class LegacyWBApiFinanceDetailTransport:
             retry_policy=rate_limited_retry_policy(),
         )
         if not bool(response.get("success", False)):
-            raise RuntimeError(f"finance_detail WB request failed with status {response.get('status_code')}")
+            raise _request_failure(endpoint_name="finance_detail", response=response)
         payload = response.get("payload")
         raw_bytes = response.get("payload_bytes")
+        if isinstance(payload, (dict, list)) and not isinstance(raw_bytes, bytes):
+            if response.get("status_code") == 204:
+                # HTTP 204 has no body: request_json maps it through
+                # ``empty_on_204`` (the ``204 -> []`` contract) and keeps no
+                # bytes, so serialize the payload deterministically -- the same
+                # rule daily_ingestion applies when a loader exposes no raw
+                # response bytes.
+                raw_bytes = json.dumps(
+                    payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+                ).encode("utf-8")
         if not isinstance(payload, (dict, list)) or not isinstance(raw_bytes, bytes):
             raise ValueError("finance_detail response must be a JSON object or array with retained bytes")
         return payload, raw_bytes
@@ -169,7 +212,10 @@ class LegacyWBApiLoadersTransport:
         raw funnel payload, not the legacy aggregated rows.
         """
 
-        from wb_api_core.client import SALES_FUNNEL_PRODUCTS_PATH  # type: ignore[import-not-found]
+        from wb_api_core.client import (  # type: ignore[import-not-found]
+            SALES_FUNNEL_PRODUCTS_PATH,
+            rate_limited_retry_policy,
+        )
 
         response = self._client.request_json(
             endpoint_name="sales_funnel_products",
@@ -186,17 +232,14 @@ class LegacyWBApiLoadersTransport:
                 "offset": 0,
             },
             base_url=self._client.analytics_base_url,
-            retry_policy={
-                "retryable_statuses": (429, 500, 502, 503, 504),
-                "max_attempts": 6,
-                "base_delay_seconds": 10.0,
-                "cap_delay_seconds": 20.0,
-                "jitter_ratio": 0.15,
-                "max_delay_seconds": 30.0,
-            },
+            # Same 429 contract as the finance/loads paths: the previous ad-hoc
+            # policy declared no ``max_retry_window_seconds``, so a limiter
+            # window of hours was slept through (6 attempts x 30s header cap)
+            # before the request failed anyway.
+            retry_policy=rate_limited_retry_policy(),
         )
         if not bool(response.get("success", False)):
-            raise RuntimeError(f"sales_funnel_products WB request failed with status {response.get('status_code')}")
+            raise _request_failure(endpoint_name="sales_funnel_products", response=response)
         payload = response.get("payload")
         if not isinstance(payload, Mapping):
             raise ValueError("sales_funnel_products response must be a JSON object")

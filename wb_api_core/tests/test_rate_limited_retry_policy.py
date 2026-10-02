@@ -11,6 +11,8 @@ the client already parses.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from email.utils import format_datetime
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -212,3 +214,193 @@ def test_rate_limited_policy_keeps_server_error_retries() -> None:
     assert response["success"] is True
     assert response["attempts"] == 3
     assert sleep_mock.call_count == 2
+
+
+# --- Retry-After variants: seconds, HTTP-date, missing/negative hints ---------
+
+_FIXED_EPOCH = 4102444800.0  # 2100-01-01T00:00:00Z so HTTP-date delays are exact
+
+
+def _http_date(offset_seconds: float, *, with_zone: bool) -> str:
+    moment = datetime.fromtimestamp(_FIXED_EPOCH + offset_seconds, tz=UTC)
+    if with_zone:
+        return format_datetime(moment, usegmt=True)
+    # A zone-less HTTP-date: parsedate_to_datetime returns a naive datetime.
+    return moment.strftime("%a, %d %b %Y %H:%M:%S")
+
+
+def _one_429_then_success(headers: dict[str, str]):
+    return patch(
+        "wb_api_core.client.requests.request",
+        side_effect=[_response(429, headers=headers), _response(200)],
+    )
+
+
+def test_retry_after_http_date_is_honoured() -> None:
+    client = WBApiClient(token="token")
+
+    with _one_429_then_success({"Retry-After": _http_date(2.0, with_zone=True)}), patch(
+        "wb_api_core.client.time.time", return_value=_FIXED_EPOCH
+    ), patch("wb_api_core.client.time.sleep") as sleep_mock:
+        response = client.request_json(
+            endpoint_name="orders",
+            path=ORDERS_PATH,
+            retry_policy=rate_limited_retry_policy(),
+        )
+
+    assert response["success"] is True
+    sleep_mock.assert_called_once_with(2.0)
+
+
+def test_retry_after_http_date_without_zone_is_read_as_utc() -> None:
+    """A naive HTTP-date must not collapse to a 0s delay in a local timezone.
+
+    Before this fix ``parsed.timestamp()`` read the zone-less date in the local
+    timezone (UTC+3 in Europe/Moscow), which turned a real two-second wait into
+    a negative value clamped to zero: the retry hammered the limiter instead of
+    honouring ``Retry-After``.
+    """
+
+    client = WBApiClient(token="token")
+
+    with _one_429_then_success({"Retry-After": _http_date(2.0, with_zone=False)}), patch(
+        "wb_api_core.client.time.time", return_value=_FIXED_EPOCH
+    ), patch("wb_api_core.client.time.sleep") as sleep_mock:
+        response = client.request_json(
+            endpoint_name="orders",
+            path=ORDERS_PATH,
+            retry_policy=rate_limited_retry_policy(),
+        )
+
+    assert response["success"] is True
+    sleep_mock.assert_called_once_with(2.0)
+
+
+def test_retry_after_never_produces_a_negative_delay() -> None:
+    """Past HTTP-date and negative seconds both clamp to 0, never below."""
+
+    for header_value in (_http_date(-3600.0, with_zone=True), "-5", "-0.5"):
+        client = WBApiClient(token="token")
+        with _one_429_then_success({"Retry-After": header_value}), patch(
+            "wb_api_core.client.time.time", return_value=_FIXED_EPOCH
+        ), patch("wb_api_core.client.time.sleep") as sleep_mock:
+            response = client.request_json(
+                endpoint_name="orders",
+                path=ORDERS_PATH,
+                retry_policy=rate_limited_retry_policy(),
+            )
+
+        assert response["success"] is True, header_value
+        assert sleep_mock.call_count == 1, header_value
+        assert float(sleep_mock.call_args[0][0]) == 0.0, header_value
+
+
+# --- A-G retry behaviour at the client/loader boundary ------------------------
+
+
+def test_exhausted_429_is_reported_as_failure_not_as_an_empty_payload() -> None:
+    """Scenario C: exhausting the attempts must never yield ``[]``/success."""
+
+    client = WBApiClient(token="token")
+    policy = rate_limited_retry_policy()
+
+    with patch(
+        "wb_api_core.client.requests.request",
+        return_value=_response(429, headers={"Retry-After": "1"}),
+    ) as request_mock, patch("wb_api_core.client.time.sleep") as sleep_mock:
+        response = client.request_json(
+            endpoint_name="orders",
+            path=ORDERS_PATH,
+            retry_policy=policy,
+        )
+
+    assert response["success"] is False
+    assert response["status_code"] == 429
+    assert response["payload"] is None  # not [] and not {}
+    assert response["attempts"] == policy["max_attempts"]
+    assert request_mock.call_count == policy["max_attempts"]
+    assert sleep_mock.call_count == policy["max_attempts"] - 1
+    assert "rate_limit_headers" in str(response["final_failure_reason"])
+
+
+def test_403_is_not_retried_by_the_rate_limited_policy() -> None:
+    """Scenario D: an HTTP error the policy does not retryable must run once."""
+
+    client = WBApiClient(token="token")
+
+    with patch(
+        "wb_api_core.client.requests.request",
+        return_value=_response(403),
+    ) as request_mock, patch("wb_api_core.client.time.sleep") as sleep_mock:
+        response = client.request_json(
+            endpoint_name="orders",
+            path=ORDERS_PATH,
+            retry_policy=rate_limited_retry_policy(),
+        )
+
+    assert response["success"] is False
+    assert response["status_code"] == 403
+    assert request_mock.call_count == 1
+    assert sleep_mock.call_count == 0
+
+
+def test_204_keeps_the_empty_list_contract_in_the_loader() -> None:
+    """Scenario E: ``204 -> []`` stays a successful empty day, not a failure."""
+
+    client = WBApiClient(token="token")
+
+    with patch(
+        "wb_api_core.client.requests.request",
+        return_value=_response(204),
+    ) as request_mock, patch("wb_api_core.client.time.sleep") as sleep_mock:
+        result = load_orders(client, "2026-10-01")
+
+    assert result["rows_raw"] == []
+    assert result["debug"]["success"] is True
+    assert result["debug"]["status_code"] == 204
+    assert request_mock.call_count == 1
+    assert sleep_mock.call_count == 0
+
+
+def test_200_returns_the_payload_without_any_retry() -> None:
+    """Scenario F: a plain 200 keeps the payload untouched and sleeps nothing."""
+
+    client = WBApiClient(token="token")
+    payload = [{"date": "2026-10-01", "srid": "srid-1"}]
+
+    with patch(
+        "wb_api_core.client.requests.request",
+        return_value=_response(200, payload=payload),
+    ) as request_mock, patch("wb_api_core.client.time.sleep") as sleep_mock:
+        response = client.request_json(
+            endpoint_name="orders",
+            path=ORDERS_PATH,
+            retry_policy=rate_limited_retry_policy(),
+        )
+
+    assert response["success"] is True
+    assert response["payload"] == payload
+    assert response["attempts"] == 1
+    assert request_mock.call_count == 1
+    assert sleep_mock.call_count == 0
+
+
+def test_one_429_produces_exactly_one_transport_retry_cycle() -> None:
+    """Scenario G: one 429 -> one bounded cycle, never a second independent one."""
+
+    client = WBApiClient(token="token")
+
+    with patch(
+        "wb_api_core.client.requests.request",
+        side_effect=[
+            _response(429, headers={"Retry-After": "1"}),
+            _response(200, payload=[{"date": "2026-10-01", "srid": "srid-1"}]),
+        ],
+    ) as request_mock, patch("wb_api_core.client.time.sleep") as sleep_mock:
+        result = load_orders(client, "2026-10-01")
+
+    assert result["debug"]["success"] is True
+    assert request_mock.call_count == 2  # the 429 itself + exactly one retry
+    assert sleep_mock.call_count == 1  # no loader-level loop on top of transport
+    assert float(sleep_mock.call_args[0][0]) == 1.0
+    assert result["debug"]["retry_count"] == 1

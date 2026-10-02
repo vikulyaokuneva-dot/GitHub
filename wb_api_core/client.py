@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import random
 import time
+from datetime import UTC
 from email.utils import parsedate_to_datetime
 from typing import Any, Dict, Iterable, List, Protocol
 
@@ -188,6 +189,13 @@ class WBApiClient:
             pass
         try:
             parsed = parsedate_to_datetime(text)
+            if parsed.tzinfo is None:
+                # An HTTP-date is GMT by RFC 9110, but parsedate_to_datetime
+                # returns a naive datetime when the zone is missing and naive
+                # .timestamp() would read it in the local timezone. That shifts
+                # the delay by the UTC offset (e.g. -3h in Europe/Moscow), so a
+                # real wait could collapse to 0s and hammer the limiter.
+                parsed = parsed.replace(tzinfo=UTC)
             return max(0.0, parsed.timestamp() - now_epoch)
         except Exception:
             return None
