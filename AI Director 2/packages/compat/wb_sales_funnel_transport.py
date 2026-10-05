@@ -7,23 +7,24 @@ from collections.abc import Mapping
 from datetime import date
 from typing import Any
 
+from packages.wb_core.source_diagnostics import describe_source_failure
+
 
 def _request_failure(*, endpoint_name: str, response: Any) -> RuntimeError:
     """Raise-site message that keeps the exhausted-retry diagnostics.
 
     ``request_json`` reports ``final_failure_reason`` / ``error_text`` (the
-    parsed ``Retry-After``, ``retry_window_exhausted``, the attempt count).
-    Dropping them would leave the audit with a bare status code and no proof of
-    how the retry policy ended. The shape matches
-    ``daily_ingestion._persist_loader_result`` so both paths read the same way.
+    parsed ``Retry-After``, ``retry_window_exhausted``, the attempt count) and
+    the request line; dropping or cutting them would leave the audit with a
+    bare status code and no proof of how the retry policy ended, of which host
+    answered, or whether WB refused a permission (403 + ``origin``) instead of
+    a rate limit (429 + ``X-RateLimit-Retry``). The shared formatter is the
+    one ``daily_ingestion._persist_loader_result`` uses too, so both paths
+    state the same reason.
     """
 
-    status = response.get("status_code") if isinstance(response, Mapping) else None
-    reason = ""
-    if isinstance(response, Mapping):
-        reason = str(response.get("final_failure_reason") or response.get("error_text") or "").strip()
-    suffix = f": {reason[:200]}" if reason else ""
-    return RuntimeError(f"{endpoint_name} WB request failed with status {status}{suffix}")
+    payload = response if isinstance(response, Mapping) else None
+    return RuntimeError(describe_source_failure(endpoint_name=endpoint_name, response=payload))
 
 
 class LegacyWBApiSalesFunnelTransport:
@@ -87,7 +88,9 @@ class LegacyWBApiOperationalTransport:
             params={"dateFrom": operational_date.isoformat(), "flag": 1},
         )
 
-    def _request_array(self, *, endpoint_name: str, path: str, params: dict[str, Any]) -> tuple[list[dict[str, Any]], bytes]:
+    def _request_array(
+        self, *, endpoint_name: str, path: str, params: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], bytes]:
         from wb_api_core.client import rate_limited_retry_policy
 
         # The rate-limited policy keeps 429 handling identical to the loaders:
@@ -98,15 +101,43 @@ class LegacyWBApiOperationalTransport:
             endpoint_name=endpoint_name,
             path=path,
             params=params,
+            # Same contract load_orders/load_sales use for these endpoints: a
+            # 204 ("no rows for that day") is an empty result, not a failed
+            # source. Without it a legitimately empty day surfaced as
+            # ``source_unavailable`` and the reason was an HTTP error instead
+            # of "нет данных".
+            allow_204=True,
+            empty_on_204=[],
             retry_policy=rate_limited_retry_policy(),
         )
         if not bool(response.get("success", False)):
             raise _request_failure(endpoint_name=endpoint_name, response=response)
         payload = response.get("payload")
         raw_bytes = response.get("payload_bytes")
-        if not isinstance(payload, list) or raw_bytes is None or not all(isinstance(item, dict) for item in payload):
+        if not isinstance(raw_bytes, bytes) and response.get("status_code") == 204:
+            # HTTP 204 carries no body: request_json maps it through
+            # ``empty_on_204`` (the documented ``204 -> []`` contract shared with
+            # load_orders/load_sales) and keeps no bytes, so serialize the
+            # payload deterministically -- the same rule
+            # ``LegacyWBApiFinanceDetailTransport`` applies.
+            raw_bytes = json.dumps(
+                [] if payload is None else payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            ).encode("utf-8")
+        rows = payload
+        if isinstance(payload, Mapping):
+            # WB answers these endpoints with ``{"data": [...]}``, so a bare
+            # list check rejected every real response. Extract the same way the
+            # loaders do (``extract_rows(data/items/rows)``); ``raw_bytes``
+            # keeps the untouched WB body for provenance.
+            rows = None
+            for key in ("data", "items", "rows"):
+                candidate = payload.get(key)
+                if isinstance(candidate, list):
+                    rows = candidate
+                    break
+        if not isinstance(rows, list) or raw_bytes is None or not all(isinstance(item, dict) for item in rows):
             raise ValueError(f"{endpoint_name} response must be a JSON array of objects")
-        return payload, raw_bytes
+        return rows, raw_bytes
 
 
 class LegacyWBApiFinanceDetailTransport:

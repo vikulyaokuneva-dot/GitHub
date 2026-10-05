@@ -12,6 +12,7 @@ from packages.wb_core.contracts import (
     RawObject,
     TenantAccountScope,
 )
+from packages.wb_core.source_diagnostics import describe_source_failure
 from packages.wb_core.sqlite_repository import SQLiteRawObjectRepository
 
 
@@ -350,13 +351,18 @@ class WBDailyIngestionService:
             # object: "no data" and "request failed" are different states,
             # and persisting the failure would also lock idempotency against
             # a later successful refetch.
-            reason = str(
-                debug.get("final_failure_reason")
-                or debug.get("error_text")
-                or "loader transport failed"
-            )
+            # Never ``reason[:N]``: with a real WB error body that cut lands
+            # inside the JSON and drops the official ``origin`` / ``requestId``
+            # and the whole ``rate_limit_headers`` block — exactly the proof the
+            # audit needs to show whether the source is permission-blocked or
+            # rate-limited. ``describe_source_failure`` rebuilds the message
+            # from the structured debug fields instead of truncating it.
             raise RuntimeError(
-                f"{endpoint.name} WB request failed with status {debug.get('status_code')}: {reason[:200]}"
+                describe_source_failure(
+                    endpoint_name=endpoint.name,
+                    response=debug,
+                    fallback="loader transport failed",
+                )
             )
 
         payload = result.get("payload")
