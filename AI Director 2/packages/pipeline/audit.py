@@ -33,7 +33,7 @@ from packages.finance.contracts import (
 from packages.products.contracts import DirectPeriodCogsInput
 from packages.settings.contracts import FinancialSettings
 from packages.tax.contracts import SourcedTaxInput
-from packages.wb_core.contracts import RawObjectType, TenantAccountScope
+from packages.wb_core.contracts import FINANCE_DETAIL_ENDPOINT, RawObjectType, TenantAccountScope
 
 from .analysis import (
     AnalysisArtifact,
@@ -235,6 +235,28 @@ class CabinetAuditor:
             diagnostics=_merge_diagnostics(ingestion_diagnostics, analysis.diagnostics),
         )
 
+    def _durable_finance_raws(
+        self,
+        *,
+        scope: TenantAccountScope,
+        operational_date: date,
+    ) -> dict[str, datetime]:
+        """Finance raws already durable for exactly this operational date.
+
+        The repository filter supplies the endpoint identity (source, dataset,
+        schema version) and the date comparison enforces the project's exact
+        date-attribution contract: a raw of any other day is out of scope here.
+        """
+
+        return {
+            raw_object.object_id: raw_object.retrieved_at
+            for raw_object in self._raw_repository.list(
+                scope=scope,
+                endpoint_name=FINANCE_DETAIL_ENDPOINT.name,
+            )
+            if raw_object.operational_date == operational_date
+        }
+
     def _run_ingestion(
         self,
         *,
@@ -274,6 +296,10 @@ class CabinetAuditor:
             )
             ingested.append("daily")
         if self._finance_detail_ingestion is not None:
+            finance_before = self._durable_finance_raws(
+                scope=scope,
+                operational_date=operational_date,
+            )
             try:
                 self._finance_detail_ingestion.ingest(
                     scope=scope,
@@ -283,6 +309,16 @@ class CabinetAuditor:
                 diagnostics.append(f"source_unavailable:finance_detail: {error}")
             else:
                 ingested.append("finance_detail")
+                diagnostics.extend(
+                    _finance_reuse_diagnostics(
+                        operational_date=operational_date,
+                        before=finance_before,
+                        after=self._durable_finance_raws(
+                            scope=scope,
+                            operational_date=operational_date,
+                        ),
+                    )
+                )
 
         persisted_today = any(
             raw.operational_date == operational_date
@@ -313,6 +349,36 @@ def _merge_diagnostics(
                 seen.add(item)
                 merged.append(item)
     return tuple(merged)
+
+
+def _finance_reuse_diagnostics(
+    *,
+    operational_date: date,
+    before: dict[str, datetime],
+    after: dict[str, datetime],
+) -> tuple[str, ...]:
+    """Make durable-raw reuse visible in the audit result.
+
+    The finance ingestion boundary serves the day from an already durable raw
+    whenever one exists for exactly this operational date, which is what keeps
+    a long WB rate limit from costing hours of pointless waiting. That reuse
+    must not be silent: a note is emitted only when this audit persisted no new
+    finance raw (so the records came from an object captured earlier) and the
+    ingestion succeeded. A note therefore never covers a failed request, and it
+    never appears when the data came from a fresh WB answer.
+    """
+
+    if not before:
+        return ()
+    if any(object_id not in before for object_id in after):
+        # A new durable raw appeared during this audit: the live path ran.
+        return ()
+    return tuple(
+        f"finance_detail: durable raw reused for {operational_date.isoformat()} "
+        f"(object_id={object_id}, retrieved_at={retrieved_at.isoformat()}); "
+        "this audit issued no new WB finance request"
+        for object_id, retrieved_at in sorted(after.items())
+    )
 
 
 def _audit_status(finance_status: FinancialStatus | None) -> str:

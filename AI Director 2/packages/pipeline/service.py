@@ -332,14 +332,26 @@ def _run_raw_objects(
     # FINANCE DETAIL
     # ================================================================
 
-    finance_records = tuple(
-        record
-        for raw in _by_type(
-            raw_objects,
-            RawObjectType.FINANCE_DETAIL,
-        )
-        for record in normalize_finance_detail(raw)
-    )
+    finance_records_list: list[CanonicalFinanceDetailRecord] = []
+    unusable_finance: list[str] = []
+    for raw in _by_type(
+        raw_objects,
+        RawObjectType.FINANCE_DETAIL,
+    ):
+        try:
+            finance_records_list.extend(normalize_finance_detail(raw))
+        except ValueError as error:
+            # A durable finance raw that fails the current loader contract is
+            # excluded, never trusted and never zeroed: the day keeps its
+            # honest "no authoritative P&L" state and the exclusion itself
+            # stays visible as a diagnostic. Losing one unusable object must
+            # not take down the whole audit day, and the missing records must
+            # not be reinterpreted as an empty (zero) P&L.
+            unusable_finance.append(
+                f"finance raw {raw.object_id} for {operational_date.isoformat()} is not usable "
+                f"and is excluded from the P&L: {error}"
+            )
+    finance_records = tuple(finance_records_list)
 
     # ================================================================
     # ADVERTISING
@@ -405,6 +417,7 @@ def _run_raw_objects(
 
     report_diagnostics = list(financial_flow.diagnostics)
     report_diagnostics.extend(cogs_diagnostics)
+    report_diagnostics.extend(unusable_finance)
 
     if financial_flow.financial_result is not None:
         report_diagnostics.extend(
